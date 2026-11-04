@@ -7351,8 +7351,8 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         XCTAssertFalse(version.isEmpty)
         XCTAssertTrue(ReleaseNotes.shipped.contains { $0.version == version },
                       "ReleaseNotes.shipped has no entry for \(version)")
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.25.0",
-                       "the rename entry comes first, ready for the next release")
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, version,
+                       "the newest entry comes first and matches the version being built")
     }
 }
 
