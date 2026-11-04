@@ -28,7 +28,7 @@ struct NotificationRowView: View {
                     Label(notification.read ? String(localized: "Mark unread") : String(localized: "Mark read"),
                           systemImage: notification.read ? "envelope.badge" : "envelope.open")
                 }
-                .tint(.blue)
+                .tint(Color("BrandFill"))
             }
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
@@ -84,6 +84,8 @@ struct NotificationRowView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(Color("BrandFill"))
+                        .foregroundColor(.white)
                     }
                 }
                 .padding([.top], 5)

@@ -215,7 +215,7 @@ struct SubscriptionItemNavView: View {
                     } label: {
                         readLabel
                     }
-                    .tint(Color.accentColor)
+                    .tint(Color("BrandFill"))
 
                     Button {
                         togglePinned()
@@ -442,10 +442,9 @@ struct SubscriptionItemRowView: View {
 struct UnreadBadge: View {
     let count: Int
 
-    // Derived from the app's AccentColor (#317F6F) so the badge stays theme-matched: a lifted tint
-    // at the top falling to the accent itself, which reads as a subtle sheen at badge size.
-    private static let top = Color(red: 0.29, green: 0.62, blue: 0.53)
-    private static let bottom = Color(red: 0.192, green: 0.498, blue: 0.435)
+    // Both gradient endpoints keep white count text above 4.5:1 in either appearance.
+    private static let top = Color("UnreadBadgeTop")
+    private static let bottom = Color("BrandFill")
 
     private var label: String { count > 99 ? String(localized: "99+") : count.formatted(.number) }
 
@@ -470,7 +469,7 @@ struct UnreadBadge: View {
 }
 
 /// Marks a pinned topic ahead of its name: a tilted pin in a warm gradient, the colour iOS uses for
-/// pins in Messages and Mail, so it reads as "pinned" at a glance without competing with the green
+/// pins in Messages and Mail, so it reads as "pinned" at a glance without competing with the purple
 /// unread badge. Sized from the headline font so it scales with Dynamic Type alongside the name.
 struct PinBadge: View {
     static let tint = Color(red: 0.96, green: 0.55, blue: 0.13)

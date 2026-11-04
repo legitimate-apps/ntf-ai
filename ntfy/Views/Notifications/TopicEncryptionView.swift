@@ -269,6 +269,8 @@ struct TopicEncryptionHelpView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(Color("BrandFill"))
+                .foregroundColor(.white)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(String(localized: "Good to know")).font(.headline)

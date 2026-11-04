@@ -234,7 +234,7 @@ struct WhatsNewView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .foregroundColor(.white)
-                        .background(Color.accentColor.cornerRadius(10))
+                        .background(Color("BrandFill").cornerRadius(10))
                 }
                 .padding()
             }

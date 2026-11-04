@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C12500000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9474F1C4282F2AA800CDE4DD /* Assets.xcassets */; };
 		A124DA7F0000000000000002 /* NotificationSwitches.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7F0000000000000001 /* NotificationSwitches.swift */; };
 		A124DA7F0000000000000004 /* NotificationSwitchesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7F0000000000000003 /* NotificationSwitchesTests.swift */; };
         A124DA7E0000000000000004 /* SubscriptionDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7E0000000000000005; };
@@ -891,6 +892,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C12500000000000000000001 /* Assets.xcassets in Resources */,
 				EBA7DC6844A0F3B4F7E89F13 /* PrivacyInfo.xcprivacy in Resources */,
 				509919CA25439B3CE6F75721 /* Localizable.xcstrings in Resources */,
 				4E9B4EB779D54DC325DC3534 /* emojis.json in Resources */,

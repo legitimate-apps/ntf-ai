@@ -159,6 +159,8 @@ private struct ShareView: View {
             }
             .onChange(of: model.selectedURL) { _ in model.selectTopic() }
         }.navigationViewStyle(StackNavigationViewStyle())
+            .tint(Color("AccentColor"))
+            .toggleStyle(SwitchToggleStyle(tint: Color("BrandFill")))
     }
     private func close() { model.close(); finish() }
 }

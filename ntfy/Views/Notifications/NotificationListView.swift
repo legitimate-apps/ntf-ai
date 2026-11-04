@@ -298,7 +298,7 @@ struct NotificationListView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.accentColor.cornerRadius(20))
+                    .background(Color("BrandFill").cornerRadius(20))
                     .shadow(radius: 5)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -532,7 +532,7 @@ struct TopicPublishHelpView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .foregroundColor(.white)
-                    .background(Color.accentColor.cornerRadius(10))
+                    .background(Color("BrandFill").cornerRadius(10))
             }
             .buttonStyle(.borderless)
             .disabled(sendingTest)
