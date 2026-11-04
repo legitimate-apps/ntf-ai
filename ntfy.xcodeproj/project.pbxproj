@@ -1156,7 +1156,7 @@
 				CURRENT_PROJECT_VERSION = 41;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ntfyShare/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "NTFY me";
+				INFOPLIST_KEY_CFBundleDisplayName = "PING";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1184,7 +1184,7 @@
 				CURRENT_PROJECT_VERSION = 41;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ntfyShare/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "NTFY me";
+				INFOPLIST_KEY_CFBundleDisplayName = "PING";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1335,7 +1335,7 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ntfy/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "NTFY me";
+				INFOPLIST_KEY_CFBundleDisplayName = "PING";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1369,7 +1369,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ntfy/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "NTFY me";
+				INFOPLIST_KEY_CFBundleDisplayName = "PING";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

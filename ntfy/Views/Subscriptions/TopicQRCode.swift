@@ -296,7 +296,7 @@ struct TopicQRScannerView: View {
         case .denied:
             message(
                 icon: "camera",
-                text: String(localized: "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
+                text: String(localized: "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
                 action: (String(localized: "Open Settings"), {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                 }))

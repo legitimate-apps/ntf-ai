@@ -4596,49 +4596,49 @@
         }
       }
     },
-    "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications.": {
+    "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications."
+            "value": "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für ntfy in der App „Einstellungen“ unter Mitteilungen aktivieren."
+            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für PING in der App „Einstellungen“ unter Mitteilungen aktivieren."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se permitieron las alertas críticas. Puedes activarlas para ntfy en la app Ajustes, en Notificaciones."
+            "value": "No se permitieron las alertas críticas. Puedes activarlas para PING en la app Ajustes, en Notificaciones."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per ntfy nell’app Impostazioni, sotto Notifiche."
+            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per PING nell’app Impostazioni, sotto Notifiche."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla ntfy w aplikacji Ustawienia, w sekcji Powiadomienia."
+            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla PING w aplikacji Ustawienia, w sekcji Powiadomienia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor ntfy aanzetten in de app Instellingen, onder Meldingen."
+            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor PING aanzetten in de app Instellingen, onder Meldingen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour ntfy dans l’app Réglages, sous Notifications."
+            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour PING dans l’app Réglages, sous Notifications."
           }
         }
       }
@@ -9902,143 +9902,143 @@
         }
       }
     },
-    "NTFY me is built on these open-source projects.": {
+    "PING is built on these open-source projects.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me is built on these open-source projects."
+            "value": "PING is built on these open-source projects."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me basiert auf diesen Open-Source-Projekten."
+            "value": "PING basiert auf diesen Open-Source-Projekten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me está basada en estos proyectos de código abierto."
+            "value": "PING está basada en estos proyectos de código abierto."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me si basa su questi progetti open source."
+            "value": "PING si basa su questi progetti open source."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me korzysta z tych projektów open source."
+            "value": "PING korzysta z tych projektów open source."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me gebruikt deze opensourceprojecten."
+            "value": "PING gebruikt deze opensourceprojecten."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me repose sur ces projets open source."
+            "value": "PING repose sur ces projets open source."
           }
         }
       }
     },
-    "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
+    "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
+            "value": "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
+            "value": "PING benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
+            "value": "PING necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
+            "value": "PING richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
+            "value": "PING potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
+            "value": "PING heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
+            "value": "PING a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
           }
         }
       }
     },
-    "NTFY me test": {
+    "PING test": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me test"
+            "value": "PING test"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me-Test"
+            "value": "PING-Test"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prueba de NTFY me"
+            "value": "Prueba de PING"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prova NTFY me"
+            "value": "Prova PING"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test NTFY me"
+            "value": "Test PING"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me-test"
+            "value": "PING-test"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test NTFY me"
+            "value": "Test PING"
           }
         }
       }
@@ -18570,191 +18570,191 @@
         }
       }
     },
-    "This is a test notification from NTFY me": {
+    "This is a test notification from PING": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me"
+            "value": "This is a test notification from PING"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me"
+            "value": "Dies ist eine Testnachricht von PING"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me"
+            "value": "Esta es una notificación de prueba de PING"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me"
+            "value": "Questa è una notifica di prova da PING"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me"
+            "value": "To jest powiadomienie testowe z PING"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me"
+            "value": "Dit is een testmelding van PING"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me"
+            "value": "Ceci est une notification de test de PING"
           }
         }
       },
       "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
     },
-    "This is a test notification from NTFY me (wake-up forwarding check).": {
+    "This is a test notification from PING (wake-up forwarding check).": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me (wake-up forwarding check)."
+            "value": "This is a test notification from PING (wake-up forwarding check)."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me (Weiterleitungsprüfung)."
+            "value": "Dies ist eine Testnachricht von PING (Weiterleitungsprüfung)."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me (comprobación de reenvío de avisos)."
+            "value": "Esta es una notificación de prueba de PING (comprobación de reenvío de avisos)."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me (controllo dell'inoltro del risveglio)."
+            "value": "Questa è una notifica di prova da PING (controllo dell'inoltro del risveglio)."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me (test przekazywania sygnałów wybudzenia)."
+            "value": "To jest powiadomienie testowe z PING (test przekazywania sygnałów wybudzenia)."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me (controle van doorgestuurde activeringssignalen)."
+            "value": "Dit is een testmelding van PING (controle van doorgestuurde activeringssignalen)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me (vérification du relais des demandes de réveil)."
+            "value": "Ceci est une notification de test de PING (vérification du relais des demandes de réveil)."
           }
         }
       }
     },
-    "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different.": {
+    "This is a test notification from PING. It has a priority of %lld. If you send another one, it may look different.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different."
+            "value": "This is a test notification from PING. It has a priority of %lld. If you send another one, it may look different."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
+            "value": "Dies ist eine Testnachricht von PING mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me. Tiene prioridad %lld. Si envías otra, puede verse diferente."
+            "value": "Esta es una notificación de prueba de PING. Tiene prioridad %lld. Si envías otra, puede verse diferente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
+            "value": "Questa è una notifica di prova da PING. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me. Ma priorytet %lld. Następne może wyglądać inaczej."
+            "value": "To jest powiadomienie testowe z PING. Ma priorytet %lld. Następne może wyglądać inaczej."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
+            "value": "Dit is een testmelding van PING. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
+            "value": "Ceci est une notification de test de PING. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
           }
         }
       }
     },
-    "This is a test notification from NTFY me. Your topic is ready.": {
+    "This is a test notification from PING. Your topic is ready.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me. Your topic is ready."
+            "value": "This is a test notification from PING. Your topic is ready."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me. Dein Thema ist bereit."
+            "value": "Dies ist eine Testnachricht von PING. Dein Thema ist bereit."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me. Tu tópico está listo."
+            "value": "Esta es una notificación de prueba de PING. Tu tópico está listo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me. Il tuo argomento è pronto."
+            "value": "Questa è una notifica di prova da PING. Il tuo argomento è pronto."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me. Twój temat jest gotowy."
+            "value": "To jest powiadomienie testowe z PING. Twój temat jest gotowy."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me. Je onderwerp is klaar voor gebruik."
+            "value": "Dit is een testmelding van PING. Je onderwerp is klaar voor gebruik."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me. Votre sujet est prêt."
+            "value": "Ceci est une notification de test de PING. Votre sujet est prêt."
           }
         }
       }
@@ -22514,49 +22514,49 @@
         }
       }
     },
-    "ntfy NextGen support": {
+    "PING support": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen support"
+            "value": "PING support"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen-Hilfe"
+            "value": "PING-Hilfe"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soporte de ntfy NextGen"
+            "value": "Soporte de PING"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistenza ntfy NextGen"
+            "value": "Assistenza PING"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pomoc ntfy NextGen"
+            "value": "Pomoc PING"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen-ondersteuning"
+            "value": "PING-ondersteuning"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistance ntfy NextGen"
+            "value": "Assistance PING"
           }
         }
       }
@@ -23364,49 +23364,49 @@
         }
       }
     },
-    "Open NTFY me and subscribe to a topic first. Then share this item again.": {
+    "Open PING and subscribe to a topic first. Then share this item again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open NTFY me and subscribe to a topic first. Then share this item again."
+            "value": "Open PING and subscribe to a topic first. Then share this item again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne NTFY me und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
+            "value": "Öffne PING und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre NTFY me y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
+            "value": "Abre PING y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri NTFY me e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
+            "value": "Apri PING e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otwórz NTFY me i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
+            "value": "Otwórz PING i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open NTFY me en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
+            "value": "Open PING en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez NTFY me et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
+            "value": "Ouvrez PING et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
           }
         }
       }
@@ -23552,49 +23552,49 @@
         }
       }
     },
-    "Share to NTFY me": {
+    "Share to PING": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share to NTFY me"
+            "value": "Share to PING"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit NTFY me teilen"
+            "value": "Mit PING teilen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartir con NTFY me"
+            "value": "Compartir con PING"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condividi con NTFY me"
+            "value": "Condividi con PING"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Udostępnij w NTFY me"
+            "value": "Udostępnij w PING"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delen met NTFY me"
+            "value": "Delen met PING"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager avec NTFY me"
+            "value": "Partager avec PING"
           }
         }
       }
@@ -25662,49 +25662,49 @@
         }
       }
     },
-    "A topic you subscribe to in NTFY me.": {
+    "A topic you subscribe to in PING.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A topic you subscribe to in NTFY me."
+            "value": "A topic you subscribe to in PING."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein in NTFY me abonniertes Thema."
+            "value": "Ein in PING abonniertes Thema."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un tópico al que te suscribes en NTFY me."
+            "value": "Un tópico al que te suscribes en PING."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un argomento sottoscritto in NTFY me."
+            "value": "Un argomento sottoscritto in PING."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Temat subskrybowany w NTFY me."
+            "value": "Temat subskrybowany w PING."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een onderwerp waarop je in NTFY me bent geabonneerd."
+            "value": "Een onderwerp waarop je in PING bent geabonneerd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un sujet que vous suivez dans NTFY me."
+            "value": "Un sujet que vous suivez dans PING."
           }
         }
       }
@@ -25850,49 +25850,49 @@
         }
       }
     },
-    "Topics could not be read. Unlock your device and open NTFY me, then try again.": {
+    "Topics could not be read. Unlock your device and open PING, then try again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Topics could not be read. Unlock your device and open NTFY me, then try again."
+            "value": "Topics could not be read. Unlock your device and open PING, then try again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne NTFY me und versuche es erneut."
+            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne PING und versuche es erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre NTFY me y vuelve a intentarlo."
+            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre PING y vuelve a intentarlo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri NTFY me, poi riprova."
+            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri PING, poi riprova."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz NTFY me, a następnie spróbuj ponownie."
+            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz PING, a następnie spróbuj ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open NTFY me en probeer het opnieuw."
+            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open PING en probeer het opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez NTFY me, puis réessayez."
+            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez PING, puis réessayez."
           }
         }
       }
@@ -25991,49 +25991,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me. Nothing was sent.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me. Nothing was sent."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTFY me. Es wurde nichts gesendet."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in PING. Es wurde nichts gesendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en NTFY me. No se envió nada."
+            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en PING. No se envió nada."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in NTFY me. Non è stato inviato nulla."
+            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in PING. Non è stato inviato nulla."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w NTFY me. Nic nie wysłano."
+            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w PING. Nic nie wysłano."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in NTFY me. Er is niets verstuurd."
+            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in PING. Er is niets verstuurd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans NTFY me. Rien n’a été envoyé."
+            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans PING. Rien n’a été envoyé."
           }
         }
       }
@@ -27813,49 +27813,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in PING.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in PING."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTFY me."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in PING."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en NTFY me."
+            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en PING."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in NTFY me."
+            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in PING."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w NTFY me."
+            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w PING."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in NTFY me."
+            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in PING."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans NTFY me."
+            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans PING."
           }
         }
       }
@@ -29860,6 +29860,101 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les liens longs fonctionnent en entier, les mots passent normalement à la ligne et le code Markdown suit les changements de taille du texte."
+          }
+        }
+      }
+    },
+    "This is a test notification from NTFY me": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a test notification from NTFY me"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dies ist eine Testnachricht von NTFY me"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta es una notificación de prueba de NTFY me"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa è una notifica di prova da NTFY me"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To jest powiadomienie testowe z NTFY me"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit is een testmelding van NTFY me"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ceci est une notification de test de NTFY me"
+          }
+        }
+      },
+      "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
+    },
+    "NTFY me is now PING. Same app, same topics, same settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me is now PING. Same app, same topics, same settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me heißt jetzt PING. Dieselbe App, dieselben Themen, dieselben Einstellungen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me ahora se llama PING. La misma app, los mismos tópicos y los mismos ajustes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me ora si chiama PING. Stessa app, stessi argomenti, stesse impostazioni."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me to teraz PING. Ta sama aplikacja, te same tematy i ustawienia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me heet nu PING. Dezelfde app, dezelfde onderwerpen, dezelfde instellingen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTFY me s’appelle désormais PING. Même app, mêmes sujets, mêmes réglages."
           }
         }
       }

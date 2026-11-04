@@ -104,7 +104,7 @@ enum PublishCommand {
     }
 
     static func simple(baseUrl: String, topic: String, auth: Auth = .none) -> String {
-        command(["-d", "Hello from NTFY me"], baseUrl: baseUrl, topic: topic, auth: auth)
+        command(["-d", "Hello from PING"], baseUrl: baseUrl, topic: topic, auth: auth)
     }
 
     static func titled(baseUrl: String, topic: String, auth: Auth = .none) -> String {

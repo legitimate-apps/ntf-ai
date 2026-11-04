@@ -113,7 +113,7 @@ struct CriticalAlertsSettingView: View {
             }
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
-            Text(String(localized: "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications."))
+            Text(String(localized: "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications."))
         }
     }
 

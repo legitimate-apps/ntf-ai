@@ -787,14 +787,19 @@ class Store: ObservableObject {
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.
-    static let testMessagePrefix = "This is a test notification from NTFY me"
+    static let testMessagePrefix = "This is a test notification from PING"
 
-    /// All shipped languages, including older English test messages after a language change.
+    /// Historical text can remain in saved messages; keep excluding it after the rename.
+    private static let legacyTestMessagePrefix = "This is a test notification from NTFY me"
+
+    /// All shipped languages and names, including test messages saved before a language change.
     static let testMessagePrefixes: [String] = {
-        Bundle.main.localizations.compactMap { language in
-            Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:))?
-                .localizedString(forKey: testMessagePrefix, value: testMessagePrefix, table: nil)
-        } + [testMessagePrefix]
+        [testMessagePrefix, legacyTestMessagePrefix].flatMap { prefix in
+            Bundle.main.localizations.compactMap { language in
+                Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:))?
+                    .localizedString(forKey: prefix, value: prefix, table: nil)
+            } + [prefix]
+        }
     }()
 
     static func isOwnTestMessage(_ message: String) -> Bool {

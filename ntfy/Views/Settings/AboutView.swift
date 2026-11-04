@@ -16,7 +16,7 @@ struct AboutView: View {
                     url: Config.helpUrl)
             linkRow(String(localized: "ntfy reference docs"), detail: "ntfy.sh/docs", icon: "book", url: Config.docsUrl)
             // The support page explains how to reach us.
-            linkRow(String(localized: "Get help or report a bug"), detail: String(localized: "ntfy NextGen support"), icon: "lifepreserver",
+            linkRow(String(localized: "Get help or report a bug"), detail: String(localized: "PING support"), icon: "lifepreserver",
                     url: Config.supportUrl)
             NavigationLink(String(localized: "Diagnostic reports")) { DiagnosticReportsView() }
             // Only a build with an App Store id (APP_STORE_ID) has a listing to rate.
@@ -24,7 +24,7 @@ struct AboutView: View {
                 linkRow(String(localized: "Rate the app"), detail: "App Store", icon: "star.fill", url: reviewUrl)
             }
             NavigationLink(String(localized: "Licenses")) { LicensesView() }
-            ValueRow(String(localized: "Version"), value: "ntfy \(Config.version) (\(Config.build))")
+            ValueRow(String(localized: "Version"), value: "PING \(Config.version) (\(Config.build))")
         }
         .foregroundColor(.primary)
     }

@@ -7228,8 +7228,8 @@ extension ntfyTests {
 final class FirstTopicTestTests: XCTestCase {
     func testFirstNotificationUsesDefaultPriorityAndPlainAppCopy() {
         XCTAssertEqual(FirstTopicTest.priority, 3)
-        XCTAssertEqual(FirstTopicTest.title, String(localized: "NTFY me test"))
-        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from NTFY me. Your topic is ready."))
+        XCTAssertEqual(FirstTopicTest.title, String(localized: "PING test"))
+        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from PING. Your topic is ready."))
     }
 }
 
@@ -7312,7 +7312,7 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         let after = Store.shared.presentedDeliveries()
         XCTAssertEqual(after.count - before.count, 3, "test messages don't count")
         XCTAssertEqual(after.days - before.days, 2)
-        XCTAssertTrue("This is a test notification from NTFY me. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
+        XCTAssertTrue("This is a test notification from PING. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
     }
 
     func testSessionPersistsFirstLaunchAndWhatsNewTakesTheForeground() {
@@ -7351,8 +7351,8 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         XCTAssertFalse(version.isEmpty)
         XCTAssertTrue(ReleaseNotes.shipped.contains { $0.version == version },
                       "ReleaseNotes.shipped has no entry for \(version)")
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, version,
-                       "the newest entry comes first and matches the version being built")
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.25.0",
+                       "the rename entry comes first, ready for the next release")
     }
 }
 

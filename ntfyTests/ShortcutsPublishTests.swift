@@ -109,7 +109,7 @@ final class ShortcutsPublishTests: XCTestCase {
         let action = intent(topic)
         store.context.delete(topic); try store.context.save()
         let error = await failure { try await action.send(store: store, api: api) }
-        XCTAssertEqual(error, String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me. Nothing was sent."))
+        XCTAssertEqual(error, String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent."))
         XCTAssertTrue(server.requests.isEmpty)
     }
 

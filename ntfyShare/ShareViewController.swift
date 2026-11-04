@@ -93,7 +93,7 @@ private struct ShareView: View {
         NavigationView {
             Form {
                 if model.topics.isEmpty {
-                    Section { Text(String(localized: "Open NTFY me and subscribe to a topic first. Then share this item again.")) }
+                    Section { Text(String(localized: "Open PING and subscribe to a topic first. Then share this item again.")) }
                 } else {
                     Section {
                         Picker(String(localized: "Topic"), selection: $model.selectedURL) {
@@ -140,7 +140,7 @@ private struct ShareView: View {
                 if compose.busy { ProgressView(String(localized: "Sending…")) }
             }
             .disabled(compose.busy)
-            .navigationTitle(String(localized: "Share to NTFY me"))
+            .navigationTitle(String(localized: "Share to PING"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

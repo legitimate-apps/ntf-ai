@@ -101,12 +101,12 @@ final class LocalizationTests: XCTestCase {
             "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
             "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
             "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent.",
-            "Topics could not be read. Unlock your device and open NTFY me, then try again.",
+            "Topics could not be read. Unlock your device and open PING, then try again.",
             "Get one alert when no message arrives within the chosen time, even if this topic is muted. A new message starts the timer again. A quiet alert can also mean this device isn't receiving messages, including when it is offline.",
             "New messages won't show while your device is locked. Tap Open Settings, then turn on Lock Screen.",
             "Allow notifications so each message sent to %@ shows up on your lock screen, even when the app is closed. You'll be asked for permission next.",
             "Allow notifications so messages sent to the topics you added show up on your lock screen, even when the app is closed. You'll be asked for permission next.",
-            "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications.",
+            "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications.",
             "Priority 4 and 5 messages are Time Sensitive. They can break through Focus and the Notification Summary when allowed in the Settings app, including your Focus settings.",
             "Your device provides reports after some crashes, hangs or resource issues. They may arrive later and do not cover every incident.",
             "Date shown is the end of the reporting period. The JSON file contains call stacks and technical metadata. You can attach it to a bug report.",
@@ -368,7 +368,7 @@ final class LocalizationTests: XCTestCase {
             }
             let permission = bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
             XCTAssertNotEqual(permission, "NSCameraUsageDescription")
-            XCTAssertTrue(permission.contains("NTFY me"))
+            XCTAssertTrue(permission.contains("PING"))
         }
     }
 
@@ -513,15 +513,15 @@ final class LocalizationTests: XCTestCase {
         let extensionBundle = try XCTUnwrap(Bundle(url: extensionURL))
         let extensionGerman = try XCTUnwrap(extensionBundle.path(forResource: "de", ofType: "lproj").flatMap(Bundle.init(path:)))
         XCTAssertEqual(extensionGerman.localizedString(forKey: "Notification state synchronized", value: nil, table: nil), "Benachrichtigungsstatus synchronisiert")
-        XCTAssertEqual(bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist"), "NTFY me nutzt die Kamera nur, um QR-Codes für Themen zu scannen, die du abonnieren möchtest.")
+        XCTAssertEqual(bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist"), "PING nutzt die Kamera nur, um QR-Codes für Themen zu scannen, die du abonnieren möchtest.")
         // Review eligibility uses this prefix in every bundled language, including old messages.
         // A future translator can fix an inconsistent prefix entirely in the catalog.
         for language in Bundle.main.localizations where language != "Base" {
             let localized = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
             let prefix = localized.localizedString(forKey: Store.testMessagePrefix, value: nil, table: nil)
             for key in [
-                "This is a test notification from NTFY me. Your topic is ready.",
-                "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different."
+                "This is a test notification from PING. Your topic is ready.",
+                "This is a test notification from PING. It has a priority of %lld. If you send another one, it may look different."
             ] {
                 XCTAssertTrue(localized.localizedString(forKey: key, value: nil, table: nil).hasPrefix(prefix),
                               "\(language): test-message copy must retain its translated prefix")

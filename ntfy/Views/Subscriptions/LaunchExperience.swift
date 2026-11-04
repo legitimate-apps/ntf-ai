@@ -11,6 +11,9 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.25.0", bullets: [
+            String(localized: "NTFY me is now PING. Same app, same topics, same settings.")
+        ]),
         ReleaseNotes(version: "1.24.0", bullets: [
             String(localized: "The next poll fetches messages missed by dropped pushes, while they remain in the server cache."),
             String(localized: "Use Read messages in Shortcuts to read stored messages from a topic."),

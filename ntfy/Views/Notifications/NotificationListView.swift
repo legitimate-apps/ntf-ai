@@ -429,7 +429,7 @@ struct NotificationListView: View {
         ApiService.shared.publish(
             subscription: subscription,
             user: user,
-            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from NTFY me. It has a priority of \(priority). If you send another one, it may look different."),
+            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from PING. It has a priority of \(priority). If you send another one, it may look different."),
             title: firstRun ? FirstTopicTest.title : String(localized: "Test: You can set a title if you like"),
             priority: priority,
             tags: tags,
@@ -687,6 +687,6 @@ struct NotificationListView_Previews: PreviewProvider {
 /// A first notification should use the default priority, so it does not arrive silently.
 enum FirstTopicTest {
     static let priority = 3
-    static let title = String(localized: "NTFY me test")
-    static let body = String(localized: "This is a test notification from NTFY me. Your topic is ready.")
+    static let title = String(localized: "PING test")
+    static let body = String(localized: "This is a test notification from PING. Your topic is ready.")
 }
