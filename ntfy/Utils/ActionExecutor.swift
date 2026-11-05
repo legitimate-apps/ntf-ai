@@ -33,10 +33,19 @@ struct ActionExecutor {
         baseUrl: String? = nil,
         credentialStore: CredentialStoring = KeychainCredentialStore.shared,
         openURL: ((URL) -> Void)? = nil,
+        replyText: String? = nil,
         completion: @escaping () -> Void = {}
     ) -> Progress {
         let execution = Progress(totalUnitCount: 1)
-        Log.d(tag, "Executing user action", action)
+        var action = action
+        if let replyText {
+            guard let reply = BannerReply.httpAction(for: action, text: replyText) else {
+                completion()
+                return execution
+            }
+            action = reply
+        }
+        Log.d(tag, "Executing user action", action.id)
         guard registerTap(actionId: action.id) else {
             Log.d(tag, "Ignoring a repeat tap on an action that just ran", action.id)
             completion()
@@ -88,7 +97,7 @@ struct ActionExecutor {
     private static func http(_ action: Action, baseUrl: String?, credentialStore: CredentialStoring,
                              execution: Progress, completion: @escaping () -> Void) {
         guard let request = makeHTTPRequest(action, baseUrl: baseUrl, credentialStore: credentialStore) else {
-            Log.w(tag, "Unable to execute HTTP action, no or invalid URL", action)
+            Log.w(tag, "Unable to execute HTTP action, no or invalid URL", action.id)
             completion()
             return
         }

@@ -160,7 +160,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             handleNotificationResponse(
                 userInfo: relayed.userInfo,
                 actionIdentifier: relayed.actionIdentifier,
-                notificationId: relayed.notificationId
+                notificationId: relayed.notificationId,
+                userText: relayed.userText
             )
         }
     }
@@ -523,6 +524,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             userInfo: userInfo,
             actionIdentifier: response.actionIdentifier,
             notificationId: response.notification.request.identifier,
+            userText: (response as? UNTextInputNotificationResponse)?.userText,
             completionHandler: completionHandler
         )
     }
@@ -533,6 +535,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         userInfo: [AnyHashable: Any],
         actionIdentifier: String,
         notificationId: String,
+        userText: String? = nil,
         completionHandler: @escaping () -> Void = {}
     ) {
         guard responseDeduper.shouldHandle(notificationId: notificationId, actionIdentifier: actionIdentifier) else {
@@ -568,7 +571,14 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         
         // Execute user action or click action (if any)
         if let action = action {
-            if action.action == "http" {
+            let isReply = BannerReply.destination(for: action) != nil
+            // A reply action runs only for an actual, nonblank text submission.
+            if isReply && (userText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
+                !isReply && userText != nil {
+                completionHandler()
+                return
+            }
+            if action.action == "http" || isReply {
                 let execute = {
                     var task = UIBackgroundTaskIdentifier.invalid
                     var execution: Progress?
@@ -584,7 +594,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                         execution?.cancel()
                         finish()
                     }
-                    execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl) {
+                    execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl,
+                                                       replyText: isReply ? userText : nil) {
                         DispatchQueue.main.async(execute: finish)
                     }
                 }

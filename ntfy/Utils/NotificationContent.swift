@@ -369,7 +369,13 @@ extension UNMutableNotificationContent {
 
     static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> [UNNotificationAction] {
         actions.prefix(4).map {
-            UNNotificationAction(identifier: $0.id, title: $0.label,
+            if BannerReply.destination(for: $0) != nil {
+                return UNTextInputNotificationAction(identifier: $0.id, title: $0.label,
+                    options: onMac ? [.foreground] : [.authenticationRequired],
+                    textInputButtonTitle: NSLocalizedString("Send", comment: "Submit a notification reply"),
+                    textInputPlaceholder: $0.label)
+            }
+            return UNNotificationAction(identifier: $0.id, title: $0.label,
                 options: $0.action == "http" && !onMac ? [.authenticationRequired] : [.foreground])
         }
     }
@@ -380,7 +386,11 @@ extension UNMutableNotificationContent {
         // Delimit fields/records with control chars that can't appear in button text so
         // e.g. [("a","bc")] and [("ab","c")] hash to different categories.
         let canonical = notificationActions(for: Array(capped), onMac: onMac)
-            .map { "\($0.identifier)\u{1f}\($0.title)\u{1f}\($0.options.rawValue)" }
+            .map { action in
+                let base = "\(action.identifier)\u{1f}\(action.title)\u{1f}\(action.options.rawValue)"
+                guard let text = action as? UNTextInputNotificationAction else { return base }
+                return base + "\u{1f}text\u{1f}\(text.textInputButtonTitle)\u{1f}\(text.textInputPlaceholder)"
+            }
             .joined(separator: "\u{1e}")
         let digest = SHA256.hash(data: Data(canonical.utf8))
         let hex = digest.prefix(8).map { String(format: "%02x", $0) }.joined()

@@ -62,6 +62,28 @@ final class BackgroundHTTPActionTests: XCTestCase {
         XCTAssertEqual(UNMutableNotificationContent.notificationActions(for: buttons + buttons, onMac: false).count, 4)
     }
 
+    private func replyLinkAction() -> Action {
+        Action(id: "reply-link", action: "view", label: "Reply in PING",
+               url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
+               method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    func testReplyLinkRegistersNativeTextInput() throws {
+        let reply = try XCTUnwrap(UNMutableNotificationContent.notificationActions(for: [replyLinkAction()], onMac: false).first)
+        XCTAssertTrue(reply is UNTextInputNotificationAction)
+        XCTAssertEqual(reply.options, [.authenticationRequired])
+        XCTAssertEqual(reply.identifier, "reply-link")
+        XCTAssertEqual(reply.title, "Reply in PING")
+    }
+
+    func testReplyAndOrdinaryViewCannotShareACategory() {
+        let reply = replyLinkAction()
+        var ordinary = reply
+        ordinary.url = "https://example.com/"
+        XCTAssertNotEqual(UNMutableNotificationContent.actionCategoryIdentifier(for: [reply], onMac: false),
+                          UNMutableNotificationContent.actionCategoryIdentifier(for: [ordinary], onMac: false))
+    }
+
     @MainActor
     private func checkCompletion(status: Int) throws {
         let server = try ActionLoopbackServer()
@@ -259,4 +281,189 @@ private final class ActionLoopbackServer {
     func stop() {
         queue.sync { stopped = true; listener.cancel(); connection?.cancel() }
     }
+}
+
+final class BannerReplyTests: XCTestCase {
+    private func reply(_ destination: String = "https://ntfy-me.com/reply-secret") -> Action {
+        let fragment = destination.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
+        return Action(id: UUID().uuidString, action: "view", label: "Reply in PING",
+                      url: "https://ntfy-me.com/docs/agents#reply-v1=" + fragment,
+                      method: nil, headers: nil, body: nil, clear: true)
+    }
+
+    func testStrictVersionedLinkAndTopicDestinations() {
+        for url in ["https://ntfy-me.com/reply-secret", "http://127.0.0.1:8080/ntfy/reply_42"] {
+            XCTAssertEqual(BannerReply.destination(for: reply(url))?.absoluteString, url)
+        }
+        for target in ["file:///tmp/reply", "javascript:alert(1)", "https://user:pass@ntfy-me.com/secret",
+                       "https://ntfy-me.com/secret?q=x", "https://ntfy-me.com/secret#x", "https://ntfy-me.com/",
+                       "https://ntfy-me.com/a%2Fb", "https://ntfy-me.com/with%20space", "https://ntfy-me.com/" + String(repeating: "a", count: 65)] {
+            XCTAssertNil(BannerReply.destination(for: reply(target)), target)
+        }
+        let valid = reply()
+        for raw in [valid.url!.replacingOccurrences(of: "reply-v1=", with: "reply-v2="),
+                    valid.url!.replacingOccurrences(of: "https://ntfy-me.com/docs/agents", with: "http://ntfy-me.com/docs/agents"),
+                    valid.url!.replacingOccurrences(of: "ntfy-me.com/docs", with: "ntfy-me.com.evil.test/docs"),
+                    valid.url!.replacingOccurrences(of: "/docs/agents#", with: "/docs/agents?x=1#"),
+                    valid.url!.replacingOccurrences(of: "/docs/agents#", with: "/docs/agents/#")] {
+            var action = valid; action.url = raw
+            XCTAssertNil(BannerReply.destination(for: action), raw)
+        }
+        var http = valid; http.action = "http"; http.body = "{{reply}}"
+        XCTAssertNil(BannerReply.destination(for: http), "ordinary HTTP actions never opt in")
+    }
+
+    func testReplyRequestPreservesUnicodeQuotesAndNewlinesAndScopedCredentials() throws {
+        let action = reply()
+        let text = "  Wait for \"review\".\nGrüße 👋 & <ok>  "
+        let http = try XCTUnwrap(BannerReply.httpAction(for: action, text: text))
+        let credentials = InMemoryCredentialStore()
+        XCTAssertTrue(credentials.setHTTPHeaders(["Authorization": "Bearer example-test-token"], baseUrl: "https://ntfy-me.com"))
+        let request = try XCTUnwrap(ActionExecutor.makeHTTPRequest(http, baseUrl: "https://ntfy-me.com", credentialStore: credentials))
+        XCTAssertEqual(request.url?.absoluteString, "https://ntfy-me.com/reply-secret")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.httpBody, Data(text.utf8))
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer example-test-token")
+        XCTAssertEqual(http.id, action.id)
+        XCTAssertEqual(http.clear, true)
+        let other = try XCTUnwrap(BannerReply.httpAction(for: reply("https://other.example/reply"), text: text))
+        let crossOrigin = try XCTUnwrap(ActionExecutor.makeHTTPRequest(other, baseUrl: "https://ntfy-me.com", credentialStore: credentials))
+        XCTAssertNil(crossOrigin.value(forHTTPHeaderField: "Authorization"))
+    }
+
+    func testBlankTextAndUnrecognizedActionCannotBecomeRequests() {
+        for text in ["", " \n\t"] { XCTAssertNil(BannerReply.httpAction(for: reply(), text: text)) }
+        var ordinary = reply(); ordinary.url = "https://example.com/"
+        XCTAssertNil(BannerReply.httpAction(for: ordinary, text: "answer"))
+        var http = reply(); http.action = "http"
+        XCTAssertNil(BannerReply.httpAction(for: http, text: "answer"))
+    }
+
+    func testMacUsesTextInputWithForegroundRoutingAndCapRemainsFour() throws {
+        let actions = UNMutableNotificationContent.notificationActions(for: Array(repeating: reply(), count: 5), onMac: true)
+        XCTAssertEqual(actions.count, 4)
+        for action in actions {
+            let text = try XCTUnwrap(action as? UNTextInputNotificationAction)
+            XCTAssertEqual(text.options, [.foreground])
+            XCTAssertFalse(text.textInputButtonTitle.isEmpty)
+            XCTAssertEqual(text.textInputPlaceholder, "Reply in PING")
+        }
+    }
+
+    func testRelayPreservesTextAndDecodesPreFeatureQueue() throws {
+        let suite = "BannerReplyTests." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = Date()
+        let response = RelayedNotificationResponse(notificationId: "n", actionIdentifier: "reply", userInfo: [:], receivedAt: now, userText: "Yes 👋\nTomorrow")
+        NotificationResponseRelay(defaults: defaults).enqueue(response)
+        XCTAssertEqual(NotificationResponseRelay(defaults: defaults).drain(now: now), [response])
+        let old = RelayedNotificationResponse(notificationId: "old", actionIdentifier: "view", userInfo: [:], receivedAt: now)
+        let data = try JSONEncoder().encode([old])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        XCTAssertNil(json[0]["userText"])
+        defaults.set(data, forKey: NotificationResponseRelay.defaultsKey)
+        XCTAssertEqual(NotificationResponseRelay(defaults: defaults).drain(now: now), [old])
+    }
+
+    @MainActor
+    func testDelegatePostsSubmittedTextAndCompletesOnceAfterHTTP() throws {
+        let server = try ReplyLoopbackServer()
+        defer { server.stop() }
+        let ready = expectation(description: "ready")
+        server.start { ready.fulfill() }
+        wait(for: [ready], timeout: 5)
+        let text = "Review \"later\" 👋\nTomorrow at 9"
+        let received = expectation(description: "verbatim HTTP reply")
+        server.received = { header, body in
+            XCTAssertTrue(header.hasPrefix("POST /reply HTTP/1.1\r\n"))
+            XCTAssertTrue(header.lowercased().contains("content-type: text/plain; charset=utf-8"))
+            XCTAssertEqual(body, Data(text.utf8))
+            received.fulfill()
+        }
+        let button = reply("http://127.0.0.1:\(server.port)/reply")
+        let info: [AnyHashable: Any] = ["id": UUID().uuidString, "time": "1700000000", "event": "message", "topic": "reply-fixture",
+                                    "actions": String(decoding: try JSONEncoder().encode([button]), as: UTF8.self)]
+        let delegate = AppDelegate()
+        var starts = 0, ends = 0, completions = 0
+        delegate.beginNotificationBackgroundTask = { _ in starts += 1; return UIBackgroundTaskIdentifier(rawValue: 47) }
+        delegate.endNotificationBackgroundTask = { _ in ends += 1 }
+        let done = expectation(description: "completed")
+        delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: UUID().uuidString, userText: text) {
+            completions += 1
+            done.fulfill()
+        }
+        wait(for: [received, done], timeout: 10)
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(ends, 1)
+        XCTAssertEqual(completions, 1)
+    }
+
+    @MainActor
+    func testDelegateRefusesMissingBlankOrUnexpectedTextWithoutStartingHTTP() throws {
+        for text in [nil, "", "  \n"] as [String?] {
+            let button = reply("http://127.0.0.1:1/reply")
+            let delegate = AppDelegate()
+            var starts = 0, completed = 0
+            delegate.beginNotificationBackgroundTask = { _ in starts += 1; return .invalid }
+            let info: [AnyHashable: Any] = ["id": UUID().uuidString, "time": "1700000000", "event": "message", "topic": "reply-fixture",
+                                         "actions": String(decoding: try JSONEncoder().encode([button]), as: UTF8.self)]
+            delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: UUID().uuidString, userText: text) { completed += 1 }
+            XCTAssertEqual(starts, 0)
+            XCTAssertEqual(completed, 1)
+        }
+        let delegate = AppDelegate()
+        var starts = 0, completed = 0
+        delegate.beginNotificationBackgroundTask = { _ in starts += 1; return .invalid }
+        var button = reply(); button.action = "http"
+        let info: [AnyHashable: Any] = ["id": UUID().uuidString, "time": "1700000000", "event": "message", "topic": "reply-fixture",
+                                     "actions": String(decoding: try JSONEncoder().encode([button]), as: UTF8.self)]
+        delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: UUID().uuidString, userText: "wrong type") { completed += 1 }
+        XCTAssertEqual(starts, 0)
+        XCTAssertEqual(completed, 1)
+    }
+}
+
+private final class ReplyLoopbackServer {
+    private let listener: NWListener
+    private let queue = DispatchQueue(label: "ntfy.tests.reply-http")
+    private var connections: [NWConnection] = []
+    var received: (String, Data) -> Void = { _, _ in }
+    var port: UInt16 { listener.port?.rawValue ?? 0 }
+    init() throws {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        listener = try NWListener(using: parameters)
+    }
+    func start(ready: @escaping () -> Void) {
+        listener.stateUpdateHandler = { if case .ready = $0 { ready() } }
+        listener.newConnectionHandler = { [weak self] connection in
+            guard let self else { return }
+            self.connections.append(connection)
+            connection.start(queue: self.queue)
+            self.receive(connection)
+        }
+        listener.start(queue: queue)
+    }
+    private func receive(_ connection: NWConnection, buffered: Data = Data()) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, complete, error in
+            var request = buffered
+            request.append(data ?? Data())
+            if let separator = request.range(of: Data("\r\n\r\n".utf8)) {
+                let header = String(decoding: request[..<separator.lowerBound], as: UTF8.self)
+                let length = header.components(separatedBy: "\r\n").first { $0.lowercased().hasPrefix("content-length:") }
+                    .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+                let body = Data(request[separator.upperBound...])
+                if body.count >= length {
+                    self.received(header, body)
+                    connection.send(content: Data("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8),
+                        completion: .contentProcessed { _ in connection.cancel() })
+                    return
+                }
+            }
+            if !complete && error == nil { self.receive(connection, buffered: request) }
+        }
+    }
+    func stop() { queue.sync { listener.cancel(); connections.forEach { $0.cancel() } } }
 }
