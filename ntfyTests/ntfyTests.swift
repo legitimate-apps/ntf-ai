@@ -6322,7 +6322,7 @@ final class ntfyTests: XCTestCase {
                 // Authored/parser-created Markdown links use UITextView's native
                 // linkTextAttributes; plain links also carry explicit styling.
                 if type == nil {
-                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor.link)
+                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor(named: "AccentColor"))
                     XCTAssertEqual(attrs[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
                 }
                 if attrs[.link] != nil { linked += run.length }
@@ -6367,13 +6367,13 @@ final class ntfyTests: XCTestCase {
 final class NewcomerSetupTests: XCTestCase {
 
     private var ntfyShHint: String {
-        String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \("ntfy-me.com"). See \("https://ntfy-me.com/docs/migrate").")
+        String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \("ntf-ai.app"). See \("https://ntf-ai.app/docs/migrate").")
     }
     private var ownServerHint: String {
-        String(localized: "For instant delivery from your own server, add \"\("upstream-base-url: https://ntfy-me.com")\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \("ntfy-me.com") stops instant delivery to the official ntfy iOS app on that server. See \("https://ntfy-me.com/docs/self-hosting").")
+        String(localized: "For instant delivery from your own server, add \"\("upstream-base-url: https://ntfy-me.com")\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \("ntfy-me.com") stops instant delivery to the official ntfy iOS app on that server. See \("https://ntf-ai.app/docs/self-hosting").")
     }
     private var builtInFooter: String {
-        String(localized: "New topics use \(Config.appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \("ntfy-me.com"); the same topic name on ntfy.sh is a different topic.")
+        String(localized: "New topics use \(Config.appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \("ntf-ai.app"); the same topic name on ntfy.sh is a different topic.")
     }
 
     // Assert complete localized messages rather than English fragments whose word order varies.
@@ -6416,8 +6416,8 @@ final class NewcomerSetupTests: XCTestCase {
 
     /// Exercise the actual UIKit renderer: link attributes alone are inert if editing/selection is wrong.
     func testBothFootersRenderInteractiveDocumentationLinksAndClearStaleLinks() {
-        for (url, documentation) in [("https://ntfy.sh", "https://ntfy-me.com/docs/migrate"),
-                                      ("https://ntfy.home.io", "https://ntfy-me.com/docs/self-hosting")] {
+        for (url, documentation) in [("https://ntfy.sh", "https://ntf-ai.app/docs/migrate"),
+                                      ("https://ntfy.home.io", "https://ntf-ai.app/docs/self-hosting")] {
             for copy in [Config.subscriptionServerFooter(baseUrl: url, useAnother: true),
                          Config.defaultServerFooter(baseUrl: url)] {
                 let footer = ServerFooterText(text: copy)
@@ -6448,9 +6448,9 @@ final class NewcomerSetupTests: XCTestCase {
 
     func testPublishUrlAlwaysCarriesTheScheme() {
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "https://ntfy-me.com", topic: "alerts"),
-                       "https://ntfy-me.com/alerts")
+                       "https://ntf-ai.app/alerts")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "https://ntfy-me.com/", topic: "alerts"),
-                       "https://ntfy-me.com/alerts", "a trailing slash must not double up")
+                       "https://ntf-ai.app/alerts", "a trailing slash must not double up")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "http://ntfy.home.lan:8080", topic: "t"),
                        "http://ntfy.home.lan:8080/t", "an explicit http server keeps its own scheme")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "ntfy.example.com", topic: "t"),
@@ -6462,9 +6462,9 @@ final class NewcomerSetupTests: XCTestCase {
     func testSimpleCommandPublishesToTheFullUrl() {
         let command = PublishCommand.simple(baseUrl: "https://ntfy-me.com", topic: "alerts-abc")
         XCTAssertTrue(command.hasPrefix("curl "), command)
-        XCTAssertTrue(command.hasSuffix(" 'https://ntfy-me.com/alerts-abc'"), command)
+        XCTAssertTrue(command.hasSuffix(" 'https://ntf-ai.app/alerts-abc'"), command)
         XCTAssertTrue(command.contains("-d '"), command)
-        XCTAssertFalse(command.contains(" ntfy-me.com/"), "no scheme-less URL anywhere: \(command)")
+        XCTAssertFalse(command.contains(" ntf-ai.app/"), "no scheme-less URL anywhere: \(command)")
     }
 
     func testTitledCommandSetsTitleAndPriorityAndPublishesToTheFullUrl() {
@@ -6531,7 +6531,7 @@ final class NewcomerSetupTests: XCTestCase {
 
     func testHelpLinkPointsAtTheQuickStartForTheDefaultServer() {
         // ntfy.sh's examples publish to ntfy.sh, not to the server this app uses.
-        XCTAssertEqual(Config.helpUrl, "https://ntfy-me.com/")
+        XCTAssertEqual(Config.helpUrl, "https://ntf-ai.app/")
     }
 
     func testPermissionPromptWaitsForAFirstTopicOnAFreshInstall() {
@@ -7210,9 +7210,9 @@ extension ntfyTests {
         let topics = RetiredDefaultServerMigration.pendingNoticeTopics(defaults: defaults)
         XCTAssertEqual(topics, ["door", "garage"], "moved and merged topics; the encrypted one did not move")
         let message = RetiredDefaultServerMigration.noticeMessage(topics: topics)
-        XCTAssertTrue(message.contains("https://ntfy-me.com/garage"))
-        XCTAssertTrue(message.contains("https://ntfy-me.com/door"))
-        XCTAssertTrue(message.contains("https://ntfy-me.com/<topic>"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/garage"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/door"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/<topic>"))
         RetiredDefaultServerMigration.dismissNotice(defaults: defaults)
         XCTAssertTrue(RetiredDefaultServerMigration.pendingNoticeTopics(defaults: defaults).isEmpty)
     }
@@ -7228,8 +7228,8 @@ extension ntfyTests {
 final class FirstTopicTestTests: XCTestCase {
     func testFirstNotificationUsesDefaultPriorityAndPlainAppCopy() {
         XCTAssertEqual(FirstTopicTest.priority, 3)
-        XCTAssertEqual(FirstTopicTest.title, String(localized: "PING test"))
-        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from PING. Your topic is ready."))
+        XCTAssertEqual(FirstTopicTest.title, String(localized: "NTF-AI test"))
+        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from NTF-AI. Your topic is ready."))
     }
 }
 
@@ -7312,7 +7312,7 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         let after = Store.shared.presentedDeliveries()
         XCTAssertEqual(after.count - before.count, 3, "test messages don't count")
         XCTAssertEqual(after.days - before.days, 2)
-        XCTAssertTrue("This is a test notification from PING. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
+        XCTAssertTrue("This is a test notification from NTF-AI. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
     }
 
     func testSessionPersistsFirstLaunchAndWhatsNewTakesTheForeground() {

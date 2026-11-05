@@ -1,20 +1,20 @@
 ---
-title: NTFY me (ntfy iOS NextGen)
-description: "NTFY me is a free, actively maintained iOS app for ntfy. Get a push notification on your iPhone from any computer, script or server with one curl command."
+title: NTF-AI
+description: "NTF-AI is a free, actively maintained iOS app for ntfy. Get a push notification on your iPhone from any computer, script or server with one curl command."
 ---
 
-# NTFY me (ntfy iOS NextGen)
+# NTF-AI
 
 Get a push notification on your iPhone or iPad from any computer, script, server or cron job with one
-HTTP request. NTFY me is an actively maintained iOS app for [ntfy](https://ntfy.sh), the open-source
+HTTP request. NTF-AI is an actively maintained iOS app for [ntfy](https://ntfy.sh), the open-source
 push-notification service, forked from
-[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios) (MIT). It's free on the App Store as
-[NTFY me - Next Gen](https://apps.apple.com/us/app/id6787782178). It is not affiliated with or endorsed
-by the ntfy project.
+[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios) under the MIT License and published by Legitimate LLC. It's free on the App Store as
+[NTF-AI: Agent Notifications](https://apps.apple.com/us/app/id6787782178). It is not affiliated with or endorsed
+by ntfy.sh or the ntfy project.
 
 ```sh
 # Subscribe to a topic in the app, then from any terminal:
-curl -d "Backup finished" https://ntfy-me.com/your-secret-topic
+curl -d "Backup finished" https://ntf-ai.app/your-secret-topic
 ```
 
 No account or API key: the topic name is the password, so pick a long random one.
@@ -22,34 +22,34 @@ No account or API key: the topic name is the password, so pick a long random one
 ## Common questions
 
 **How do I get a notification on my phone when a script or long command finishes?**
-Install the app, subscribe to a long random topic on ntfy-me.com, and add
-`curl -d "done" https://ntfy-me.com/<topic>` to the end of the script (or `long-command; curl -d "exit $?" https://ntfy-me.com/<topic>`).
-Recipes for Windows PowerShell, Python, cron, GitHub Actions and Home Assistant are on [ntfy-me.com](https://ntfy-me.com).
+Install the app, subscribe to a long random topic on ntf-ai.app, and add
+`curl -d "done" https://ntf-ai.app/<topic>` to the end of the script (or `long-command; curl -d "exit $?" https://ntf-ai.app/<topic>`).
+Recipes for Windows PowerShell, Python, cron, GitHub Actions and Home Assistant are on [ntf-ai.app](https://ntf-ai.app).
 
-**How is NTFY me different from the official ntfy iOS app?**
-Both speak the ntfy protocol. NTFY me is a fork that ships frequent updates. It adds end-to-end
+**How is NTF-AI different from the official ntfy iOS app?**
+Both speak the ntfy protocol. NTF-AI is a fork that ships frequent updates. It adds end-to-end
 encrypted topics, pinned topics, display names, a guided first-run setup with a "Send a test
 notification" button, and many reliability fixes from ntfy's iOS issue backlog. See the
-[changelog](https://github.com/legitimate-apps/ntfy-ios-NextGen/blob/main/CHANGELOG.md).
+[changelog](https://github.com/legitimate-apps/ntf-ai/blob/main/CHANGELOG.md).
 
 **Does it work with ntfy.sh or my own server?**
 Any ntfy server works. Self-hosted servers get instant push by setting
 `upstream-base-url: "https://ntfy-me.com"`. Topics on ntfy.sh arrive without instant banners (ntfy.sh
-relays iOS push only to the official app), so for instant banners use ntfy-me.com or your own server.
+relays iOS push only to the official app), so for instant banners use ntf-ai.app or your own server.
 
 **Is it free? Do I need an account?**
-Yes, it's free, and no account is needed. ntfy-me.com keeps messages for 12 hours. Push notifications
+Yes, it's free, and no account is needed. ntf-ai.app keeps messages for 12 hours. Push notifications
 carry no message text; the app fetches each message from the server over TLS.
 
 ## Using the app
 
-Setup guides, support and the privacy policy live at **[ntfy-me.com](https://ntfy-me.com)**:
+Setup guides, support and the privacy policy live at **[ntf-ai.app](https://ntf-ai.app)**:
 
-- [Quick start](https://ntfy-me.com/#qs)
-- [Run your own server](https://ntfy-me.com/docs/self-hosting)
-- [Move from ntfy.sh or the official app](https://ntfy-me.com/docs/migrate)
-- [Support](https://ntfy-me.com/docs/support)
-- [Privacy Policy](https://ntfy-me.com/docs/privacy) · [License agreement](https://ntfy-me.com/docs/eula)
+- [Quick start](https://ntf-ai.app/#qs)
+- [Run your own server](https://ntf-ai.app/docs/self-hosting)
+- [Move from ntfy.sh or the official app](https://ntf-ai.app/docs/migrate)
+- [Support](https://ntf-ai.app/docs/support)
+- [Privacy Policy](https://ntf-ai.app/docs/privacy) · [License agreement](https://ntf-ai.app/docs/eula)
 
 ## Development notes
 

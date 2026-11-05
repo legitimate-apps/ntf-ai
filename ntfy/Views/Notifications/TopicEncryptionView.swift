@@ -270,7 +270,7 @@ struct TopicEncryptionHelpView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color("BrandFill"))
-                .foregroundColor(.white)
+                .foregroundColor(Color("Ink"))
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(String(localized: "Good to know")).font(.headline)

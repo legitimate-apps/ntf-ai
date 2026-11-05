@@ -12,7 +12,7 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
         ReleaseNotes(version: "1.25.0", bullets: [
-            String(localized: "NTFY me is now PING. Same app, same topics, same settings.")
+            String(localized: "NTF-AI. Same app, same topics, same settings.")
         ]),
         ReleaseNotes(version: "1.24.0", bullets: [
             String(localized: "The next poll fetches messages missed by dropped pushes, while they remain in the server cache."),
@@ -233,7 +233,7 @@ struct WhatsNewView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundColor(.white)
+                        .foregroundColor(Color("Ink"))
                         .background(Color("BrandFill").cornerRadius(10))
                 }
                 .padding()

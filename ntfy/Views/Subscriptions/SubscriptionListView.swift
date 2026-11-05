@@ -167,7 +167,7 @@ struct SubscriptionListView: View {
             set: { if !$0 { dismissMovedTopicsNotice() } }
         )) {
             Alert(
-                title: Text(movedTopicsNotice.count == 1 ? String(localized: "Your topic moved to ntfy-me.com") : String(localized: "Your topics moved to ntfy-me.com")),
+                title: Text(movedTopicsNotice.count == 1 ? String(localized: "Your topic moved to ntf-ai.app") : String(localized: "Your topics moved to ntf-ai.app")),
                 message: Text(RetiredDefaultServerMigration.noticeMessage(topics: movedTopicsNotice)),
                 dismissButton: .default(Text("OK")) { dismissMovedTopicsNotice() }
             )
@@ -215,7 +215,7 @@ struct SubscriptionItemNavView: View {
                     } label: {
                         readLabel
                     }
-                    .tint(Color("BrandFill"))
+                    .tint(Color("BrandControlFill"))
 
                     Button {
                         togglePinned()
@@ -442,16 +442,16 @@ struct SubscriptionItemRowView: View {
 struct UnreadBadge: View {
     let count: Int
 
-    // Both gradient endpoints keep white count text above 4.5:1 in either appearance.
+    // Ink count text exceeds 10:1 at both yellow gradient endpoints in either appearance.
     private static let top = Color("UnreadBadgeTop")
-    private static let bottom = Color("BrandFill")
+    private static let bottom = Color("UnreadBadgeBottom")
 
     private var label: String { count > 99 ? String(localized: "99+") : count.formatted(.number) }
 
     var body: some View {
         Text(label)
             .font(.caption.weight(.bold))
-            .foregroundColor(.white)
+            .foregroundColor(Color("Ink"))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .frame(minWidth: 24)
@@ -469,7 +469,7 @@ struct UnreadBadge: View {
 }
 
 /// Marks a pinned topic ahead of its name: a tilted pin in a warm gradient, the colour iOS uses for
-/// pins in Messages and Mail, so it reads as "pinned" at a glance without competing with the purple
+/// pins in Messages and Mail, so it reads as "pinned" at a glance alongside the yellow
 /// unread badge. Sized from the headline font so it scales with Dynamic Type alongside the name.
 struct PinBadge: View {
     static let tint = Color(red: 0.96, green: 0.55, blue: 0.13)

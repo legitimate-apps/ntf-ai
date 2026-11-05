@@ -63,7 +63,7 @@ final class BackgroundHTTPActionTests: XCTestCase {
     }
 
     private func replyLinkAction() -> Action {
-        Action(id: "reply-link", action: "view", label: "Reply in PING",
+        Action(id: "reply-link", action: "view", label: "Reply in NTF-AI",
                url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
                method: nil, headers: nil, body: nil, clear: nil)
     }
@@ -73,7 +73,7 @@ final class BackgroundHTTPActionTests: XCTestCase {
         XCTAssertTrue(reply is UNTextInputNotificationAction)
         XCTAssertEqual(reply.options, [.authenticationRequired])
         XCTAssertEqual(reply.identifier, "reply-link")
-        XCTAssertEqual(reply.title, "Reply in PING")
+        XCTAssertEqual(reply.title, "Reply in NTF-AI")
     }
 
     func testReplyAndOrdinaryViewCannotShareACategory() {
@@ -286,7 +286,7 @@ private final class ActionLoopbackServer {
 final class BannerReplyTests: XCTestCase {
     private func reply(_ destination: String = "https://ntfy-me.com/reply-secret") -> Action {
         let fragment = destination.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
-        return Action(id: UUID().uuidString, action: "view", label: "Reply in PING",
+        return Action(id: UUID().uuidString, action: "view", label: "Reply in NTF-AI",
                       url: "https://ntfy-me.com/docs/agents#reply-v1=" + fragment,
                       method: nil, headers: nil, body: nil, clear: true)
     }
@@ -347,7 +347,7 @@ final class BannerReplyTests: XCTestCase {
             let text = try XCTUnwrap(action as? UNTextInputNotificationAction)
             XCTAssertEqual(text.options, [.foreground])
             XCTAssertFalse(text.textInputButtonTitle.isEmpty)
-            XCTAssertEqual(text.textInputPlaceholder, "Reply in PING")
+            XCTAssertEqual(text.textInputPlaceholder, "Reply in NTF-AI")
         }
     }
 

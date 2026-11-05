@@ -38,7 +38,7 @@ enum OpenSourceLicenses {
 struct LicensesView: View {
     var body: some View {
         List {
-            Section(footer: Text(String(localized: "PING is built on these open-source projects."))) {
+            Section(footer: Text(String(localized: "NTF-AI is built on these open-source projects."))) {
                 ForEach(OpenSourceLicenses.components) { component in
                     NavigationLink {
                         LicenseTextView(text: component.displayText)

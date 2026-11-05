@@ -261,7 +261,7 @@ struct ActionExecutor {
     ) -> URLRequest? {
         guard let actionUrl = action.url, let url = URL(string: actionUrl) else { return nil }
         let method = action.method ?? "POST"
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: HostedServer.requestURL(url))
         request.httpMethod = method
         action.headers?.forEach { request.setValue($1, forHTTPHeaderField: $0) }
         if !["GET", "HEAD"].contains(method) {

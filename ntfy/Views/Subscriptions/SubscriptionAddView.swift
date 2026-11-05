@@ -32,7 +32,7 @@ struct SubscriptionAddView: View {
         _isShowing = isShowing
         _topic = State(initialValue: topicLink?.topic ?? "")
         _useAnother = State(initialValue: topicLink != nil)
-        _baseUrl = State(initialValue: topicLink?.server ?? "")
+        _baseUrl = State(initialValue: topicLink.map { HostedServer.publicURL($0.server) } ?? "")
     }
 
     private var subscriptionManager: SubscriptionManager {
@@ -368,6 +368,8 @@ struct SubscriptionAddView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(Color("BrandFill"))
+                .foregroundColor(Color("Ink"))
                 .controlSize(.large)
                 .accessibilityHint(String(localized: "Shows the system notification permission prompt"))
                 Button(String(localized: "Not now")) {
@@ -401,7 +403,7 @@ struct SubscriptionAddView: View {
             scannedLink = link
             topic = link.topic
             useAnother = true
-            baseUrl = link.server
+            baseUrl = HostedServer.publicURL(link.server)
             addError = nil
         case .open(let url):
             resetAndHide(openingTopicUrl: url)
@@ -507,7 +509,7 @@ enum SubscriptionAddServer {
     }
 
     static func placeholder(defaultBaseUrl: String) -> String {
-        String(localized: "Blank uses \(normalizeBaseUrl(defaultBaseUrl))")
+        String(localized: "Blank uses \(HostedServer.publicURL(normalizeBaseUrl(defaultBaseUrl)))")
     }
 }
 

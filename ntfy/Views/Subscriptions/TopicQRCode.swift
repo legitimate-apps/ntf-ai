@@ -22,7 +22,7 @@ enum TopicQRCode {
         parts.percentEncodedPath += "/" + component
         guard let address = parts.url?.absoluteString, let link = TopicLink(scanned: address),
               link.topic == topic else { return nil }
-        return topicUrl(baseUrl: link.server, topic: link.topic)
+        return HostedServer.publicURL(topicUrl(baseUrl: link.server, topic: link.topic))
     }
 
     /// Black modules on white with the standard four-module quiet zone, scaled by whole pixels so
@@ -296,7 +296,7 @@ struct TopicQRScannerView: View {
         case .denied:
             message(
                 icon: "camera",
-                text: String(localized: "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
+                text: String(localized: "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
                 action: (String(localized: "Open Settings"), {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                 }))
@@ -319,6 +319,8 @@ struct TopicQRScannerView: View {
                 if let action {
                     Button(action.0, action: action.1)
                         .buttonStyle(.borderedProminent)
+                        .tint(Color("BrandFill"))
+                        .foregroundColor(Color("Ink"))
                 }
                 if let rejected {
                     Text(Self.rejectionText(rejected))

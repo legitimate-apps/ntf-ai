@@ -53,7 +53,7 @@ struct SubscribedTopicQuery: EntityStringQuery {
         do {
             topics = try context.fetch(Subscription.fetchRequest()).map(SubscribedTopic.init)
         } catch {
-            throw TopicPublisher.Failure(message: String(localized: "Topics could not be read. Unlock your device and open PING, then try again."))
+            throw TopicPublisher.Failure(message: String(localized: "Topics could not be read. Unlock your device and open NTF-AI, then try again."))
         }
         if let identifiers {
             let byID = Dictionary(topics.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -72,7 +72,7 @@ struct SendMessageIntent: AppIntent {
     @available(iOS 26.0, *)
     static var supportedModes: IntentModes { .background }
 
-    @Parameter(title: "Topic", description: "A topic you subscribe to in PING.")
+    @Parameter(title: "Topic", description: "A topic you subscribe to in NTF-AI.")
     var topic: SubscribedTopic
     @Parameter(title: "Message", description: "The text to send.")
     var message: String
@@ -115,13 +115,13 @@ struct SendMessageIntent: AppIntent {
             guard let found = try context.fetch(Subscription.fetchRequest()).first(where: {
                 $0.objectID.uriRepresentation().absoluteString == topic.id
             }) else {
-                throw TopicPublisher.Failure(message: String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent."))
+                throw TopicPublisher.Failure(message: String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI. Nothing was sent."))
             }
             subscription = found
         } catch let failure as TopicPublisher.Failure {
             throw failure
         } catch {
-            throw TopicPublisher.Failure(message: String(localized: "Topics could not be read. Unlock your device and open PING, then try again."))
+            throw TopicPublisher.Failure(message: String(localized: "Topics could not be read. Unlock your device and open NTF-AI, then try again."))
         }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             TopicPublisher.send(subscription: subscription, store: store, message: message,

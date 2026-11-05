@@ -93,14 +93,14 @@ private struct ShareView: View {
         NavigationView {
             Form {
                 if model.topics.isEmpty {
-                    Section { Text(String(localized: "Open PING and subscribe to a topic first. Then share this item again.")) }
+                    Section { Text(String(localized: "Open NTF-AI and subscribe to a topic first. Then share this item again.")) }
                 } else {
                     Section {
                         Picker(String(localized: "Topic"), selection: $model.selectedURL) {
                             ForEach(model.topics, id: \.objectID) { topic in
                                 VStack(alignment: .leading) {
                                     Text(topic.shortDisplayName())
-                                    Text(topic.urlString()).font(.caption).foregroundColor(.secondary)
+                                    Text(HostedServer.publicURL(topic.urlString())).font(.caption).foregroundColor(.secondary)
                                 }.tag(topic.urlString())
                             }
                         }.accessibilityIdentifier("share-topic")
@@ -109,7 +109,7 @@ private struct ShareView: View {
                                 Text(topic.shortDisplayName()).fixedSize(horizontal: false, vertical: true)
                                     .accessibilityIdentifier("share-selected-topic")
                             }
-                            Text(topic.urlString()).font(.caption).foregroundColor(.secondary)
+                            Text(HostedServer.publicURL(topic.urlString())).font(.caption).foregroundColor(.secondary)
                         }
                     }
                     Section(header: Text(String(localized: "Message"))) {
@@ -140,7 +140,7 @@ private struct ShareView: View {
                 if compose.busy { ProgressView(String(localized: "Sending…")) }
             }
             .disabled(compose.busy)
-            .navigationTitle(String(localized: "Share to PING"))
+            .navigationTitle(String(localized: "Share to NTF-AI"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -160,7 +160,7 @@ private struct ShareView: View {
             .onChange(of: model.selectedURL) { _ in model.selectTopic() }
         }.navigationViewStyle(StackNavigationViewStyle())
             .tint(Color("AccentColor"))
-            .toggleStyle(SwitchToggleStyle(tint: Color("BrandFill")))
+            .toggleStyle(SwitchToggleStyle(tint: Color("BrandControlFill")))
     }
     private func close() { model.close(); finish() }
 }

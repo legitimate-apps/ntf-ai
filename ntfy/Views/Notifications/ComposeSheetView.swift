@@ -24,7 +24,7 @@ struct ComposeSheetView: View {
             Form {
                 Section {
                     Text(subscription.shortDisplayName()).font(.headline)
-                    Text(subscription.urlString()).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
+                    Text(HostedServer.publicURL(subscription.urlString())).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                 }
                 Section(header: Text(String(localized: "Message"))) {
                     TextEditor(text: $model.message)

@@ -282,8 +282,16 @@ class Store: ObservableObject {
         // `performAndWait` fixes both: it hops to the context's queue and is reentrant-safe from it.
         var subscription: Subscription!
         context.performAndWait {
+            let canonical = normalizeBaseUrl(baseUrl)
+            // All entry points converge before insertion. Reopening a hosted alias keeps the same
+            // row, history, encryption and confirmed FCM state instead of creating a second topic.
+            if canonical == HostedServer.canonicalBaseURL,
+               let existing = try? fetchSubscription(baseUrl: canonical, topic: topic) {
+                subscription = existing
+                return
+            }
             subscription = Subscription(context: context)
-            subscription.baseUrl = normalizeBaseUrl(baseUrl)
+            subscription.baseUrl = canonical
             subscription.topic = topic
             subscription.subscribedAt = Date()
             Log.d(Store.tag, "Storing subscription baseUrl=\(subscription.baseUrl ?? "?"), topic=\(topic)")
@@ -787,7 +795,7 @@ class Store: ObservableObject {
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.
-    static let testMessagePrefix = "This is a test notification from PING"
+    static let testMessagePrefix = "This is a test notification from NTF-AI"
 
     /// Historical text can remain in saved messages; keep excluding it after the rename.
     private static let legacyTestMessagePrefix = "This is a test notification from NTFY me"

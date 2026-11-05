@@ -4596,49 +4596,49 @@
         }
       }
     },
-    "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications.": {
+    "Critical alerts were not allowed. You can enable them for NTF-AI in the Settings app under Notifications.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Critical alerts were not allowed. You can enable them for PING in the Settings app under Notifications."
+            "value": "Critical alerts were not allowed. You can enable them for NTF-AI in the Settings app under Notifications."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für PING in der App „Einstellungen“ unter Mitteilungen aktivieren."
+            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für NTF-AI in der App „Einstellungen“ unter Mitteilungen aktivieren."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se permitieron las alertas críticas. Puedes activarlas para PING en la app Ajustes, en Notificaciones."
+            "value": "No se permitieron las alertas críticas. Puedes activarlas para NTF-AI en la app Ajustes, en Notificaciones."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per PING nell’app Impostazioni, sotto Notifiche."
+            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per NTF-AI nell’app Impostazioni, sotto Notifiche."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla PING w aplikacji Ustawienia, w sekcji Powiadomienia."
+            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla NTF-AI w aplikacji Ustawienia, w sekcji Powiadomienia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor PING aanzetten in de app Instellingen, onder Meldingen."
+            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor NTF-AI aanzetten in de app Instellingen, onder Meldingen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour PING dans l’app Réglages, sous Notifications."
+            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour NTF-AI dans l’app Réglages, sous Notifications."
           }
         }
       }
@@ -9902,143 +9902,143 @@
         }
       }
     },
-    "PING is built on these open-source projects.": {
+    "NTF-AI is built on these open-source projects.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING is built on these open-source projects."
+            "value": "NTF-AI is built on these open-source projects."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING basiert auf diesen Open-Source-Projekten."
+            "value": "NTF-AI basiert auf diesen Open-Source-Projekten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING está basada en estos proyectos de código abierto."
+            "value": "NTF-AI está basada en estos proyectos de código abierto."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING si basa su questi progetti open source."
+            "value": "NTF-AI si basa su questi progetti open source."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING korzysta z tych projektów open source."
+            "value": "NTF-AI korzysta z tych projektów open source."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING gebruikt deze opensourceprojecten."
+            "value": "NTF-AI gebruikt deze opensourceprojecten."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING repose sur ces projets open source."
+            "value": "NTF-AI repose sur ces projets open source."
           }
         }
       }
     },
-    "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
+    "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
+            "value": "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
+            "value": "NTF-AI benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
+            "value": "NTF-AI necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
+            "value": "NTF-AI richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
+            "value": "NTF-AI potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
+            "value": "NTF-AI heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
+            "value": "NTF-AI a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
           }
         }
       }
     },
-    "PING test": {
+    "NTF-AI test": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING test"
+            "value": "NTF-AI test"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING-Test"
+            "value": "NTF-AI-Test"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prueba de PING"
+            "value": "Prueba de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prova PING"
+            "value": "Prova NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test PING"
+            "value": "Test NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING-test"
+            "value": "NTF-AI-test"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test PING"
+            "value": "Test NTF-AI"
           }
         }
       }
@@ -18570,191 +18570,191 @@
         }
       }
     },
-    "This is a test notification from PING": {
+    "This is a test notification from NTF-AI": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from PING"
+            "value": "This is a test notification from NTF-AI"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von PING"
+            "value": "Dies ist eine Testnachricht von NTF-AI"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de PING"
+            "value": "Esta es una notificación de prueba de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da PING"
+            "value": "Questa è una notifica di prova da NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z PING"
+            "value": "To jest powiadomienie testowe z NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van PING"
+            "value": "Dit is een testmelding van NTF-AI"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de PING"
+            "value": "Ceci est une notification de test de NTF-AI"
           }
         }
       },
       "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
     },
-    "This is a test notification from PING (wake-up forwarding check).": {
+    "This is a test notification from NTF-AI (wake-up forwarding check).": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from PING (wake-up forwarding check)."
+            "value": "This is a test notification from NTF-AI (wake-up forwarding check)."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von PING (Weiterleitungsprüfung)."
+            "value": "Dies ist eine Testnachricht von NTF-AI (Weiterleitungsprüfung)."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de PING (comprobación de reenvío de avisos)."
+            "value": "Esta es una notificación de prueba de NTF-AI (comprobación de reenvío de avisos)."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da PING (controllo dell'inoltro del risveglio)."
+            "value": "Questa è una notifica di prova da NTF-AI (controllo dell'inoltro del risveglio)."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z PING (test przekazywania sygnałów wybudzenia)."
+            "value": "To jest powiadomienie testowe z NTF-AI (test przekazywania sygnałów wybudzenia)."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van PING (controle van doorgestuurde activeringssignalen)."
+            "value": "Dit is een testmelding van NTF-AI (controle van doorgestuurde activeringssignalen)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de PING (vérification du relais des demandes de réveil)."
+            "value": "Ceci est une notification de test de NTF-AI (vérification du relais des demandes de réveil)."
           }
         }
       }
     },
-    "This is a test notification from PING. It has a priority of %lld. If you send another one, it may look different.": {
+    "This is a test notification from NTF-AI. It has a priority of %lld. If you send another one, it may look different.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from PING. It has a priority of %lld. If you send another one, it may look different."
+            "value": "This is a test notification from NTF-AI. It has a priority of %lld. If you send another one, it may look different."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von PING mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
+            "value": "Dies ist eine Testnachricht von NTF-AI mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de PING. Tiene prioridad %lld. Si envías otra, puede verse diferente."
+            "value": "Esta es una notificación de prueba de NTF-AI. Tiene prioridad %lld. Si envías otra, puede verse diferente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da PING. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
+            "value": "Questa è una notifica di prova da NTF-AI. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z PING. Ma priorytet %lld. Następne może wyglądać inaczej."
+            "value": "To jest powiadomienie testowe z NTF-AI. Ma priorytet %lld. Następne może wyglądać inaczej."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van PING. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
+            "value": "Dit is een testmelding van NTF-AI. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de PING. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
+            "value": "Ceci est une notification de test de NTF-AI. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
           }
         }
       }
     },
-    "This is a test notification from PING. Your topic is ready.": {
+    "This is a test notification from NTF-AI. Your topic is ready.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from PING. Your topic is ready."
+            "value": "This is a test notification from NTF-AI. Your topic is ready."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von PING. Dein Thema ist bereit."
+            "value": "Dies ist eine Testnachricht von NTF-AI. Dein Thema ist bereit."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de PING. Tu tópico está listo."
+            "value": "Esta es una notificación de prueba de NTF-AI. Tu tópico está listo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da PING. Il tuo argomento è pronto."
+            "value": "Questa è una notifica di prova da NTF-AI. Il tuo argomento è pronto."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z PING. Twój temat jest gotowy."
+            "value": "To jest powiadomienie testowe z NTF-AI. Twój temat jest gotowy."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van PING. Je onderwerp is klaar voor gebruik."
+            "value": "Dit is een testmelding van NTF-AI. Je onderwerp is klaar voor gebruik."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de PING. Votre sujet est prêt."
+            "value": "Ceci est une notification de test de NTF-AI. Votre sujet est prêt."
           }
         }
       }
@@ -21835,49 +21835,49 @@
         }
       }
     },
-    "Your topic moved to ntfy-me.com": {
+    "Your topic moved to ntf-ai.app": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your topic moved to ntfy-me.com"
+            "value": "Your topic moved to ntf-ai.app"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dein Thema ist jetzt auf ntfy-me.com"
+            "value": "Dein Thema ist jetzt auf ntf-ai.app"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu tópico se trasladó a ntfy-me.com"
+            "value": "Tu tópico se trasladó a ntf-ai.app"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il tuo argomento è stato spostato su ntfy-me.com"
+            "value": "Il tuo argomento è stato spostato su ntf-ai.app"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Twój temat przeniesiono na ntfy-me.com"
+            "value": "Twój temat przeniesiono na ntf-ai.app"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je onderwerp is verhuisd naar ntfy-me.com"
+            "value": "Je onderwerp is verhuisd naar ntf-ai.app"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre sujet a été déplacé vers ntfy-me.com"
+            "value": "Votre sujet a été déplacé vers ntf-ai.app"
           }
         }
       }
@@ -21929,49 +21929,49 @@
         }
       }
     },
-    "Your topics moved to ntfy-me.com": {
+    "Your topics moved to ntf-ai.app": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your topics moved to ntfy-me.com"
+            "value": "Your topics moved to ntf-ai.app"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deine Themen sind jetzt auf ntfy-me.com"
+            "value": "Deine Themen sind jetzt auf ntf-ai.app"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus tópicos se trasladaron a ntfy-me.com"
+            "value": "Tus tópicos se trasladaron a ntf-ai.app"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "I tuoi argomenti sono stati spostati su ntfy-me.com"
+            "value": "I tuoi argomenti sono stati spostati su ntf-ai.app"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Twoje tematy przeniesiono na ntfy-me.com"
+            "value": "Twoje tematy przeniesiono na ntf-ai.app"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je onderwerpen zijn verhuisd naar ntfy-me.com"
+            "value": "Je onderwerpen zijn verhuisd naar ntf-ai.app"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos sujets ont été déplacés vers ntfy-me.com"
+            "value": "Vos sujets ont été déplacés vers ntf-ai.app"
           }
         }
       }
@@ -22514,49 +22514,49 @@
         }
       }
     },
-    "PING support": {
+    "NTF-AI support": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING support"
+            "value": "NTF-AI support"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING-Hilfe"
+            "value": "NTF-AI-Hilfe"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soporte de PING"
+            "value": "Soporte de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistenza PING"
+            "value": "Assistenza NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pomoc PING"
+            "value": "Pomoc NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "PING-ondersteuning"
+            "value": "NTF-AI-ondersteuning"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistance PING"
+            "value": "Assistance NTF-AI"
           }
         }
       }
@@ -23364,49 +23364,49 @@
         }
       }
     },
-    "Open PING and subscribe to a topic first. Then share this item again.": {
+    "Open NTF-AI and subscribe to a topic first. Then share this item again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open PING and subscribe to a topic first. Then share this item again."
+            "value": "Open NTF-AI and subscribe to a topic first. Then share this item again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne PING und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
+            "value": "Öffne NTF-AI und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre PING y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
+            "value": "Abre NTF-AI y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri PING e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
+            "value": "Apri NTF-AI e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otwórz PING i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
+            "value": "Otwórz NTF-AI i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open PING en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
+            "value": "Open NTF-AI en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez PING et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
+            "value": "Ouvrez NTF-AI et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
           }
         }
       }
@@ -23552,49 +23552,49 @@
         }
       }
     },
-    "Share to PING": {
+    "Share to NTF-AI": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share to PING"
+            "value": "Share to NTF-AI"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit PING teilen"
+            "value": "Mit NTF-AI teilen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartir con PING"
+            "value": "Compartir con NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condividi con PING"
+            "value": "Condividi con NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Udostępnij w PING"
+            "value": "Udostępnij w NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delen met PING"
+            "value": "Delen met NTF-AI"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager avec PING"
+            "value": "Partager avec NTF-AI"
           }
         }
       }
@@ -25662,49 +25662,49 @@
         }
       }
     },
-    "A topic you subscribe to in PING.": {
+    "A topic you subscribe to in NTF-AI.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A topic you subscribe to in PING."
+            "value": "A topic you subscribe to in NTF-AI."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein in PING abonniertes Thema."
+            "value": "Ein in NTF-AI abonniertes Thema."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un tópico al que te suscribes en PING."
+            "value": "Un tópico al que te suscribes en NTF-AI."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un argomento sottoscritto in PING."
+            "value": "Un argomento sottoscritto in NTF-AI."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Temat subskrybowany w PING."
+            "value": "Temat subskrybowany w NTF-AI."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een onderwerp waarop je in PING bent geabonneerd."
+            "value": "Een onderwerp waarop je in NTF-AI bent geabonneerd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un sujet que vous suivez dans PING."
+            "value": "Un sujet que vous suivez dans NTF-AI."
           }
         }
       }
@@ -25850,49 +25850,49 @@
         }
       }
     },
-    "Topics could not be read. Unlock your device and open PING, then try again.": {
+    "Topics could not be read. Unlock your device and open NTF-AI, then try again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Topics could not be read. Unlock your device and open PING, then try again."
+            "value": "Topics could not be read. Unlock your device and open NTF-AI, then try again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne PING und versuche es erneut."
+            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne NTF-AI und versuche es erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre PING y vuelve a intentarlo."
+            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre NTF-AI y vuelve a intentarlo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri PING, poi riprova."
+            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri NTF-AI, poi riprova."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz PING, a następnie spróbuj ponownie."
+            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz NTF-AI, a następnie spróbuj ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open PING en probeer het opnieuw."
+            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open NTF-AI en probeer het opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez PING, puis réessayez."
+            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez NTF-AI, puis réessayez."
           }
         }
       }
@@ -25991,49 +25991,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI. Nothing was sent.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in PING. Nothing was sent."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI. Nothing was sent."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in PING. Es wurde nichts gesendet."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTF-AI. Es wurde nichts gesendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en PING. No se envió nada."
+            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en NTF-AI. No se envió nada."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in PING. Non è stato inviato nulla."
+            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in NTF-AI. Non è stato inviato nulla."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w PING. Nic nie wysłano."
+            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w NTF-AI. Nic nie wysłano."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in PING. Er is niets verstuurd."
+            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in NTF-AI. Er is niets verstuurd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans PING. Rien n’a été envoyé."
+            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans NTF-AI. Rien n’a été envoyé."
           }
         }
       }
@@ -27813,49 +27813,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in PING.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in PING."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in PING."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTF-AI."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en PING."
+            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en NTF-AI."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in PING."
+            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in NTF-AI."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w PING."
+            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w NTF-AI."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in PING."
+            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in NTF-AI."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans PING."
+            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans NTF-AI."
           }
         }
       }
@@ -29912,49 +29912,49 @@
       },
       "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
     },
-    "NTFY me is now PING. Same app, same topics, same settings.": {
+    "NTF-AI. Same app, same topics, same settings.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me is now PING. Same app, same topics, same settings."
+            "value": "NTF-AI. Same app, same topics, same settings."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me heißt jetzt PING. Dieselbe App, dieselben Themen, dieselben Einstellungen."
+            "value": "NTF-AI. Dieselbe App, dieselben Themen, dieselben Einstellungen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me ahora se llama PING. La misma app, los mismos tópicos y los mismos ajustes."
+            "value": "NTF-AI. La misma app, los mismos tópicos y los mismos ajustes."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me ora si chiama PING. Stessa app, stessi argomenti, stesse impostazioni."
+            "value": "NTF-AI. Stessa app, stessi argomenti, stesse impostazioni."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me to teraz PING. Ta sama aplikacja, te same tematy i ustawienia."
+            "value": "NTF-AI. Ta sama aplikacja, te same tematy i ustawienia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me heet nu PING. Dezelfde app, dezelfde onderwerpen, dezelfde instellingen."
+            "value": "NTF-AI. Dezelfde app, dezelfde onderwerpen, dezelfde instellingen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me s’appelle désormais PING. Même app, mêmes sujets, mêmes réglages."
+            "value": "NTF-AI. Même app, mêmes sujets, mêmes réglages."
           }
         }
       }

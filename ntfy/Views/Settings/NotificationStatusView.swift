@@ -168,7 +168,7 @@ struct RelayTopicCheckView: View {
             }
             ApiService.shared.publish(subscription: subscription,
                 user: Store.shared.getBasicUser(baseUrl: subscription.baseUrl ?? ""),
-                message: String(localized: "This is a test notification from PING (wake-up forwarding check)."), title: String(localized: "Wake-up forwarding test"),
+                message: String(localized: "This is a test notification from NTF-AI (wake-up forwarding check)."), title: String(localized: "Wake-up forwarding test"),
                 encryptionKey: keyState.key,
                 completionHandler: { completion(nil) }, failureHandler: { completion($0.userMessage) })
         }

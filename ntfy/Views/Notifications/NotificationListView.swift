@@ -295,7 +295,7 @@ struct NotificationListView: View {
             if showCopiedConfirmation {
                 Text(String(localized: "Copied to Clipboard"))
                     .font(.body)
-                    .foregroundColor(.white)
+                    .foregroundColor(Color("Ink"))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color("BrandFill").cornerRadius(20))
@@ -429,7 +429,7 @@ struct NotificationListView: View {
         ApiService.shared.publish(
             subscription: subscription,
             user: user,
-            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from PING. It has a priority of \(priority). If you send another one, it may look different."),
+            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from NTF-AI. It has a priority of \(priority). If you send another one, it may look different."),
             title: firstRun ? FirstTopicTest.title : String(localized: "Test: You can set a title if you like"),
             priority: priority,
             tags: tags,
@@ -531,7 +531,7 @@ struct TopicPublishHelpView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .foregroundColor(.white)
+                    .foregroundColor(Color("Ink"))
                     .background(Color("BrandFill").cornerRadius(10))
             }
             .buttonStyle(.borderless)
@@ -627,7 +627,7 @@ struct TopicDetailsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(String(localized: "Topic URL"))
                             .font(.footnote)
-                        Text(subscription.urlString())
+                        Text(HostedServer.publicURL(subscription.urlString()))
                             .foregroundColor(.primary)
                             .textSelection(.enabled)
                     }
@@ -687,6 +687,6 @@ struct NotificationListView_Previews: PreviewProvider {
 /// A first notification should use the default priority, so it does not arrive silently.
 enum FirstTopicTest {
     static let priority = 3
-    static let title = String(localized: "PING test")
-    static let body = String(localized: "This is a test notification from PING. Your topic is ready.")
+    static let title = String(localized: "NTF-AI test")
+    static let body = String(localized: "This is a test notification from NTF-AI. Your topic is ready.")
 }

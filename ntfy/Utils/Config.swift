@@ -61,7 +61,7 @@ enum Config {
     }
 
     static var selfHostedDeliveryHint: String {
-        String(localized: "For instant delivery from your own server, add \"\(upstreamConfigLine)\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \(shortUrl(url: normalizeBaseUrl(appBaseUrl))) stops instant delivery to the official ntfy iOS app on that server. See \(selfHostingUrl).")
+        String(localized: "For instant delivery from your own server, add \"\(upstreamConfigLine)\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \(normalizeBaseUrl(appBaseUrl).replacingOccurrences(of: "https://", with: "")) stops instant delivery to the official ntfy iOS app on that server. See \(selfHostingUrl).")
     }
 
     static var build: String {
@@ -105,9 +105,9 @@ enum Config {
     }
 
     /// Moving a topic from the official app or keeping it on ntfy.sh.
-    static let migrateUrl = "https://ntfy-me.com/docs/migrate"
+    static let migrateUrl = "https://ntf-ai.app/docs/migrate"
 
-    static let selfHostingUrl = "https://ntfy-me.com/docs/self-hosting"
+    static let selfHostingUrl = "https://ntf-ai.app/docs/self-hosting"
 
     /// Where OUR users report OUR bugs. Reports about this fork must not land
     /// on upstream's tracker; they are a different project with a different
@@ -115,12 +115,12 @@ enum Config {
     ///
     /// Shipped builds before 1.16 link the support page on GitHub Pages, which
     /// now forwards here.
-    static let supportUrl = "https://ntfy-me.com/docs/support"
+    static let supportUrl = "https://ntf-ai.app/docs/support"
 
     /// The quick start for this app's default server. It is the primary help link: its examples
     /// publish to ntfy-me.com, where new topics live. ntfy.sh's own pages publish to ntfy.sh, so a
     /// newcomer who followed them sent their first message to a server the app was not listening to.
-    static let helpUrl = "https://ntfy-me.com/"
+    static let helpUrl = "https://ntf-ai.app/"
 
     /// ntfy's own documentation — genuinely upstream's, and correct to link as the full reference
     /// for the protocol. Not the first place to send a newcomer; see `helpUrl`.

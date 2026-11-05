@@ -11,7 +11,7 @@
 	<key>AppKeychainGroup</key>
 	<string>$(APP_KEYCHAIN_GROUP)</string>
 	<key>CFBundleDisplayName</key>
-	<string>PING</string>
+	<string>NTF-AI</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

@@ -106,6 +106,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             reconciler: FcmSubscriptionReconciler.shared
         )
 
+        // Rows an older build created under ntf-ai.app, which it took for someone else's server.
+        HostedAliasRowMigration.run(
+            store: Store.shared,
+            defaults: UserDefaults(suiteName: Store.appGroup) ?? .standard,
+            reconciler: FcmSubscriptionReconciler.shared
+        )
+
         ManagedConfiguration.shared.start()
 
         // Register app permissions for push notifications

@@ -1,6 +1,15 @@
 import SwiftUI
 import UIKit
 
+// The same adaptive accent used by SwiftUI links: Amber on light surfaces, Sun on dark.
+// Keep a matching dynamic fallback for contexts that do not load the asset catalog.
+private let messageLinkColor = UIColor(named: "AccentColor") ?? UIColor { traits in
+    if traits.userInterfaceStyle == .dark {
+        return UIColor(red: 1, green: 214.0 / 255, blue: 10.0 / 255, alpha: 1)
+    }
+    return UIColor(red: 138.0 / 255, green: 106.0 / 255, blue: 0, alpha: 1)
+}
+
 // MARK: Extensions
 
 extension Notification {
@@ -137,7 +146,7 @@ func linkifyBareUrls(in attributed: inout AttributedString) {
         let attrRange = lower..<upper
         guard attributed[attrRange].runs.allSatisfy({ $0.link == nil }) else { continue }
         attributed[attrRange].link = match.url
-        attributed[attrRange].foregroundColor = UIColor.link
+        attributed[attrRange].foregroundColor = messageLinkColor
         attributed[attrRange].underlineStyle = NSUnderlineStyle.single
     }
 }
@@ -156,7 +165,7 @@ func linkify(_ source: String) -> AttributedString {
     let mutable = NSMutableAttributedString(string: source)
     for match in detectedMessageLinks(in: source) {
         mutable.addAttribute(.link, value: match.url, range: match.range)
-        mutable.addAttribute(.foregroundColor, value: UIColor.link, range: match.range)
+        mutable.addAttribute(.foregroundColor, value: messageLinkColor, range: match.range)
         mutable.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
     }
     return AttributedString(mutable)
@@ -279,9 +288,9 @@ func configureMessageTextView(
     textView.textContainerInset = .zero
     textView.textContainer.lineFragmentPadding = 0
     textView.textContainer.lineBreakMode = .byWordWrapping
-    textView.tintColor = .link
+    textView.tintColor = messageLinkColor
     textView.linkTextAttributes = [
-        .foregroundColor: UIColor.link,
+        .foregroundColor: messageLinkColor,
         .underlineStyle: NSUnderlineStyle.single.rawValue
     ]
     textView.setContentCompressionResistancePriority(.required, for: .vertical)

@@ -25,7 +25,7 @@ struct DefaultServerView: View {
             if defaultBaseUrl == Config.appBaseUrl {
                 newDefaultBaseUrl = ""
             } else {
-                newDefaultBaseUrl = defaultBaseUrl
+                newDefaultBaseUrl = HostedServer.publicURL(defaultBaseUrl)
             }
             showDialog = true
         }) {
@@ -41,7 +41,7 @@ struct DefaultServerView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     ) {
                         HStack {
-                            TextField(Config.appBaseUrl, text: $newDefaultBaseUrl)
+                            TextField(HostedServer.publicURL(Config.appBaseUrl), text: $newDefaultBaseUrl)
                                 .disableAutocapitalization()
                                 .disableAutocorrection(true)
                                 .accessibilityLabel(String(localized: "Default server"))

@@ -7,7 +7,7 @@ This document is to keep track of the feature parity between the iOS and Android
 | Feature                               | iOS                | Android            | Notes                                                                                                         |
 | ------------------------------------- | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------- |
 | Subscribe to default server topic     | :white_check_mark: | :white_check_mark: |
-| Subscribe to self-hosted server topic | :white_check_mark: | :white_check_mark: | Reliable delivery only with [`upstream_base_url`][ntfy_ios_instant_notifications] (NextGen: `https://ntfy-me.com`) |
+| Subscribe to self-hosted server topic | :white_check_mark: | :white_check_mark: | Reliable delivery only with [`upstream_base_url`][ntfy_ios_instant_notifications] (NTF-AI: `https://ntfy-me.com`) |
 | Instant delivery                      | :x:                | :white_check_mark: | Foreground services not possible in iOS                                                                       |
 | Pause notifications                   | :x:                | :white_check_mark: | Will likely require [Filtering][ios_filtering] to prevent displaying notifications while still receiving them |
 | Send test notification                | :white_check_mark: | :white_check_mark: | Not fully implemented                                                                                         |

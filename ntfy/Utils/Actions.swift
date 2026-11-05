@@ -33,7 +33,7 @@ enum BannerReply {
     static func destination(for action: Action) -> URL? {
         guard action.action == "view", let raw = action.url,
               let link = URLComponents(string: raw), link.scheme == "https",
-              link.host == "ntfy-me.com", link.port == nil || link.port == 443,
+              HostedServer.hosts.contains(link.host?.lowercased() ?? ""), link.port == nil || link.port == 443,
               link.user == nil, link.password == nil, link.query == nil,
               link.percentEncodedPath == "/docs/agents",
               let fragment = link.percentEncodedFragment, fragment.hasPrefix("reply-v1="),
@@ -49,7 +49,7 @@ enum BannerReply {
               let topic = segments.last?.removingPercentEncoding,
               (1...64).contains(topic.utf8.count),
               topic.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { return nil }
-        return url
+        return HostedServer.requestURL(url)
     }
 
     /// Raw UTF-8 avoids template substitution and preserves quotes, Unicode and newlines.

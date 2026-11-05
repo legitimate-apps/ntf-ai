@@ -1,6 +1,46 @@
 import Foundation
 import CryptoKit
 
+/// Two public hosts, one stored server identity. This deliberately does not rename FCM bindings,
+/// Keychain entries, topic encryption salts or existing subscriptions.
+enum HostedServer {
+    static let canonicalBaseURL = "https://ntfy-me.com"
+    static let publicBaseURL = "https://ntf-ai.app"
+    static let hosts: Set<String> = ["ntfy-me.com", "ntf-ai.app"]
+
+    private static func hostedOrigin(_ parts: URLComponents) -> Bool {
+        guard let scheme = parts.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              let host = parts.host?.lowercased(), hosts.contains(host),
+              parts.user == nil, parts.password == nil else { return false }
+        return parts.port == nil || parts.port == (scheme == "https" ? 443 : 80)
+    }
+
+    /// Only the new host is rewritten at ingress. Previously stored legacy spellings are not moved.
+    static func canonicalBaseURL(_ value: String) -> String {
+        let candidate = value.lowercased() == "ntf-ai.app" ? publicBaseURL : value
+        guard let parts = URLComponents(string: candidate), hostedOrigin(parts),
+              parts.host?.lowercased() == "ntf-ai.app", parts.path.isEmpty,
+              parts.query == nil, parts.fragment == nil else { return value }
+        return canonicalBaseURL
+    }
+
+    /// An agent's HTTP/reply action may include a topic path and query. Preserve those bytes while
+    /// routing the new alias through the proven server, without rewriting unrelated origins.
+    static func requestURL(_ url: URL) -> URL {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              hostedOrigin(parts), parts.host?.lowercased() == "ntf-ai.app" else { return url }
+        parts.scheme = "https"; parts.host = "ntfy-me.com"; parts.port = nil
+        return parts.url ?? url
+    }
+
+    /// Presentation and generated links change independently of network/persistence identity.
+    static func publicURL(_ value: String) -> String {
+        guard var parts = URLComponents(string: value), hostedOrigin(parts) else { return value }
+        parts.scheme = "https"; parts.host = "ntf-ai.app"; parts.port = nil
+        return parts.string ?? value
+    }
+}
+
 func topicUrl(baseUrl: String, topic: String) -> String {
     return "\(normalizeBaseUrl(baseUrl))/\(topic)"
 }
@@ -30,11 +70,11 @@ func normalizeBaseUrl(_ baseUrl: String) -> String {
     while normalized.hasSuffix("/") {
         normalized.removeLast()
     }
-    return normalized
+    return HostedServer.canonicalBaseURL(normalized)
 }
 
 func shortUrl(url: String) -> String {
-    return url
+    return HostedServer.publicURL(url)
         .replacingOccurrences(of: "http://", with: "")
         .replacingOccurrences(of: "https://", with: "")
 }
@@ -98,13 +138,13 @@ enum PublishCommand {
     static let headerValuePlaceholder = "<value>"
 
     static func publishUrl(baseUrl: String, topic: String) -> String {
-        let url = topicUrl(baseUrl: baseUrl, topic: topic)
+        let url = HostedServer.publicURL(topicUrl(baseUrl: baseUrl, topic: topic))
         let lowered = url.lowercased()
         return lowered.hasPrefix("https://") || lowered.hasPrefix("http://") ? url : "https://\(url)"
     }
 
     static func simple(baseUrl: String, topic: String, auth: Auth = .none) -> String {
-        command(["-d", "Hello from PING"], baseUrl: baseUrl, topic: topic, auth: auth)
+        command(["-d", "Hello from NTF-AI"], baseUrl: baseUrl, topic: topic, auth: auth)
     }
 
     static func titled(baseUrl: String, topic: String, auth: Auth = .none) -> String {
