@@ -538,19 +538,29 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         userText: String? = nil,
         completionHandler: @escaping () -> Void = {}
     ) {
+        let isQuietAlert = userInfo[QuietTopicAlerts.marker] as? Bool == true
+        let decodedMessage = isQuietAlert ? nil : Message.from(userInfo: userInfo)
+        let action = decodedMessage?.actions?.first { $0.id == actionIdentifier }
+        let isReply = action.flatMap { BannerReply.destination(for: $0) } != nil
+        // Rejected submissions must not consume the once-only delivery slot.
+        if isReply && (userText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
+            !isReply && userText != nil {
+            completionHandler()
+            return
+        }
         guard responseDeduper.shouldHandle(notificationId: notificationId, actionIdentifier: actionIdentifier) else {
             Log.d(tag, "Ignoring a notification response that was already handled", actionIdentifier)
             completionHandler()
             return
         }
-        if userInfo[QuietTopicAlerts.marker] as? Bool == true {
+        if isQuietAlert {
             if let baseUrl = userInfo["base_url"] as? String, let topic = userInfo["topic"] as? String {
                 selectedBaseUrl = topicUrl(baseUrl: baseUrl, topic: topic)
             }
             completionHandler()
             return
         }
-        guard let message = Message.from(userInfo: userInfo) else {
+        guard let message = decodedMessage else {
             Log.w(tag, "Cannot convert userInfo to message", userInfo)
             completionHandler()
             return
@@ -562,7 +572,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             return
         }
         Store.shared.read(message: message, baseUrl: baseUrl)
-        let action = message.actions?.first { $0.id == actionIdentifier }
         
         // Show current topic
         if message.topic != "" {
@@ -571,13 +580,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         
         // Execute user action or click action (if any)
         if let action = action {
-            let isReply = BannerReply.destination(for: action) != nil
-            // A reply action runs only for an actual, nonblank text submission.
-            if isReply && (userText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
-                !isReply && userText != nil {
-                completionHandler()
-                return
-            }
             if action.action == "http" || isReply {
                 let execute = {
                     var task = UIBackgroundTaskIdentifier.invalid

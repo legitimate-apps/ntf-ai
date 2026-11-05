@@ -390,7 +390,14 @@ final class BannerReplyTests: XCTestCase {
         delegate.beginNotificationBackgroundTask = { _ in starts += 1; return UIBackgroundTaskIdentifier(rawValue: 47) }
         delegate.endNotificationBackgroundTask = { _ in ends += 1 }
         let done = expectation(description: "completed")
-        delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: UUID().uuidString, userText: text) {
+        let notificationID = UUID().uuidString
+        var rejected = 0
+        for invalid in [nil, "", " \n"] as [String?] {
+            delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: notificationID, userText: invalid) { rejected += 1 }
+        }
+        XCTAssertEqual(rejected, 3)
+        XCTAssertEqual(starts, 0)
+        delegate.handleNotificationResponse(userInfo: info, actionIdentifier: button.id, notificationId: notificationID, userText: text) {
             completions += 1
             done.fulfill()
         }
