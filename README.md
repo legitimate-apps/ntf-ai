@@ -1,33 +1,39 @@
-# NTFY me (ntfy iOS NextGen)
+# PING (ntfy iOS NextGen)
 
-Get a push notification on your iPhone or iPad from any computer, script, server or cron job with one HTTP request. NTFY me is an actively maintained iOS app for [ntfy](https://github.com/binwiederhier/ntfy) ([ntfy.sh](https://ntfy.sh)), the open-source push-notification service. It's free on the App Store as **[NTFY me - Next Gen](https://apps.apple.com/us/app/id6787782178)**.
+Let an AI agent or script reach your iPhone or iPad with one HTTP request. Answer a question with an action button, or write a reply in the app for the agent to read. PING is an independent iOS app for [ntfy](https://github.com/binwiederhier/ntfy), available on the **[App Store](https://apps.apple.com/us/app/id6787782178)**.
+
+Start with the **[agent setup guide](https://ntfy-me.com/docs/agents)**: generate a long random topic, give the human a subscribe link, send a test, ask with Approve/Reject buttons, and read the answer. It includes a prompt for your agent and status-hook recipes for Claude Code and Codex. The human confirms the subscription and allows notifications. The guide's commands use standard ntfy publishing and polling.
 
 ```sh
-# Subscribe to a topic in the app, then from any terminal:
+# Subscribe to the same long random topic in the app, then from any terminal:
 curl -d "Backup finished" https://ntfy-me.com/your-secret-topic
 
 # Get notified when a long command ends
 make build; curl -d "make finished: exit $?" https://ntfy-me.com/your-secret-topic
 ```
 
-No account or API key: the topic name is the password, so pick a long random one. More recipes (Windows PowerShell, Python, GitHub Actions, Home Assistant, SSH login alerts) are on [ntfy-me.com](https://ntfy-me.com).
+No account or API key: the topic name is the password, so pick a long random one. The topic is shared access: anyone who knows it can read, send or forge replies. These plain requests are not end-to-end encrypted. Button responses do not bypass your coding tool's permission checks. Written replies use the compose sheet in the app.
+
+More recipes (Windows PowerShell, Python, GitHub Actions, Home Assistant, SSH login alerts) are on [ntfy-me.com](https://ntfy-me.com).
 
 This is a fork of the official [ntfy-ios](https://github.com/binwiederhier/ntfy-ios) app. It works through upstream's backlog of iOS issues: reliability and security fixes, end-to-end encrypted topics, display names, pinned topics, a simpler first-run setup, and general UX work. See [CHANGELOG.md](CHANGELOG.md) for each release.
 
 ## How it relates to ntfy
 
-- **ntfy** is the server and protocol, plus the official Android, iOS and web apps, by Philipp C. Heckel. NTFY me is an independent iOS app that speaks the same protocol. It is not affiliated with ntfy.sh or the ntfy project.
-- **Servers:** NTFY me works with any ntfy server. Its default is ntfy-me.com, a free public server. Self-hosted servers get instant push with one config line (below).
-- **ntfy.sh topics** work too, but without instant banners. ntfy.sh relays iOS push only to the official app, so in NTFY me those messages show up when you open or refresh the app. For instant banners, use ntfy-me.com or your own server.
+- **ntfy** is the server and protocol, plus the official Android, iOS and web apps, by Philipp C. Heckel. PING is an independent iOS app that speaks the same protocol. It is not affiliated with ntfy.sh or the ntfy project.
+- **Servers:** PING works with any ntfy server. Its default is ntfy-me.com, a free public server. Self-hosted servers get instant push with one config line (below).
+- **ntfy.sh topics** work too, but without instant banners. ntfy.sh relays iOS push only to the official app, so in PING those messages show up when you open or refresh the app. For instant banners, use ntfy-me.com or your own server.
 - **Android, desktop or browser:** use the official ntfy Android app or the [web app](https://ntfy-me.com/app), pointed at the same server and topic.
 
 ## Using the app
 
 Setup guides live at **[ntfy-me.com](https://ntfy-me.com)**:
 
+- [Agent setup](https://ntfy-me.com/docs/agents): subscription links, questions, button answers and written replies; Claude Code and Codex recipes.
+
 - [Quick start](https://ntfy-me.com/#qs): subscribe to a topic and send your first notification with one `curl` command.
 - [Run your own server](https://ntfy-me.com/docs/self-hosting): self-host ntfy with Docker and still get instant notifications.
-- [Move from ntfy.sh or the official app](https://ntfy-me.com/docs/migrate)
+- [Server compatibility and push delivery](https://ntfy-me.com/docs/migrate)
 - [Support](https://ntfy-me.com/docs/support), including end-to-end encrypted topics.
 
 ## Servers
