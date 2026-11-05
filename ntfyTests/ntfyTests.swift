@@ -10037,7 +10037,8 @@ final class MessageDynamicTypeTests: XCTestCase {
 @MainActor
 final class UrgentAlertsPresentationTests: XCTestCase {
     private func render(urgent: Bool, banner: Bool = false,
-                        authorization: UNAuthorizationStatus = .notDetermined) throws -> [(String, CGRect)] {
+                        authorization: UNAuthorizationStatus = .notDetermined,
+                        capture: ((UIImage) -> Void)? = nil) throws -> [(String, CGRect)] {
         let method = try XCTUnwrap(class_getInstanceMethod(UNNotificationSettings.self,
             #selector(getter: UNNotificationSettings.authorizationStatus)))
         let original = method_getImplementation(method)
@@ -10072,6 +10073,7 @@ final class UrgentAlertsPresentationTests: XCTestCase {
         let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
+        capture?(image)
         let request = VNRecognizeTextRequest()
         request.recognitionLanguages = ["en-US"]
         request.recognitionLevel = .accurate
@@ -10081,14 +10083,53 @@ final class UrgentAlertsPresentationTests: XCTestCase {
         }
     }
 
+    /// Vision's line rectangles include estimated padding, which varies with surrounding text.
+    /// Use it to locate the same words, then measure their rendered ink instead of that padding.
+    private func inkSize(image: UIImage, textBounds: CGRect) throws -> CGSize {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let width = CGFloat(cgImage.width), height = CGFloat(cgImage.height)
+        let rect = CGRect(x: textBounds.minX * width, y: (1 - textBounds.maxY) * height,
+                          width: textBounds.width * width, height: textBounds.height * height).integral
+        let crop = try XCTUnwrap(cgImage.cropping(to: rect))
+        var pixels = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+        try pixels.withUnsafeMutableBytes { buffer in
+            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        }
+        var left = crop.width, top = crop.height, right = -1, bottom = -1
+        for y in 0..<crop.height {
+            for x in 0..<crop.width {
+                let offset = (y * crop.width + x) * 4
+                // The rendered test is explicitly light mode: both text colours are darker
+                // than this threshold, while the row's white background is excluded.
+                if pixels[offset + 3] > 200 && pixels[offset] < 220 && pixels[offset + 1] < 220 && pixels[offset + 2] < 220 {
+                    left = min(left, x); top = min(top, y); right = max(right, x); bottom = max(bottom, y)
+                }
+            }
+        }
+        XCTAssertGreaterThanOrEqual(right, left, "Expected rendered status text")
+        XCTAssertGreaterThanOrEqual(bottom, top, "Expected rendered status text")
+        return CGSize(width: CGFloat(right - left + 1) / image.scale,
+                      height: CGFloat(bottom - top + 1) / image.scale)
+    }
+
     func testUrgentStatusUsesTheSameSecondaryTypeSizeAsPermission() throws {
-        let permission = try XCTUnwrap(render(urgent: false).first { $0.0.contains("Not requested yet") })
-        let urgent = try XCTUnwrap(render(urgent: true).first {
-            $0.0.contains("Not requested yet") || $0.0.contains("Notifications off")
+        var permissionImage: UIImage?, urgentImage: UIImage?
+        let permission = try XCTUnwrap(render(urgent: false, capture: { permissionImage = $0 }).first {
+            $0.0.contains("Not requested yet")
         })
-        XCTAssertEqual(urgent.1.height * UIScreen.main.bounds.height,
-                       permission.1.height * UIScreen.main.bounds.height, accuracy: 1,
+        let urgent = try XCTUnwrap(render(urgent: true, capture: { urgentImage = $0 }).first {
+            $0.0.contains("Not requested yet")
+        })
+        XCTAssertEqual(urgent.0, permission.0, "Compare the same rendered words")
+        let permissionInk = try inkSize(image: XCTUnwrap(permissionImage), textBounds: permission.1)
+        let urgentInk = try inkSize(image: XCTUnwrap(urgentImage), textBounds: urgent.1)
+        XCTAssertEqual(urgentInk.height, permissionInk.height, accuracy: 1,
                        "Status values on this page must use the same type size")
+        XCTAssertEqual(urgentInk.width, permissionInk.width, accuracy: 1,
+                       "The same status text must have the same glyph size")
     }
 
     func testUnrequestedPermissionOffersAnInAppRequest() throws {

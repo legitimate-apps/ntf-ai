@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C12500000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9474F1C4282F2AA800CDE4DD /* Assets.xcassets */; };
+		A12700000000000000000001 /* NotificationTestBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12700000000000000000002 /* NotificationTestBootstrap.swift */; };
 		A124DA7F0000000000000002 /* NotificationSwitches.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7F0000000000000001 /* NotificationSwitches.swift */; };
 		A124DA7F0000000000000004 /* NotificationSwitchesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7F0000000000000003 /* NotificationSwitchesTests.swift */; };
         A124DA7E0000000000000004 /* SubscriptionDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7E0000000000000005; };
@@ -251,6 +252,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A12700000000000000000002 /* NotificationTestBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/NotificationTestBootstrap.swift"; sourceTree = SOURCE_ROOT; };
 		A124DA7F0000000000000001 /* NotificationSwitches.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSwitches.swift; sourceTree = "<group>"; };
 		A124DA7F0000000000000003 /* NotificationSwitchesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/NotificationSwitchesTests.swift"; sourceTree = SOURCE_ROOT; };
         A124DA7E0000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/SubscriptionDateTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -509,6 +511,7 @@
 				546000000000000000000002,
 				546000000000000000000003,
                 A124DA7E0000000000000005 /* SubscriptionDateTests.swift */,
+				A12700000000000000000002 /* NotificationTestBootstrap.swift */,
 				A124DA7F0000000000000003 /* NotificationSwitchesTests.swift */,
 
 				DE1190000000000000000011 /* Localizable.xcstrings */,
@@ -1085,6 +1088,7 @@
 				E395E64D584757183956EA0B /* DiagnosticReportTests.swift in Sources */,
 				546100000000000000000303 /* TopicSoundTests.swift in Sources */,
                 A124DA7E0000000000000004 /* SubscriptionDateTests.swift in Sources */,
+				A12700000000000000000001 /* NotificationTestBootstrap.swift in Sources */,
 				A124DA7F0000000000000004 /* NotificationSwitchesTests.swift in Sources */,
 				547100000000000000000303,
 				547100000000000000000304,
@@ -1453,6 +1457,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_KEY_NSPrincipalClass = "$(PRODUCT_MODULE_NAME).NotificationTestBootstrap";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyTests";
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NTFY_NSE_TEST_HOST";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1473,6 +1478,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_KEY_NSPrincipalClass = "$(PRODUCT_MODULE_NAME).NotificationTestBootstrap";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyTests";
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NTFY_NSE_TEST_HOST";
 				PRODUCT_NAME = "$(TARGET_NAME)";
