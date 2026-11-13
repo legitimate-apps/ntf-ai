@@ -471,10 +471,15 @@ final class MessageTextView: UITextView {
         let mode: NSLineBreakMode = collapsed && cap > 0 ? .byTruncatingTail : .byWordWrapping
         let modeChanged = textContainer.lineBreakMode != mode
         if modeChanged { textContainer.lineBreakMode = mode }
-        guard modeChanged || cap != lineCap || collapsed != isCollapsed else { return }
+        guard modeChanged || cap != lineCap || collapsed != isCollapsed else {
+            // `configureMessageTextView` also zeroes the container inset a one-line cap uses.
+            applyFirstLineExclusion()
+            return
+        }
         lineCap = cap
         isCollapsed = collapsed
         textContainer.maximumNumberOfLines = collapsed ? cap : 0
+        applyFirstLineExclusion()
         updateExceedsLineCap()
         invalidateIntrinsicContentSize()
         setNeedsLayout()
@@ -547,8 +552,19 @@ final class MessageTextView: UITextView {
         invalidateIntrinsicContentSize()
     }
 
+    /// A text cut to one line is all first line, and TextKit draws a truncated line's "…" across
+    /// exclusion paths (the title ran under the time). So a one-line cap reserves the glyph and
+    /// the time as container insets instead, which truncation respects.
+    private var reservesFirstLineAsInsets: Bool {
+        isCollapsed && lineCap == 1
+    }
+
     private func applyFirstLineExclusion(width: CGFloat? = nil) {
-        let rects = firstLineExclusion.rects(containerWidth: width ?? bounds.width)
+        let insets = reservesFirstLineAsInsets
+            ? UIEdgeInsets(top: 0, left: firstLineExclusion.leading, bottom: 0, right: firstLineExclusion.trailing)
+            : .zero
+        if textContainerInset != insets { textContainerInset = insets }
+        let rects = reservesFirstLineAsInsets ? [] : firstLineExclusion.rects(containerWidth: width ?? bounds.width)
         let paths = rects.map { UIBezierPath(rect: $0) }
         if textContainer.exclusionPaths.map(\.bounds) != paths.map(\.bounds) {
             textContainer.exclusionPaths = paths

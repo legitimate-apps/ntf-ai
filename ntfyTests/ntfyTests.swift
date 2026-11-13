@@ -10709,3 +10709,31 @@ final class DenseFixRoundTests: XCTestCase {
         XCTAssertEqual(MessageRowMetrics.insets(listWidth: 440).top, MessageRowMetrics.verticalInset)
     }
 }
+
+/// Fix round, after the first capture: a one-line title cut with "…" ran under the time, because
+/// truncation ignores exclusion paths. The title reserves the time as a container inset instead.
+final class DenseFixRoundTitleInsetTests: XCTestCase {
+    func testOneLineCapReservesTheTimeAsAnInsetThatSurvivesTheNextUpdate() {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 300, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setMessageText(AttributedString("Migration plan for orders-db needs a decision before 18:00 today"), style: .title)
+        view.setFirstLineExclusion(FirstLineExclusion(leading: 16, trailing: 70, lineHeight: 18))
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainerInset.right, 70)
+        XCTAssertEqual(view.textContainerInset.left, 16)
+        XCTAssertTrue(view.textContainer.exclusionPaths.isEmpty)
+        // SwiftUI's next update: configure zeroes the inset, then the same exclusion and cap again.
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setFirstLineExclusion(FirstLineExclusion(leading: 16, trailing: 70, lineHeight: 18))
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainerInset.right, 70, "The time stays reserved after a re-configure")
+        let layoutManager = view.layoutManager
+        layoutManager.ensureLayout(for: view.textContainer)
+        let used = layoutManager.usedRect(for: view.textContainer)
+        XCTAssertLessThanOrEqual(used.maxX, 300 - 16 - 70 + 0.5, "The cut title ends before the time")
+
+        view.setLineCap(MessageRowLineCap.title, collapsed: false)
+        XCTAssertEqual(view.textContainerInset, .zero, "Expanded: the time is an exclusion on line 1 only")
+        XCTAssertFalse(view.textContainer.exclusionPaths.isEmpty)
+    }
+}

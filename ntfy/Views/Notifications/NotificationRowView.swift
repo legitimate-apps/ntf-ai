@@ -533,6 +533,11 @@ extension NotificationRowView {
             textView.setMessageText(attributedText, style: style)
             textView.setFirstLineExclusion(exclusion)
             textView.setLineCap(lineCap, collapsed: isCollapsed)
+            // Report the current answer on every update too, not only on a change: a List can hand
+            // this row a text view that already measured "exceeds" for an earlier row, and then no
+            // change ever fires and the row never shows "more".
+            let exceeds = textView.exceedsLineCap
+            DispatchQueue.main.async { report(exceeds) }
         }
 
         /// The height at the width SwiftUI proposes. Reporting it through `intrinsicContentSize`
