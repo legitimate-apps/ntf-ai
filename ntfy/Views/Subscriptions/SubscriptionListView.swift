@@ -89,6 +89,8 @@ struct SubscriptionListView: View {
                                         showServerAddress: TopicServerAddressPolicy.showsAddress(
                                             name: subscription.shortDisplayName(), showAddresses: showServerAddresses,
                                             ambiguousNames: ambiguousNames))
+                    // A rule above the first row read as an underline on the large title.
+                    .listRowSeparator(subscription == subscriptionsModel.subscriptions.first ? .hidden : .automatic, edges: .top)
             }
         }
         // This link lives outside the lazy List rows, so an external request can open any topic.
@@ -106,7 +108,7 @@ struct SubscriptionListView: View {
             .hidden()
         )
         .listStyle(PlainListStyle())
-        .navigationTitle(String(localized: "Subscribed topics"))
+        .navigationTitle(String(localized: "Topics"))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -121,19 +123,30 @@ struct SubscriptionListView: View {
             if subscriptionsModel.subscriptions.isEmpty {
                 GeometryReader { geometry in
                     ScrollView {
-                        VStack {
-                            Text(String(localized: "It looks like you don't have any subscriptions yet"))
-                                .font(.title2)
-                                .foregroundColor(.secondary)
+                        VStack(spacing: 12) {
+                            Text(String(localized: "No topics yet"))
+                                .font(.title3.weight(.semibold))
+                                .foregroundColor(.primary)
                                 .multilineTextAlignment(.center)
-                                .padding(.bottom)
+                                .accessibilityAddTraits(.isHeader)
 
-                            Text(String(localized: "Tap + to create a topic. Then send it a message from any computer or script, and it shows up here and as a notification."))
+                            Text(String(localized: "Messages sent to your topics show up here and as notifications."))
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                                .padding(.bottom)
+
+                            Button(String(localized: "Create a topic")) {
+                                showingAddDialog = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color("BrandFill"))
+                            .foregroundColor(Color("Ink"))
+                            .padding(.top, 4)
+                            .accessibilityIdentifier("empty-create-topic")
+
                             if let help = URL(string: Config.helpUrl) {
                                 Link(String(localized: "Quick start at \(shortUrl(url: normalizeBaseUrl(Config.helpUrl)))"), destination: help)
+                                    .font(.subheadline)
                             }
                         }
                         .padding(40)
@@ -345,15 +358,15 @@ struct SubscriptionItemRowView: View {
     }
 
     var body: some View {
-        // Three lines, most-identifying first: a long hostname used to consume the whole headline
-        // and truncate away the topic, so "server-log" and "server-alerts" were indistinguishable.
-        // Name -> address -> count, each a step down in emphasis.
+        // Name and time, then what the topic last said, then (if shown) where it lives. The
+        // newest message is what someone opening the list wants; a total count duplicated the
+        // badge and read "0 notifications" on every new topic.
         // From one aggregate for the whole list. The fallbacks keep previews and any caller
         // without a summary working; they are the old per-row faulting path and should stay unused
         // in the list itself.
-        let totalNotificationCount = summary?.total ?? subscription.notificationCount()
         let unread = summary?.unread ?? subscription.unreadCount()
         let address = subscription.shortUrlString()
+        let preview = (summary.map { $0.lastNotification } ?? subscription.lastNotification())?.previewText()
         // Each line is a full-width HStack, so the timestamp and the chevron both resolve against
         // the row's own trailing edge. Nesting the text in its own column instead made the time
         // align to that column's edge, which shifted per row with the badge's width.
@@ -383,33 +396,30 @@ struct SubscriptionItemRowView: View {
                         .fixedSize(horizontal: true, vertical: false)
                         .layoutPriority(1)
                 }
-                if !showServerAddress {
-                    rowAccessory(unread: unread)
-                }
+                rowAccessory(unread: unread)
+            }
+
+            if let preview, !preview.isEmpty {
+                Text(preview)
+                    .font(.subheadline)
+                    .foregroundColor(unread > 0 ? .primary : .secondary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("topic-row-preview")
             }
 
             if showServerAddress {
-                HStack(alignment: .center, spacing: 6) {
-                    // Monospaced so hostnames stay scannable, middle-truncated so both the server and the
-                    // topic survive on narrow screens instead of losing the tail.
-                    Text(address)
-                        .font(.system(.footnote, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .lineLimit(sizeCategory.isAccessibilityCategory ? nil : 1)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .truncationMode(.middle)
-                        .accessibilityLabel(Text(String(localized: "on \(subscription.serverHost())")))
-                    Spacer(minLength: 8)
-                    rowAccessory(unread: unread)
-                }
+                // Monospaced so hostnames stay scannable, middle-truncated so both the server and the
+                // topic survive on narrow screens instead of losing the tail.
+                Text(address)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(sizeCategory.isAccessibilityCategory ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .truncationMode(.middle)
+                    .accessibilityLabel(Text(String(localized: "on \(subscription.serverHost())")))
             }
 
-            HStack(spacing: 0) {
-                Text(String(localized: "\(totalNotificationCount) notifications"))
-                    .font(.caption)
-                    .foregroundColor(Color(UIColor.tertiaryLabel))
-                Spacer(minLength: 0)
-            }
             TopicMuteStatus(subscription: subscription)
             if let health = deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString], let label = health.label {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -423,7 +433,7 @@ struct SubscriptionItemRowView: View {
                 .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 2)
     }
 
     private func rowAccessory(unread: Int) -> some View {

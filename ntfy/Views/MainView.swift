@@ -17,7 +17,7 @@ struct MainView: View {
             SubscriptionListView(linkRoute: linkRequest?.route)
                 .tabItem {
                     Image(systemName: "message.fill")
-                    Text(String(localized: "Notifications"))
+                    Text(String(localized: "Topics"))
                 }
             SettingsView()
                 .tabItem {
@@ -25,7 +25,7 @@ struct MainView: View {
                     Text(String(localized: "Settings"))
                 }
         }
-        // A new link returns to Notifications and discards navigation and sheet state belonging
+        // A new link returns to Topics and discards navigation and sheet state belonging
         // to the previous destination, including sheets presented from Settings or a message.
         .id(linkRequest?.id)
         // SwiftUI delivers Universal Links as URLs, including on a cold launch.

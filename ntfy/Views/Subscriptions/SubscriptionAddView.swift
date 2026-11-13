@@ -26,6 +26,7 @@ struct SubscriptionAddView: View {
     @State private var showScanner = false
     /// The topic address read from a QR code, filling the sheet the same way a Universal Link does.
     @State private var scannedLink: TopicLink?
+    @State private var showServerDetails = false
 
     init(isShowing: Binding<Bool>, topicLink: TopicLink? = nil) {
         self.topicLink = topicLink
@@ -61,10 +62,15 @@ struct SubscriptionAddView: View {
                     }
                 })
         }
+        .alert(isPresented: $showServerDetails) {
+            Alert(title: Text(shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))),
+                  message: Text(Config.subscriptionServerFooter(baseUrl: selectedBaseUrl, useAnother: false)),
+                  dismissButton: .default(Text("OK")))
+        }
     }
     
     private var topicField: some View {
-        TextField(String(localized: "Topic name, e.g. alerts-k7m2-x9qp"), text: $topic)
+        TextField(String(localized: "Topic name"), text: $topic)
             .disableAutocapitalization()
             .disableAutocorrection(true)
     }
@@ -106,8 +112,22 @@ struct SubscriptionAddView: View {
                         }
                     }
                 }
-                Section(footer: ServerFooterText(text: serverFooterText)
-                    .fixedSize(horizontal: false, vertical: true)) {
+                Section(footer: VStack(alignment: .leading, spacing: 4) {
+                    ServerFooterText(text: serverFooterText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // The short footer leaves who runs the server, and how it relates to ntfy.sh,
+                    // one tap away instead of six lines under every new topic.
+                    if showsShortServerFooter {
+                        Button {
+                            showServerDetails = true
+                        } label: {
+                            Label(String(localized: "About this server"), systemImage: "info.circle")
+                                .font(.footnote)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("subscription-server-about")
+                    }
+                }) {
                     Toggle(String(localized: "Use another server"), isOn: $useAnother)
                     if useAnother {
                         TextField(SubscriptionAddServer.placeholder(defaultBaseUrl: store.getDefaultBaseUrl()), text: $baseUrl)
@@ -217,7 +237,7 @@ struct SubscriptionAddView: View {
     /// typed something that can't be subscribed to. Stays quiet while the field is empty —
     /// scolding someone before they've typed anything is worse than saying nothing.
     private var topicFooterText: String {
-        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random.")
+        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random.")
         guard !sanitizedTopic.isEmpty else { return defaultText }
         if !isValidTopicName(sanitizedTopic) {
             return String(localized: "Topic names can only use letters, numbers, dashes and underscores, up to 64 characters.")
@@ -386,9 +406,25 @@ struct SubscriptionAddView: View {
         .navigationBarBackButtonHidden(true)
     }
     
+    private var usesLinkFooter: Bool {
+        if let server = (scannedLink ?? topicLink)?.server, selectedBaseUrl == server { return true }
+        return false
+    }
+
+    private var serverFooterUsesAnother: Bool {
+        useAnother && !baseUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var showsShortServerFooter: Bool {
+        !usesLinkFooter && Config.subscriptionServerShortFooter(baseUrl: selectedBaseUrl, useAnother: serverFooterUsesAnother) != nil
+    }
+
     private var serverFooterText: String {
         if let server = (scannedLink ?? topicLink)?.server, selectedBaseUrl == server {
             return String(localized: "This link uses \(shortUrl(url: server)). Review the topic above, then tap Subscribe to add it.")
+        }
+        if let short = Config.subscriptionServerShortFooter(baseUrl: selectedBaseUrl, useAnother: serverFooterUsesAnother) {
+            return short
         }
         return Config.subscriptionServerFooter(baseUrl: selectedBaseUrl, useAnother: useAnother && !baseUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }

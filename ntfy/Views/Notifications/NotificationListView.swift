@@ -58,6 +58,9 @@ struct NotificationListView: View {
     var body: some View {
         notificationList
             .searchable(text: $searchText, prompt: NotificationHistoryStrings.search)
+            // Inside a topic both tabs are noise (Topics is the screen you came from), and iOS
+            // versions disagreed on whether the tab bar or the search field took the bottom.
+            .modifier(HidesTabBar())
             .onChange(of: searchText) { value in
                 selection = []
                 notificationsModel.scheduleSearch(value)
@@ -111,6 +114,14 @@ struct NotificationListView: View {
         deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString]?.failure == .unauthorized
     }
 
+    private var hasUnencryptedMessages: Bool {
+        notificationsModel.notifications.contains { $0.encryptionState == .unencrypted }
+    }
+
+    private var showsTopNotice: Bool {
+        signInFailed || hasUnencryptedMessages || TopicMute.status(until: subscription.mutedUntil, now: Date()) != nil
+    }
+
     private var notificationList: some View {
         Group {
             if editMode == .active {
@@ -123,26 +134,39 @@ struct NotificationListView: View {
                 }
             }
         }
+        // Installed only when there is something to say. An always-present opaque inset clipped
+        // the list's top edge hard instead of letting the scroll-edge effect fade it.
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                if signInFailed {
-                    Text(String(localized: "The server refused the sign-in."))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("topic-sign-in-notice")
-                    Button { showUserEditor = true } label: {
-                        Text(String(localized: "Check server user"))
-                            .multilineTextAlignment(.leading)
+            if showsTopNotice {
+                VStack(alignment: .leading, spacing: 8) {
+                    if signInFailed {
+                        Text(String(localized: "The server refused the sign-in."))
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityIdentifier("topic-sign-in-notice")
+                        Button { showUserEditor = true } label: {
+                            Text(String(localized: "Check server user"))
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityIdentifier("topic-sign-in-settings")
                     }
-                    .accessibilityIdentifier("topic-sign-in-settings")
+                    TopicMuteStatus(subscription: subscription)
+                    if hasUnencryptedMessages {
+                        // Said once for the topic; each such row keeps its orange "Not encrypted" label.
+                        Label(String(localized: "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them."),
+                              systemImage: "lock.open")
+                            .font(.footnote)
+                            .foregroundColor(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("topic-unencrypted-notice")
+                    }
                 }
-                TopicMuteStatus(subscription: subscription)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(UIColor.systemBackground))
             }
-            .padding(.horizontal)
-            .padding(.vertical, signInFailed ? 8 : 0)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(UIColor.systemBackground))
         }
         .sheet(isPresented: $showUserEditor) {
             UserEditorView(selectedUser: store.getUser(baseUrl: subscription.baseUrl ?? ""),
@@ -350,11 +374,21 @@ struct NotificationListView: View {
             )
             .listRowSeparator(.hidden)
         }
-        ForEach(notificationsModel.notifications, id: \.self) { notification in
-            NotificationRowView(
-                notification: notification,
-                onCopyMessage: showCopyConfirmation
-            )
+        // One header per day, so each row shows only its time.
+        ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
+            Section(header: Text(Notification.daySectionTitle(for: group.day))
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(.secondary)
+                .textCase(nil)
+                .accessibilityAddTraits(.isHeader)) {
+                ForEach(group.items, id: \.self) { notification in
+                    NotificationRowView(
+                        notification: notification,
+                        onCopyMessage: showCopyConfirmation
+                    )
+                    .listRowInsets(MessageRowMetrics.insets)
+                }
+            }
         }
         if notificationsModel.hasOlder {
             Button(NotificationHistoryStrings.loadOlder) { notificationsModel.loadOlder() }
@@ -689,4 +723,14 @@ enum FirstTopicTest {
     static let priority = 3
     static let title = String(localized: "NTF-AI test")
     static let body = String(localized: "This is a test notification from NTF-AI. Your topic is ready.")
+}
+
+private struct HidesTabBar: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.toolbar(.hidden, for: .tabBar)
+        } else {
+            content
+        }
+    }
 }

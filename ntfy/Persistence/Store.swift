@@ -1706,6 +1706,9 @@ class Store: ObservableObject {
         let unread: Int
         /// Nil when the topic has no messages yet, which is distinct from a time of zero.
         let lastTime: Int64?
+        /// The newest message itself, fetched for the whole list in one request so the topic list
+        /// can preview it without faulting each topic's history. Nil when there is none.
+        var lastNotification: Notification? = nil
     }
 
     /// Row data for every subscription, as TWO aggregate queries for the whole list.
@@ -1716,10 +1719,12 @@ class Store: ObservableObject {
     /// with a few thousand stored messages paid that on every badge change and every scroll.
     ///
     /// Grouped counts resolve in SQLite instead. Two queries rather than one because the unread
-    /// tally needs a predicate the totals must not share.
+    /// tally needs a predicate the totals must not share; a third fetches each topic's newest
+    /// message for the row preview.
     func subscriptionSummaries() -> [NSManagedObjectID: SubscriptionSummary]? {
         var totals: [NSManagedObjectID: (count: Int, lastTime: Int64?)] = [:]
         var unreads: [NSManagedObjectID: Int] = [:]
+        var latest: [NSManagedObjectID: Notification] = [:]
         var failed = false
 
         context.performAndWait {
@@ -1771,6 +1776,25 @@ class Store: ObservableObject {
                 guard let objectID = row["subscription"] as? NSManagedObjectID else { continue }
                 unreads[objectID] = row["rowCount"] as? Int ?? 0
             }
+            // The newest message per topic, in one request: every row whose time is some topic's
+            // maximum, then keep the one belonging to that topic. A preview is a nicety, so a
+            // failure here leaves previews empty rather than failing the counts.
+            let maxTimes = Set(totals.values.compactMap { $0.lastTime })
+            if !maxTimes.isEmpty {
+                let request = NSFetchRequest<Notification>(entityName: "Notification")
+                request.predicate = NSPredicate(format: "time IN %@", Array(maxTimes))
+                request.returnsObjectsAsFaults = false
+                do {
+                    for notification in try context.fetch(request) {
+                        guard let objectID = notification.subscription?.objectID,
+                              totals[objectID]?.lastTime == notification.time else { continue }
+                        if let existing = latest[objectID], (existing.id ?? "") > (notification.id ?? "") { continue }
+                        latest[objectID] = notification
+                    }
+                } catch let error {
+                    Log.w(Store.tag, "Cannot fetch latest messages for topic previews", error)
+                }
+            }
         }
 
         guard !failed else { return nil }
@@ -1779,7 +1803,8 @@ class Store: ObservableObject {
         for (objectID, total) in totals {
             summaries[objectID] = SubscriptionSummary(total: total.count,
                                                       unread: unreads[objectID] ?? 0,
-                                                      lastTime: total.lastTime)
+                                                      lastTime: total.lastTime,
+                                                      lastNotification: latest[objectID])
         }
         return summaries
     }

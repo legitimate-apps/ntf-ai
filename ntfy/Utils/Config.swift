@@ -54,6 +54,14 @@ enum Config {
         return String(localized: "New topics use your default server, \(shortUrl(url: baseUrl)).")
     }
 
+    /// The two-sentence footer for the built-in server; the full `subscriptionServerFooter` text
+    /// (who runs it, and that ntfy.sh is a different server) sits behind "About this server".
+    /// Nil wherever the full footer carries a delivery hint the user needs to see.
+    static func subscriptionServerShortFooter(baseUrl: String, useAnother: Bool) -> String? {
+        guard !useAnother, ntfyShDeliveryHint(baseUrl: baseUrl) == nil, baseUrl == normalizeBaseUrl(appBaseUrl) else { return nil }
+        return String(localized: "New topics use \(shortUrl(url: normalizeBaseUrl(appBaseUrl))), a free public server. Any ntfy server works: turn on \"Use another server\".")
+    }
+
     static func defaultServerFooter(baseUrl: String) -> String {
         let deliveryHint = ntfyShDeliveryHint(baseUrl: baseUrl)
             ?? selfHostedDeliveryHint

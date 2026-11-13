@@ -15,10 +15,8 @@ struct SettingsView: View {
             Form {
                 Section(
                     header: Text(String(localized: "General")),
-                    footer: VStack(alignment: .leading, spacing: 8) {
-                        Text(String(localized: "When subscribing to new topics, this server will be used as a default."))
-                        Text(String(localized: "Topics with matching names always show their addresses."))
-                    }
+                    // Only the toggle needs explaining; Default server's value says what it is.
+                    footer: Text(String(localized: "Topics with matching names always show their addresses."))
                 ) {
                     Toggle(String(localized: "Open web links in app"), isOn: $openWebLinksInApp)
                     DefaultServerView()

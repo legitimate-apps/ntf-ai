@@ -22,6 +22,17 @@ extension Notification {
     func linkifiedMessageAttributedString() -> AttributedString {
         return renderMessageBody(formatMessage(), contentType: nil)
     }
+
+    /// The one line a list shows for this message: its title if it has one, else its body as
+    /// plain text (Markdown resolved, line breaks folded), so a preview never shows `**`.
+    func previewText() -> String {
+        if let title = formatTitle(), !title.isEmpty {
+            return title
+        }
+        let plain = String(renderedMessageAttributedString().characters)
+        return plain.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: " ")
+    }
 }
 
 /// Pure + testable. Parses Markdown (iOS 15+) when `contentType` is
@@ -188,26 +199,48 @@ func messageRowTapPolicy(isEditing: Bool) -> MessageRowTapPolicy {
     )
 }
 
+/// Message rows are set at `.subheadline` (15/20 at the default size): title and body differ by
+/// weight, and the row reads as an inbox, not a page. Unread titles are semibold, read ones medium,
+/// which is how a row says it is unread without another glyph.
 enum MessageTextStyle {
     case body
     case title
+    case titleRead
+
+    /// Unread titles are semibold; once read they drop to medium, so the weight itself says
+    /// which messages are new without a second color.
+    static func title(read: Bool) -> MessageTextStyle {
+        read ? .titleRead : .title
+    }
 
     var uiTextStyle: UIFont.TextStyle {
+        .subheadline
+    }
+
+    var weight: UIFont.Weight? {
         switch self {
         case .body:
-            return .body
+            return nil
         case .title:
-            return .headline
+            return .semibold
+        case .titleRead:
+            return .medium
         }
     }
 
     var baseTraits: UIFontDescriptor.SymbolicTraits {
-        switch self {
-        case .body:
-            return []
-        case .title:
-            return .traitBold
-        }
+        []
+    }
+
+    /// The first line's baseline measured from the top of the text view, for aligning the
+    /// row's trailing time with it. TextKit places the first baseline at the font's ascender
+    /// when the container inset and padding are zero, as `configureMessageTextView` sets them.
+    func firstBaseline(compatibleWith traitCollection: UITraitCollection?) -> CGFloat {
+        UIFont.preferredFont(forTextStyle: uiTextStyle, compatibleWith: traitCollection).ascender
+    }
+
+    func lineHeight(compatibleWith traitCollection: UITraitCollection?) -> CGFloat {
+        UIFont.preferredFont(forTextStyle: uiTextStyle, compatibleWith: traitCollection).lineHeight
     }
 }
 
@@ -266,6 +299,16 @@ func makeMessageNSAttributedString(
             }
         }
         descriptor = descriptor.withSymbolicTraits(traits) ?? descriptor
+        // A weight is a trait attribute, not a symbolic trait, so it goes on after them. Markdown
+        // bold inside a title stays bold rather than being lowered to the title's weight.
+        if let weight = style.weight, !traits.contains(.traitBold) {
+            descriptor = descriptor.addingAttributes([
+                .traits: [
+                    UIFontDescriptor.TraitKey.weight: weight.rawValue,
+                    UIFontDescriptor.TraitKey.symbolic: traits.rawValue
+                ]
+            ])
+        }
         output.addAttribute(.font, value: UIFont(descriptor: descriptor, size: 0), range: range)
     }
 
@@ -342,6 +385,9 @@ func applyMessageWrapping(to attributed: NSAttributedString) -> NSAttributedStri
 /// when a message contains oversized tokens.
 final class MessageTextView: UITextView {
     private var lastLaidOutWidth: CGFloat = 0
+    /// Space kept free on the first line, so a row's time (trailing) and priority glyph
+    /// (leading) sit inside the text's first line and the lines below use the full width.
+    private(set) var firstLineExclusion = FirstLineExclusion()
     private var messageText: NSAttributedString?
     private var messageSource: AttributedString?
     private var messageStyle: MessageTextStyle = .body
@@ -381,6 +427,21 @@ final class MessageTextView: UITextView {
         invalidateIntrinsicContentSize()
     }
 
+    func setFirstLineExclusion(_ exclusion: FirstLineExclusion) {
+        guard exclusion != firstLineExclusion else { return }
+        firstLineExclusion = exclusion
+        applyFirstLineExclusion()
+        invalidateIntrinsicContentSize()
+    }
+
+    private func applyFirstLineExclusion() {
+        let rects = firstLineExclusion.rects(containerWidth: bounds.width)
+        let paths = rects.map { UIBezierPath(rect: $0) }
+        if textContainer.exclusionPaths.map(\.bounds) != paths.map(\.bounds) {
+            textContainer.exclusionPaths = paths
+        }
+    }
+
     override var intrinsicContentSize: CGSize {
         guard !isScrollEnabled else {
             return super.intrinsicContentSize
@@ -400,7 +461,28 @@ final class MessageTextView: UITextView {
             return
         }
         lastLaidOutWidth = bounds.width
+        applyFirstLineExclusion()
         invalidateIntrinsicContentSize()
+    }
+}
+
+/// Widths reserved at either end of a text view's first line. Pure, so the geometry is testable.
+struct FirstLineExclusion: Equatable {
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
+    var lineHeight: CGFloat = 0
+
+    func rects(containerWidth: CGFloat) -> [CGRect] {
+        guard containerWidth > 0, lineHeight > 0 else { return [] }
+        var rects: [CGRect] = []
+        if leading > 0 {
+            rects.append(CGRect(x: 0, y: 0, width: min(leading, containerWidth), height: lineHeight))
+        }
+        if trailing > 0 {
+            let width = min(trailing, containerWidth)
+            rects.append(CGRect(x: containerWidth - width, y: 0, width: width, height: lineHeight))
+        }
+        return rects
     }
 }
 

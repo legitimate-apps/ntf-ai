@@ -18,13 +18,13 @@ final class NavigationPilotUITests: XCTestCase {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 3) { springboard.buttons["Allow"].tap() }
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
     }
     func launchList() {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.navigationBars.staticTexts[target].exists)
         XCTAssertFalse(app.navigationBars["What's new"].exists, "Ordinary navigation starts after the current release was seen")
         // 60 earlier rows make the target absent from the rendered viewport.
@@ -32,14 +32,14 @@ final class NavigationPilotUITests: XCTestCase {
     }
     func assertTarget() {
         XCTAssertTrue(app.navigationBars.staticTexts[target].waitForExistence(timeout: 8), "off-screen target must open without scrolling")
-        XCTAssertTrue(app.navigationBars.buttons["Subscribed topics"].exists)
+        XCTAssertTrue(app.navigationBars.buttons["Topics"].exists)
         XCTAssertTrue(app.buttons["Topic actions"].exists)
     }
     func testURLNewCold() {
         app.terminate()
         app.open(URL(string: "https://ntfy-me.com/" + newTopic)!)
         XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 8))
-        XCTAssertEqual(app.textFields["Topic name, e.g. alerts-k7m2-x9qp"].value as? String, newTopic)
+        XCTAssertEqual(app.textFields["Topic name"].value as? String, newTopic)
         XCTAssertEqual(app.textFields["subscription-server-url"].value as? String, "https://ntfy-me.com")
     }
     func testNotificationWarmOffscreen() {
@@ -63,9 +63,9 @@ final class NavigationPilotUITests: XCTestCase {
         for _ in 0..<2 {
             app.open(URL(string: "https://ntfy-me.com/" + newTopic)!)
             XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 5))
-            XCTAssertEqual(app.textFields["Topic name, e.g. alerts-k7m2-x9qp"].value as? String, newTopic)
+            XCTAssertEqual(app.textFields["Topic name"].value as? String, newTopic)
             app.buttons["Cancel"].tap()
-            XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
             // One tap leaves one sheet, with no second presentation after Cancel.
             Thread.sleep(forTimeInterval: 1)
             XCTAssertFalse(app.navigationBars["Add subscription"].exists)
@@ -81,7 +81,7 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
         assertTarget()
-        app.navigationBars.buttons["Subscribed topics"].tap()
+        app.navigationBars.buttons["Topics"].tap()
         app.buttons["Add subscription"].tap()
         XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 5))
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
@@ -103,13 +103,13 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["What's new"].waitForExistence(timeout: 8))
         app.open(URL(string: "https://ntfy-me.com/" + newTopic)!)
         XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.textFields["Topic name, e.g. alerts-k7m2-x9qp"].value as? String, newTopic)
+        XCTAssertEqual(app.textFields["Topic name"].value as? String, newTopic)
     }
     func testReservedInvalidAndOtherHostDoNothing() {
         launchList()
         for url in ["https://ntfy-me.com/docs", "https://ntfy-me.com/a/b", "https://ntfy.sh/alerts"] {
             app.open(URL(string: url)!)
-            XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
             XCTAssertFalse(app.navigationBars["Add subscription"].exists)
         }
     }
@@ -117,15 +117,15 @@ final class NavigationPilotUITests: XCTestCase {
         launchList()
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
         assertTarget()
-        app.navigationBars.buttons["Subscribed topics"].tap()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons["Topics"].tap()
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
         for _ in 0..<20 {
             if app.staticTexts[target].firstMatch.exists && app.staticTexts[target].firstMatch.isHittable { break }
             app.swipeUp()
         }
         XCTAssertTrue(app.staticTexts[target].firstMatch.isHittable)
         Thread.sleep(forTimeInterval: 2)
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].exists, "scrolling must not replay the consumed notification")
+        XCTAssertTrue(app.navigationBars["Topics"].exists, "scrolling must not replay the consumed notification")
         app.staticTexts[target].firstMatch.tap()
         assertTarget()
     }
@@ -138,7 +138,7 @@ final class NavigationPilotUITests: XCTestCase {
         launchList()
         app.open(URL(string: "https://ntfy-me.com/" + newTopic)!)
         XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.textFields["Topic name, e.g. alerts-k7m2-x9qp"].value as? String, newTopic)
+        XCTAssertEqual(app.textFields["Topic name"].value as? String, newTopic)
         app.buttons["Subscribe"].tap()
         XCTAssertTrue(app.navigationBars.staticTexts[newTopic].waitForExistence(timeout: 15))
         confirmUnsubscribe()
@@ -148,7 +148,7 @@ final class NavigationPilotUITests: XCTestCase {
         app.buttons["Unsubscribe"].tap()
         XCTAssertTrue(app.alerts["Unsubscribe"].waitForExistence(timeout: 3))
         app.alerts["Unsubscribe"].buttons["Unsubscribe"].tap()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 5), "unsubscribing must dismiss its message list")
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5), "unsubscribing must dismiss its message list")
     }
     func testZUnsubscribeManuallyOpenedTopic() {
         launchList()
@@ -239,7 +239,7 @@ final class NavigationPilotUITests: XCTestCase {
     func testAccessibilityControlNames() {
         continueAfterFailure = true
         app.launch()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
         captureAX("regression-list")
         XCTAssertTrue(app.buttons["Add subscription"].exists, "The primary action needs its spoken name")
         app.staticTexts["aaa-nav-000"].firstMatch.tap()
@@ -255,14 +255,14 @@ final class NavigationPilotUITests: XCTestCase {
     // Run separately with --seed --empty-fixture, after the navigation suite.
     func testAccessibilityEmptyList() throws {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
         guard !app.staticTexts["aaa-nav-000"].exists else { throw XCTSkip("Run with --seed --empty-fixture") }
         captureAX("empty-topic-list")
-        XCTAssertTrue(app.staticTexts["It looks like you don't have any subscriptions yet"].exists)
+        XCTAssertTrue(app.staticTexts["No topics yet"].exists)
     }
     func testCaptureSavedUserRow() {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
         app.buttons["Settings"].tap()
         let user = app.buttons.matching(NSPredicate(format: "label CONTAINS 'accessibility-user'")).firstMatch
         for _ in 0..<16 { if user.exists && user.isHittable { break }; app.swipeUp() }
@@ -274,7 +274,7 @@ final class NavigationPilotUITests: XCTestCase {
     }
     func testCaptureAccessibilityScreens() {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Subscribed topics"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
         captureAX("topic-list")
         tapEither("Add subscription", "Add")
         XCTAssertTrue(app.navigationBars["Add subscription"].waitForExistence(timeout: 5))
@@ -296,7 +296,7 @@ final class NavigationPilotUITests: XCTestCase {
         tapEither("Topic actions", "More")
         captureAX("topic-menu")
         app.tapCoordinateOutsideMenu()
-        app.navigationBars.buttons["Subscribed topics"].tap()
+        app.navigationBars.buttons["Topics"].tap()
         app.buttons["Settings"].tap()
         captureAX("settings-top")
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Default server'")).firstMatch.tap()
@@ -340,7 +340,7 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Done"].exists)
         captureAX("topic-qr-code")
         app.buttons["Done"].tap()
-        app.navigationBars.buttons["Subscribed topics"].tap()
+        app.navigationBars.buttons["Topics"].tap()
         app.buttons["Add subscription"].tap()
         let scan = app.buttons["Scan QR code"]
         for _ in 0..<6 { if scan.isHittable { break }; app.swipeUp() }
@@ -653,7 +653,7 @@ private extension XCTestCase {
             object: app.navigationBars[german ? "Neuigkeiten" : "What's new"])
         XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed,
                        "Continue must dismiss the release sheet, not just reveal its underlying navigation bar")
-        XCTAssertTrue(app.navigationBars[german ? "Abonnierte Themen" : "Subscribed topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars[german ? "Abonnierte Themen" : "Topics"].waitForExistence(timeout: 5))
         capture(0, suffix: "dismissed")
     }
 }

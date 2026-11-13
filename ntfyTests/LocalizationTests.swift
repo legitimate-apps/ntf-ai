@@ -336,9 +336,9 @@ final class LocalizationTests: XCTestCase {
     func testAddedLanguagesCompileIntoAppAndExtensionWithLocalePlurals() throws {
         let expected: [String: [String]] = [
             "es": ["Tópicos", "1 hora", "2 horas", "5 horas", "12 horas", "22 horas"],
-            "it": ["Iscrizioni", "1 ora", "2 ore", "5 ore", "12 ore", "22 ore"],
+            "it": ["Argomenti", "1 ora", "2 ore", "5 ore", "12 ore", "22 ore"],
             "pl": ["Tematy", "1 godzina", "2 godziny", "5 godzin", "12 godzin", "22 godziny"],
-            "nl": ["Topics", "1 uur", "2 uur", "5 uur", "12 uur", "22 uur"],
+            "nl": ["Onderwerpen", "1 uur", "2 uur", "5 uur", "12 uur", "22 uur"],
             "fr": ["Sujets", "1 heure", "2 heures", "5 heures", "12 heures", "22 heures"]
         ]
         let regions = ["es": "ES", "it": "IT", "pl": "PL", "nl": "NL", "fr": "FR"]
@@ -349,7 +349,7 @@ final class LocalizationTests: XCTestCase {
             let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
             let values = try XCTUnwrap(expected[language])
             let locale = Locale(identifier: language + "_" + regions[language]!)
-            XCTAssertEqual(bundle.localizedString(forKey: "Subscribed topics", value: nil, table: nil), values[0])
+            XCTAssertEqual(bundle.localizedString(forKey: "Topics", value: nil, table: nil), values[0])
             for (index, count) in [1, 2, 5, 12, 22].enumerated() {
                 let format = bundle.localizedString(forKey: "%lld hours", value: nil, table: nil)
                 XCTAssertEqual(String(format: format, locale: locale, count), values[index + 1], language)

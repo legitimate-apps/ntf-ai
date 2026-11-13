@@ -10017,7 +10017,8 @@ final class MessageDynamicTypeTests: XCTestCase {
             parent.setOverrideTraitCollection(traits, forChild: child)
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             XCTAssertEqual(textView.traitCollection.preferredContentSizeCategory, category)
-            let expected = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).pointSize
+            // Message bodies use the row's body style (subheadline since the 1.26 dense list).
+            let expected = UIFont.preferredFont(forTextStyle: MessageTextStyle.body.uiTextStyle, compatibleWith: traits).pointSize
             for (token, requiredTrait) in [("Plain", UIFontDescriptor.SymbolicTraits()), ("bold", .traitBold), ("italic", .traitItalic), ("inline", .traitMonoSpace), ("fenced", .traitMonoSpace)] {
                 let index = (original as NSString).range(of: token).location
                 let font = try XCTUnwrap(textView.attributedText.attribute(.font, at: index, effectiveRange: nil) as? UIFont)
@@ -10314,5 +10315,159 @@ final class AttachmentUnlinkOrderingTests: XCTestCase {
         XCTAssertThrowsError(try AttachmentFileStore.storeTemporaryFile(at: source, to: destination, mimeType: nil))
         XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
         XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["destination", ".attachments.lock"])
+    }
+}
+
+/// 1.26 dense list: the behaviour behind the topic-row preview, the unread weight, day sections,
+/// the image height cap, the inline first line and the wrapping action buttons.
+final class DenseListTests: XCTestCase {
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+    private let english = Locale(identifier: "en_US")
+
+    private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 12, _ minute: Int = 0) -> Date {
+        utc.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    func testTopicSummaryCarriesEachTopicsNewestMessageForItsPreview() throws {
+        let store = Store(inMemory: true)
+        let builds = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "builds")
+        let alerts = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "alerts")
+        let quiet = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "quiet")
+        store.save(notificationsFromMessages: [
+            Message(id: "b1", time: 1_800_000_000, event: "message", topic: "builds", message: "old build"),
+            Message(id: "b2", time: 1_800_000_300, event: "message", topic: "builds",
+                    message: "**Deploy** finished\n\non prod", contentType: "text/markdown"),
+            Message(id: "b0", time: 1_799_999_000, event: "message", topic: "builds", message: "older still")
+        ], withSubscription: builds)
+        // alerts' newest time equals builds' oldest: the shared `time IN` fetch must not cross topics.
+        store.save(notificationsFromMessages: [
+            Message(id: "a1", time: 1_800_000_000, event: "message", topic: "alerts", message: "disk", title: "Disk 91% full"),
+            Message(id: "a0", time: 1_799_000_000, event: "message", topic: "alerts", message: "earlier")
+        ], withSubscription: alerts)
+
+        let summaries = try XCTUnwrap(store.subscriptionSummaries())
+        let buildRow = try XCTUnwrap(summaries[builds.objectID]?.lastNotification)
+        XCTAssertEqual(buildRow.id, "b2")
+        XCTAssertEqual(buildRow.previewText(), "Deploy finished on prod", "Markdown resolved, line breaks folded")
+        let alertRow = try XCTUnwrap(summaries[alerts.objectID]?.lastNotification)
+        XCTAssertEqual(alertRow.id, "a1")
+        XCTAssertEqual(alertRow.previewText(), "Disk 91% full", "A title previews in place of the body")
+        XCTAssertNil(summaries[quiet.objectID]?.lastNotification, "An empty topic has no preview")
+        XCTAssertEqual(summaries[builds.objectID]?.total, 3)
+    }
+
+    func testUnreadTitleIsHeavierThanReadTitle() throws {
+        func weight(_ style: MessageTextStyle) throws -> CGFloat {
+            let rendered = makeMessageNSAttributedString(AttributedString("Backup finished"), style: style)
+            let font = try XCTUnwrap(rendered.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+            let traits = try XCTUnwrap(font.fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any])
+            return try XCTUnwrap(traits[.weight] as? CGFloat)
+        }
+        let unread = try weight(.title(read: false))
+        let read = try weight(.title(read: true))
+        let body = try weight(.body)
+        XCTAssertEqual(unread, UIFont.Weight.semibold.rawValue, accuracy: 0.01)
+        XCTAssertEqual(read, UIFont.Weight.medium.rawValue, accuracy: 0.01)
+        XCTAssertGreaterThan(unread, read)
+        XCTAssertGreaterThan(read, body)
+        let unreadFont = makeMessageNSAttributedString(AttributedString("x"), style: .title(read: false))
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        XCTAssertEqual(unreadFont?.pointSize, UIFont.preferredFont(forTextStyle: .subheadline).pointSize,
+                       "Title and body share one size; weight alone carries the hierarchy")
+    }
+
+    func testDaySectionsNameTodayYesterdayThenDates() {
+        let now = date(2026, 11, 12, 15)
+        let title = { (day: Date) in Notification.daySectionTitle(for: day, now: now, calendar: self.utc, locale: self.english) }
+        XCTAssertEqual(title(date(2026, 11, 12, 0, 5)), "Today")
+        XCTAssertEqual(title(date(2026, 11, 11, 23, 59)), "Yesterday")
+        XCTAssertEqual(title(date(2026, 11, 10, 8)), "Tue, Nov 10")
+        XCTAssertEqual(title(date(2025, 12, 31, 8)), "Wed, Dec 31, 2025", "Another year names the year")
+    }
+
+    func testGroupingKeepsOrderAndSplitsAtMidnight() {
+        let times = [date(2026, 11, 12, 9), date(2026, 11, 12, 0, 1), date(2026, 11, 11, 23, 59), date(2026, 11, 9, 7)]
+        let groups = Notification.groupedByDay(times, calendar: utc) { $0 }
+        XCTAssertEqual(groups.map { $0.items.count }, [2, 1, 1])
+        XCTAssertEqual(groups.map { $0.day }, [date(2026, 11, 12, 0), date(2026, 11, 11, 0), date(2026, 11, 9, 0)])
+        XCTAssertEqual(groups.flatMap { $0.items }, times)
+    }
+
+    func testRowTimeIsTimeOnlyBecauseTheSectionNamesTheDay() {
+        let yesterday = date(2026, 11, 11, 15, 4)
+        let text = Notification.shortTime(for: yesterday, calendar: utc, locale: english)
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+        XCTAssertEqual(text, "3:04 PM")
+    }
+
+    func testAttachmentImagesNeverExceedTheHeightCap() {
+        let cap = AttachmentImageLayout.maxHeight
+        XCTAssertEqual(cap, 180)
+        // A phone screenshot becomes a thumbnail at its own aspect, not a full-width poster.
+        let portrait = AttachmentImageLayout.size(for: CGSize(width: 1179, height: 2556), availableWidth: 330)
+        XCTAssertEqual(portrait.height, cap)
+        XCTAssertEqual(portrait.width, cap * 1179 / 2556, accuracy: 0.5)
+        // 4:3 landscape at full width would be 247 pt tall: capped and cropped to the column.
+        let landscape = AttachmentImageLayout.size(for: CGSize(width: 4032, height: 3024), availableWidth: 330)
+        XCTAssertEqual(landscape, CGSize(width: 330, height: cap))
+        // A wide banner keeps its natural height under the cap.
+        let banner = AttachmentImageLayout.size(for: CGSize(width: 3000, height: 600), availableWidth: 330)
+        XCTAssertEqual(banner.width, 330)
+        XCTAssertEqual(banner.height, 66, accuracy: 0.5)
+        // Never upscaled.
+        XCTAssertEqual(AttachmentImageLayout.size(for: CGSize(width: 40, height: 60), availableWidth: 330), CGSize(width: 40, height: 60))
+        XCTAssertEqual(AttachmentImageLayout.size(for: .zero, availableWidth: 330).height, AttachmentImageLayout.placeholderHeight)
+    }
+
+    func testFirstLineExclusionReservesOnlyTheFirstLine() {
+        let exclusion = FirstLineExclusion(leading: 20, trailing: 64, lineHeight: 18)
+        XCTAssertEqual(exclusion.rects(containerWidth: 300),
+                       [CGRect(x: 0, y: 0, width: 20, height: 18), CGRect(x: 236, y: 0, width: 64, height: 18)])
+        XCTAssertEqual(FirstLineExclusion(trailing: 64, lineHeight: 18).rects(containerWidth: 300),
+                       [CGRect(x: 236, y: 0, width: 64, height: 18)])
+        XCTAssertEqual(FirstLineExclusion().rects(containerWidth: 300), [])
+    }
+
+    @available(iOS 16.0, *)
+    func testFirstLineExclusionWrapsOnlyTheFirstLineAroundTheTime() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 240, height: 400))
+        configureMessageTextView(view, isInteractionEnabled: true)
+        let body = String(repeating: "word ", count: 60)
+        view.setMessageText(makeMessageNSAttributedString(AttributedString(body), style: .body))
+        let lineHeight = MessageTextStyle.body.lineHeight(compatibleWith: nil)
+        view.setFirstLineExclusion(FirstLineExclusion(trailing: 80, lineHeight: lineHeight))
+        view.layoutIfNeeded()
+        var widths: [CGFloat] = []
+        view.textLayoutManager?.enumerateTextLayoutFragments(from: nil, options: [.ensuresLayout]) { fragment in
+            widths += fragment.textLineFragments.map { $0.typographicBounds.width }
+            return true
+        }
+        XCTAssertGreaterThan(widths.count, 3)
+        XCTAssertLessThanOrEqual(widths[0], 160 + 0.5, "The first line stops before the time")
+        XCTAssertGreaterThan(widths[1], 170, "Later lines use the full width")
+    }
+
+    @available(iOS 16.0, *)
+    func testActionButtonsWrapOntoNewLines() {
+        let sizes = [CGSize(width: 120, height: 30), CGSize(width: 140, height: 30), CGSize(width: 90, height: 32)]
+        let frames = WrappingHStack.frames(for: sizes, width: 300, spacing: 8, lineSpacing: 8)
+        XCTAssertEqual(frames, [CGRect(x: 0, y: 0, width: 120, height: 30),
+                                CGRect(x: 128, y: 0, width: 140, height: 30),
+                                CGRect(x: 0, y: 38, width: 90, height: 32)])
+        let wide = WrappingHStack.frames(for: [CGSize(width: 500, height: 30)], width: 300, spacing: 8, lineSpacing: 8)
+        XCTAssertEqual(wide, [CGRect(x: 0, y: 0, width: 300, height: 30)], "One over-wide button is clamped, not overflowing")
+    }
+
+    func testBuiltInServerGetsTheShortFooterAndOthersKeepTheirHints() {
+        let builtIn = normalizeBaseUrl(Config.appBaseUrl)
+        XCTAssertEqual(Config.subscriptionServerShortFooter(baseUrl: builtIn, useAnother: false),
+                       String(localized: "New topics use \(shortUrl(url: builtIn)), a free public server. Any ntfy server works: turn on \"Use another server\"."))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: builtIn, useAnother: true))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntfy.sh", useAnother: false))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntfy.home.lan", useAnother: false))
     }
 }

@@ -1918,53 +1918,6 @@
         }
       }
     },
-    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen oder tippe auf „Zufällig“."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar o toca Aleatorio."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare o tocca Casuale."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę lub stuknij „Losowa”."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam of tik op Willekeurig."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner ou touchez Aléatoire."
-          }
-        }
-      }
-    },
     "Anyone who scans this code can subscribe to this topic and read its messages, unless the server requires a login. Share it only with people you trust.": {
       "extractionState": "manual",
       "localizations": {
@@ -8538,53 +8491,6 @@
         }
       }
     },
-    "It looks like you don't have any subscriptions yet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "It looks like you don't have any subscriptions yet"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast noch keine Themen abonniert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parece que aún no tienes suscripciones"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non hai ancora iscrizioni"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nie masz jeszcze żadnych subskrypcji"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je hebt nog geen abonnementen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous n’avez pas encore d’abonnements"
-          }
-        }
-      }
-    },
     "Keep editing": {
       "extractionState": "manual",
       "localizations": {
@@ -13991,147 +13897,6 @@
         }
       }
     },
-    "Repair": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repair"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparar"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ripara"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Napraw"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Herstellen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réparer"
-          }
-        }
-      }
-    },
-    "Repair is still running. Check again in a moment.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repair is still running. Check again in a moment."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Reparatur läuft noch. Prüfe es gleich noch einmal."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La reparación sigue en curso. Compruébala de nuevo en un momento."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La riparazione è ancora in corso. Ricontrolla tra poco."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naprawa nadal trwa. Sprawdź ponownie za chwilę."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Het herstel loopt nog. Controleer het zo opnieuw."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La réparation est encore en cours. Vérifiez à nouveau dans un instant."
-          }
-        }
-      }
-    },
-    "Repairing…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repairing…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wird repariert…"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparando…"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riparazione…"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naprawianie…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Herstellen…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réparation…"
-          }
-        }
-      }
-    },
     "Replace %@ with the value of %@ from Settings.": {
       "extractionState": "manual",
       "localizations": {
@@ -15022,53 +14787,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Envoi…"
-          }
-        }
-      }
-    },
-    "Sent without this topic's password. Anyone who knows the topic name could have sent it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sent without this topic's password. Anyone who knows the topic name could have sent it."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ohne Passwort dieses Themas gesendet. Jeder mit Kenntnis des Themennamens könnte sie gesendet haben."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se envió sin la contraseña de este tópico. Cualquiera que conozca su nombre podría haberlo enviado."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inviato senza la password di questo argomento. Chiunque ne conosca il nome potrebbe averlo inviato."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wysłano bez hasła tego tematu. Mógł to zrobić każdy, kto zna jego nazwę."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verstuurd zonder het wachtwoord van dit onderwerp. Iedereen die de onderwerpnaam kent, kan dit hebben gestuurd."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envoyé sans le mot de passe du sujet. Toute personne qui connaît le nom du sujet aurait pu l’envoyer."
           }
         }
       }
@@ -16248,53 +15966,6 @@
         }
       }
     },
-    "Subscribed topics": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subscribed topics"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abonnierte Themen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Iscrizioni"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topics"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets"
-          }
-        }
-      }
-    },
     "Swipe a message to mark it read or unread. Long-press a topic to pin it, mark it read or unsubscribe.": {
       "extractionState": "manual",
       "localizations": {
@@ -16432,53 +16103,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Étiquettes : %@"
-          }
-        }
-      }
-    },
-    "Tap + to create a topic. Then send it a message from any computer or script, and it shows up here and as a notification.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap + to create a topic. Then send it a message from any computer or script, and it shows up here and as a notification."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippe auf +, um ein Thema anzulegen. Sende ihm dann von einem Computer oder Skript eine Nachricht. Sie erscheint hier und als Benachrichtigung."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca + para crear un tópico. Envía un mensaje desde cualquier computadora o script y aparecerá aquí y como notificación."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tocca + per creare un argomento. Inviagli un messaggio da un computer o uno script: comparirà qui e come notifica."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stuknij +, aby utworzyć temat. Następnie wyślij do niego wiadomość z dowolnego komputera lub skryptu. Pojawi się tutaj i jako powiadomienie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tik op + om een onderwerp te maken. Stuur daarna een bericht vanaf een computer of script. Het verschijnt hier en als melding."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez + pour créer un sujet. Envoyez-lui ensuite un message depuis un ordinateur ou un script : il apparaîtra ici et sous forme de notification."
           }
         }
       }
@@ -19417,53 +19041,6 @@
         }
       }
     },
-    "Topic name, e.g. alerts-k7m2-x9qp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topic name, e.g. alerts-k7m2-x9qp"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Themenname"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nombre del tópico"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nome argomento"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nazwa tematu"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpnaam"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nom du sujet"
-          }
-        }
-      }
-    },
     "Topic names can only use letters, numbers, dashes and underscores, up to 64 characters.": {
       "extractionState": "manual",
       "localizations": {
@@ -19601,53 +19178,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les sujets de ce serveur peuvent nécessiter une nouvelle connexion."
-          }
-        }
-      }
-    },
-    "Topics waiting for push": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topics waiting for push"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Themen ohne Push-Anbindung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos pendientes de avisos"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Argomenti in attesa del push"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy oczekujące na push"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpen die op push wachten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets en attente de push"
           }
         }
       }
@@ -29955,6 +29485,664 @@
           "stringUnit": {
             "state": "translated",
             "value": "NTF-AI. Même app, mêmes sujets, mêmes réglages."
+          }
+        }
+      }
+    },
+    "Topics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets"
+          }
+        }
+      }
+    },
+    "No topics yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No topics yet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Themen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay tópicos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie ma jeszcze tematów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog geen onderwerpen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun sujet pour l’instant"
+          }
+        }
+      }
+    },
+    "Messages sent to your topics show up here and as notifications.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages sent to your topics show up here and as notifications."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten an deine Themen erscheinen hier und als Benachrichtigung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los mensajes enviados a tus tópicos aparecen aquí y como notificaciones."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I messaggi inviati ai tuoi argomenti compaiono qui e come notifiche."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości wysłane do Twoich tematów pojawiają się tutaj i jako powiadomienia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berichten naar je onderwerpen verschijnen hier en als melding."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les messages envoyés à vos sujets s’affichent ici et sous forme de notifications."
+          }
+        }
+      }
+    },
+    "Create a topic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a topic"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thema anlegen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear un tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea un argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz temat"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerp maken"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un sujet"
+          }
+        }
+      }
+    },
+    "Copy title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy title"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar título"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia titolo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj tytuł"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel kopiëren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le titre"
+          }
+        }
+      }
+    },
+    "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten mit „Nicht verschlüsselt“ wurden ohne Passwort dieses Themas gesendet. Jeder mit Kenntnis des Themennamens könnte sie gesendet haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los mensajes marcados como «Sin cifrar» se enviaron sin la contraseña de este tópico. Cualquiera que conozca su nombre podría haberlos enviado."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I messaggi contrassegnati come 'Non cifrato' sono stati inviati senza la password di questo argomento. Chiunque ne conosca il nome potrebbe averli inviati."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości oznaczone jako „Niezaszyfrowane” wysłano bez hasła tego tematu. Mógł je wysłać każdy, kto zna jego nazwę."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berichten met 'Niet versleuteld' zijn verstuurd zonder het wachtwoord van dit onderwerp. Iedereen die de onderwerpnaam kent, kan ze hebben gestuurd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les messages marqués « Non chiffré » ont été envoyés sans le mot de passe du sujet. Toute personne qui connaît le nom du sujet aurait pu les envoyer."
+          }
+        }
+      }
+    },
+    "Topic name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topic name"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themenname"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwa tematu"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpnaam"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du sujet"
+          }
+        }
+      }
+    },
+    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen wie alerts-k7m2 oder tippe auf „Zufällig“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar, como alerts-k7m2, o toca Aleatorio."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare, come alerts-k7m2, o tocca Casuale."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę, np. alerts-k7m2, lub stuknij „Losowa”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam, zoals alerts-k7m2, of tik op Willekeurig."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner, comme alerts-k7m2, ou touchez Aléatoire."
+          }
+        }
+      }
+    },
+    "About this server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About this server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über diesen Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de este servidor"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informazioni su questo server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O tym serwerze"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Over deze server"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de ce serveur"
+          }
+        }
+      }
+    },
+    "New topics use %@, a free public server. Any ntfy server works: turn on \"Use another server\".": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New topics use %@, a free public server. Any ntfy server works: turn on \"Use another server\"."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Themen nutzen %@, einen kostenlosen öffentlichen Server. Jeder ntfy-Server funktioniert: Aktiviere „Anderen Server verwenden“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los nuevos tópicos usan %@, un servidor público gratuito. Puedes usar cualquier servidor ntfy: activa «Usar otro servidor»."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I nuovi argomenti usano %@, un server pubblico gratuito. Funziona qualsiasi server ntfy: attiva 'Usa un altro server'."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowe tematy używają %@, bezpłatnego serwera publicznego. Działa dowolny serwer ntfy: włącz „Użyj innego serwera”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieuwe onderwerpen gebruiken %@, een gratis openbare server. Elke ntfy-server werkt: zet 'Andere server gebruiken' aan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les nouveaux sujets utilisent %@, un serveur public gratuit. Tout serveur ntfy convient : activez « Utiliser un autre serveur »."
+          }
+        }
+      }
+    },
+    "Topics without push": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics without push"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen ohne Push-Anbindung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos sin avisos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti senza push"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy bez push"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen zonder push"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets sans push"
+          }
+        }
+      }
+    },
+    "Re-register device": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-register device"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerät neu registrieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a registrar el dispositivo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra di nuovo il dispositivo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarejestruj urządzenie ponownie"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apparaat opnieuw registreren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réenregistrer l’appareil"
+          }
+        }
+      }
+    },
+    "Re-registering…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-registering…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird neu registriert…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrando de nuevo…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuova registrazione…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowna rejestracja…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opnieuw registreren…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réenregistrement…"
+          }
+        }
+      }
+    },
+    "Re-registration is still running. Check again in a moment.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-registration is still running. Check again in a moment."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Neuregistrierung läuft noch. Prüfe es gleich noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El nuevo registro sigue en curso. Compruébalo de nuevo en un momento."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La nuova registrazione è ancora in corso. Ricontrolla tra poco."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowna rejestracja nadal trwa. Sprawdź ponownie za chwilę."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Het opnieuw registreren loopt nog. Controleer het zo opnieuw."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le réenregistrement est encore en cours. Vérifiez à nouveau dans un instant."
           }
         }
       }

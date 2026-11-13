@@ -22,20 +22,20 @@ struct ComposeSheetView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section {
-                    Text(subscription.shortDisplayName()).font(.headline)
-                    Text(HostedServer.publicURL(subscription.urlString())).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
-                }
-                Section(header: Text(String(localized: "Message"))) {
+                // In the order the message renders: title, then body, then what's attached.
+                Section(footer: attachmentFooter) {
+                    TextField(String(localized: "Title (optional)"), text: $model.title)
+                        .accessibilityIdentifier("compose-title")
                     TextEditor(text: $model.message)
                         .frame(minHeight: 120)
                         .accessibilityLabel(String(localized: "Message"))
                         .accessibilityIdentifier("compose-message")
-                    TextField(String(localized: "Title (optional)"), text: $model.title)
-                        .accessibilityIdentifier("compose-title")
-                    Toggle(String(localized: "Markdown"), isOn: $model.markdown)
+                    if !encrypted {
+                        attachmentRow
+                    }
                 }
                 Section(header: Text(String(localized: "Options"))) {
+                    Toggle(String(localized: "Markdown"), isOn: $model.markdown)
                     TextField(String(localized: "Tags, separated by commas"), text: $model.tags)
                         .autocapitalization(.none).disableAutocorrection(true)
                     Picker(String(localized: "Priority"), selection: $model.priority) {
@@ -49,31 +49,8 @@ struct ComposeSheetView: View {
                     TextField(String(localized: "Delay, for example 30m or 3h"), text: $model.delay)
                         .autocapitalization(.none).disableAutocorrection(true)
                     Text(String(localized: "Delayed messages appear when the server delivers them.")).font(.caption).foregroundColor(.secondary)
-                }
-                Section(header: Text(String(localized: "Attachment"))) {
-                    if encrypted {
-                        Text(String(localized: "Attachments are unavailable for encrypted topics. Your message, title, tags and click URL stay encrypted."))
-                            .font(.callout).foregroundColor(.secondary)
-                    } else {
-                        if model.fileURL != nil {
-                            Text(model.fileName).lineLimit(nil)
-                            Button(String(localized: "Remove attachment"), role: .destructive) { model.removeFile() }
-                        } else {
-                            urlField(String(localized: "Attachment URL (optional)"), text: $model.attachmentURL)
-                        }
-                        if let limit = model.attachmentLimit {
-                            Text(String(localized: "Available upload size: \(ByteCountFormatter.string(fromByteCount: limit, countStyle: .file))"))
-                                .font(.caption).foregroundColor(.secondary)
-                            Button(String(localized: "Choose photo")) { showPhotos = true }
-                                .disabled(limit <= 0 || !model.attachmentURL.isEmpty)
-                                .accessibilityIdentifier("compose-photo")
-                            Button(String(localized: "Choose file")) { showFiles = true }
-                                .disabled(limit <= 0 || !model.attachmentURL.isEmpty)
-                        } else {
-                            Text(String(localized: "Upload limits are unavailable. You can still attach a URL."))
-                                .font(.caption).foregroundColor(.secondary)
-                            Button(String(localized: "Check upload limits")) { loadLimits() }.disabled(model.loadingLimits)
-                        }
+                    if !encrypted && model.fileURL == nil {
+                        urlField(String(localized: "Attachment URL (optional)"), text: $model.attachmentURL)
                     }
                 }
                 if !model.error.isEmpty {
@@ -87,8 +64,10 @@ struct ComposeSheetView: View {
                 }
             }
             .disabled(model.busy)
-            .navigationTitle(String(localized: "New message"))
             .navigationBarTitleDisplayMode(.inline)
+            // The topic is the title, its short address the subtitle, in the same format as the
+            // topic list (no scheme).
+            .modifier(ComposeTitle(title: subscription.shortDisplayName(), subtitle: subscription.shortUrlString()))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {
@@ -123,6 +102,94 @@ struct ComposeSheetView: View {
                 case .failure(let failure): model.error = failure.userMessage
                 }
             }
+        }
+    }
+
+    /// Photo and file buttons directly under the message; once something is attached, a
+    /// thumbnail or file chip with a remove control in their place.
+    @ViewBuilder
+    private var attachmentRow: some View {
+        if let fileURL = model.fileURL {
+            HStack(spacing: 10) {
+                if let image = UIImage(contentsOfFile: fileURL.path) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                        .accessibilityLabel(model.fileName)
+                    Spacer(minLength: 0)
+                } else {
+                    HStack(spacing: 10) {
+                        Image(systemName: "doc")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, height: 24)
+                            .accessibilityHidden(true)
+                        Text(model.fileName)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(10)
+                    .frame(minHeight: 44)
+                    .background(Color(.secondarySystemFill))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                Button { model.removeFile() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.secondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(String(localized: "Remove attachment"))
+            }
+        } else {
+            HStack(spacing: 4) {
+                Button { showPhotos = true } label: {
+                    Image(systemName: "photo").frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(String(localized: "Choose photo"))
+                .accessibilityIdentifier("compose-photo")
+                .disabled(!canAttachFile)
+                Button { showFiles = true } label: {
+                    Image(systemName: "paperclip").frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(String(localized: "Choose file"))
+                .accessibilityIdentifier("compose-file")
+                .disabled(!canAttachFile)
+                Spacer(minLength: 0)
+                if model.attachmentLimit == nil {
+                    Button(String(localized: "Check upload limits")) { loadLimits() }
+                        .buttonStyle(.borderless)
+                        .font(.subheadline)
+                        .disabled(model.loadingLimits)
+                }
+            }
+            .font(.title3)
+            .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 16))
+        }
+    }
+
+    private var canAttachFile: Bool {
+        guard let limit = model.attachmentLimit else { return false }
+        return limit > 0 && model.attachmentURL.isEmpty
+    }
+
+    @ViewBuilder
+    private var attachmentFooter: some View {
+        if encrypted {
+            Text(String(localized: "Attachments are unavailable for encrypted topics. Your message, title, tags and click URL stay encrypted."))
+        } else if let limit = model.attachmentLimit {
+            Text(String(localized: "Available upload size: \(ByteCountFormatter.string(fromByteCount: limit, countStyle: .file))"))
+        } else {
+            Text(String(localized: "Upload limits are unavailable. You can still attach a URL."))
         }
     }
 
@@ -168,6 +235,29 @@ private struct ComposePhotoPicker: UIViewControllerRepresentable {
                     catch { result = .failure((error as? ApiService.PublishError) ?? .attachmentUnreadable) }
                 } else { result = .failure(.attachmentUnreadable) }
                 DispatchQueue.main.async { self.parent.completion(result) }
+            }
+        }
+    }
+}
+
+private struct ComposeTitle: ViewModifier {
+    let title: String
+    let subtitle: String
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .navigationTitle(title)
+                .navigationSubtitle(subtitle)
+        } else {
+            content.toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 0) {
+                        Text(title).font(.headline).lineLimit(1)
+                        Text(subtitle).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
             }
         }
     }

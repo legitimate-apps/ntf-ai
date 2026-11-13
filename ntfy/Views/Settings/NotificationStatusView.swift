@@ -17,15 +17,22 @@ struct NotificationPermissionBanner: View {
     }
 }
 
-/// Consistent title/value hierarchy for notification permission and delivery settings.
+/// Value trailing, as in the rest of Settings.
 struct NotificationStatusRow: View {
     let title: String
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-            Text(value).font(.subheadline).foregroundColor(.secondary)
+        Group {
+            if #available(iOS 16.0, *) {
+                LabeledContent(title, value: value)
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                    Spacer(minLength: 8)
+                    Text(value).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                }
+            }
         }
         .accessibilityElement(children: .combine)
     }
