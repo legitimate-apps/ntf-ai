@@ -393,7 +393,8 @@ struct NotificationListView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundColor(.secondary)
                 .textCase(nil)
-                .accessibilityAddTraits(.isHeader)) {
+                .accessibilityAddTraits(.isHeader)
+                .modifier(CompactDayHeaderInsets())) {
                 ForEach(group.items, id: \.self) { notification in
                     NotificationRowView(
                         notification: notification,
@@ -761,6 +762,21 @@ private struct CompactDayBreaks: ViewModifier {
             content
                 .listSectionSpacing(.compact)
                 .environment(\.defaultMinListHeaderHeight, 0)
+        } else {
+            content
+        }
+    }
+}
+
+/// A plain List pads each section header by about 12 pt above and below; at a day break that
+/// added to the rows' own insets and opened an 80 pt gap. Keep the header's horizontal margin.
+private struct CompactDayHeaderInsets: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+                .listRowInsets(.vertical, 0)
         } else {
             content
         }
