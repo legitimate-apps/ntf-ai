@@ -20,6 +20,9 @@ struct NotificationRowView: View {
     @State private var browserURL: URL?
     @State private var attachmentPresentation: AttachmentPresentation?
     @State private var metadataWidth: CGFloat = 0
+    @State private var isExpanded = false
+    @State private var titleExceedsCap = false
+    @State private var bodyExceedsCap = false
     
     var body: some View {
         notificationRow
@@ -177,6 +180,9 @@ struct NotificationRowView: View {
                     messageText
                         .padding(.top, 2)
                 }
+                if exceedsLineCap && !isExpanded {
+                    moreButton
+                }
                 if notification.encryptionState == .locked {
                     Text(String(localized: "Set this topic's password (topic menu → End-to-end encryption) to read it."))
                         .font(.footnote)
@@ -243,16 +249,22 @@ struct NotificationRowView: View {
                     attributedText: renderMessageTitle(title),
                     style: style,
                     exclusion: exclusion,
+                    lineCap: MessageRowLineCap.title,
+                    isCollapsed: !isExpanded,
                     isInteractionEnabled: !isEditing,
-                    onOpenURL: openMessageURL, onPlainTap: handleRowTap
+                    onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+                    onExceedsLineCapChange: { titleExceedsCap = $0 }
                 )
             } else {
                 SelectableMessageText(
                     attributedText: notification.renderedMessageAttributedString(),
                     style: .body,
                     exclusion: exclusion,
+                    lineCap: MessageRowLineCap.body,
+                    isCollapsed: !isExpanded,
                     isInteractionEnabled: !isEditing,
-                    onOpenURL: openMessageURL, onPlainTap: handleRowTap
+                    onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+                    onExceedsLineCapChange: { bodyExceedsCap = $0 }
                 )
             }
         }
@@ -269,8 +281,8 @@ struct NotificationRowView: View {
             .accessibilityLabel(priorityLabel)
     }
 
-    /// Encryption state, time and (until the operator decides finding 3) the actions button, all
-    /// at footnote size on one baseline.
+    /// Encryption state and time at footnote size on one baseline. The message's actions live in
+    /// the long-press menu, so line 1 carries no button.
     private var metadata: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             switch notification.encryptionState {
@@ -298,12 +310,6 @@ struct NotificationRowView: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
                 .accessibilityLabel(notification.shortDateTime())
-            // Every message gets the menu, not only ones carrying a click URL.
-            // Without a click URL the only ways to copy a body were tapping the
-            // row — which nothing advertises — or a long-press text selection,
-            // so the one message you most want to copy (a token, a code) was the
-            // one with no visible way to copy it.
-            messageActionsMenu
         }
         .fixedSize()
         .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
@@ -314,10 +320,37 @@ struct NotificationRowView: View {
             attributedText: notification.renderedMessageAttributedString(),
             style: .body,
             exclusion: FirstLineExclusion(),
+            lineCap: MessageRowLineCap.body,
+            isCollapsed: !isExpanded,
             isInteractionEnabled: !isEditing,
-            onOpenURL: openMessageURL, onPlainTap: handleRowTap
+            onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+            onExceedsLineCapChange: { bodyExceedsCap = $0 }
         )
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var exceedsLineCap: Bool {
+        titleExceedsCap || bodyExceedsCap
+    }
+
+    /// The cut-off cue after the last line. A button of its own, so a row whose tap opens a click
+    /// URL can still be expanded.
+    private var moreButton: some View {
+        Button(action: toggleExpansion) {
+            Text(String(localized: "more"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .padding(.top, 2)
+        .disabled(isEditing)
+    }
+
+    private func toggleExpansion() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isExpanded.toggle()
+        }
     }
 
     private var isEditing: Bool {
@@ -349,21 +382,7 @@ struct NotificationRowView: View {
         return user.toHeader()
     }
     
-    private var messageActionsMenu: some View {
-        Menu {
-            messageMenuItems
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .padding(.leading, 4)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .accessibilityLabel(String(localized: "Message actions"))
-    }
-
-    /// The same items for the long-press menu and the actions button.
+    /// The long-press menu: everything the row offers besides its swipe actions.
     @ViewBuilder
     private var messageMenuItems: some View {
         Button {
@@ -432,10 +451,13 @@ struct NotificationRowView: View {
     }
 
     private func handleRowTap() {
-        if let clickUrl {
-            openMessageURL(clickUrl)
-        } else {
-            copyMessage()
+        switch messageRowTapAction(hasClickURL: clickUrl != nil, exceedsLineCap: exceedsLineCap) {
+        case .openClickURL:
+            if let clickUrl { openMessageURL(clickUrl) }
+        case .toggleExpansion:
+            toggleExpansion()
+        case .none:
+            break
         }
     }
 }
@@ -462,9 +484,12 @@ extension NotificationRowView {
         let attributedText: AttributedString
         let style: MessageTextStyle
         var exclusion = FirstLineExclusion()
+        var lineCap = 0
+        var isCollapsed = true
         let isInteractionEnabled: Bool
         let onOpenURL: (URL) -> Void
         let onPlainTap: () -> Void
+        var onExceedsLineCapChange: (Bool) -> Void = { _ in }
 
         func makeCoordinator() -> Coordinator {
             Coordinator(onOpenURL: onOpenURL, onPlainTap: onPlainTap)
@@ -482,8 +507,12 @@ extension NotificationRowView {
             context.coordinator.onOpenURL = onOpenURL
             context.coordinator.onPlainTap = onPlainTap
             configureMessageTextView(textView, isInteractionEnabled: isInteractionEnabled)
+            let report = onExceedsLineCapChange
+            // Reported from layout, so the state change waits for the current update to finish.
+            textView.onExceedsLineCapChange = { exceeds in DispatchQueue.main.async { report(exceeds) } }
             textView.setMessageText(attributedText, style: style)
             textView.setFirstLineExclusion(exclusion)
+            textView.setLineCap(lineCap, collapsed: isCollapsed)
         }
 
         final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {

@@ -10471,3 +10471,82 @@ final class DenseListTests: XCTestCase {
         XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntfy.home.lan", useAnother: false))
     }
 }
+
+/// Finding 3 and 4 of the 1.26 pass: rows cap at one title line and six body lines, a tap expands a
+/// cut row or opens its click URL and never copies, and the topic-list preview keeps the row's
+/// "Not encrypted" mark.
+final class RowExpansionTests: XCTestCase {
+    private func lines(_ count: Int) -> String {
+        (1...count).map { "Line \($0) of the build log" }.joined(separator: "\n")
+    }
+
+    func testRowTapOpensTheClickURLExpandsACutRowAndNeverCopies() {
+        XCTAssertEqual(messageRowTapAction(hasClickURL: true, exceedsLineCap: false), .openClickURL)
+        XCTAssertEqual(messageRowTapAction(hasClickURL: true, exceedsLineCap: true), .openClickURL,
+                       "A click URL still opens on tap; the row's more button expands it")
+        XCTAssertEqual(messageRowTapAction(hasClickURL: false, exceedsLineCap: true), .toggleExpansion)
+        XCTAssertEqual(messageRowTapAction(hasClickURL: false, exceedsLineCap: false), .none,
+                       "Copy is in the long-press menu, not on a tap")
+        XCTAssertEqual(MessageRowLineCap.title, 1)
+        XCTAssertEqual(MessageRowLineCap.body, 6)
+    }
+
+    func testLineCountCountsEachLineOnceEvenWhenTheFirstIsSplitByTheTime() {
+        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        let text = NSAttributedString(string: lines(9), attributes: [.font: font])
+        XCTAssertEqual(messageLineCount(of: text, width: 320), 9)
+        let exclusion = FirstLineExclusion(leading: 20, trailing: 60, lineHeight: font.lineHeight)
+            .rects(containerWidth: 320).map { UIBezierPath(rect: $0) }
+        let short = NSAttributedString(string: "Deploy done", attributes: [.font: font])
+        XCTAssertEqual(messageLineCount(of: short, width: 320, exclusionPaths: exclusion), 1)
+        XCTAssertEqual(messageLineCount(of: NSAttributedString(), width: 320), 0)
+    }
+
+    func testCollapsedTextStopsAtItsCapAndExpandsToTheWholeMessage() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 320, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        var reported: [Bool] = []
+        view.onExceedsLineCapChange = { reported.append($0) }
+        view.setMessageText(AttributedString(lines(12)), style: .body)
+        view.setLineCap(MessageRowLineCap.body, collapsed: true)
+        // One rendered line, measured the same way (the row's line spacing is taller than the font's lineHeight).
+        let probe = MessageTextView(frame: CGRect(x: 0, y: 0, width: 320, height: 10), textContainer: nil)
+        configureMessageTextView(probe, isInteractionEnabled: true)
+        probe.setMessageText(AttributedString(lines(1)), style: .body)
+        let lineHeight = probe.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        let collapsed = view.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        XCTAssertTrue(view.exceedsLineCap)
+        XCTAssertEqual(reported, [true])
+        XCTAssertEqual(collapsed, lineHeight * 6, accuracy: lineHeight / 2, "Six lines while collapsed")
+
+        view.setLineCap(MessageRowLineCap.body, collapsed: false)
+        let expanded = view.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        XCTAssertEqual(expanded, lineHeight * 12, accuracy: lineHeight / 2, "All twelve once expanded")
+        XCTAssertTrue(view.exceedsLineCap, "Still cut-able, so a second tap collapses it")
+
+        view.setMessageText(AttributedString(lines(3)), style: .body)
+        XCTAssertFalse(view.exceedsLineCap, "A short message shows no more and ignores taps")
+        XCTAssertEqual(reported, [true, false])
+    }
+
+    func testTopicPreviewMarksUnencryptedMessagesAndNeverShowsALockedTitle() {
+        let store = Store(inMemory: true)
+        let unencrypted = Notification(context: store.context)
+        unencrypted.message = "Door opened"
+        unencrypted.encryption = NotificationEncryption.unencrypted.rawValue
+        XCTAssertTrue(unencrypted.previewIsMarkedNotEncrypted)
+        XCTAssertEqual(unencrypted.previewText(), "Door opened")
+
+        for state in [NotificationEncryption.none, .decrypted, .locked] {
+            unencrypted.encryption = state.rawValue
+            XCTAssertFalse(unencrypted.previewIsMarkedNotEncrypted, "\(state)")
+        }
+
+        let locked = Notification(context: store.context)
+        locked.encryption = NotificationEncryption.locked.rawValue
+        locked.title = "Sender's title"
+        locked.message = "ciphertext-ish"
+        XCTAssertEqual(locked.previewText(), TopicEncryption.lockedPlaceholder,
+                       "A locked message previews as the placeholder, never a title")
+    }
+}

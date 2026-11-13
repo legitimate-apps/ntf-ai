@@ -28,6 +28,18 @@ struct ComposeSheetView: View {
                         .accessibilityIdentifier("compose-title")
                     TextEditor(text: $model.message)
                         .frame(minHeight: 120)
+                        // The section header that named this field is gone, so the empty editor
+                        // carries the word itself, aligned with TextEditor's own text inset.
+                        .overlay(alignment: .topLeading) {
+                            if model.message.isEmpty {
+                                Text(String(localized: "Message"))
+                                    .foregroundColor(Color(.placeholderText))
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                         .accessibilityLabel(String(localized: "Message"))
                         .accessibilityIdentifier("compose-message")
                     if !encrypted {

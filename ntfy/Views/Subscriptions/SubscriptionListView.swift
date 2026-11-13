@@ -366,7 +366,9 @@ struct SubscriptionItemRowView: View {
         // in the list itself.
         let unread = summary?.unread ?? subscription.unreadCount()
         let address = subscription.shortUrlString()
-        let preview = (summary.map { $0.lastNotification } ?? subscription.lastNotification())?.previewText()
+        let lastNotification = summary.map { $0.lastNotification } ?? subscription.lastNotification()
+        let preview = lastNotification?.previewText()
+        let previewNotEncrypted = lastNotification?.previewIsMarkedNotEncrypted == true
         // Each line is a full-width HStack, so the timestamp and the chevron both resolve against
         // the row's own trailing edge. Nesting the text in its own column instead made the time
         // align to that column's edge, which shifted per row with the badge's width.
@@ -400,9 +402,8 @@ struct SubscriptionItemRowView: View {
             }
 
             if let preview, !preview.isEmpty {
-                Text(preview)
+                previewLine(preview, notEncrypted: previewNotEncrypted, unread: unread > 0)
                     .font(.subheadline)
-                    .foregroundColor(unread > 0 ? .primary : .secondary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("topic-row-preview")
@@ -434,6 +435,16 @@ struct SubscriptionItemRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// The preview, led by the message row's orange lock.open "Not encrypted" mark when the
+    /// newest message came without the topic's password.
+    private func previewLine(_ preview: String, notEncrypted: Bool, unread: Bool) -> Text {
+        let text = Text(preview).foregroundColor(unread ? .primary : .secondary)
+        guard notEncrypted else { return text }
+        return Text(Image(systemName: "lock.open")).foregroundColor(.orange)
+            + Text(" " + String(localized: "Not encrypted") + " · ").foregroundColor(.orange)
+            + text
     }
 
     private func rowAccessory(unread: Int) -> some View {

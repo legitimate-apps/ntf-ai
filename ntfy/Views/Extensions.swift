@@ -25,13 +25,24 @@ extension Notification {
 
     /// The one line a list shows for this message: its title if it has one, else its body as
     /// plain text (Markdown resolved, line breaks folded), so a preview never shows `**`.
+    /// A locked message previews as its placeholder only, never a title.
     func previewText() -> String {
+        if encryptionState == .locked {
+            return formatMessage()
+        }
         if let title = formatTitle(), !title.isEmpty {
             return title
         }
         let plain = String(renderedMessageAttributedString().characters)
         return plain.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    /// Whether a list preview of this message needs the row's orange "Not encrypted" mark: it
+    /// arrived as plaintext on a topic with a password, so it must not pass as the encrypted
+    /// sender's words in the topic list either.
+    var previewIsMarkedNotEncrypted: Bool {
+        encryptionState == .unencrypted
     }
 }
 
@@ -197,6 +208,26 @@ func messageRowTapPolicy(isEditing: Bool) -> MessageRowTapPolicy {
         installsAncestorContentTap: false,
         installsRegionTaps: !isEditing
     )
+}
+
+/// What a plain tap on a message row does. A click URL wins; otherwise a row cut at its line cap
+/// expands or collapses. A tap never copies: copying a whole message by accident while scrolling
+/// was easy and nothing advertised it, so copy lives in the long-press menu.
+enum MessageRowTapAction: Equatable {
+    case openClickURL
+    case toggleExpansion
+    case none
+}
+
+func messageRowTapAction(hasClickURL: Bool, exceedsLineCap: Bool) -> MessageRowTapAction {
+    if hasClickURL { return .openClickURL }
+    return exceedsLineCap ? .toggleExpansion : .none
+}
+
+/// Collapsed rows show one line of title and six of body; a tap shows the rest.
+enum MessageRowLineCap {
+    static let title = 1
+    static let body = 6
 }
 
 /// Message rows are set at `.subheadline` (15/20 at the default size): title and body differ by
@@ -391,6 +422,32 @@ final class MessageTextView: UITextView {
     private var messageText: NSAttributedString?
     private var messageSource: AttributedString?
     private var messageStyle: MessageTextStyle = .body
+    /// The most lines shown while collapsed; 0 means no cap.
+    private(set) var lineCap = 0
+    private(set) var isCollapsed = true
+    /// Whether the text needs more lines than `lineCap` at the current width.
+    private(set) var exceedsLineCap = false
+    var onExceedsLineCapChange: ((Bool) -> Void)?
+
+    func setLineCap(_ cap: Int, collapsed: Bool) {
+        guard cap != lineCap || collapsed != isCollapsed else { return }
+        lineCap = cap
+        isCollapsed = collapsed
+        textContainer.maximumNumberOfLines = collapsed ? cap : 0
+        updateExceedsLineCap()
+        invalidateIntrinsicContentSize()
+    }
+
+    private func updateExceedsLineCap() {
+        let exceeds = lineCap > 0 && bounds.width > 0 && messageLineCount(
+            of: attributedText,
+            width: bounds.width,
+            exclusionPaths: textContainer.exclusionPaths
+        ) > lineCap
+        guard exceeds != exceedsLineCap else { return }
+        exceedsLineCap = exceeds
+        onExceedsLineCapChange?(exceeds)
+    }
 
     func setMessageText(_ source: AttributedString, style: MessageTextStyle) {
         messageSource = source
@@ -424,6 +481,7 @@ final class MessageTextView: UITextView {
         if NSMaxRange(selection) <= wrapped.length {
             selectedRange = selection
         }
+        updateExceedsLineCap()
         invalidateIntrinsicContentSize()
     }
 
@@ -431,6 +489,7 @@ final class MessageTextView: UITextView {
         guard exclusion != firstLineExclusion else { return }
         firstLineExclusion = exclusion
         applyFirstLineExclusion()
+        updateExceedsLineCap()
         invalidateIntrinsicContentSize()
     }
 
@@ -462,8 +521,29 @@ final class MessageTextView: UITextView {
         }
         lastLaidOutWidth = bounds.width
         applyFirstLineExclusion()
+        updateExceedsLineCap()
         invalidateIntrinsicContentSize()
     }
+}
+
+/// Lines the text takes at `width`, counted on a private TextKit 1 stack so the answer does not
+/// depend on the visible view's line cap. A first line split by exclusion paths counts once.
+func messageLineCount(of text: NSAttributedString, width: CGFloat, exclusionPaths: [UIBezierPath] = []) -> Int {
+    guard text.length > 0, width > 0 else { return 0 }
+    let storage = NSTextStorage(attributedString: applyMessageWrapping(to: text))
+    let layoutManager = NSLayoutManager()
+    let container = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+    container.lineFragmentPadding = 0
+    container.exclusionPaths = exclusionPaths
+    layoutManager.addTextContainer(container)
+    storage.addLayoutManager(layoutManager)
+    var lineTops = Set<CGFloat>()
+    layoutManager.enumerateLineFragments(
+        forGlyphRange: layoutManager.glyphRange(for: container)
+    ) { rect, _, _, _, _ in
+        lineTops.insert(rect.minY.rounded())
+    }
+    return lineTops.count
 }
 
 /// Widths reserved at either end of a text view's first line. Pure, so the geometry is testable.

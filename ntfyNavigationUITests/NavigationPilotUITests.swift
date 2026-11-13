@@ -232,7 +232,6 @@ final class NavigationPilotUITests: XCTestCase {
     func tapEither(_ label: String, _ old: String) {
         let named = app.buttons[label].firstMatch
         if named.exists { named.tap() }
-        else if label == "Message actions" { app.buttons.matching(identifier: old).element(boundBy: 1).tap() }
         else if label == "Attachment actions" { app.buttons.matching(identifier: old).element(boundBy: 2).tap() }
         else { app.buttons[old].firstMatch.tap() }
     }
@@ -246,7 +245,7 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars.staticTexts["aaa-nav-000"].waitForExistence(timeout: 5))
         captureAX("regression-topic")
         XCTAssertTrue(app.buttons["Topic actions"].exists)
-        XCTAssertTrue(app.buttons["Message actions"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["Message actions"].exists, "Message actions live in the long-press menu")
         XCTAssertTrue(app.images["High priority"].exists)
         XCTAssertFalse(app.images["priority-4"].exists)
         XCTAssertTrue(app.buttons["Attachment actions"].firstMatch.exists)
@@ -283,7 +282,7 @@ final class NavigationPilotUITests: XCTestCase {
         app.staticTexts["aaa-nav-000"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars.staticTexts["aaa-nav-000"].waitForExistence(timeout: 5))
         captureAX("topic-and-attachments")
-        tapEither("Message actions", "More")
+        app.cells.firstMatch.press(forDuration: 1.0)
         captureAX("message-menu")
         app.tapCoordinateOutsideMenu()
         tapEither("Attachment actions", "More")
