@@ -16,6 +16,11 @@ struct NotificationRowView: View {
     @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var notification: Notification
     let onCopyMessage: () -> Void
+    /// Unread when the topic was opened: keeps the dot and weight for this visit (see HeldUnreadMarkers).
+    var heldUnread = false
+    /// The user set this row's read state themselves, which ends the hold.
+    var onReleaseHeldUnread: () -> Void = {}
+    @ScaledMetric(relativeTo: .subheadline) private var priorityGlyphSize = MessageRowMetrics.priorityGlyphSize
     @StateObject private var attachmentController = NotificationAttachmentController()
     @State private var browserURL: URL?
     @State private var attachmentPresentation: AttachmentPresentation?
@@ -28,10 +33,9 @@ struct NotificationRowView: View {
         notificationRow
             .swipeActions(edge: .leading) {
                 Button {
-                    store.setRead(!notification.read, forNotification: notification)
+                    toggleRead()
                 } label: {
-                    Label(notification.read ? String(localized: "Mark unread") : String(localized: "Mark read"),
-                          systemImage: notification.read ? "envelope.badge" : "envelope.open")
+                    readToggleLabel
                 }
                 .tint(Color("BrandControlFill"))
             }
@@ -84,7 +88,7 @@ struct NotificationRowView: View {
             }
         }
         .overlay(alignment: .topLeading) {
-            if !notification.read {
+            if showsUnread {
                 // Inside the row's leading inset, so the text column stays on the screen margin.
                 Circle()
                     .fill(Color.accentColor)
@@ -97,7 +101,8 @@ struct NotificationRowView: View {
         .contentShape(Rectangle())
         .contextMenu { messageMenuItems }
         .accessibilityElement(children: .contain)
-        .accessibilityValue(notification.read ? "" : String(localized: "Unread"))
+        .accessibilityValue(showsUnread ? String(localized: "Unread") : "")
+        .modifier(SeparatorFromRowLeadingEdge())
     }
 
     private func runAction(_ action: Action) {
@@ -132,7 +137,7 @@ struct NotificationRowView: View {
     }
 
     private var titleStyle: MessageTextStyle {
-        .title(read: notification.read)
+        .title(read: !showsUnread)
     }
 
     /// The style of whichever text opens the row: the title, or the body when there is none.
@@ -180,8 +185,8 @@ struct NotificationRowView: View {
                     messageText
                         .padding(.top, 2)
                 }
-                if exceedsLineCap && !isExpanded {
-                    moreButton
+                if let cue = messageRowExpansionCue(exceedsLineCap: exceedsLineCap, isExpanded: isExpanded) {
+                    expansionToggle(cue)
                 }
                 if notification.encryptionState == .locked {
                     Text(String(localized: "Set this topic's password (topic menu → End-to-end encryption) to read it."))
@@ -220,7 +225,7 @@ struct NotificationRowView: View {
         } else {
             ZStack(alignment: Alignment(horizontal: .trailing, vertical: .firstTextBaseline)) {
                 firstText(exclusion: FirstLineExclusion(
-                    leading: showsPriority ? MessageRowMetrics.priorityGlyphSize + 4 : 0,
+                    leading: showsPriority ? priorityGlyphSize + 4 : 0,
                     trailing: metadataWidth > 0 ? metadataWidth + 8 : 0,
                     lineHeight: max(0, firstLineHeight - 1)
                 ))
@@ -232,7 +237,7 @@ struct NotificationRowView: View {
             .overlay(alignment: .topLeading) {
                 if showsPriority {
                     priorityGlyph
-                        .padding(.top, max(0, (firstLineHeight - MessageRowMetrics.priorityGlyphSize) / 2))
+                        .padding(.top, max(0, (firstLineHeight - priorityGlyphSize) / 2))
                 }
             }
             .onPreferenceChange(MetadataWidthKey.self) { metadataWidth = ceil($0) }
@@ -249,7 +254,7 @@ struct NotificationRowView: View {
                     attributedText: renderMessageTitle(title),
                     style: style,
                     exclusion: exclusion,
-                    lineCap: MessageRowLineCap.title,
+                    lineCap: MessageRowLineCap.title(accessibilitySize: sizeCategory.isAccessibilityCategory),
                     isCollapsed: !isExpanded,
                     isInteractionEnabled: !isEditing,
                     onOpenURL: openMessageURL, onPlainTap: handleRowTap,
@@ -277,7 +282,7 @@ struct NotificationRowView: View {
         Image("priority-\(notification.priority)")
             .resizable()
             .scaledToFit()
-            .frame(width: MessageRowMetrics.priorityGlyphSize, height: MessageRowMetrics.priorityGlyphSize)
+            .frame(width: priorityGlyphSize, height: priorityGlyphSize)
             .accessibilityLabel(priorityLabel)
     }
 
@@ -333,10 +338,11 @@ struct NotificationRowView: View {
         titleExceedsCap || bodyExceedsCap
     }
 
-    /// The cut-off cue after the last line, with its own tap so a row whose tap opens a click URL
-    /// can still be expanded. Plain text, not a Button: a Button in the List row rendered blank.
-    private var moreButton: some View {
-        Text(String(localized: "more"))
+    /// The cut-off cue after the last line ("more"), and "less" in the same spot once expanded,
+    /// each with its own tap so a row whose tap opens a click URL can still expand and collapse.
+    /// Plain text, not a Button: a Button in the List row rendered blank.
+    private func expansionToggle(_ cue: MessageRowExpansionCue) -> some View {
+        Text(cue == .less ? String(localized: "less") : String(localized: "more"))
             .font(.subheadline)
             .foregroundColor(.secondary)
             .padding(.top, 2)
@@ -404,16 +410,31 @@ struct NotificationRowView: View {
             }
         }
         Button {
-            store.setRead(!notification.read, forNotification: notification)
+            toggleRead()
         } label: {
-            Label(notification.read ? String(localized: "Mark unread") : String(localized: "Mark read"),
-                  systemImage: notification.read ? "envelope.badge" : "envelope.open")
+            readToggleLabel
         }
         Button(role: .destructive) {
             store.delete(notification: notification)
         } label: {
             Label(String(localized: "Delete"), systemImage: "trash")
         }
+    }
+
+    /// Unread as the row shows it: really unread, or held from when the topic was opened.
+    private var showsUnread: Bool {
+        !notification.read || heldUnread
+    }
+
+    private var readToggleLabel: some View {
+        Label(showsUnread ? String(localized: "Mark read") : String(localized: "Mark unread"),
+              systemImage: showsUnread ? "envelope.open" : "envelope.badge")
+    }
+
+    private func toggleRead() {
+        let read = showsUnread
+        onReleaseHeldUnread()
+        store.setRead(read, forNotification: notification)
     }
 
     private var shareText: String {
@@ -512,6 +533,14 @@ extension NotificationRowView {
             textView.setMessageText(attributedText, style: style)
             textView.setFirstLineExclusion(exclusion)
             textView.setLineCap(lineCap, collapsed: isCollapsed)
+        }
+
+        /// The height at the width SwiftUI proposes. Reporting it through `intrinsicContentSize`
+        /// alone left rows sized from a stale `bounds` (the same row 162 pt in light, 182 in dark).
+        @available(iOS 16.0, *)
+        func sizeThatFits(_ proposal: ProposedViewSize, uiView: MessageTextView, context: Context) -> CGSize? {
+            guard let width = proposal.width, width > 0, width.isFinite else { return nil }
+            return CGSize(width: width, height: uiView.fittingHeight(forWidth: width))
         }
 
         final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
@@ -865,13 +894,37 @@ extension NotificationRowView {
 
 /// One message-row spec (REVIEW.md 2026-11-12, finding 1): every number the row uses.
 enum MessageRowMetrics {
-    static let insets = EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)
+    static let verticalInset: CGFloat = 10
+
+    /// Before iOS 26 a row can't set only its vertical insets, so the horizontal margin is spelled
+    /// out as UIKit picks it: 20 pt on lists 414 pt wide and up, 16 below.
+    static func horizontalMargin(listWidth: CGFloat) -> CGFloat {
+        listWidth >= 414 ? 20 : 16
+    }
+
+    static func insets(listWidth: CGFloat) -> EdgeInsets {
+        let margin = horizontalMargin(listWidth: listWidth)
+        return EdgeInsets(top: verticalInset, leading: margin, bottom: verticalInset, trailing: margin)
+    }
     static let unreadDotSize: CGFloat = 8
     /// The dot's leading edge sits this far left of the text column, inside the row's inset.
     static let unreadDotGutter: CGFloat = 12
     static let priorityGlyphSize: CGFloat = 12
     static let iconSize: CGFloat = 28
     static let iconSpacing: CGFloat = 8
+}
+
+/// Starts the row's separator at the row's own leading edge. SwiftUI otherwise aligns it to the
+/// first SwiftUI `Text` it finds; title and body are UIKit text views, so in some rows that was the
+/// time at the trailing edge and the separator became a stub under it.
+private struct SeparatorFromRowLeadingEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+        } else {
+            content
+        }
+    }
 }
 
 private struct MetadataWidthKey: PreferenceKey {

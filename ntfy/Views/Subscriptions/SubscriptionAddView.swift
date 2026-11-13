@@ -237,7 +237,7 @@ struct SubscriptionAddView: View {
     /// typed something that can't be subscribed to. Stays quiet while the field is empty —
     /// scolding someone before they've typed anything is worse than saying nothing.
     private var topicFooterText: String {
-        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random.")
+        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random.")
         guard !sanitizedTopic.isEmpty else { return defaultText }
         if !isValidTopicName(sanitizedTopic) {
             return String(localized: "Topic names can only use letters, numbers, dashes and underscores, up to 64 characters.")

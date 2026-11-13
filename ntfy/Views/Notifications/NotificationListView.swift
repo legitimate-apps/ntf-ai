@@ -1,3 +1,4 @@
+import CoreData
 import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
@@ -27,6 +28,9 @@ struct NotificationListView: View {
     @State private var searchText = ""
     @State private var editMode = EditMode.inactive
     @State private var selection = Set<Notification>()
+    @State private var heldUnread = HeldUnreadMarkers<NSManagedObjectID>()
+    /// The List's width, for the row margin on iOS before 26 (see MessageRowMetrics).
+    @State private var listWidth: CGFloat = 0
     
     @State private var showAlert = false
     @State private var activeAlert: ActiveAlert = .clear
@@ -71,8 +75,12 @@ struct NotificationListView: View {
             .onAppear {
                 // Opening the topic counts as reading it, so the badge clears immediately rather
                 // than lingering behind the user. Anything the live poll below pulls in afterwards
-                // stays unread, which is what you want — it hadn't arrived when you opened.
-                store.setRead(true, forSubscription: subscription)
+                // stays unread, which is what you want — it hadn't arrived when you opened. The rows
+                // that were unread keep their marker until the user leaves, so they can see what was new.
+                heldUnread.hold(store.setRead(true, forSubscription: subscription))
+            }
+            .onDisappear {
+                heldUnread.clear()
             }
             // While this topic is on screen and the app is active, check for new messages: once right
             // away (opening a topic, or coming back to the app), then every 10 s, each check starting
@@ -187,6 +195,11 @@ struct NotificationListView: View {
         .sheet(isPresented: $showSoundOptions) { TopicSoundView(subscription: subscription) }
         .sheet(isPresented: $showMuteOptions) { TopicMuteView(subscription: subscription) }
         .listStyle(PlainListStyle())
+        .modifier(CompactDayBreaks())
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: ListWidthKey.self, value: proxy.size.width)
+        })
+        .onPreferenceChange(ListWidthKey.self) { listWidth = $0 }
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, self.$editMode)
         .sheet(isPresented: $showComposeSheet) {
@@ -384,9 +397,11 @@ struct NotificationListView: View {
                 ForEach(group.items, id: \.self) { notification in
                     NotificationRowView(
                         notification: notification,
-                        onCopyMessage: showCopyConfirmation
+                        onCopyMessage: showCopyConfirmation,
+                        heldUnread: heldUnread.ids.contains(notification.objectID),
+                        onReleaseHeldUnread: { heldUnread.release(notification.objectID) }
                     )
-                    .listRowInsets(MessageRowMetrics.insets)
+                    .modifier(MessageRowInsets(listWidth: listWidth))
                 }
             }
         }
@@ -723,6 +738,40 @@ enum FirstTopicTest {
     static let priority = 3
     static let title = String(localized: "NTF-AI test")
     static let body = String(localized: "This is a test notification from NTF-AI. Your topic is ready.")
+}
+
+/// The message row's vertical insets, keeping the system's horizontal margin so the text lines up
+/// with the navigation title and the day headers (20 pt on wide phones, 16 on narrow ones).
+private struct MessageRowInsets: ViewModifier {
+    let listWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.listRowInsets(.vertical, MessageRowMetrics.verticalInset)
+        } else {
+            content.listRowInsets(MessageRowMetrics.insets(listWidth: listWidth))
+        }
+    }
+}
+
+/// Day headers sit close to the rows around them instead of opening a wide gap at each day.
+private struct CompactDayBreaks: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .listSectionSpacing(.compact)
+                .environment(\.defaultMinListHeaderHeight, 0)
+        } else {
+            content
+        }
+    }
+}
+
+private struct ListWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }
 
 private struct HidesTabBar: ViewModifier {

@@ -130,10 +130,13 @@ struct SubscriptionListView: View {
                                 .multilineTextAlignment(.center)
                                 .accessibilityAddTraits(.isHeader)
 
-                            Text(String(localized: "Messages sent to your topics show up here and as notifications."))
+                            Text(String(localized: "Messages to your topics show up here and as notifications."))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
+                                // Narrow enough that the sentence breaks into two even lines
+                                // instead of leaving one word alone on the second.
+                                .frame(maxWidth: 300)
 
                             Button(String(localized: "Create a topic")) {
                                 showingAddDialog = true
@@ -372,33 +375,33 @@ struct SubscriptionItemRowView: View {
         // Each line is a full-width HStack, so the timestamp and the chevron both resolve against
         // the row's own trailing edge. Nesting the text in its own column instead made the time
         // align to that column's edge, which shifted per row with the badge's width.
+        let lastTime = summary.map { $0.lastTime } ?? subscription.lastNotification().map { $0.time }
+        let lastDateTime = lastTime.map { Notification.topicListTime(for: Date(timeIntervalSince1970: TimeInterval($0))) }
         VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if subscription.pinned {
-                    PinBadge()
+            if sizeCategory.isAccessibilityCategory {
+                // At accessibility sizes one line can't hold a name, a time and a badge: the name
+                // shrank to "…". The name gets its own lines, and the time and badge the next one.
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if subscription.pinned {
+                        PinBadge()
+                    }
+                    topicName.lineLimit(2)
                 }
-                Text(subscription.shortDisplayName())
-                    .font(.headline)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                let lastDateTime = summary.map { s in
-                    s.lastTime.map { Notification.shortDateTime(for: Date(timeIntervalSince1970: TimeInterval($0))) }
-                } ?? subscription.lastNotification()?.shortDateTime()
-                if let lastDateTime = lastDateTime {
-                    Text(lastDateTime)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        // The timestamp keeps its full width and the topic name yields instead.
-                        // Both texts are compressible and this one is pinned to a single line, so
-                        // on a narrow screen or at a large Dynamic Type size SwiftUI would happily
-                        // truncate its tail — which is the time, the very thing ntfy#1205 is about.
-                        // The name is already `lineLimit(1)` and reads fine truncated; a clipped
-                        // clock does not.
-                        .fixedSize(horizontal: true, vertical: false)
-                        .layoutPriority(1)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let lastDateTime { timeText(lastDateTime) }
+                    Spacer(minLength: 8)
+                    rowAccessory(unread: unread)
                 }
-                rowAccessory(unread: unread)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if subscription.pinned {
+                        PinBadge()
+                    }
+                    topicName.lineLimit(1)
+                    Spacer(minLength: 8)
+                    if let lastDateTime { timeText(lastDateTime) }
+                    rowAccessory(unread: unread)
+                }
             }
 
             if let preview, !preview.isEmpty {
@@ -435,6 +438,22 @@ struct SubscriptionItemRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private var topicName: some View {
+        Text(subscription.shortDisplayName())
+            .font(.headline)
+    }
+
+    private func timeText(_ value: String) -> some View {
+        Text(value)
+            .font(.footnote)
+            .foregroundColor(.secondary)
+            .lineLimit(1)
+            // The timestamp keeps its full width and the topic name yields instead (ntfy#1205): a
+            // name reads fine truncated, a clipped clock does not.
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
     }
 
     /// The preview, led by the message row's orange lock.open "Not encrypted" mark when the

@@ -45,6 +45,32 @@ extension Notification {
         return formatter.string(from: date)
     }
 
+    /// When a topic last heard something, for the topic list: the time for today, then
+    /// "Yesterday", then a date. Mail and Messages do the same; the topic's own message list
+    /// gives the exact time, and a clock time on every row cost the topic name its width.
+    static func topicListTime(for date: Date,
+                              now: Date = Date(),
+                              calendar: Calendar = .current,
+                              locale: Locale = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) {
+            return shortTime(for: date, calendar: calendar, locale: locale)
+        }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.timeStyle = .none
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday),
+           let realYesterday = calendar.date(byAdding: .day, value: -1, to: Date()) {
+            // The relative word is judged against the real clock, so format the real yesterday.
+            formatter.dateStyle = .medium
+            formatter.doesRelativeDateFormatting = true
+            return formatter.string(from: realYesterday)
+        }
+        formatter.dateStyle = .short
+        return formatter.string(from: date)
+    }
+
     /// The time alone, for a row that sits under a day header. The header carries the date, so
     /// repeating "Yesterday at" on every row only cost width. Never truncated (ntfy#1205).
     static func shortTime(for date: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {

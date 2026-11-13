@@ -19,6 +19,29 @@ struct ComposeSheetView: View {
 
     private var encrypted: Bool { store.topicKeyState(for: subscription) != .notEncrypted }
 
+    /// A vertical text field, so "Message" lines up with "Title (optional)" above it; a
+    /// TextEditor's own text inset put its placeholder 6 pt to the right.
+    @ViewBuilder
+    private var messageEditor: some View {
+        if #available(iOS 16.0, *) {
+            TextField(String(localized: "Message"), text: $model.message, axis: .vertical)
+                .lineLimit(5...12)
+        } else {
+            TextEditor(text: $model.message)
+                .frame(minHeight: 120)
+                .overlay(alignment: .topLeading) {
+                    if model.message.isEmpty {
+                        Text(String(localized: "Message"))
+                            .foregroundColor(Color(.placeholderText))
+                            .padding(.top, 8)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+        }
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -26,20 +49,7 @@ struct ComposeSheetView: View {
                 Section(footer: attachmentFooter) {
                     TextField(String(localized: "Title (optional)"), text: $model.title)
                         .accessibilityIdentifier("compose-title")
-                    TextEditor(text: $model.message)
-                        .frame(minHeight: 120)
-                        // The section header that named this field is gone, so the empty editor
-                        // carries the word itself, aligned with TextEditor's own text inset.
-                        .overlay(alignment: .topLeading) {
-                            if model.message.isEmpty {
-                                Text(String(localized: "Message"))
-                                    .foregroundColor(Color(.placeholderText))
-                                    .padding(.top, 8)
-                                    .padding(.leading, 5)
-                                    .allowsHitTesting(false)
-                                    .accessibilityHidden(true)
-                            }
-                        }
+                    messageEditor
                         .accessibilityLabel(String(localized: "Message"))
                         .accessibilityIdentifier("compose-message")
                     if !encrypted {

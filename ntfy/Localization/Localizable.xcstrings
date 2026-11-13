@@ -16671,53 +16671,6 @@
         }
       }
     },
-    "The last download attempt failed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The last download attempt failed."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der letzte Downloadversuch ist fehlgeschlagen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El último intento de descarga falló."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'ultimo tentativo di download non è riuscito."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ostatnia próba pobrania nie powiodła się."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De laatste downloadpoging is mislukt."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La dernière tentative de téléchargement a échoué."
-          }
-        }
-      }
-    },
     "The message could not be encrypted, so it was not sent.": {
       "extractionState": "manual",
       "localizations": {
@@ -29536,13 +29489,13 @@
         }
       }
     },
-    "Messages sent to your topics show up here and as notifications.": {
+    "Messages to your topics show up here and as notifications.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Messages sent to your topics show up here and as notifications."
+            "value": "Messages to your topics show up here and as notifications."
           }
         },
         "de": {
@@ -29771,49 +29724,49 @@
         }
       }
     },
-    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random.": {
+    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts-k7m2, or tap Random."
+            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen wie alerts-k7m2 oder tippe auf „Zufällig“."
+            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen wie alerts‑k7m2 oder tippe auf „Zufällig“."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar, como alerts-k7m2, o toca Aleatorio."
+            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar, como alerts‑k7m2, o toca Aleatorio."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare, come alerts-k7m2, o tocca Casuale."
+            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare, come alerts‑k7m2, o tocca Casuale."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę, np. alerts-k7m2, lub stuknij „Losowa”."
+            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę, np. alerts‑k7m2, lub stuknij „Losowa”."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam, zoals alerts-k7m2, of tik op Willekeurig."
+            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam, zoals alerts‑k7m2, of tik op Willekeurig."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner, comme alerts-k7m2, ou touchez Aléatoire."
+            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner, comme alerts‑k7m2, ou touchez Aléatoire."
           }
         }
       }
@@ -30144,6 +30097,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "plus"
+          }
+        }
+      }
+    },
+    "less": {
+      "comment": "Shown in place of \"more\" under an expanded message; tapping it cuts the message back to six lines.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weniger"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "menos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "meno"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mniej"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "minder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moins"
           }
         }
       }

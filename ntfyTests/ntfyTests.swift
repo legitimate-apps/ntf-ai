@@ -10589,3 +10589,123 @@ final class RowExpansionHostingTests: XCTestCase {
         XCTAssertEqual(views.first { $0.lineCap == MessageRowLineCap.title }?.exceedsLineCap, false)
     }
 }
+
+/// The 1.26 fix round (VERDICT.md, 2026-11-13): title truncation, AX title cap, self-sizing at the
+/// proposed width, collapse after expand, unread markers held for a visit, topic-list time, margins.
+final class DenseFixRoundTests: XCTestCase {
+    private func lines(_ count: Int) -> String {
+        (1...count).map { "Line \($0) of the build log" }.joined(separator: "\n")
+    }
+
+    /// N1: a title cut at its cap ends in "…". Word wrapping just stopped mid-phrase.
+    func testCollapsedTitleEndsInAnEllipsisAndSurvivesTheNextUpdate() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 200, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setMessageText(AttributedString("Migration plan for orders-db needs a decision before 18:00 today"), style: .title)
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byTruncatingTail)
+        // SwiftUI's next update runs configure (which resets the mode) and then the same cap again.
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byTruncatingTail, "The cap survives a re-configure")
+
+        let layoutManager = view.layoutManager
+        layoutManager.ensureLayout(for: view.textContainer)
+        let glyphs = layoutManager.glyphRange(for: view.textContainer)
+        XCTAssertGreaterThan(glyphs.length, 0)
+        let truncated = layoutManager.truncatedGlyphRange(inLineFragmentForGlyphAt: NSMaxRange(glyphs) - 1)
+        XCTAssertNotEqual(truncated.location, NSNotFound, "The last visible line is drawn with an ellipsis")
+
+        view.setLineCap(MessageRowLineCap.title, collapsed: false)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byWordWrapping, "Expanded text wraps in full")
+    }
+
+    /// N1: at accessibility sizes one title line holds a word or two, so the title gets three.
+    func testTitleCapIsThreeLinesAtAccessibilitySizes() {
+        XCTAssertEqual(MessageRowLineCap.title(accessibilitySize: false), 1)
+        XCTAssertEqual(MessageRowLineCap.title(accessibilitySize: true), 3)
+    }
+
+    /// N4: the height comes from the width SwiftUI proposes, not whatever `bounds` held then.
+    func testFittingHeightUsesTheProposedWidthNotBounds() {
+        func make(width: CGFloat) -> MessageTextView {
+            let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: width, height: 10), textContainer: nil)
+            configureMessageTextView(view, isInteractionEnabled: true)
+            view.setMessageText(AttributedString(lines(12)), style: .body)
+            view.setFirstLineExclusion(FirstLineExclusion(leading: 0, trailing: 60, lineHeight: 18))
+            view.setLineCap(MessageRowLineCap.body, collapsed: true)
+            return view
+        }
+        let settled = make(width: 320)
+        let reference = settled.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        let fresh = make(width: 0)
+        XCTAssertFalse(fresh.exceedsLineCap, "Nothing measured yet at zero width")
+        XCTAssertEqual(fresh.fittingHeight(forWidth: 320), ceil(reference), accuracy: 0.5)
+        XCTAssertTrue(fresh.exceedsLineCap, "Measured at the proposed width, so more shows on the first pass")
+        let stale = make(width: 120)
+        XCTAssertEqual(stale.fittingHeight(forWidth: 320), ceil(reference), accuracy: 0.5,
+                       "A stale narrow bounds doesn't leak into the answer")
+    }
+
+    /// Builder's gap: an expanded row says "less" in the "more" spot, so a click-URL row collapses.
+    func testExpandedCutRowOffersLessAndAShortRowOffersNothing() {
+        XCTAssertEqual(messageRowExpansionCue(exceedsLineCap: true, isExpanded: false), .more)
+        XCTAssertEqual(messageRowExpansionCue(exceedsLineCap: true, isExpanded: true), .less)
+        XCTAssertNil(messageRowExpansionCue(exceedsLineCap: false, isExpanded: false))
+        XCTAssertNil(messageRowExpansionCue(exceedsLineCap: false, isExpanded: true))
+    }
+
+    /// Unread markers stay for the visit that opened them, as in Mail, and the user's own choice wins.
+    func testHeldUnreadMarkersLastOneVisit() {
+        var held = HeldUnreadMarkers<String>()
+        held.hold(["a", "b"])
+        XCTAssertTrue(held.showsUnread("a", read: true), "Read on open, still marked for this visit")
+        XCTAssertFalse(held.showsUnread("c", read: true))
+        XCTAssertTrue(held.showsUnread("c", read: false), "Arrived while open: really unread")
+        held.release("a")
+        XCTAssertFalse(held.showsUnread("a", read: true), "Marked read by the user")
+        held.clear()
+        XCTAssertFalse(held.showsUnread("b", read: true), "Gone after leaving the topic")
+    }
+
+    /// Opening a topic hands back exactly the rows it marked read, which is what the visit holds.
+    func testMarkingATopicReadReturnsTheRowsItChanged() throws {
+        let store = Store(inMemory: true)
+        store.topicNotificationRemover = { _, _, _, _ in }
+        let subscription = store.saveSubscription(baseUrl: "https://held.invalid", topic: "held")
+        _ = store.save(notificationsFromMessages: [
+            Message(id: "h1", time: 1_800_000_000, event: "message", topic: "held", message: "one"),
+            Message(id: "h2", time: 1_800_000_100, event: "message", topic: "held", message: "two"),
+            Message(id: "h3", time: 1_800_000_200, event: "message", topic: "held", message: "three")
+        ], withSubscription: subscription)
+        let rows = try store.context.fetch(Notification.fetchRequest())
+        let h1 = try XCTUnwrap(rows.first { $0.id == "h1" })
+        store.setRead(true, forNotification: h1)
+        let expected = Set(rows.filter { $0.id != "h1" }.map(\.objectID))
+        XCTAssertEqual(store.setRead(true, forSubscription: subscription), expected)
+        XCTAssertEqual(store.setRead(true, forSubscription: subscription), [], "Nothing left to change")
+    }
+
+    /// N2: the topic list shows the time today, then a day, never a clock time on an older row.
+    func testTopicListTimeDropsTheClockAfterToday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        let locale = Locale(identifier: "en_US")
+        let now = Date()
+        let today = ntfy.Notification.topicListTime(for: now.addingTimeInterval(-60), now: now, calendar: calendar, locale: locale)
+        let yesterday = ntfy.Notification.topicListTime(for: calendar.date(byAdding: .day, value: -1, to: now)!, now: now, calendar: calendar, locale: locale)
+        let older = ntfy.Notification.topicListTime(for: calendar.date(byAdding: .day, value: -5, to: now)!, now: now, calendar: calendar, locale: locale)
+        XCTAssertTrue(today.contains(":"), today)
+        XCTAssertEqual(yesterday, "Yesterday")
+        XCTAssertFalse(older.contains(":"), older)
+        XCTAssertTrue(older.contains("/"), older)
+    }
+
+    /// N5: before iOS 26 the row spells out UIKit's margin: 20 pt from 414 pt wide, 16 below.
+    func testRowMarginMatchesTheSystemMarginByWidth() {
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 375), 16)
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 402), 16)
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 440), 20)
+        XCTAssertEqual(MessageRowMetrics.insets(listWidth: 440).top, MessageRowMetrics.verticalInset)
+    }
+}

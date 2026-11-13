@@ -570,8 +570,11 @@ class Store: ObservableObject {
     // MARK: Read state
 
     /// Mark every notification in a subscription read (or unread) in one pass. Used by the
-    /// subscription list's swipe action and by opening a topic.
-    func setRead(_ read: Bool, forSubscription subscription: Subscription) {
+    /// subscription list's swipe action and by opening a topic. Returns the rows it changed, so
+    /// an opened topic can keep marking the ones that were new for that visit.
+    @discardableResult
+    func setRead(_ read: Bool, forSubscription subscription: Subscription) -> Set<NSManagedObjectID> {
+        var changed = Set<NSManagedObjectID>()
         context.performAndWait {
             let started = Date()
             let predicate = NSPredicate(format: "subscription == %@ AND read != %@ AND (storedAt == nil OR storedAt <= %@)", subscription, NSNumber(value: read), started as NSDate)
@@ -593,6 +596,7 @@ class Store: ObservableObject {
                 update.resultType = .updatedObjectIDsResultType
                 let result = try context.execute(update) as? NSBatchUpdateResult
                 let ids = Set(result?.result as? [NSManagedObjectID] ?? [])
+                changed = ids
                 let cached = context.registeredObjects.filter { !$0.isFault && ids.contains($0.objectID) }.map(\.objectID)
                 NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSUpdatedObjectsKey: cached], into: [context])
                 context.processPendingChanges()
@@ -616,8 +620,10 @@ class Store: ObservableObject {
             } catch {
                 Log.w(Store.tag, "Cannot mark notifications read", error)
                 rollbackAndRefresh()
+                changed = []
             }
         }
+        return changed
     }
 
     /// Marking a topic unread flags only its most recent notification, the way Mail does. Flipping

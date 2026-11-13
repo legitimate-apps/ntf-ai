@@ -224,10 +224,46 @@ func messageRowTapAction(hasClickURL: Bool, exceedsLineCap: Bool) -> MessageRowT
     return exceedsLineCap ? .toggleExpansion : .none
 }
 
-/// Collapsed rows show one line of title and six of body; a tap shows the rest.
+/// The cue under a cut row: "more" while collapsed, "less" once expanded (so a row whose tap opens
+/// a click URL can still be cut back), nothing when the whole message fits.
+enum MessageRowExpansionCue: Equatable {
+    case more
+    case less
+}
+
+func messageRowExpansionCue(exceedsLineCap: Bool, isExpanded: Bool) -> MessageRowExpansionCue? {
+    guard exceedsLineCap else { return nil }
+    return isExpanded ? .less : .more
+}
+
+/// Collapsed rows show one line of title (three at accessibility sizes, where one line holds a
+/// word or two) and six of body; a tap shows the rest.
 enum MessageRowLineCap {
     static let title = 1
+    static let accessibilityTitle = 3
     static let body = 6
+
+    static func title(accessibilitySize: Bool) -> Int {
+        accessibilitySize ? accessibilityTitle : title
+    }
+}
+
+/// Unread markers held for one visit to a topic. Opening a topic marks it read at once (the badge
+/// clears), but the rows that were unread keep their dot and weight until the user leaves, as in
+/// Mail, so they can still see what was new. Generic over the id so it is testable without Core Data.
+struct HeldUnreadMarkers<ID: Hashable> {
+    private(set) var ids: Set<ID> = []
+
+    /// The rows that were unread when the topic opened.
+    mutating func hold(_ unread: Set<ID>) { ids.formUnion(unread) }
+
+    /// The user marked this row read or unread themselves: their choice wins over the hold.
+    mutating func release(_ id: ID) { ids.remove(id) }
+
+    /// Leaving the topic.
+    mutating func clear() { ids.removeAll() }
+
+    func showsUnread(_ id: ID, read: Bool) -> Bool { !read || ids.contains(id) }
 }
 
 /// Message rows are set at `.subheadline` (15/20 at the default size): title and body differ by
@@ -430,19 +466,37 @@ final class MessageTextView: UITextView {
     var onExceedsLineCapChange: ((Bool) -> Void)?
 
     func setLineCap(_ cap: Int, collapsed: Bool) {
-        guard cap != lineCap || collapsed != isCollapsed else { return }
+        // TextKit draws the "…" only with a truncating mode; word wrapping just stops at the cap.
+        // Set on every update: `configureMessageTextView` resets the mode to word wrapping.
+        let mode: NSLineBreakMode = collapsed && cap > 0 ? .byTruncatingTail : .byWordWrapping
+        let modeChanged = textContainer.lineBreakMode != mode
+        if modeChanged { textContainer.lineBreakMode = mode }
+        guard modeChanged || cap != lineCap || collapsed != isCollapsed else { return }
         lineCap = cap
         isCollapsed = collapsed
         textContainer.maximumNumberOfLines = collapsed ? cap : 0
         updateExceedsLineCap()
         invalidateIntrinsicContentSize()
+        setNeedsLayout()
     }
 
-    private func updateExceedsLineCap() {
-        let exceeds = lineCap > 0 && bounds.width > 0 && messageLineCount(
+    /// The height the text takes at `width` with the current cap and first-line exclusion, for
+    /// SwiftUI's `sizeThatFits`. Measured at the width SwiftUI proposes rather than `bounds`, so
+    /// the List gets the right height on its first pass instead of whatever `bounds` held then.
+    func fittingHeight(forWidth width: CGFloat) -> CGFloat {
+        guard width > 0, width.isFinite else { return 1 }
+        applyFirstLineExclusion(width: width)
+        updateExceedsLineCap(width: width)
+        let size = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return ceil(size.height)
+    }
+
+    private func updateExceedsLineCap(width: CGFloat? = nil) {
+        let width = width ?? bounds.width
+        let exceeds = lineCap > 0 && width > 0 && messageLineCount(
             of: attributedText,
-            width: bounds.width,
-            exclusionPaths: textContainer.exclusionPaths
+            width: width,
+            exclusionPaths: firstLineExclusion.rects(containerWidth: width).map { UIBezierPath(rect: $0) }
         ) > lineCap
         guard exceeds != exceedsLineCap else { return }
         exceedsLineCap = exceeds
@@ -493,8 +547,8 @@ final class MessageTextView: UITextView {
         invalidateIntrinsicContentSize()
     }
 
-    private func applyFirstLineExclusion() {
-        let rects = firstLineExclusion.rects(containerWidth: bounds.width)
+    private func applyFirstLineExclusion(width: CGFloat? = nil) {
+        let rects = firstLineExclusion.rects(containerWidth: width ?? bounds.width)
         let paths = rects.map { UIBezierPath(rect: $0) }
         if textContainer.exclusionPaths.map(\.bounds) != paths.map(\.bounds) {
             textContainer.exclusionPaths = paths

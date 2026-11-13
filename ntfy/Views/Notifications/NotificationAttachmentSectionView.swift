@@ -44,11 +44,7 @@ struct NotificationAttachmentSectionView: View {
                     .contextMenu { attachmentMenuItems(localFileUrl: resolvedLocalFileUrl) }
             }
 
-            if currentProgressState == .failed {
-                Text(String(localized: "The last download attempt failed."))
-                    .font(.caption)
-                    .foregroundColor(.red)
-            }
+            // A failed download says so once, in the chip's red status; tapping the chip retries.
         }
         .padding(.top, 8)
         .onAppear {
