@@ -384,12 +384,37 @@ extension NavigationPilotUITests {
         return false
     }
     func pause(_ seconds: Double = 0.8) { Thread.sleep(forTimeInterval: seconds) }
-    func closeSheet() {
-        if tapFirst(["Close", "Cancel", "Done"]) { pause(); return }
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
-        pause()
+    /// Taps the topmost sheet's Close, Cancel or Done: the last such button in the bars, since a sheet
+    /// presented over another lists after it.
+    @discardableResult
+    func tapTopmost(_ labels: [String]) -> Bool {
+        let matches = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", labels))
+        for index in stride(from: matches.count - 1, through: 0, by: -1) {
+            let button = matches.element(boundBy: index)
+            if button.isHittable { button.tap(); return true }
+        }
+        return false
+    }
+    func barIDs() -> Set<String> {
+        Set(app.navigationBars.allElementsBoundByIndex.map(\.identifier))
+    }
+    /// Dismisses what opened since `before` was taken: its close control, then a drag down on any bar
+    /// still showing. Without `before`, only the close control is tried.
+    func closeSheet(since before: Set<String>? = nil) {
+        tapTopmost(["Close", "Cancel", "Done"]); pause()
+        guard let before else { return }
+        for _ in 0..<2 {
+            let left = barIDs().subtracting(before)
+            guard let id = left.first else { return }
+            let bar = app.navigationBars[id]
+            if tapTopmost(["Close", "Cancel", "Done"]) == false || app.navigationBars[id].exists {
+                if bar.exists {
+                    bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                        .press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+                }
+            }
+            pause()
+        }
     }
     func openTopicMenu() -> Bool {
         let more = app.navigationBars.buttons["Topic actions"].firstMatch
@@ -398,16 +423,35 @@ extension NavigationPilotUITests {
     }
     func fromTopicMenu(_ item: String, _ name: String, settle: Double = 1.0) {
         guard openTopicMenu() else { return }
-        if tapFirst([item]) { pause(settle); shot(name); closeSheet() } else { app.tapCoordinateOutsideMenu() }
+        let before = barIDs()
+        if tapFirst([item]) { pause(settle); shot(name); closeSheet(since: before) } else { app.tapCoordinateOutsideMenu() }
+    }
+    /// A row swipe that starts mid-row, so a rightward one can't become the system back gesture.
+    func swipeRow(_ cell: XCUIElement, right: Bool) {
+        let from = cell.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.2 : 0.8, dy: 0.5))
+        let to = cell.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.75 : 0.25, dy: 0.5))
+        from.press(forDuration: 0.01, thenDragTo: to, withVelocity: .fast, thenHoldForDuration: 0.05)
+    }
+    /// Re-opens the seeded topic if a step left it.
+    func ensureTopic() {
+        if app.navigationBars.buttons["Topic actions"].exists { return }
+        closeSheet()
+        let topics = app.navigationBars.buttons["Topics"].firstMatch
+        if topics.exists && topics.isHittable { topics.tap(); pause() }
+        let row = app.staticTexts["aaa-nav-000"].firstMatch
+        if row.waitForExistence(timeout: 2) && row.isHittable { row.tap(); pause(1.2) }
     }
     func scrollUntilHittable(_ element: XCUIElement, max: Int = 16) {
         for _ in 0..<max { if element.exists && element.isHittable { return }; app.swipeUp() }
     }
 
     func testSmallElementsCapture() {
+        continueAfterFailure = true
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 2) { springboard.buttons["Allow"].tap() }
+        // The fixture's last-seen version can trail the build, which opens What's new first.
+        if app.navigationBars["What's new"].waitForExistence(timeout: 3) { app.buttons["Continue"].tap(); pause() }
         XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
         pause(1.5)
         shot("topics")
@@ -416,8 +460,8 @@ extension NavigationPilotUITests {
         let row = app.staticTexts["aaa-nav-002"].firstMatch
         row.press(forDuration: 1.0); pause(); shot("list-context-menu"); app.tapCoordinateOutsideMenu(); pause()
         let topicCell = app.cells.containing(.staticText, identifier: "aaa-nav-002").firstMatch
-        topicCell.swipeLeft(); pause(); shot("list-swipe-trailing"); topicCell.swipeRight(); pause()
-        topicCell.swipeRight(); pause(); shot("list-swipe-leading"); topicCell.swipeLeft(); pause()
+        swipeRow(topicCell, right: false); pause(); shot("list-swipe-trailing"); swipeRow(topicCell, right: true); pause()
+        swipeRow(topicCell, right: true); pause(); shot("list-swipe-leading"); swipeRow(topicCell, right: false); pause()
 
         // Add sheet: empty, then with a topic typed so Subscribe enables, then the QR scanner.
         if tapFirst(["Add topic", "Add subscription", "Add"]) {
@@ -426,8 +470,10 @@ extension NavigationPilotUITests {
             if field.waitForExistence(timeout: 2) { field.tap(); field.typeText("build-alerts"); pause(0.5); shot("sheet-add-filled") }
             let scan = app.buttons["Scan QR code"].firstMatch
             scrollUntilHittable(scan, max: 6)
-            if scan.exists && scan.isHittable { scan.tap(); pause(); shot("sheet-scanner"); tapFirst(["Cancel", "Close"]); pause() }
-            tapFirst(["Cancel", "Close"]); pause()
+            if scan.exists && scan.isHittable { scan.tap(); pause(); shot("sheet-scanner"); tapTopmost(["Cancel", "Close"]); pause() }
+            for _ in 0..<3 where app.navigationBars["Add topic"].exists || app.navigationBars["Add subscription"].exists {
+                tapTopmost(["Cancel", "Close"]); pause()
+            }
         }
 
         // A pushed topic with two titled messages (seeded), its More menu and the copied toast.
@@ -443,8 +489,8 @@ extension NavigationPilotUITests {
         let message = titled.waitForExistence(timeout: 2) ? titled : app.cells.element(boundBy: 0)
         if message.exists {
             message.press(forDuration: 1.0); pause(); shot("message-context-menu"); app.tapCoordinateOutsideMenu(); pause()
-            message.swipeLeft(); pause(); shot("message-swipe-trailing"); message.swipeRight(); pause()
-            message.swipeRight(); pause(); shot("message-swipe-leading"); message.swipeLeft(); pause()
+            swipeRow(message, right: false); pause(); shot("message-swipe-trailing"); swipeRow(message, right: true); pause()
+            swipeRow(message, right: true); pause(); shot("message-swipe-leading"); swipeRow(message, right: false); pause()
         }
 
         // Every sheet the topic menu opens.
@@ -452,10 +498,11 @@ extension NavigationPilotUITests {
                              ("End-to-end encryption", "sheet-encryption"), ("Show QR code", "sheet-qr"),
                              ("Alert if quiet", "sheet-quiet"), ("Notification sound", "sheet-sound"),
                              ("Mute topic", "sheet-mute")] {
-            fromTopicMenu(item, name)
+            ensureTopic(); fromTopicMenu(item, name)
         }
 
         // Select mode with none, then two rows selected, and the delete confirmation.
+        ensureTopic()
         if openTopicMenu() {
             if tapFirst(["Select messages"]) {
                 pause(); shot("select-0")
@@ -468,25 +515,31 @@ extension NavigationPilotUITests {
         }
 
         // Search with no results.
+        ensureTopic()
         var search = app.searchFields.firstMatch
         if !search.waitForExistence(timeout: 1) { app.swipeDown(); search = app.searchFields.firstMatch }
         if search.waitForExistence(timeout: 2) {
-            search.tap(); search.typeText("zqxv no such message"); pause(); shot("search-empty")
+            search.tap()
+            if !app.keyboards.firstMatch.waitForExistence(timeout: 2) { search.tap() }
+            if app.keyboards.firstMatch.waitForExistence(timeout: 2) { app.typeText("zqxv no such message"); pause(); shot("search-empty") }
             tapFirst(["Cancel", "Close"]); pause()
         }
 
         // The two destructive confirmations, cancelled.
+        ensureTopic()
         if openTopicMenu() { if tapFirst(["Unsubscribe"]) { pause(); shot("confirm-unsubscribe"); tapFirst(["Cancel"]); pause() } }
         if openTopicMenu() { if tapFirst(["Clear all notifications"]) { pause(); shot("confirm-clear"); tapFirst(["Cancel"]); pause() } }
 
         // A topic muted and holding an unencrypted message (seeded) shows its notices.
-        app.navigationBars.buttons["Topics"].tap(); pause()
+        let back = app.navigationBars.buttons["Topics"].firstMatch
+        if back.exists && back.isHittable { back.tap(); pause() }
         let noticeTopic = app.staticTexts["aaa-nav-001"].firstMatch
         scrollUntilHittable(noticeTopic, max: 2)
-        noticeTopic.tap(); pause()
+        if noticeTopic.exists && noticeTopic.isHittable { noticeTopic.tap(); pause() }
         if openTopicMenu(), tapFirst(["Mute topic"]) { pause(); tapFirst(["1 hour"]); pause(1.2) }
         shot("topic-notices")
-        app.navigationBars.buttons["Topics"].tap(); pause()
+        let back2 = app.navigationBars.buttons["Topics"].firstMatch
+        if back2.exists && back2.isHittable { back2.tap(); pause() }
 
         // Settings: top, the Download attachments choice open, Default server, Users, About, a license.
         guard tapFirst(["Settings"]) else { return }
@@ -503,7 +556,7 @@ extension NavigationPilotUITests {
         let addUser = app.buttons["Add user"].firstMatch
         scrollUntilHittable(addUser)
         pause(0.5); shot("settings-users")
-        if addUser.exists && addUser.isHittable { addUser.tap(); pause(); shot("sheet-user-editor"); tapFirst(["Cancel", "Close"]); pause() }
+        if addUser.exists && addUser.isHittable { addUser.tap(); pause(); shot("sheet-user-editor"); tapTopmost(["Cancel", "Close"]); pause() }
         for _ in 0..<12 { app.swipeUp() }
         pause(0.5); shot("settings-about")
         let licenses = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Licenses'")).firstMatch
