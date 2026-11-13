@@ -767,28 +767,44 @@ struct InlineNotice: View {
                     Spacer(minLength: 0)
                     actionButton
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    label
-                    actionButton.padding(.leading, 28)
-                }
+                stacked
             }
         } else {
-            VStack(alignment: .leading, spacing: 4) {
-                label
-                actionButton
-            }
+            stacked
         }
     }
 
     private var label: some View {
         Label {
-            Text(text)
-                .foregroundColor(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+            noticeText
         } icon: {
-            Image(systemName: symbol).foregroundColor(tint)
+            icon
         }
         .font(.footnote)
+    }
+
+    /// When the action doesn't fit on the line it goes under the text, in the label's title column,
+    /// so it stays aligned with the text at every text size (the icon column grows with it).
+    private var stacked: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                noticeText
+                actionButton
+            }
+        } icon: {
+            icon
+        }
+        .font(.footnote)
+    }
+
+    private var noticeText: some View {
+        Text(text)
+            .foregroundColor(.primary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var icon: some View {
+        Image(systemName: symbol).foregroundColor(tint)
     }
 
     @ViewBuilder

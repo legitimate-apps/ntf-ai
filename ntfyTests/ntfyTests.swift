@@ -10752,6 +10752,28 @@ final class SmallElementsTests: XCTestCase {
         XCTAssertTrue(MessageSelectionChrome.deleteEnabled(selectionCount: 2))
     }
 
+    /// N4: the title already names the topic, so the subtitle names only its server. A renamed
+    /// topic keeps the full address, since its title no longer says which topic it is.
+    func testTopicSubtitleNamesTheServerUnlessTheTopicIsRenamed() {
+        let context = Store.shared.context
+        let subscription = Subscription(context: context)
+        subscription.baseUrl = "https://ntfy.retired.example/"
+        subscription.topic = "garage-alerts"
+        defer { context.delete(subscription) }
+
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example")
+        subscription.customDisplayName = "   "
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example")
+        subscription.customDisplayName = "Garage"
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example/garage-alerts")
+    }
+
+    /// The delete-selected confirmation's lone button says how many messages go.
+    func testDeleteSelectedButtonCarriesThePluralCount() {
+        XCTAssertEqual(String(localized: "Delete \(1) messages"), "Delete 1 message")
+        XCTAssertEqual(String(localized: "Delete \(3) messages"), "Delete 3 messages")
+    }
+
     /// Finding 6: in select mode the bar holds Delete and Done only.
     func testSelectModeHidesBackButtonAndCompose() {
         XCTAssertTrue(MessageSelectionChrome.hidesBackButton(editing: true))

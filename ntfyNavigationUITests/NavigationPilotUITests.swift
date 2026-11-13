@@ -11,7 +11,7 @@ final class NavigationPilotUITests: XCTestCase {
     let newTopic = "zz-nav-118-new"
     override func setUp() {
         continueAfterFailure = false
-        app.launchArguments = ["-ntfyDebugLastSeenVersion", "1.24.0", "-notificationPermissionPrimerOffered", "YES"]
+        app.launchArguments = ["-ntfyDebugLastSeenVersion", "1.25.0", "-notificationPermissionPrimerOffered", "YES"]
         app.launchEnvironment["DYLD_INSERT_LIBRARIES"] = setting("NTFYTestHarness")
     }
     func test00ResolveLaunchAlert() {
@@ -40,7 +40,7 @@ final class NavigationPilotUITests: XCTestCase {
         app.open(URL(string: "https://ntfy-me.com/" + newTopic)!)
         XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.textFields["Topic name"].value as? String, newTopic)
-        XCTAssertEqual(app.textFields["subscription-server-url"].value as? String, "https://ntfy-me.com")
+        XCTAssertEqual(app.textFields["subscription-server-url"].value as? String, "https://ntf-ai.app")
     }
     func testNotificationWarmOffscreen() {
         launchList()
@@ -871,5 +871,135 @@ private extension XCTestCase {
                        "Continue must dismiss the release sheet, not just reveal its underlying navigation bar")
         XCTAssertTrue(app.navigationBars[german ? "Abonnierte Themen" : "Topics"].waitForExistence(timeout: 5))
         capture(0, suffix: "dismissed")
+    }
+}
+
+/// After-only captures for the small-elements fix round (VERDICT-small.md): the destructive dialogs
+/// anchored to what opened them, Remove password, select mode, the copied toast, What's new and the
+/// message-row swipes and menu. Screenshots regardless of outcome; each state is tried once.
+extension NavigationPilotUITests {
+    /// Dismisses a confirmation: its Cancel button as an action sheet, or a tap outside as a popover.
+    func dismissDialog() {
+        if !tapFirst(["Cancel"], timeout: 1) {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)).tap()
+        }
+        pause()
+    }
+    /// Scrolls an open menu until `label` can be tapped: a drag inside the menu, from its lower
+    /// half up, so the scrolled-off destructive section comes into view.
+    func revealMenuItem(_ label: String) -> Bool {
+        let item = app.buttons[label].firstMatch
+        for _ in 0..<4 {
+            if item.exists && item.isHittable { return true }
+            guard let anchor = ["Topic details", "End-to-end encryption", "Rename", "Notification sound",
+                                "Alert if quiet", "Mute topic", "Show QR code"]
+                .map({ app.buttons[$0].firstMatch }).first(where: { $0.exists && $0.isHittable }) else { break }
+            anchor.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: anchor.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -4)))
+            pause(0.4)
+        }
+        return item.exists && item.isHittable
+    }
+    /// A message row by its title. The row's text is one combined element, so match by label
+    /// rather than an exact static-text identifier.
+    func messageRow(_ title: String) -> XCUIElement {
+        let contains = NSPredicate(format: "label CONTAINS %@", title)
+        let cell = app.cells.matching(contains).firstMatch
+        if cell.waitForExistence(timeout: 1.5) { return cell }
+        return app.staticTexts.matching(contains).firstMatch
+    }
+    /// A horizontal drag across the screen at `row`'s height, for the row's swipe actions.
+    func swipeAcross(_ row: XCUIElement, right: Bool) {
+        let window = app.windows.firstMatch.frame
+        let y = row.frame.midY
+        let x0 = row.frame.minX, x1 = min(row.frame.maxX, window.maxX)
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let from = origin.withOffset(CGVector(dx: right ? x0 + 40 : x1 - 40, dy: y))
+        let to = origin.withOffset(CGVector(dx: right ? x0 + (x1 - x0) * 0.7 : x0 + (x1 - x0) * 0.3, dy: y))
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .fast, thenHoldForDuration: 0.1)
+    }
+    func tapCenter(_ element: XCUIElement) {
+        guard element.exists else { return }
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: element.frame.midX, dy: element.frame.midY)).tap()
+    }
+    func testSmallFixCapture() {
+        continueAfterFailure = true
+        app.launchArguments = ["-ntfyDebugLastSeenVersion", "1.22.0", "-notificationPermissionPrimerOffered", "YES"]
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 2) { springboard.buttons["Allow"].tap() }
+        if app.navigationBars["What's new"].waitForExistence(timeout: 8) {
+            pause(); shot("whats-new-3"); app.buttons["Continue"].firstMatch.tap(); pause()
+        }
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        pause(1.2)
+
+        ensureTopic()
+        shot("topic-pushed")
+
+        // The More menu, top and scrolled to its destructive section.
+        if openTopicMenu() {
+            shot("topic-menu")
+            if revealMenuItem("Unsubscribe") { shot("topic-menu-destructive") }
+            app.tapCoordinateOutsideMenu(); pause()
+        }
+        // Clear all and Unsubscribe, each anchored to More.
+        for (item, name) in [("Clear all notifications", "confirm-clear"), ("Unsubscribe", "confirm-unsubscribe")] {
+            ensureTopic()
+            if openTopicMenu() {
+                if revealMenuItem(item) { app.buttons[item].firstMatch.tap(); pause(); shot(name); dismissDialog() }
+                else { app.tapCoordinateOutsideMenu(); pause() }
+            }
+        }
+
+        // The copied toast, in three frames across its 1.5 s.
+        ensureTopic()
+        if openTopicMenu() {
+            if tapFirst(["Copy publish URL"]) {
+                pause(0.15); shot("toast-copied-a"); pause(0.35); shot("toast-copied-b"); pause(0.5); shot("toast-copied-c"); pause(1.5)
+            } else { app.tapCoordinateOutsideMenu() }
+        }
+
+        // A message row: its context menu, then the system swipes.
+        ensureTopic()
+        let message = messageRow("Deploy finished")
+        if message.waitForExistence(timeout: 2) {
+            message.press(forDuration: 1.0); pause(); shot("message-context-menu"); app.tapCoordinateOutsideMenu(); pause()
+            swipeAcross(message, right: false); pause(); shot("message-swipe-trailing"); swipeAcross(message, right: true); pause()
+            swipeAcross(message, right: true); pause(); shot("message-swipe-leading"); swipeAcross(message, right: false); pause()
+        } else { shot("message-row-not-found") }
+
+        // Select mode: one, then two rows by title, then the delete confirmation anchored to Delete.
+        ensureTopic()
+        if openTopicMenu() {
+            if tapFirst(["Select messages"]) {
+                pause()
+                tapCenter(messageRow("Deploy finished"))
+                pause(0.5); shot("select-1")
+                tapCenter(messageRow("Nightly report"))
+                pause(0.5); shot("select-2")
+                let delete = app.buttons["select-delete"].firstMatch
+                if delete.exists && delete.isHittable { delete.tap(); pause(); shot("select-delete-confirm"); dismissDialog() }
+                tapFirst(["Done"]); pause()
+            } else { app.tapCoordinateOutsideMenu() }
+        }
+
+        // Encryption: set a generated password, then ask to remove it.
+        ensureTopic()
+        if openTopicMenu() {
+            let before = barIDs()
+            if tapFirst(["End-to-end encryption"]) {
+                pause()
+                if tapFirst(["Generate strong password"]) { pause(0.4) }
+                let save = app.buttons["Save password"].firstMatch
+                scrollUntilHittable(save, max: 3)
+                if save.exists && save.isHittable { save.tap(); pause() }
+                let remove = app.buttons["Remove password"].firstMatch
+                scrollUntilHittable(remove, max: 3)
+                if remove.exists && remove.isHittable { remove.tap(); pause(); shot("confirm-remove-password"); dismissDialog() }
+                closeSheet(since: before)
+            } else { app.tapCoordinateOutsideMenu() }
+        }
     }
 }

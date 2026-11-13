@@ -203,7 +203,7 @@ struct NotificationListView: View {
         .onPreferenceChange(ListWidthKey.self) { listWidth = $0 }
         .navigationTitle(subscription.shortDisplayName())
         .navigationBarTitleDisplayMode(.inline)
-        .modifier(TopicAddressSubtitle(address: showsAddress ? subscription.shortUrlString() : nil))
+        .modifier(TopicAddressSubtitle(address: showsAddress ? TopicSubtitle.address(for: subscription) : nil))
         .navigationBarBackButtonHidden(MessageSelectionChrome.hidesBackButton(editing: editMode == .active))
         .environment(\.editMode, self.$editMode)
         .sheet(isPresented: $showComposeSheet) {
@@ -223,6 +223,12 @@ struct NotificationListView: View {
                     // The app-wide tint overrides the destructive role here too; red when enabled.
                     .tint(.red)
                     .accessibilityIdentifier("select-delete")
+                    // Anchored to Delete, so the iOS 26 popover points at the button that opened it.
+                    .confirmationDialog(String(localized: "Delete"), isPresented: $confirmDeleteSelected,
+                                        titleVisibility: .hidden) {
+                        Button(String(localized: "Delete \(selection.count) messages"), role: .destructive,
+                               action: deleteSelected)
+                    }
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
@@ -244,21 +250,6 @@ struct NotificationListView: View {
                     topicMenu
                 }
             }
-        }
-        .confirmationDialog(String(localized: "Delete all messages in \(subscription.shortDisplayName())?"),
-                            isPresented: $confirmClear, titleVisibility: .visible) {
-            Button(String(localized: "Delete"), role: .destructive, action: deleteAll)
-        } message: {
-            Text(String(localized: "This can't be undone."))
-        }
-        .confirmationDialog(String(localized: "Unsubscribe from \(subscription.shortDisplayName())?"),
-                            isPresented: $confirmUnsubscribe, titleVisibility: .visible) {
-            Button(String(localized: "Unsubscribe"), role: .destructive, action: unsubscribe)
-        } message: {
-            Text(String(localized: "Its messages are deleted from this device."))
-        }
-        .confirmationDialog(String(localized: "Delete"), isPresented: $confirmDeleteSelected, titleVisibility: .hidden) {
-            Button(String(localized: "Delete"), role: .destructive, action: deleteSelected)
         }
         .alert(isPresented: $showAlert) {
             switch activeAlert {
@@ -386,7 +377,7 @@ struct NotificationListView: View {
         Menu {
             Section {
                 Button { sendTestNotification() } label: {
-                    Label(String(localized: "Send test notification"), systemImage: AppSymbol.test)
+                    Label(String(localized: "Send test"), systemImage: AppSymbol.test)
                 }
                 // The publish URL is what every script needs. Once a topic has messages the
                 // empty-state copy buttons are gone, so keep it one tap away here.
@@ -456,6 +447,20 @@ struct NotificationListView: View {
         }
         .accessibilityLabel(String(localized: "Topic actions"))
         .accessibilityIdentifier("topic-actions")
+        // Anchored to More, where both were chosen, so the iOS 26 popover points at the ellipsis
+        // rather than the title (attached to the list it anchored to the whole screen).
+        .confirmationDialog(String(localized: "Delete all messages in \(subscription.shortDisplayName())?"),
+                            isPresented: $confirmClear, titleVisibility: .visible) {
+            Button(String(localized: "Delete"), role: .destructive, action: deleteAll)
+        } message: {
+            Text(String(localized: "This can't be undone."))
+        }
+        .confirmationDialog(String(localized: "Unsubscribe from \(subscription.shortDisplayName())?"),
+                            isPresented: $confirmUnsubscribe, titleVisibility: .visible) {
+            Button(String(localized: "Unsubscribe"), role: .destructive, action: unsubscribe)
+        } message: {
+            Text(String(localized: "Its messages are deleted from this device."))
+        }
     }
 
     private var showsAddress: Bool {
@@ -793,6 +798,19 @@ private struct HidesTabBar: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// What goes under a topic's title. The title already names the topic, so the subtitle names only
+/// its server; a renamed topic keeps the full address, since its title no longer says the topic.
+enum TopicSubtitle {
+    static func address(for subscription: Subscription) -> String {
+        address(server: subscription.serverHost(), fullAddress: subscription.shortUrlString(),
+                renamed: subscription.shortDisplayName() != subscription.topicName())
+    }
+
+    static func address(server: String, fullAddress: String, renamed: Bool) -> String {
+        renamed ? fullAddress : server
     }
 }
 

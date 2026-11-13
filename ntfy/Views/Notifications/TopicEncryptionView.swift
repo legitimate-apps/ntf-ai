@@ -105,6 +105,7 @@ struct TopicEncryptionView: View {
                             isEditing = true
                         }
                         Button(String(localized: "Remove password"), role: .destructive) { confirmRemove = true }
+                            .modifier(RemovePasswordConfirmation(isPresented: $confirmRemove, remove: removePassword))
                     } else {
                         if passwordUnreadable && !isEditing {
                             Label(String(localized: "On, but the password can't be read right now"), systemImage: "lock.trianglebadge.exclamationmark")
@@ -112,6 +113,7 @@ struct TopicEncryptionView: View {
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                             Button(String(localized: "Remove password"), role: .destructive) { confirmRemove = true }
+                                .modifier(RemovePasswordConfirmation(isPresented: $confirmRemove, remove: removePassword))
                         } else if currentPassword == nil {
                             Label(String(localized: "Off for this topic"), systemImage: "lock.open")
                         }
@@ -161,23 +163,6 @@ struct TopicEncryptionView: View {
                     SheetCloseButton { presentationMode.wrappedValue.dismiss() }
                 }
             }
-            .alert(isPresented: $confirmRemove) {
-                Alert(
-                    title: Text(String(localized: "Remove password?")),
-                    message: Text(String(localized: "Messages you already received stay readable. New encrypted messages will show as \"Encrypted message\" until you set the password again.")),
-                    primaryButton: .destructive(Text(String(localized: "Remove"))) {
-                        if store.removeEncryptionPassword(for: subscription) {
-                            currentPassword = nil
-                            passwordUnreadable = false
-                            revealPassword = false
-                            status = String(localized: "Password removed.")
-                        } else {
-                            status = String(localized: "Could not remove the password. Encryption is still on.")
-                        }
-                    },
-                    secondaryButton: .cancel()
-                )
-            }
             .onAppear {
                 guard !didLoad else { return }
                 didLoad = true
@@ -187,6 +172,17 @@ struct TopicEncryptionView: View {
                 case .unreadable: passwordUnreadable = true
                 }
             }
+        }
+    }
+
+    private func removePassword() {
+        if store.removeEncryptionPassword(for: subscription) {
+            currentPassword = nil
+            passwordUnreadable = false
+            revealPassword = false
+            status = String(localized: "Password removed.")
+        } else {
+            status = String(localized: "Could not remove the password. Encryption is still on.")
         }
     }
 
@@ -208,6 +204,22 @@ struct TopicEncryptionView: View {
 }
 
 /// Sender snippets for this topic. The password is left out unless the user explicitly inserts it.
+/// "Remove password?" as a confirmation dialog anchored to the Remove password button that opened it,
+/// like the app's other destructive confirmations.
+private struct RemovePasswordConfirmation: ViewModifier {
+    @Binding var isPresented: Bool
+    let remove: () -> Void
+
+    func body(content: Content) -> some View {
+        content.confirmationDialog(String(localized: "Remove password?"), isPresented: $isPresented,
+                                   titleVisibility: .visible) {
+            Button(String(localized: "Remove"), role: .destructive, action: remove)
+        } message: {
+            Text(String(localized: "Messages you already received stay readable. New encrypted messages will show as \"Encrypted message\" until you set the password again."))
+        }
+    }
+}
+
 struct TopicEncryptionHelpView: View {
     let topicUrl: String
     let password: String?
