@@ -55,7 +55,7 @@ struct TopicSoundButton: View {
     @Binding var showingOptions: Bool
     var body: some View {
         Button { showingOptions = true } label: {
-            Label(String(localized: "Notification sound"), systemImage: "speaker.wave.2")
+            Label(String(localized: "Notification sound"), systemImage: AppSymbol.sound)
         }
     }
 }
@@ -98,11 +98,11 @@ struct TopicSoundView: View {
             .navigationTitle(String(localized: "Notification sound"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if !imports.isEmpty { EditButton().disabled(busy).accessibilityIdentifier("sound-edit") }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { presentationMode.wrappedValue.dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Done")) { presentationMode.wrappedValue.dismiss() }
+                ToolbarItem(placement: .primaryAction) {
+                    if !imports.isEmpty { EditButton().disabled(busy).accessibilityIdentifier("sound-edit") }
                 }
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.audio]) { result in

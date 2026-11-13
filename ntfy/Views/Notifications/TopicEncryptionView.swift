@@ -157,8 +157,8 @@ struct TopicEncryptionView: View {
             .navigationTitle(String(localized: "Encryption"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(String(localized: "Done")) { presentationMode.wrappedValue.dismiss() }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { presentationMode.wrappedValue.dismiss() }
                 }
             }
             .alert(isPresented: $confirmRemove) {

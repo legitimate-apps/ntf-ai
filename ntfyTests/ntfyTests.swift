@@ -10737,3 +10737,87 @@ final class DenseFixRoundTitleInsetTests: XCTestCase {
         XCTAssertFalse(view.textContainer.exclusionPaths.isEmpty)
     }
 }
+
+/// 1.26 nav bars and small elements (REVIEW-small.md): the behaviour changes and the shared rules.
+final class SmallElementsTests: XCTestCase {
+    override func tearDown() {
+        Store.shared.saveAttachmentAutoDownloadMaxSize(Store.autoDownloadDefault)
+        super.tearDown()
+    }
+
+    /// Finding 6: Delete in select mode asked to delete nothing when no row was selected.
+    func testSelectModeDeleteIsDisabledUntilARowIsSelected() {
+        XCTAssertFalse(MessageSelectionChrome.deleteEnabled(selectionCount: 0))
+        XCTAssertTrue(MessageSelectionChrome.deleteEnabled(selectionCount: 1))
+        XCTAssertTrue(MessageSelectionChrome.deleteEnabled(selectionCount: 2))
+    }
+
+    /// Finding 6: in select mode the bar holds Delete and Done only.
+    func testSelectModeHidesBackButtonAndCompose() {
+        XCTAssertTrue(MessageSelectionChrome.hidesBackButton(editing: true))
+        XCTAssertFalse(MessageSelectionChrome.hidesBackButton(editing: false))
+        XCTAssertFalse(MessageSelectionChrome.showsCompose(editing: true))
+        XCTAssertTrue(MessageSelectionChrome.showsCompose(editing: false))
+    }
+
+    /// Finding 8: the menu picker offers the action sheet's eight choices, in its order, and writes
+    /// each through the same store call, so the stored value is unchanged by the switch.
+    func testDownloadPickerWritesTheSameStoredValueTheActionSheetDid() {
+        XCTAssertEqual(AttachmentAutoDownloadOption.all.map(\.value), [
+            Store.autoDownloadNever, Store.autoDownloadAlways, Store.autoDownload100KB, Store.autoDownload500KB,
+            Store.autoDownloadDefault, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
+        ])
+        XCTAssertEqual(Set(AttachmentAutoDownloadOption.all.map(\.title)).count, 8)
+        let selection = AttachmentAutoDownloadOption.selection(store: Store.shared) {
+            Store.shared.getAttachmentAutoDownloadMaxSize()
+        }
+        for option in AttachmentAutoDownloadOption.all {
+            selection.wrappedValue = option.value
+            XCTAssertEqual(Store.shared.getAttachmentAutoDownloadMaxSize(), option.value, option.title)
+            XCTAssertEqual(selection.wrappedValue, option.value, option.title)
+        }
+    }
+
+    /// Finding 22: the wake-up check contacts the app's own server, so it names it the way the rest
+    /// of the UI does instead of a hard-coded host.
+    func testWakeUpCheckNamesTheAppServerTheWayTheRestOfTheUIDoes() {
+        let shown = shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))
+        XCTAssertEqual(RelayCheck().relayBaseUrlForDisplay, normalizeBaseUrl(Config.appBaseUrl))
+        let message = RelayCheck.State.received(1_700_000_000_000).message ?? ""
+        XCTAssertTrue(message.contains(shown), message)
+        if shown != "ntfy-me.com" {
+            XCTAssertFalse(message.contains("ntfy-me.com"), message)
+        }
+    }
+
+    /// System fix A: one vocabulary. Swipes take filled symbols, menus outline ones, More is never
+    /// circled, and leaving a topic is not drawn as deleting messages.
+    func testIconVocabularySeparatesSwipeAndMenuAndDeleteAndLeave() {
+        XCTAssertEqual(AppSymbol.more, "ellipsis")
+        XCTAssertEqual(AppSymbol.delete(swipe: true), "trash.fill")
+        XCTAssertEqual(AppSymbol.delete(), "trash")
+        XCTAssertEqual(AppSymbol.unsubscribe(swipe: true), "minus.circle.fill")
+        XCTAssertEqual(AppSymbol.unsubscribe(), "minus.circle")
+        XCTAssertNotEqual(AppSymbol.delete(), AppSymbol.unsubscribe())
+        for (menu, swipe) in [(AppSymbol.markRead(), AppSymbol.markRead(swipe: true)),
+                              (AppSymbol.markUnread(), AppSymbol.markUnread(swipe: true)),
+                              (AppSymbol.pin(), AppSymbol.pin(swipe: true)),
+                              (AppSymbol.unpin(), AppSymbol.unpin(swipe: true)),
+                              (AppSymbol.mute(), AppSymbol.mute(swipe: true))] {
+            XCTAssertFalse(menu.hasSuffix(".fill"), menu)
+            XCTAssertEqual(swipe, menu + ".fill")
+        }
+        for symbol in [AppSymbol.more, AppSymbol.compose, AppSymbol.add] {
+            XCTAssertFalse(symbol.contains("circle"), symbol)
+            XCTAssertNotNil(UIImage(systemName: symbol), symbol)
+        }
+    }
+
+    /// Finding 24: license text on the list margin, 16 pt below 414 pt wide and 20 at or above.
+    func testLicenseTextSitsOnTheListMargin() {
+        XCTAssertEqual(LicenseTextInsets.insets(width: 375).left, 16)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 402).left, 16)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 440).left, 20)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 440).right, 20)
+    }
+}

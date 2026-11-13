@@ -64,6 +64,7 @@ struct ServerHeadersView: View {
             }
         }
         .navigationTitle(String(localized: "Server headers"))
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: load)
         .alert(String(localized: "Server headers"), isPresented: Binding(
             get: { alertMessage != nil },

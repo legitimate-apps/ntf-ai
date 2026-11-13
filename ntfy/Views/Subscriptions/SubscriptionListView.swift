@@ -116,7 +116,7 @@ struct SubscriptionListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel(String(localized: "Add subscription"))
+                .accessibilityLabel(String(localized: "Add topic"))
             }
         }
         .overlay(Group {
@@ -141,9 +141,7 @@ struct SubscriptionListView: View {
                             Button(String(localized: "Create a topic")) {
                                 showingAddDialog = true
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color("BrandFill"))
-                            .foregroundColor(Color("Ink"))
+                            .brandProminentButton()
                             .padding(.top, 4)
                             .accessibilityIdentifier("empty-create-topic")
 
@@ -229,48 +227,60 @@ struct SubscriptionItemNavView: View {
                     Button {
                         toggleRead()
                     } label: {
-                        readLabel
+                        readLabel(swipe: true)
                     }
                     .tint(Color("BrandControlFill"))
 
                     Button {
                         togglePinned()
                     } label: {
-                        pinLabel
+                        pinLabel(swipe: true)
                     }
                     .tint(PinBadge.tint)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    TopicMuteButton(subscription: subscription, showingOptions: $showMuteOptions)
-                        .tint(.gray)
+                    // Swipes take the filled symbols; indigo is Messages' hide-alerts colour, where
+                    // grey read as a disabled action.
+                    Button { showMuteOptions = true } label: {
+                        Label(TopicMute.isMuted(until: subscription.mutedUntil) ? String(localized: "Mute settings") : String(localized: "Mute topic"),
+                              systemImage: AppSymbol.mute(swipe: true))
+                    }
+                    .tint(.indigo)
                     // Named for what it does: the confirmation is "Unsubscribe", and a swipe that
                     // said "Delete" read as deleting messages, not leaving the topic.
                     Button(role: .destructive) {
                         self.unsubscribeAlert = true
                     } label: {
-                        Label(String(localized: "Unsubscribe"), systemImage: "trash.circle")
+                        Label(String(localized: "Unsubscribe"), systemImage: AppSymbol.unsubscribe(swipe: true))
                     }
                 }
                 // Long-press offers the same actions for anyone who never tries a swipe. A blind
                 // setup test looked for pin here, found nothing and concluded the app had none.
+                // Frequent first, then the topic's alert settings, then leaving it.
                 .contextMenu {
-                    QuietTopicButton(showingOptions: $showQuietOptions)
-                    TopicSoundButton(showingOptions: $showSoundOptions)
-                    TopicMuteButton(subscription: subscription, showingOptions: $showMuteOptions)
-                    Button {
-                        toggleRead()
-                    } label: {
-                        readLabel
+                    Section {
+                        Button {
+                            toggleRead()
+                        } label: {
+                            readLabel(swipe: false)
+                        }
+                        Button {
+                            togglePinned()
+                        } label: {
+                            pinLabel(swipe: false)
+                        }
                     }
-                    Button {
-                        togglePinned()
-                    } label: {
-                        pinLabel
+                    Section {
+                        TopicMuteButton(subscription: subscription, showingOptions: $showMuteOptions)
+                        QuietTopicButton(showingOptions: $showQuietOptions)
+                        TopicSoundButton(showingOptions: $showSoundOptions)
                     }
-                    Button(role: .destructive) {
-                        self.unsubscribeAlert = true
-                    } label: {
-                        Label(String(localized: "Unsubscribe"), systemImage: "trash")
+                    Section {
+                        Button(role: .destructive) {
+                            self.unsubscribeAlert = true
+                        } label: {
+                            Label(String(localized: "Unsubscribe"), systemImage: AppSymbol.unsubscribe())
+                        }
                     }
                 }
         } else {
@@ -291,20 +301,20 @@ struct SubscriptionItemNavView: View {
         }
     }
     
-    private var readLabel: some View {
+    private func readLabel(swipe: Bool) -> some View {
         // From the summary, not `subscription.hasUnread()`. SwiftUI builds this label while
         // building the row, not when the user swipes or long-presses, and hasUnread() scans the
         // to-many relationship — which would fault every topic's whole history during list
         // rendering and undo the point of the aggregate. `toggleRead()` still asks the object
         // directly: by then the user has acted and a fresh authoritative read is worth one fault.
         let unread = (summary?.unread ?? subscription.unreadCount()) > 0
-        return Label(unread ? String(localized: "Read") : String(localized: "Unread"),
-                     systemImage: unread ? "envelope.open.fill" : "envelope.badge.fill")
+        return Label(unread ? String(localized: "Mark read") : String(localized: "Mark unread"),
+                     systemImage: unread ? AppSymbol.markRead(swipe: swipe) : AppSymbol.markUnread(swipe: swipe))
     }
 
-    private var pinLabel: some View {
+    private func pinLabel(swipe: Bool) -> some View {
         Label(subscription.pinned ? String(localized: "Unpin") : String(localized: "Pin"),
-              systemImage: subscription.pinned ? "pin.slash.fill" : "pin.fill")
+              systemImage: subscription.pinned ? AppSymbol.unpin(swipe: swipe) : AppSymbol.pin(swipe: swipe))
     }
 
     private func togglePinned() {
@@ -330,19 +340,14 @@ struct SubscriptionItemNavView: View {
         .sheet(isPresented: $showMuteOptions) {
             TopicMuteView(subscription: subscription)
         }
-        .alert(isPresented: $unsubscribeAlert) {
-            Alert(
-                title: Text(String(localized: "Unsubscribe")),
-                message: Text(String(localized: "Do you really want to unsubscribe from this topic and delete all of the notifications you received?")),
-                primaryButton: .destructive(
-                    Text(String(localized: "Unsubscribe")),
-                    action: {
-                        self.subscriptionManager.unsubscribe(subscription)
-                        self.unsubscribeAlert = false
-                    }
-                ),
-                secondaryButton: .cancel()
-            )
+        .confirmationDialog(String(localized: "Unsubscribe from \(subscription.shortDisplayName())?"),
+                            isPresented: $unsubscribeAlert, titleVisibility: .visible) {
+            Button(String(localized: "Unsubscribe"), role: .destructive) {
+                self.subscriptionManager.unsubscribe(subscription)
+                self.unsubscribeAlert = false
+            }
+        } message: {
+            Text(String(localized: "Its messages are deleted from this device."))
         }
     }
 }
@@ -469,10 +474,7 @@ struct SubscriptionItemRowView: View {
     private func rowAccessory(unread: Int) -> some View {
         HStack(spacing: 6) {
             if unread > 0 { UnreadBadge(count: unread) }
-            Image(systemName: "chevron.forward")
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(Color(UIColor.tertiaryLabel))
-                .accessibilityHidden(true)
+            RowAccessoryGlyph()
         }
     }
 }

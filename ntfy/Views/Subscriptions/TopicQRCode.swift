@@ -89,14 +89,14 @@ struct TopicQRCodeView: View {
             .navigationTitle(String(localized: "QR code"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(String(localized: "Done")) { isShowing = false }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { isShowing = false }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         sharing = true
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(systemName: AppSymbol.share)
                     }
                     .accessibilityLabel(String(localized: "Share"))
                     .disabled(shareItems.isEmpty)
@@ -258,7 +258,7 @@ struct TopicQRScannerView: View {
                 .navigationTitle(String(localized: "qr.scan.title", defaultValue: "Scan QR code"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button(String(localized: "Cancel")) { isShowing = false }
                     }
                 }

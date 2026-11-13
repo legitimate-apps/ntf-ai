@@ -40,7 +40,9 @@ struct QuietHoursView: View {
                                 }.fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                    }.navigationTitle(String(localized: "Allowed topics"))
+                    }
+                    .navigationTitle(String(localized: "Allowed topics"))
+                    .navigationBarTitleDisplayMode(.inline)
                 }
             }
         }

@@ -91,15 +91,15 @@ final class LocalizationTests: XCTestCase {
 
     func testDeviceNeutralCopyCompilesIntoAppAndNotificationExtension() throws {
         let keys = [
-            "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device.",
+            "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device.",
             "Critical alerts, which play sound even when your device is silenced, need special approval from Apple and aren't offered in this app.",
             "Encrypted messages stay locked and plain ones are marked \"Not encrypted\". If this persists after unlocking your device, set the password again or remove it.",
             "Device registration",
             "The encryption password is unavailable. Unlock your device or set the topic password again. Nothing was sent.",
             "This topic is end-to-end encrypted, but its password can't be read right now, so the test message would go out unencrypted. Try again after unlocking your device, or set the password again.",
             "With a password, messages are encrypted by whoever sends them, in transit and on the server: the server, Google and Apple see only ciphertext. Once they arrive they are stored readable on this device. The password stays on this device only and isn't backed up, so a restored or new device needs it entered again. Senders need the same password; see \"How to send encrypted messages\".",
-            "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
-            "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
+            "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
+            "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
             "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent.",
             "Topics could not be read. Unlock your device and open NTF-AI, then try again.",
             "Get one alert when no message arrives within the chosen time, even if this topic is muted. A new message starts the timer again. A quiet alert can also mean this device isn't receiving messages, including when it is offline.",

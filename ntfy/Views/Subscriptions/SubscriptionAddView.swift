@@ -158,38 +158,32 @@ struct SubscriptionAddView: View {
                     }
                     .accessibilityHint(String(localized: "Fills in a topic and server from a QR code"))
                 }
+                if loading {
+                    Section { ProgressView().frame(maxWidth: .infinity) }
+                }
             }
             if let error = addError {
                 ErrorView(error: error)
             }
         }
-        .navigationTitle(String(localized: "subscription.add.title", defaultValue: "Add subscription"))
+        .navigationTitle(String(localized: "Add topic"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showScanner) {
             TopicQRScannerView(isShowing: $showScanner, onCode: handleScannedCode)
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .cancellationAction) {
                 Button(action: cancelAction) {
                     Text(String(localized: "Cancel"))
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            // The label stays while subscribing, so the capsule keeps its width; the form shows progress.
+            ToolbarItem(placement: .confirmationAction) {
                 Button(action: subscribeOrShowLoginAction) {
-                    VStack {
-                        if loading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        } else {
-                            Text(String(localized: "Subscribe"))
-                        }
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-
+                    Text(String(localized: "Subscribe"))
                 }
-                .accessibilityLabel(String(localized: "Subscribe"))
                 .accessibilityValue(loading ? String(localized: "In progress") : "")
-                .disabled(!isAddViewValid())
+                .disabled(loading || !isAddViewValid())
             }
         }
     }
@@ -202,6 +196,9 @@ struct SubscriptionAddView: View {
                 ) {
                     ServerLoginFields(input: $login)
                 }
+                if loading {
+                    Section { ProgressView().frame(maxWidth: .infinity) }
+                }
             }
             if let notice = UrlSecurityNotice.message(for: selectedBaseUrl, isAccessToken: login.method == .token) {
                 Text(notice).font(.footnote).foregroundColor(.secondary).padding()
@@ -213,18 +210,12 @@ struct SubscriptionAddView: View {
         .navigationTitle(String(localized: "Login required"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .confirmationAction) {
                 Button(action: subscribeWithUserAction) {
-                    if loading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                    } else {
-                        Text(String(localized: "Subscribe"))
-                    }
+                    Text(String(localized: "Subscribe"))
                 }
-                .accessibilityLabel(String(localized: "Subscribe"))
                 .accessibilityValue(loading ? String(localized: "In progress") : "")
-                .disabled(!isLoginViewValid())
+                .disabled(loading || !isLoginViewValid())
             }
         }
     }

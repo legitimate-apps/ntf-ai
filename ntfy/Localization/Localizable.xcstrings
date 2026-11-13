@@ -1448,53 +1448,6 @@
         }
       }
     },
-    "Add subscription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add subscription"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Neues Abo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añadir suscripción"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aggiungi iscrizione"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dodaj subskrypcję"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abonnement toevoegen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouter un abonnement"
-          }
-        }
-      }
-    },
     "Add user": {
       "extractionState": "manual",
       "localizations": {
@@ -3139,53 +3092,6 @@
         }
       }
     },
-    "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prüfe, ob ntfy-me.com weitergeleitete Wecksignale für dieses Thema erhält. Das bestätigt keine Zustellung an dein Gerät."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comprueba si ntfy-me.com recibe avisos reenviados de este tópico. Esto no demuestra la entrega al dispositivo."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verifica se ntfy-me.com riceve i segnali di risveglio inoltrati per questo argomento. Non prova la consegna al dispositivo."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sprawdź, czy ntfy-me.com odbiera przekazane sygnały wybudzenia dla tego tematu. Nie potwierdza to dostarczenia na urządzenie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Controleer of ntfy-me.com doorgestuurde activeringssignalen voor dit onderwerp ontvangt. Dit bewijst geen bezorging op je apparaat."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérifiez si ntfy-me.com reçoit les demandes de réveil relayées pour ce sujet. Cela ne prouve pas leur réception sur votre appareil."
-          }
-        }
-      }
-    },
     "Check your connection and look for the message in the topic before sending again.": {
       "extractionState": "manual",
       "localizations": {
@@ -3515,53 +3421,6 @@
         }
       }
     },
-    "Clear notifications": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear notifications"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Benachrichtigungen löschen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar notificaciones"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancella notifiche"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wyczyść powiadomienia"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meldingen wissen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Effacer les notifications"
-          }
-        }
-      }
-    },
     "Clearer server hints: topics on ntfy.sh explain that they get no instant banners in this app, adding a topic reminds you where your scripts must send, and the self-hosting and migration guides are one tap away.": {
       "extractionState": "manual",
       "localizations": {
@@ -3793,53 +3652,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copié"
-          }
-        }
-      }
-    },
-    "Copied to Clipboard": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copied to Clipboard"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In Zwischenablage kopiert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiado al portapapeles"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiato negli appunti"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skopiowano do schowka"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gekopieerd naar klembord"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copié dans le presse-papiers"
           }
         }
       }
@@ -5646,147 +5458,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom affiché"
-          }
-        }
-      }
-    },
-    "Do you really want to delete all of the notifications in this topic?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to delete all of the notifications in this topic?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle Benachrichtigungen in diesem Thema wirklich löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres eliminar todas las notificaciones de este tópico?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero eliminare tutte le notifiche di questo argomento?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz usunąć wszystkie powiadomienia w tym temacie?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je echt alle meldingen in dit onderwerp verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment supprimer toutes les notifications de ce sujet ?"
-          }
-        }
-      }
-    },
-    "Do you really want to delete these selected notifications?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to delete these selected notifications?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die ausgewählten Benachrichtigungen wirklich löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres eliminar las notificaciones seleccionadas?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero eliminare le notifiche selezionate?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz usunąć wybrane powiadomienia?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je echt deze geselecteerde meldingen verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment supprimer les notifications sélectionnées ?"
-          }
-        }
-      }
-    },
-    "Do you really want to unsubscribe from this topic and delete all of the notifications you received?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to unsubscribe from this topic and delete all of the notifications you received?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses Thema wirklich abbestellen und alle empfangenen Benachrichtigungen löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres cancelar la suscripción a este tópico y eliminar todas las notificaciones recibidas?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero annullare l'iscrizione a questo argomento ed eliminare tutte le notifiche ricevute?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz anulować subskrypcję tego tematu i usunąć wszystkie odebrane powiadomienia?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je je echt afmelden voor dit onderwerp en alle ontvangen meldingen verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment vous désabonner de ce sujet et supprimer toutes les notifications reçues ?"
           }
         }
       }
@@ -12205,53 +11876,6 @@
         }
       }
     },
-    "Permanently delete": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permanently delete"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Endgültig löschen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eliminar definitivamente"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elimina definitivamente"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usuń trwale"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Definitief verwijderen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Supprimer définitivement"
-          }
-        }
-      }
-    },
     "Permission": {
       "extractionState": "manual",
       "localizations": {
@@ -13376,53 +13000,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Évaluer l’app"
-          }
-        }
-      }
-    },
-    "Read": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gelesen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leído"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Letto"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Przeczytane"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gelezen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lu"
           }
         }
       }
@@ -14975,53 +14552,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "URL du serveur"
-          }
-        }
-      }
-    },
-    "Set a custom name for this subscription. Leave empty to use the topic name.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set a custom name for this subscription. Leave empty to use the topic name."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lege einen eigenen Namen für dieses Abo fest. Lass das Feld leer, um den Themennamen zu verwenden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Define un nombre para esta suscripción. Déjalo vacío para usar el nombre del tópico."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imposta un nome personalizzato per questa iscrizione. Lascia vuoto per usare il nome dell'argomento."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ustaw własną nazwę tej subskrypcji. Pozostaw puste, aby użyć nazwy tematu."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kies een eigen naam voor dit abonnement. Laat dit leeg om de onderwerpnaam te gebruiken."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un nom personnalisé pour cet abonnement. Laissez vide pour utiliser le nom du sujet."
           }
         }
       }
@@ -21224,53 +20754,6 @@
         }
       }
     },
-    "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die upstream-base-url deines Servers muss https://ntfy-me.com sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El upstream-base-url del servidor debe ser https://ntfy-me.com. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'upstream-base-url del tuo server deve essere https://ntfy-me.com. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wartość upstream-base-url Twojego serwera musi wynosić https://ntfy-me.com. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De upstream-base-url van je server moet https://ntfy-me.com zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La valeur upstream-base-url de votre serveur doit être https://ntfy-me.com. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
-          }
-        }
-      }
-    },
     "Your topic moved to ntf-ai.app": {
       "extractionState": "manual",
       "localizations": {
@@ -22044,53 +21527,6 @@
         }
       }
     },
-    "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com hat um %@ ein Wecksignal für dieses Thema erhalten und FCM hat es angenommen. Das bestätigt weder den Empfang auf deinem Gerät noch, dass dieser Test das Wecksignal ausgelöst hat."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com recibió un aviso para este tópico a las %@ y FCM lo aceptó. Esto no demuestra que tu dispositivo lo recibiera ni que esta prueba lo causara."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com ha ricevuto un segnale di risveglio per questo argomento alle %@ e FCM lo ha accettato. Questo non prova che il dispositivo l'abbia ricevuto o che il segnale sia stato causato da questa prova."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com odebrał sygnał wybudzenia dla tego tematu o %@, a FCM go przyjął. Nie dowodzi to odebrania przez urządzenie ani tego, że sygnał wywołał ten test."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com heeft om %@ een activeringssignaal voor dit onderwerp ontvangen en FCM heeft het geaccepteerd. Dit bewijst niet dat je apparaat het ontving of dat deze test het signaal veroorzaakte."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com a reçu une demande de réveil pour ce sujet à %@, et FCM l’a acceptée. Cela ne prouve ni sa réception sur votre appareil ni que ce test l’a déclenchée."
-          }
-        }
-      }
-    },
     "on %@": {
       "extractionState": "manual",
       "localizations": {
@@ -22183,54 +21619,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scanner"
-          }
-        }
-      }
-    },
-    "subscription.add.title": {
-      "extractionState": "manual",
-      "comment": "Short navigation title; the add button has a separate spoken label.",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add subscription"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuevo"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuova"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nowy"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nieuw"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajout"
           }
         }
       }
@@ -30145,6 +29533,429 @@
           "stringUnit": {
             "state": "translated",
             "value": "moins"
+          }
+        }
+      }
+    },
+    "Delete all messages in %@?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all messages in %@?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Nachrichten in %@ löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar todos los mensajes de %@?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminare tutti i messaggi in %@?"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunąć wszystkie wiadomości w %@?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle berichten in %@ verwijderen?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer tous les messages de %@ ?"
+          }
+        }
+      }
+    },
+    "Unsubscribe from %@?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsubscribe from %@?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ abbestellen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cancelar la suscripción a %@?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annullare l'iscrizione a %@?"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anulować subskrypcję %@?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afmelden voor %@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se désabonner de %@ ?"
+          }
+        }
+      }
+    },
+    "This can't be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This can't be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das kann nicht rückgängig gemacht werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta acción no se puede deshacer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa azione non può essere annullata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tej operacji nie można cofnąć."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit kan niet ongedaan worden gemaakt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "Its messages are deleted from this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its messages are deleted from this device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Nachrichten des Themas werden von diesem Gerät gelöscht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sus mensajes se eliminan de este dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I suoi messaggi vengono eliminati da questo dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości tego tematu zostaną usunięte z tego urządzenia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De berichten van dit onderwerp worden van dit apparaat verwijderd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses messages sont supprimés de cet appareil."
+          }
+        }
+      }
+    },
+    "Add topic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add topic"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thema hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj temat"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerp toevoegen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un sujet"
+          }
+        }
+      }
+    },
+    "Set a custom name for this topic. Leave empty to use the topic name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a custom name for this topic. Leave empty to use the topic name."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lege einen eigenen Namen für dieses Thema fest. Lass das Feld leer, um den Themennamen zu verwenden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Define un nombre para este tópico. Déjalo vacío para usar el nombre del tópico."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imposta un nome personalizzato per questo argomento. Lascia vuoto per usare il nome dell'argomento."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ustaw własną nazwę tego tematu. Pozostaw puste, aby użyć nazwy tematu."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kies een eigen naam voor dit onderwerp. Laat dit leeg om de onderwerpnaam te gebruiken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un nom personnalisé pour ce sujet. Laissez vide pour utiliser le nom du sujet."
+          }
+        }
+      }
+    },
+    "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe, ob %@ weitergeleitete Wecksignale für dieses Thema erhält. Das bestätigt keine Zustellung an dein Gerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba si %@ recibe avisos reenviados de este tópico. Esto no demuestra la entrega al dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica se %@ riceve i segnali di risveglio inoltrati per questo argomento. Non prova la consegna al dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź, czy %@ odbiera przekazane sygnały wybudzenia dla tego tematu. Nie potwierdza to dostarczenia na urządzenie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controleer of %@ doorgestuurde activeringssignalen voor dit onderwerp ontvangt. Dit bewijst geen bezorging op je apparaat."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez si %@ reçoit les demandes de réveil relayées pour ce sujet. Cela ne prouve pas leur réception sur votre appareil."
+          }
+        }
+      }
+    },
+    "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat um %@ ein Wecksignal für dieses Thema erhalten und FCM hat es angenommen. Das bestätigt weder den Empfang auf deinem Gerät noch, dass dieser Test das Wecksignal ausgelöst hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ recibió un aviso para este tópico a las %@ y FCM lo aceptó. Esto no demuestra que tu dispositivo lo recibiera ni que esta prueba lo causara."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha ricevuto un segnale di risveglio per questo argomento alle %@ e FCM lo ha accettato. Questo non prova che il dispositivo l'abbia ricevuto o che il segnale sia stato causato da questa prova."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ odebrał sygnał wybudzenia dla tego tematu o %@, a FCM go przyjął. Nie dowodzi to odebrania przez urządzenie ani tego, że sygnał wywołał ten test."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ heeft om %@ een activeringssignaal voor dit onderwerp ontvangen en FCM heeft het geaccepteerd. Dit bewijst niet dat je apparaat het ontving of dat deze test het signaal veroorzaakte."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a reçu une demande de réveil pour ce sujet à %@, et FCM l’a acceptée. Cela ne prouve ni sa réception sur votre appareil ni que ce test l’a déclenchée."
+          }
+        }
+      }
+    },
+    "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die upstream-base-url deines Servers muss %@ sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El upstream-base-url del servidor debe ser %@. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'upstream-base-url del tuo server deve essere %@. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartość upstream-base-url Twojego serwera musi wynosić %@. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De upstream-base-url van je server moet %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La valeur upstream-base-url de votre serveur doit être %@. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
           }
         }
       }

@@ -219,28 +219,48 @@ struct WhatsNewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     ForEach(entries) { entry in
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(entry.version).font(.headline).accessibilityAddTraits(.isHeader)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(entry.version)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.secondary)
+                                .accessibilityAddTraits(.isHeader)
                             ForEach(entry.bullets, id: \.self) { bullet in
-                                HStack(alignment: .top) {
-                                    Text("•").accessibilityHidden(true)
-                                    Text(bullet).fixedSize(horizontal: false, vertical: true)
-                                }
+                                Text(bullet).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
-                    Button(String(localized: "Continue"), action: onContinue)
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundColor(Color("Ink"))
-                        .background(Color("BrandFill").cornerRadius(10))
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
             }
+            // Pinned below the notes, so Continue never scrolls out of reach.
+            .modifier(BottomBar {
+                Button(action: onContinue) {
+                    Text(String(localized: "Continue")).frame(maxWidth: .infinity)
+                }
+                .brandProminentButton()
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            })
             .navigationTitle(String(localized: "What's new"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+}
+
+/// A control pinned to the bottom edge: iOS 26's safe-area bar, which joins the scroll-edge effect,
+/// or a safe-area inset on the bar material before it.
+struct BottomBar<Bar: View>: ViewModifier {
+    let bar: Bar
+
+    init(@ViewBuilder _ bar: () -> Bar) { self.bar = bar() }
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.safeAreaBar(edge: .bottom) { bar }
+        } else {
+            content.safeAreaInset(edge: .bottom) { bar.padding(.top, 8).background(.bar) }
+        }
     }
 }

@@ -35,7 +35,7 @@ struct NotificationRowView: View {
                 Button {
                     toggleRead()
                 } label: {
-                    readToggleLabel
+                    readToggleLabel(swipe: true)
                 }
                 .tint(Color("BrandControlFill"))
             }
@@ -43,7 +43,7 @@ struct NotificationRowView: View {
                 Button(role: .destructive) {
                     store.delete(notification: notification)
                 } label: {
-                    Label(String(localized: "Delete"), systemImage: "trash.circle")
+                    Label(String(localized: "Delete"), systemImage: AppSymbol.delete(swipe: true))
                 }
             }
             .background(InAppBrowser(url: $browserURL))
@@ -294,9 +294,10 @@ struct NotificationRowView: View {
             case .none:
                 EmptyView()
             case .decrypted, .locked:
-                Image(systemName: notification.encryptionState == .locked ? "lock" : "lock.fill")
+                // Locked reads as a warning (can't read it yet), not as a lighter lock.
+                Image(systemName: notification.encryptionState == .locked ? "lock.trianglebadge.exclamationmark" : "lock.fill")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(notification.encryptionState == .locked ? .orange : .secondary)
                     .accessibilityLabel(notification.encryptionState == .locked
                         ? String(localized: "Encrypted, not readable yet")
                         : String(localized: "End-to-end encrypted"))
@@ -401,7 +402,7 @@ struct NotificationRowView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 showCopyFeedback()
             } label: {
-                Label(String(localized: "Copy title"), systemImage: "textformat")
+                Label(String(localized: "Copy title"), systemImage: AppSymbol.copyText)
             }
         }
         if #available(iOS 16.0, *) {
@@ -412,12 +413,12 @@ struct NotificationRowView: View {
         Button {
             toggleRead()
         } label: {
-            readToggleLabel
+            readToggleLabel(swipe: false)
         }
         Button(role: .destructive) {
             store.delete(notification: notification)
         } label: {
-            Label(String(localized: "Delete"), systemImage: "trash")
+            Label(String(localized: "Delete"), systemImage: AppSymbol.delete())
         }
     }
 
@@ -426,9 +427,9 @@ struct NotificationRowView: View {
         !notification.read || heldUnread
     }
 
-    private var readToggleLabel: some View {
+    private func readToggleLabel(swipe: Bool) -> some View {
         Label(showsUnread ? String(localized: "Mark read") : String(localized: "Mark unread"),
-              systemImage: showsUnread ? "envelope.open" : "envelope.badge")
+              systemImage: showsUnread ? AppSymbol.markRead(swipe: swipe) : AppSymbol.markUnread(swipe: swipe))
     }
 
     private func toggleRead() {

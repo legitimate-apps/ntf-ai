@@ -660,3 +660,151 @@ extension View {
         modifier(DisableAutocapitalizationModifier())
     }
 }
+
+// MARK: Chrome vocabulary (1.26 small-elements pass)
+
+/// One symbol per concept. Menus and context menus use the outline form, swipe actions the filled
+/// one, and toolbar symbols are never circled: the glass capsule is already the container.
+enum AppSymbol {
+    static let more = "ellipsis"
+    static let compose = "square.and.pencil"
+    static let add = "plus"
+    static func markRead(swipe: Bool = false) -> String { swipe ? "envelope.open.fill" : "envelope.open" }
+    static func markUnread(swipe: Bool = false) -> String { swipe ? "envelope.badge.fill" : "envelope.badge" }
+    static func pin(swipe: Bool = false) -> String { swipe ? "pin.fill" : "pin" }
+    static func unpin(swipe: Bool = false) -> String { swipe ? "pin.slash.fill" : "pin.slash" }
+    static func mute(swipe: Bool = false) -> String { swipe ? "bell.slash.fill" : "bell.slash" }
+    static let alertIfQuiet = "timer"
+    static let sound = "speaker.wave.2"
+    /// Messages go: one message, a selection, or a topic's whole history.
+    static func delete(swipe: Bool = false) -> String { swipe ? "trash.fill" : "trash" }
+    /// Leaving a topic, which is not the same picture as deleting messages.
+    static func unsubscribe(swipe: Bool = false) -> String { swipe ? "minus.circle.fill" : "minus.circle" }
+    static let copyText = "doc.on.doc"
+    static let copyLink = "link"
+    static let share = "square.and.arrow.up"
+    static let qrCode = "qrcode"
+    static let test = "paperplane"
+    static let rename = "pencil"
+    static let encryption = "lock"
+    static let details = "info.circle"
+    static let select = "checkmark.circle"
+    static let disclosure = "chevron.forward"
+    static let externalLink = "arrow.up.forward"
+    static let fieldClear = "xmark.circle.fill"
+}
+
+/// The trailing glyph of a row: a chevron for a push, an arrow for a link that leaves the app.
+/// Same size and colour as the system NavigationLink chevron, so the accessory column is one width.
+struct RowAccessoryGlyph: View {
+    var systemName: String = AppSymbol.disclosure
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(Color(UIColor.tertiaryLabel))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The close control of a sheet that saves as you go: the system Close button on iOS 26, "Done"
+/// before it. Place it with `SheetCloseButton.placement`.
+struct SheetCloseButton: View {
+    let action: () -> Void
+
+    static var placement: ToolbarItemPlacement {
+        if #available(iOS 26.0, *) { return .cancellationAction }
+        return .confirmationAction
+    }
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            Button(role: .close, action: action)
+        } else {
+            Button(String(localized: "Done"), action: action)
+        }
+    }
+}
+
+/// The in-content primary button (empty states, What's new, permission): system prominent button
+/// in the brand fill with ink text, so every such button is drawn the same way.
+struct BrandProminentButton: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 15.0, *) {
+            content
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(Color("BrandFill"))
+                .foregroundColor(Color("Ink"))
+        } else {
+            content
+                .foregroundColor(Color("Ink"))
+        }
+    }
+}
+
+extension View {
+    func brandProminentButton() -> some View {
+        modifier(BrandProminentButton())
+    }
+}
+
+/// One notice line: a tinted symbol, the text at footnote size, and an optional borderless action
+/// that sits on the same line when it fits. Used for notifications off, sign-in refused, muted and
+/// not encrypted, so the four read as one family.
+struct InlineNotice: View {
+    let symbol: String
+    var tint: Color = .secondary
+    let text: String
+    var actionTitle: String? = nil
+    var action: () -> Void = {}
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    label.fixedSize()
+                    Spacer(minLength: 0)
+                    actionButton
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    label
+                    actionButton.padding(.leading, 28)
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                label
+                actionButton
+            }
+        }
+    }
+
+    private var label: some View {
+        Label {
+            Text(text)
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: symbol).foregroundColor(tint)
+        }
+        .font(.footnote)
+    }
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if let actionTitle {
+            Button(actionTitle, action: action)
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.borderless)
+        }
+    }
+}
+
+/// Select mode on a topic: Delete needs something to delete, and the back button and Compose step
+/// aside so the bar holds only Delete and Done.
+enum MessageSelectionChrome {
+    static func deleteEnabled(selectionCount: Int) -> Bool { selectionCount > 0 }
+    static func hidesBackButton(editing: Bool) -> Bool { editing }
+    static func showsCompose(editing: Bool) -> Bool { !editing }
+}

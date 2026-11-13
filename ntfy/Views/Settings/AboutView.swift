@@ -12,34 +12,34 @@ struct AboutView: View {
         Group {
             // Primary help is the default server's quick start: its examples publish to ntfy-me.com.
             // ntfy's own docs stay as the full protocol reference, labelled as such.
-            linkRow(String(localized: "Getting started"), detail: shortUrl(url: normalizeBaseUrl(Config.helpUrl)), icon: "questionmark.circle",
+            linkRow(String(localized: "Getting started"), detail: shortUrl(url: normalizeBaseUrl(Config.helpUrl)),
                     url: Config.helpUrl)
-            linkRow(String(localized: "ntfy reference docs"), detail: "ntfy.sh/docs", icon: "book", url: Config.docsUrl)
+            linkRow(String(localized: "ntfy reference docs"), detail: "ntfy.sh/docs", url: Config.docsUrl)
             // The support page explains how to reach us.
-            linkRow(String(localized: "Get help or report a bug"), detail: String(localized: "NTF-AI support"), icon: "lifepreserver",
+            linkRow(String(localized: "Get help or report a bug"), detail: String(localized: "NTF-AI support"),
                     url: Config.supportUrl)
             NavigationLink(String(localized: "Diagnostic reports")) { DiagnosticReportsView() }
             // Only a build with an App Store id (APP_STORE_ID) has a listing to rate.
             if let reviewUrl = Config.reviewUrl {
-                linkRow(String(localized: "Rate the app"), detail: "App Store", icon: "star.fill", url: reviewUrl)
+                linkRow(String(localized: "Rate the app"), detail: "App Store", url: reviewUrl)
             }
             NavigationLink(String(localized: "Licenses")) { LicensesView() }
-            ValueRow(String(localized: "Version"), value: "NTF-AI \(Config.version) (\(Config.build))")
+            ValueRow(String(localized: "Version"), value: "\(Config.version) (\(Config.build))")
         }
-        .foregroundColor(.primary)
     }
 
     // One builder rather than four near-identical blocks. The bug this replaces
     // was a wrong literal in one of those blocks — "Rate the app" opened
     // upstream's App Store listing — which is exactly the mistake that hides in
     // copy-pasted rows. Every URL now comes from Config.
-    private func linkRow(_ title: String, detail: String, icon: String, url: String) -> some View {
+    /// Ends in the external-link arrow, the same size and colour as the chevrons on the push rows.
+    private func linkRow(_ title: String, detail: String, url: String) -> some View {
         Button(action: { open(url: url) }) {
             ValueRow(title, value: detail) {
-                Image(systemName: icon)
-                    .accessibilityHidden(true)   // decorative; the title already names the action
+                RowAccessoryGlyph(systemName: AppSymbol.externalLink)
             }
         }
+        .foregroundColor(.primary)
     }
 
     private func open(url: String) {

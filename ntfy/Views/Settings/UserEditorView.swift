@@ -97,10 +97,10 @@ struct UserEditorView: View {
             .navigationTitle(isNewUser ? String(localized: "account.add.title", defaultValue: "Add user") : String(localized: "Edit user"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(HardeningCopy.cancel, action: onCancel)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(action: saveAction) {
                         Text(String(localized: "Save"))
                     }

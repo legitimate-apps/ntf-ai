@@ -17,22 +17,14 @@ struct UserRowView: View {
         // even though in the subscription list it does.
         
         HStack {
-            Image(systemName: "person.fill")
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(store.getBasicUser(baseUrl: user.baseUrl ?? "")?.username ?? String(localized: "Sign-in required"))
-                    Text(user.baseUrl ?? "?")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.getBasicUser(baseUrl: user.baseUrl ?? "")?.username ?? String(localized: "Sign-in required"))
+                Text(shortUrl(url: user.baseUrl ?? "?"))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.forward")
-                .accessibilityHidden(true)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            RowAccessoryGlyph()
         }
-        .padding(.all, 4)
     }
 }
