@@ -333,18 +333,17 @@ struct NotificationRowView: View {
         titleExceedsCap || bodyExceedsCap
     }
 
-    /// The cut-off cue after the last line. A button of its own, so a row whose tap opens a click
-    /// URL can still be expanded.
+    /// The cut-off cue after the last line, with its own tap so a row whose tap opens a click URL
+    /// can still be expanded. Plain text, not a Button: a Button in the List row rendered blank.
     private var moreButton: some View {
-        Button(action: toggleExpansion) {
-            Text(String(localized: "more"))
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .padding(.top, 2)
-        .disabled(isEditing)
+        Text(String(localized: "more"))
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: toggleExpansion))
+            .accessibilityAddTraits(.isButton)
     }
 
     private func toggleExpansion() {

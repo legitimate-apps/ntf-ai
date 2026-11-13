@@ -10550,3 +10550,42 @@ final class RowExpansionTests: XCTestCase {
                        "A locked message previews as the placeholder, never a title")
     }
 }
+
+/// The row wiring, hosted for real: inside a List the body's text view gets its width, measures
+/// past six lines and hands that to the row (which is what shows "more").
+@MainActor
+final class RowExpansionHostingTests: XCTestCase {
+    private func textViews(in view: UIView) -> [MessageTextView] {
+        ((view as? MessageTextView).map { [$0] } ?? []) + view.subviews.flatMap { textViews(in: $0) }
+    }
+
+    func testLongMessageRowShowsMoreAfterLayout() async throws {
+        let store = Store(inMemory: true)
+        let subscription = store.saveSubscription(baseUrl: "https://hosting.invalid", topic: "long")
+        let body = (1...12).map { "Line \($0) of the build log" }.joined(separator: "\n")
+        _ = store.save(notificationsFromMessages: [
+            Message(id: "long1", time: 1_800_000_000, event: "message", topic: "long", message: body, title: "A title")
+        ], withSubscription: subscription)
+        let notification = try XCTUnwrap(try store.context.fetch(Notification.fetchRequest()).first { $0.id == "long1" })
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        defer { window.isHidden = true; previous?.makeKeyAndVisible() }
+        window.rootViewController = UIHostingController(rootView: List {
+            NotificationRowView(notification: notification, onCopyMessage: {})
+        }.environmentObject(store))
+        window.makeKeyAndVisible()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let views = textViews(in: window)
+        let detail = views.map { view in
+            "cap=\(view.lineCap) collapsed=\(view.isCollapsed) exceeds=\(view.exceedsLineCap) w=\(view.bounds.width) "
+            + "lines=\(messageLineCount(of: view.attributedText, width: view.bounds.width, exclusionPaths: view.textContainer.exclusionPaths)) "
+            + "len=\(view.attributedText.length) paths=\(view.textContainer.exclusionPaths.map(\.bounds))"
+        }
+        XCTAssertTrue(views.contains { $0.exceedsLineCap }, "The body's text view measures more than six lines: \(detail)")
+        let bodyView = try XCTUnwrap(views.first { $0.lineCap == MessageRowLineCap.body })
+        XCTAssertTrue(bodyView.isCollapsed)
+        XCTAssertEqual(views.first { $0.lineCap == MessageRowLineCap.title }?.exceedsLineCap, false)
+    }
+}
