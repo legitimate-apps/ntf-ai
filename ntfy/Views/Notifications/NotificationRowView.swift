@@ -45,6 +45,8 @@ struct NotificationRowView: View {
                 } label: {
                     Label(String(localized: "Delete"), systemImage: AppSymbol.delete(swipe: true))
                 }
+                // The app-wide tint overrides the destructive role in swipe actions; keep it red.
+                .tint(.red)
             }
             .background(InAppBrowser(url: $browserURL))
             .sheet(item: $attachmentPresentation) { attachmentPresentation in

@@ -253,6 +253,8 @@ struct SubscriptionItemNavView: View {
                     } label: {
                         Label(String(localized: "Unsubscribe"), systemImage: AppSymbol.unsubscribe(swipe: true))
                     }
+                    // The app-wide tint overrides the destructive role in swipe actions; keep it red.
+                    .tint(.red)
                 }
                 // Long-press offers the same actions for anyone who never tries a swipe. A blind
                 // setup test looked for pin here, found nothing and concluded the app had none.
