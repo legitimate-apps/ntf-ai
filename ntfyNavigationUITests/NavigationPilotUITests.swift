@@ -32,8 +32,12 @@ final class NavigationPilotUITests: XCTestCase {
     }
     func assertTarget() {
         XCTAssertTrue(app.navigationBars.staticTexts[target].waitForExistence(timeout: 8), "off-screen target must open without scrolling")
-        XCTAssertTrue(app.navigationBars.buttons["Topics"].exists)
-        XCTAssertTrue(app.buttons["Topic actions"].exists)
+        // The title is the bar's own title and shows as the push starts; on iOS 26 the back button and
+        // the trailing items fade in when it settles, about a second later. Wait for them instead of
+        // reading them in the same instant. A target pushed on top of another topic would read that
+        // topic's name here and still fail.
+        XCTAssertTrue(app.navigationBars.buttons["Topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Topic actions"].waitForExistence(timeout: 5))
     }
     func testURLNewCold() {
         app.terminate()
@@ -93,6 +97,10 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars.staticTexts["aaa-nav-000"].waitForExistence(timeout: 5))
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
         assertTarget()
+        // The target replaces the open topic: one Back returns to the list, not to aaa-nav-000.
+        app.navigationBars.buttons["Topics"].tap()
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars.staticTexts["aaa-nav-000"].exists)
     }
     func testVersion124UpdateSheet() {
         verifyVersion124UpdateSheet(app: app, german: false)
