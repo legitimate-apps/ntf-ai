@@ -220,6 +220,8 @@ struct NotificationListView: View {
                         Text(String(localized: "Delete"))
                     }
                     .disabled(!MessageSelectionChrome.deleteEnabled(selectionCount: selection.count))
+                    // The app-wide tint overrides the destructive role here too; red when enabled.
+                    .tint(.red)
                     .accessibilityIdentifier("select-delete")
                 }
             }
