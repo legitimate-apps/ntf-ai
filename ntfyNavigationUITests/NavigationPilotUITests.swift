@@ -305,7 +305,8 @@ final class NavigationPilotUITests: XCTestCase {
         let field = app.textFields.firstMatch
         field.tap(); field.typeText("http://localhost:8080")
         captureAX("default-server-clear")
-        app.buttons["Cancel"].tap()
+        // Default server is a pushed screen; going back discards the unsaved edit.
+        app.navigationBars.buttons["Settings"].tap()
         for _ in 0..<16 { if app.buttons["Add user"].isHittable { break }; app.swipeUp() }
         captureAX("settings-users")
         app.buttons["Add user"].tap()
@@ -338,9 +339,11 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["QR code"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.images["QR code for 127.0.0.1:1/aaa-nav-000"].exists)
         XCTAssertTrue(app.buttons["Share"].exists)
-        XCTAssertTrue(app.buttons["Done"].exists)
+        // The sheet's close control: the system Close button on iOS 26, Done before it.
+        let close = app.navigationBars["QR code"].buttons[app.navigationBars["QR code"].buttons["Close"].exists ? "Close" : "Done"]
+        XCTAssertTrue(close.exists)
         captureAX("topic-qr-code")
-        app.buttons["Done"].tap()
+        close.tap()
         app.navigationBars.buttons["Topics"].tap()
         app.buttons["Add topic"].tap()
         let scan = app.buttons["Scan QR code"]
@@ -359,6 +362,165 @@ final class NavigationPilotUITests: XCTestCase {
         app.buttons["Cancel"].tap()
     }
 
+}
+
+/// Before/after captures for the 1.26 nav-bar and small-element review (REVIEW-small.md). Runs
+/// against either build: each step taps the first label that exists and screenshots regardless,
+/// so a control missing from one build shows as an unchanged screen rather than a failure.
+extension NavigationPilotUITests {
+    func shot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+    @discardableResult
+    func tapFirst(_ labels: [String], in scope: XCUIElement? = nil, timeout: TimeInterval = 2) -> Bool {
+        let root = scope ?? app
+        for label in labels {
+            let button = root.buttons[label].firstMatch
+            if button.waitForExistence(timeout: timeout / Double(labels.count)) && button.isHittable { button.tap(); return true }
+        }
+        return false
+    }
+    func pause(_ seconds: Double = 0.8) { Thread.sleep(forTimeInterval: seconds) }
+    func closeSheet() {
+        if tapFirst(["Close", "Cancel", "Done"]) { pause(); return }
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        pause()
+    }
+    func openTopicMenu() -> Bool {
+        let more = app.navigationBars.buttons["Topic actions"].firstMatch
+        guard more.waitForExistence(timeout: 3) else { return false }
+        more.tap(); pause(0.6); return true
+    }
+    func fromTopicMenu(_ item: String, _ name: String, settle: Double = 1.0) {
+        guard openTopicMenu() else { return }
+        if tapFirst([item]) { pause(settle); shot(name); closeSheet() } else { app.tapCoordinateOutsideMenu() }
+    }
+    func scrollUntilHittable(_ element: XCUIElement, max: Int = 16) {
+        for _ in 0..<max { if element.exists && element.isHittable { return }; app.swipeUp() }
+    }
+
+    func testSmallElementsCapture() {
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 2) { springboard.buttons["Allow"].tap() }
+        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        pause(1.5)
+        shot("topics")
+
+        // Topic list: long-press menu, then the trailing and leading swipes on a row.
+        let row = app.staticTexts["aaa-nav-002"].firstMatch
+        row.press(forDuration: 1.0); pause(); shot("list-context-menu"); app.tapCoordinateOutsideMenu(); pause()
+        let topicCell = app.cells.containing(.staticText, identifier: "aaa-nav-002").firstMatch
+        topicCell.swipeLeft(); pause(); shot("list-swipe-trailing"); topicCell.swipeRight(); pause()
+        topicCell.swipeRight(); pause(); shot("list-swipe-leading"); topicCell.swipeLeft(); pause()
+
+        // Add sheet: empty, then with a topic typed so Subscribe enables, then the QR scanner.
+        if tapFirst(["Add topic", "Add subscription", "Add"]) {
+            pause(); shot("sheet-add-empty")
+            let field = app.textFields["Topic name"].firstMatch
+            if field.waitForExistence(timeout: 2) { field.tap(); field.typeText("build-alerts"); pause(0.5); shot("sheet-add-filled") }
+            let scan = app.buttons["Scan QR code"].firstMatch
+            scrollUntilHittable(scan, max: 6)
+            if scan.exists && scan.isHittable { scan.tap(); pause(); shot("sheet-scanner"); tapFirst(["Cancel", "Close"]); pause() }
+            tapFirst(["Cancel", "Close"]); pause()
+        }
+
+        // A pushed topic with two titled messages (seeded), its More menu and the copied toast.
+        app.staticTexts["aaa-nav-000"].firstMatch.tap(); pause(1.5)
+        shot("topic-pushed")
+        if openTopicMenu() { shot("topic-menu"); app.tapCoordinateOutsideMenu(); pause() }
+        if openTopicMenu() {
+            if tapFirst(["Copy publish URL"]) { pause(0.4); shot("toast-copied"); pause(2.5) } else { app.tapCoordinateOutsideMenu() }
+        }
+
+        // Message row: context menu, then both swipes.
+        let titled = app.cells.containing(.staticText, identifier: "Deploy finished").firstMatch
+        let message = titled.waitForExistence(timeout: 2) ? titled : app.cells.element(boundBy: 0)
+        if message.exists {
+            message.press(forDuration: 1.0); pause(); shot("message-context-menu"); app.tapCoordinateOutsideMenu(); pause()
+            message.swipeLeft(); pause(); shot("message-swipe-trailing"); message.swipeRight(); pause()
+            message.swipeRight(); pause(); shot("message-swipe-leading"); message.swipeLeft(); pause()
+        }
+
+        // Every sheet the topic menu opens.
+        for (item, name) in [("Rename", "sheet-rename"), ("Topic details", "sheet-details"),
+                             ("End-to-end encryption", "sheet-encryption"), ("Show QR code", "sheet-qr"),
+                             ("Alert if quiet", "sheet-quiet"), ("Notification sound", "sheet-sound"),
+                             ("Mute topic", "sheet-mute")] {
+            fromTopicMenu(item, name)
+        }
+
+        // Select mode with none, then two rows selected, and the delete confirmation.
+        if openTopicMenu() {
+            if tapFirst(["Select messages"]) {
+                pause(); shot("select-0")
+                let cells = app.cells
+                if cells.count >= 2 { cells.element(boundBy: 0).tap(); cells.element(boundBy: 1).tap() }
+                pause(0.5); shot("select-2")
+                if tapFirst(["Delete"], in: app.navigationBars.firstMatch) { pause(); shot("select-delete-confirm"); tapFirst(["Cancel"]); pause() }
+                tapFirst(["Done"], in: app.navigationBars.firstMatch); pause()
+            } else { app.tapCoordinateOutsideMenu() }
+        }
+
+        // Search with no results.
+        var search = app.searchFields.firstMatch
+        if !search.waitForExistence(timeout: 1) { app.swipeDown(); search = app.searchFields.firstMatch }
+        if search.waitForExistence(timeout: 2) {
+            search.tap(); search.typeText("zqxv no such message"); pause(); shot("search-empty")
+            tapFirst(["Cancel", "Close"]); pause()
+        }
+
+        // The two destructive confirmations, cancelled.
+        if openTopicMenu() { if tapFirst(["Unsubscribe"]) { pause(); shot("confirm-unsubscribe"); tapFirst(["Cancel"]); pause() } }
+        if openTopicMenu() { if tapFirst(["Clear all notifications"]) { pause(); shot("confirm-clear"); tapFirst(["Cancel"]); pause() } }
+
+        // A topic muted and holding an unencrypted message (seeded) shows its notices.
+        app.navigationBars.buttons["Topics"].tap(); pause()
+        let noticeTopic = app.staticTexts["aaa-nav-001"].firstMatch
+        scrollUntilHittable(noticeTopic, max: 2)
+        noticeTopic.tap(); pause()
+        if openTopicMenu(), tapFirst(["Mute topic"]) { pause(); tapFirst(["1 hour"]); pause(1.2) }
+        shot("topic-notices")
+        app.navigationBars.buttons["Topics"].tap(); pause()
+
+        // Settings: top, the Download attachments choice open, Default server, Users, About, a license.
+        guard tapFirst(["Settings"]) else { return }
+        pause(); shot("settings-top")
+        let download = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Download attachments'")).firstMatch
+        scrollUntilHittable(download, max: 4)
+        if download.exists { download.tap(); pause(); shot("download-picker"); if !tapFirst(["Cancel"], timeout: 1) { app.tapCoordinateOutsideMenu() }; pause() }
+        let server = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Default server'")).firstMatch
+        scrollUntilHittable(server, max: 4)
+        if server.exists {
+            server.tap(); pause(); shot("default-server")
+            if !tapFirst(["Cancel"], timeout: 1) { app.navigationBars.buttons["Settings"].tap() }; pause()
+        }
+        let addUser = app.buttons["Add user"].firstMatch
+        scrollUntilHittable(addUser)
+        pause(0.5); shot("settings-users")
+        if addUser.exists && addUser.isHittable { addUser.tap(); pause(); shot("sheet-user-editor"); tapFirst(["Cancel", "Close"]); pause() }
+        for _ in 0..<12 { app.swipeUp() }
+        pause(0.5); shot("settings-about")
+        let licenses = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Licenses'")).firstMatch
+        if licenses.exists && licenses.isHittable {
+            licenses.tap(); pause()
+            app.cells.firstMatch.tap(); pause(); shot("licenses-detail")
+            app.navigationBars.buttons.firstMatch.tap(); pause()
+            app.navigationBars.buttons.firstMatch.tap(); pause()
+        }
+        app.navigationBars.buttons.firstMatch.tap(); pause()
+
+        // What's new listing three versions, with Continue pinned.
+        app.terminate()
+        app.launchArguments = ["-ntfyDebugLastSeenVersion", "1.22.0", "-notificationPermissionPrimerOffered", "YES"]
+        app.launch()
+        if app.navigationBars["What's new"].waitForExistence(timeout: 8) { pause(); shot("whats-new-3") }
+    }
 }
 
 private extension XCUIApplication {
