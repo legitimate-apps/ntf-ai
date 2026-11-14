@@ -89,6 +89,7 @@ struct SubscriptionListView: View {
             .hidden()
         )
         .listStyle(PlainListStyle())
+        .modifier(ReadableCardWidth())
         .navigationTitle(String(localized: "Topics"))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

@@ -15,6 +15,7 @@ struct MessagePageView: View {
     @ObservedObject private var waiting = WaitingObservable.shared
     @State private var browserURL: URL?
     @State private var showCopied = false
+    @State private var scrollToReply = UUID()
 
     private var display: MessageDisplay { notification.display }
     /// At accessibility sizes a pinned bar would take most of the screen, so the answers follow
@@ -31,6 +32,7 @@ struct MessagePageView: View {
     }
 
     private var page: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 header
@@ -41,7 +43,7 @@ struct MessagePageView: View {
                 }
                 MessageAttachmentBlock(notification: notification, maxHeight: 520, onCopy: copied)
                 if hasAnswerArea && answersInline {
-                    answerArea.padding(.top, 12)
+                    answerArea.padding(.top, 12).id("answers")
                 }
             }
             .padding(.horizontal, 20)
@@ -50,6 +52,14 @@ struct MessagePageView: View {
             // About 45 to 80 characters a line on iPad too.
             .frame(maxWidth: 680, alignment: .leading)
             .frame(maxWidth: .infinity)
+        }
+        // At accessibility sizes the answers sit at the end of the text: bring the reply field
+        // above the keyboard when it takes focus.
+        .onChange(of: scrollToReply) { _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                withAnimation { proxy.scrollTo("answers", anchor: .bottom) }
+            }
+        }
         }
         .background(Color(.systemBackground))
         .modifier(PinnedAnswerBar(enabled: hasAnswerArea && !answersInline) {
@@ -177,7 +187,8 @@ struct MessagePageView: View {
                 }
                 if let replyAction {
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
-                               disabled: state.sending, focusOnAppear: focusReply) { text in
+                               disabled: state.sending, focusOnAppear: focusReply,
+                               onFocus: { if answersInline { scrollToReply = UUID() } }) { text in
                         runner.run(replyAction, replyText: text)
                     }
                 }
@@ -213,7 +224,7 @@ struct MessagePageView: View {
 
 /// The answer area pinned to the bottom. Opaque, so body text never shows through behind the
 /// buttons (DECISION change 8); the keyboard pushes it up with the field.
-private struct PinnedAnswerBar<Bar: View>: ViewModifier {
+struct PinnedAnswerBar<Bar: View>: ViewModifier {
     let enabled: Bool
     @ViewBuilder let bar: () -> Bar
 
@@ -242,9 +253,13 @@ struct ReplyField: View {
     let placeholder: String
     var disabled = false
     var focusOnAppear = false
+    /// Called when the field gains focus, so an inline answer area can scroll it above the keyboard.
+    var onFocus: () -> Void = {}
     let send: (String) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
+    /// The send circle grows with the text so the arrow always fits inside it.
+    @ScaledMetric(relativeTo: .body) private var sendSize: CGFloat = 34
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -260,14 +275,15 @@ struct ReplyField: View {
             Button {
                 let value = trimmed
                 guard !value.isEmpty else { return }
+                // The text stays until the answer is through: on success the receipt replaces this
+                // field; on failure the person can send it again without retyping.
                 send(value)
-                text = ""
                 focused = false
             } label: {
                 Image(systemName: "arrow.up")
                     .font(.body.weight(.semibold))
                     .foregroundColor(trimmed.isEmpty ? .secondary : InboxColor.onFill)
-                    .frame(width: 34, height: 34)
+                    .frame(width: sendSize, height: sendSize)
                     .background(Circle().fill(trimmed.isEmpty ? AnyShapeStyle(.quaternary) : AnyShapeStyle(InboxColor.fill)))
             }
             .buttonStyle(.plain)
@@ -280,6 +296,9 @@ struct ReplyField: View {
         .opacity(disabled ? 0.4 : 1)
         .onAppear {
             if focusOnAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { focused = true } }
+        }
+        .onChange(of: focused) { isFocused in
+            if isFocused { onFocus() }
         }
     }
 

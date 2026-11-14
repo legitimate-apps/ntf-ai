@@ -1139,35 +1139,45 @@ extension NavigationPilotUITests {
         tapFirst(["Add topic", "Add"])
         XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 5))
         shot("add-step1")
-        let name = app.textFields["Topic name"].firstMatch
-        name.tap(); app.typeText("my-agent"); pause(); shot("add-step1-filled")
         // The fixture's default server is unreachable; the local hook answers as an open server.
+        // The server goes in first, before any keyboard is up: at large sizes on a small screen
+        // the keyboard covers the switch and the form builds its rows lazily.
         let other = app.switches["Use another server"].firstMatch
-        // The form builds rows lazily: at large sizes on a small screen the switch isn't there until scrolled to.
-        for _ in 0..<4 where !other.exists { app.collectionViews.firstMatch.swipeUp(); pause(0.4) }
+        for _ in 0..<4 where !other.exists || !other.isHittable { app.collectionViews.firstMatch.swipeUp(); pause(0.4) }
         if other.exists {
-            // At large text sizes the switch sits under the keyboard; scroll it clear first.
-            for _ in 0..<4 {
-                let kb = app.keyboards.firstMatch
-                if !kb.exists || other.frame.maxY < kb.frame.minY - 8 { break }
-                app.collectionViews.firstMatch.swipeUp(); pause(0.4)
-            }
             other.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap(); pause(0.5)
             let server = app.textFields["subscription-server-url"].firstMatch
+            // At accessibility sizes the label wraps and the switch no longer sits at the row's
+            // right middle: tap the switch control itself.
+            if !server.waitForExistence(timeout: 1), (other.value as? String) != "1" {
+                let knob = other.switches.firstMatch
+                if knob.exists { knob.tap() } else { other.tap() }
+                pause(0.5)
+            }
             if server.waitForExistence(timeout: 2) {
                 server.tap(); pause(0.3)
                 app.typeText("http://127.0.0.1:8765"); pause(0.5)
                 XCTAssertEqual(server.value as? String, "http://127.0.0.1:8765", "the server URL lands in the server field")
             }
         }
+        let name = app.textFields["Topic name"].firstMatch
+        for _ in 0..<4 where !name.isHittable { app.collectionViews.firstMatch.swipeDown(); pause(0.4) }
+        name.tap(); app.typeText("my-agent"); pause(); shot("add-step1-filled")
         tapFirst(["Subscribe"])
         if app.buttons["Not now"].waitForExistence(timeout: 4) { shot("add-primer"); app.buttons["Not now"].tap() }
-        XCTAssertTrue(app.staticTexts["connect-instructions"].waitForExistence(timeout: 8) || app.otherElements["connect-instructions"].exists)
-        pause(); captureAX("add-step2")
-        app.swipeUp(); pause(); shot("add-step2-bottom")
-        app.buttons["connect-done"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars.staticTexts["my-agent"].waitForExistence(timeout: 8), "Done opens the new topic")
-        pause(1.2); shot("add-new-topic")
+        let reachedStep2 = app.staticTexts["connect-instructions"].waitForExistence(timeout: 8) || app.otherElements["connect-instructions"].exists
+        if reachedStep2 {
+            pause(); captureAX("add-step2")
+            app.swipeUp(); pause(); shot("add-step2-bottom")
+            app.buttons["connect-done"].firstMatch.tap()
+            XCTAssertTrue(app.navigationBars.staticTexts["my-agent"].waitForExistence(timeout: 8), "Done opens the new topic")
+            pause(1.2); shot("add-new-topic")
+        } else {
+            // Named for what it shows: step 1 still up, so no step-2 picture comes from it.
+            shot("add-step1-not-reached-step2")
+            XCTFail("Subscribe didn't reach step 2")
+            tapFirst(["Cancel"]); pause()
+        }
 
         tab("Search"); shot("search-prompt")
         let search = app.searchFields.firstMatch

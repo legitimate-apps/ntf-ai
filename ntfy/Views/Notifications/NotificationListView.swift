@@ -127,7 +127,7 @@ struct NotificationListView: View {
     
     /// A notification tap opens that message's page (DECISION change 7), pushed on this topic so
     /// one Back returns to it. Looked up by sequence, so an updated message opens as it is now.
-    private func openRequestedMessage() {
+    private func openRequestedMessage(tries: Int = 10) {
         guard !didOpenRequested, let sequence = openMessageSequence, !sequence.isEmpty else { return }
         didOpenRequested = true
         let request = Notification.fetchRequest() as NSFetchRequest<Notification>
@@ -135,7 +135,14 @@ struct NotificationListView: View {
                                         subscription, sequence, sequence)
         request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
         request.fetchLimit = 1
-        guard let notification = try? store.context.fetch(request).first else { return }
+        guard let notification = try? store.context.fetch(request).first else {
+            // A tap on a banner can beat the extension's or the poll's save of that message: look
+            // again every half second for five seconds before giving up.
+            guard tries > 0 else { return }
+            didOpenRequested = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { openRequestedMessage(tries: tries - 1) }
+            return
+        }
         // Only once the topic's own push has finished: a second programmatic push started during
         // that transition shows the page and then SwiftUI pops it again.
         NavigationSettle.after {

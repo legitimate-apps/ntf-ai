@@ -3,25 +3,29 @@ import Foundation
 import Combine
 
 /// Which question an answer belongs to: server, topic and sequence. A sequence update replaces its
-/// row in place, so the key outlives an agent's edit of the question.
+/// row in place, so the key outlives an agent's edit of the question. `version` is the message id
+/// the person saw: an answer applies only to that version, so a new question that reuses the
+/// sequence waits again.
 struct AnswerKey: Hashable {
     let baseUrl: String
     let topic: String
     let sequence: String
+    var version: String?
 
     var id: String { "\(normalizeBaseUrl(baseUrl))|\(topic)|\(sequence)" }
 
-    init(baseUrl: String, topic: String, sequence: String) {
+    init(baseUrl: String, topic: String, sequence: String, version: String? = nil) {
         self.baseUrl = baseUrl
         self.topic = topic
         self.sequence = sequence
+        self.version = version
     }
 
     init?(notification: Notification) {
         guard let subscription = notification.subscription, let baseUrl = subscription.baseUrl,
               let topic = subscription.topic, let id = notification.id else { return nil }
         let sequence = notification.sequenceID.flatMap { $0.isEmpty ? nil : $0 } ?? id
-        self.init(baseUrl: baseUrl, topic: topic, sequence: sequence)
+        self.init(baseUrl: baseUrl, topic: topic, sequence: sequence, version: id)
     }
 }
 
@@ -34,6 +38,12 @@ struct AnswerEntry: Codable, Equatable {
     var text: String?
     var at: Date
     var ok: Bool
+    /// The message id answered. Nil in entries from before 1.26's fix round, which apply to any version.
+    var messageId: String?
+
+    func applies(to key: AnswerKey) -> Bool {
+        messageId == nil || key.version == nil || messageId == key.version
+    }
 }
 
 /// A small local record of answers, in the app group's defaults so a banner answer and an in-app
@@ -59,8 +69,10 @@ final class AnswerLog: ObservableObject {
         entries = decoded
     }
 
+    /// The answer made on this version of the question, if any.
     func entry(for key: AnswerKey?) -> AnswerEntry? {
-        key.flatMap { entries[$0.id] }
+        guard let key, let entry = entries[key.id], entry.applies(to: key) else { return nil }
+        return entry
     }
 
     func isSending(_ key: AnswerKey?) -> Bool {
@@ -75,11 +87,13 @@ final class AnswerLog: ObservableObject {
         onMain { self.sending[key.id] = actionId }
     }
 
-    /// A failure never replaces an earlier success: the agent already has that answer.
+    /// A failure never replaces an earlier success on the same version: the agent already has that answer.
     func record(_ key: AnswerKey, _ entry: AnswerEntry) {
+        var entry = entry
+        if entry.messageId == nil { entry.messageId = key.version }
         onMain {
             self.sending[key.id] = nil
-            if let existing = self.entries[key.id], existing.ok, !entry.ok { return }
+            if let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
             self.entries[key.id] = entry
             self.save()
         }
@@ -126,9 +140,12 @@ enum WaitingRule {
     }
 
     /// The row judged is the newest of its sequence (an update replaces it in place), so an agent's
-    /// "settled" update without actions takes the question out, and so does a clear.
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, cleared: Bool, now: Date = Date()) -> Bool {
-        guard hasAnswerAction(actions), !cleared else { return false }
+    /// "settled" update without actions takes the question out, and a delete removes the row.
+    /// A `message_clear` does not: in ntfy it means "read and dismissed", and this app sends one
+    /// whenever a message is read here or on another device, so it can't tell an agent's withdrawal
+    /// from the person having looked at the question.
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, now: Date = Date()) -> Bool {
+        guard hasAnswerAction(actions) else { return false }
         if entry?.ok == true { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
@@ -158,27 +175,17 @@ enum WaitedTime {
 }
 
 extension Store {
-    /// Sequence keys whose newest event is a clear: the agent withdrew those questions.
-    func clearedSequenceKeys(_ keys: [String], in context: NSManagedObjectContext? = nil) -> Set<String> {
-        guard !keys.isEmpty else { return [] }
-        let request = NSFetchRequest<NSManagedObject>(entityName: "SequenceState")
-        request.predicate = NSPredicate(format: "key IN %@ AND event == %@", keys, "message_clear")
-        let rows = (try? (context ?? self.context).fetch(request)) ?? []
-        return Set(rows.compactMap { $0.value(forKey: "key") as? String })
-    }
-
-    /// Every message waiting on the person, ordered for the Waiting on you queue.
+    /// Every message waiting on the person, ordered for the Waiting on you queue. No fetch limit:
+    /// the rule filters after the fetch, so a cap would let a busy bot push real questions out.
+    /// The predicate keeps the set to rows with actions from the last seven days.
     func waitingNotifications(log: AnswerLog = .shared, now: Date = Date()) -> [Notification] {
         let request = Notification.fetchRequest()
-        request.predicate = NSPredicate(format: "actions != nil AND actions != '' AND time >= %lld AND subscription != nil",
+        request.predicate = NSPredicate(format: "actions != nil AND actions != '' AND actions != '[]' AND time >= %lld AND subscription != nil",
                                         Int64(now.addingTimeInterval(-WaitingRule.maxAge).timeIntervalSince1970))
         request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
-        request.fetchLimit = 500
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
-        let cleared = clearedSequenceKeys(rows.compactMap(\.sequenceKey))
         return rows.filter { row in
-            WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: AnswerKey(notification: row)),
-                                  cleared: row.sequenceKey.map(cleared.contains) ?? false, now: now)
+            WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: AnswerKey(notification: row)), now: now)
         }
         .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
     }
@@ -209,17 +216,22 @@ final class WaitingObservable: ObservableObject {
         // "Not needed" refreshes at once through `dismiss`.
         log.$entries.dropFirst().debounce(for: .seconds(2), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
-        // Questions age out after seven days even when nothing else changes.
-        Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
+        // Questions age out after seven days even when nothing else changes, and the minutes
+        // waited move on: redraw every minute even when the queue is the same.
+        Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in
+            self?.refresh()
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
     }
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
 
     private var pending = false
+    /// Every poll, read and extension merge changes the context; coalesce a burst into one fetch.
     private func scheduleRefresh() {
         guard !pending else { return }
         pending = true
-        DispatchQueue.main.async { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             self?.pending = false
             self?.refresh()
         }

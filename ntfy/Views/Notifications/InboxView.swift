@@ -84,7 +84,7 @@ struct InboxView: View {
             ForEach(Array(days.enumerated()), id: \.element.day) { index, group in
                 Section(header: activityHeader(first: index == 0, day: group.day)) {
                     ForEach(group.items, id: \.objectID) { notification in
-                        MessageCard(notification: notification, showsTopic: true,
+                        MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
                                     open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
                                     onCopy: copied)
                             .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))

@@ -637,10 +637,14 @@ struct MessageRowActions: ViewModifier {
 struct MessageCard: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.sizeCategory) private var sizeCategory
+    @Environment(\.editMode) private var editMode
     @ObservedObject var notification: Notification
     @ObservedObject private var log = AnswerLog.shared
     @ObservedObject private var waiting = WaitingObservable.shared
     var showsTopic = false
+    /// Inbox Activity: a question already listed in Waiting on you says so instead of showing its
+    /// answers a second time on the same screen.
+    var defersToWaiting = false
     var heldUnread = false
     let open: (_ focusReply: Bool) -> Void
     var onCopy: () -> Void = {}
@@ -679,6 +683,7 @@ struct MessageCard: View {
                     LineCappedText(text: display.cardBody, lines: 8, truncated: $truncated)
                     if truncated {
                         Button(String(localized: "Show more")) { open(false) }
+                            .disabled(editing)
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(InboxColor.ink)
                             .buttonStyle(.borderless)
@@ -694,19 +699,28 @@ struct MessageCard: View {
             MessageAttachmentBlock(notification: notification, maxHeight: 300, onCopy: onCopy)
             if state.answered {
                 AnswerReceiptView(entry: state.entry)
+            } else if defersToWaiting && waiting.contains(notification) {
+                Label(String(localized: "Waiting on you"), systemImage: "hand.raised.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(InboxColor.ink)
+                    .accessibilityIdentifier("card-waiting-line")
             } else if !items.isEmpty {
                 if state.failed { AnswerReceiptView(failed: true) }
                 ActionBar(items: items, prominentId: prominentId(items), size: .regular,
                           sendingId: state.sendingActionId, run: run)
+                    // While selecting, a tap picks the row; it must not answer the agent.
+                    .disabled(editing)
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { open(false) }
+        .onTapGesture { if !editing { open(false) } }
         .modifier(LinkOpener(url: $browserURL))
         .accessibilityElement(children: .contain)
         .accessibilityValue(showsUnread ? String(localized: "Unread") : "")
         .accessibilityAction(named: Text(String(localized: "Open message"))) { open(false) }
     }
+
+    private var editing: Bool { editMode?.wrappedValue.isEditing == true }
 
     private var time: some View {
         Text(Notification.shortTime(for: notification.date()))
@@ -880,12 +894,15 @@ struct MessagePageLink: ViewModifier {
 /// Runs `action` once no navigation controller in the app is mid-transition (polled every 0.1 s,
 /// at most 3 s), for a push that must follow another programmatic push.
 enum NavigationSettle {
-    static func after(_ action: @escaping () -> Void, tries: Int = 30) {
+    /// Polls every 0.1 s for up to `tries` polls. A push started inside a running transition is
+    /// popped again by SwiftUI, so when the transition never ends the action is dropped rather than
+    /// cut in: the person can still open the message from the list.
+    static func after(_ action: @escaping () -> Void, tries: Int = 100) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             let roots = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                 .flatMap(\.windows).compactMap(\.rootViewController)
             let busy = roots.flatMap(navigationControllers).contains { $0.transitionCoordinator != nil }
-            if busy && tries > 0 { after(action, tries: tries - 1) } else { action() }
+            if !busy { action() } else if tries > 0 { after(action, tries: tries - 1) }
         }
     }
 
@@ -901,7 +918,8 @@ enum NavigationSettle {
 /// page, centred; on iPhone the list keeps its own margins.
 struct ReadableCardWidth: ViewModifier {
     @State private var width: CGFloat = 0
-    private static let measure: CGFloat = 720
+    /// The message page's width, so every list and page on iPad shares one measure.
+    private static let measure: CGFloat = 680
 
     func body(content: Content) -> some View {
         let side: CGFloat? = width > Self.measure + 40 ? (width - Self.measure) / 2 : nil

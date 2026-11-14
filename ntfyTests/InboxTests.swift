@@ -16,8 +16,8 @@ final class WaitingRuleTests: XCTestCase {
                method: nil, headers: nil, body: nil, clear: nil)
     }
 
-    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil, cleared: Bool = false) -> Bool {
-        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, cleared: cleared, now: now)
+    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil) -> Bool {
+        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, now: now)
     }
 
     func testHTTPAndReplyActionsWaitButLinksAndCopyDoNot() {
@@ -48,9 +48,6 @@ final class WaitingRuleTests: XCTestCase {
         XCTAssertEqual(WaitingRule.maxAge, 7 * 24 * 3600)
     }
 
-    func testClearedLeaves() {
-        XCTAssertFalse(waits([act("http")], cleared: true))
-    }
 
     func testUrgentThenHighThenNewest() {
         let old = now.addingTimeInterval(-3600)
@@ -114,11 +111,66 @@ final class WaitingStoreTests: XCTestCase {
         XCTAssertEqual(waitingIDs, [], "a sequence update without actions settles the question")
     }
 
-    func testAClearTakesTheQuestionOut() {
+    /// In ntfy a clear means "read and dismissed", and this app sends one when the person opens the
+    /// question (here or on another device). Reading a question is not answering it.
+    func testAClearKeepsTheQuestionWaiting() {
         save(message("q2", sequence: "deploy-2", age: 600, actions: [http()]))
         XCTAssertEqual(waitingIDs, ["q2"])
         save(message("c2", sequence: "deploy-2", age: 300, event: "message_clear", text: nil))
-        XCTAssertEqual(waitingIDs, [], "a cleared question is withdrawn")
+        XCTAssertEqual(waitingIDs, ["q2"], "a read question still waits for its answer")
+    }
+
+    func testReadingTheQuestionHereThenItsClearEchoKeepsItWaiting() throws {
+        save(message("q4", sequence: "deploy-4", age: 600, actions: [http()]))
+        let row = try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)
+        store.setRead(true, forNotification: row)
+        store.context.processPendingChanges()
+        save(message("c4", sequence: "deploy-4", age: 1, event: "message_clear", text: nil))
+        XCTAssertEqual(waitingIDs, ["q4"], "the server's echo of our own mark-read is not a withdrawal")
+    }
+
+    func testADeleteTakesTheQuestionOut() {
+        save(message("q5", sequence: "deploy-5", age: 600, actions: [http()]))
+        save(message("d5", sequence: "deploy-5", age: 300, event: "message_delete", text: nil))
+        XCTAssertEqual(waitingIDs, [], "a deleted question is withdrawn")
+    }
+
+    /// An answer belongs to the version it was made on: a new question under the same sequence waits again.
+    func testANewQuestionReusingAnAnsweredSequenceWaitsAgain() throws {
+        save(message("r1", sequence: "approval", age: 900, actions: [http()]))
+        let first = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        log.record(first, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true))
+        XCTAssertEqual(waitingIDs, [])
+        save(message("r2", sequence: "approval", age: 60, text: "Deploy v3?", actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["r2"], "the new question waits")
+        let row = try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)
+        XCTAssertFalse(AnswerState(notification: row, log: log).answered, "its buttons show, not the old receipt")
+    }
+
+    func testANewQuestionReusingADismissedSequenceWaitsAgain() throws {
+        save(message("n1", sequence: "nightly", age: 900, actions: [http()]))
+        log.dismiss(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first))), now: now)
+        XCTAssertEqual(waitingIDs, [])
+        save(message("n2", sequence: "nightly", age: 60, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["n2"])
+    }
+
+    func testAnAnswerLoggedBeforeVersionsStillCounts() throws {
+        save(message("l1", sequence: "legacy", age: 600, actions: [http()]))
+        let key = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        log.record(AnswerKey(baseUrl: key.baseUrl, topic: key.topic, sequence: key.sequence),
+                   AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true))
+        XCTAssertEqual(waitingIDs, [], "an entry without a message id applies to any version")
+    }
+
+    func testABusyBotDoesNotPushQuestionsOutOfWaiting() throws {
+        let bot = (0..<520).map { message("b\($0)", sequence: "b\($0)", age: 60 + Double($0), actions: [http()]) }
+        _ = store.save(notificationsFromMessages: bot, withSubscription: subscription)
+        save(message("old-q", sequence: "old-q", age: 3600, actions: [http()]))
+        for row in store.waitingNotifications(log: log, now: now) where row.id != "old-q" {
+            log.dismiss(try XCTUnwrap(AnswerKey(notification: row)), now: now)
+        }
+        XCTAssertEqual(waitingIDs, ["old-q"], "the older question is still listed after 520 newer ones")
     }
 
     func testAnsweredAndDismissedLeaveAndAFailureStays() throws {
@@ -144,7 +196,7 @@ final class WaitingStoreTests: XCTestCase {
         let first = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
         save(message("v2", sequence: "deploy-3", age: 300, text: "Deploy v2 (rebuilt)?", actions: [http()]))
         let second = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
-        XCTAssertEqual(first, second)
+        XCTAssertEqual(first.id, second.id)
         XCTAssertEqual(waitingIDs, ["v2"], "an update that still asks keeps waiting")
     }
 }
@@ -259,5 +311,15 @@ final class AgentInstructionsTests: XCTestCase {
         XCTAssertTrue(text.hasSuffix(AgentInstructions.guideUrl))
         XCTAssertEqual(AgentInstructions.guideUrl, "https://ntf-ai.app/docs/agents")
         XCTAssertFalse(text.contains("login"), "no login line without saved credentials")
+        XCTAssertTrue(text.contains("over plain HTTPS"))
+        XCTAssertTrue(text.contains("update it without actions or delete it"), "a clear is a read, not a withdrawal")
+        XCTAssertFalse(text.contains("clear it"))
+    }
+
+    /// Every line must be true, also for a self-hosted server on plain HTTP.
+    func testTheSchemeFollowsTheServer() {
+        let text = AgentInstructions.text(baseUrl: "http://192.168.1.20:8080", topic: "lab")
+        XCTAssertTrue(text.contains("over plain HTTP:"))
+        XCTAssertFalse(text.contains("HTTPS"))
     }
 }
