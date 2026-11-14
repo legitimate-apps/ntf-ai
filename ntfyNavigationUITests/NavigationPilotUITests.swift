@@ -215,7 +215,8 @@ final class NavigationPilotUITests: XCTestCase {
         }
         revealMuteChoice("30 minutes", scrollingUp: false).tap()
         // 1.26 (A1): a muted row carries the bell.slash mark, spoken "Muted"; the duration lives on the topic's page.
-        let status = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Muted")).firstMatch
+        // Scoped to this row: earlier tests can leave another topic muted.
+        let status = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "aaa-nav-000", "Muted")).firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 3))
         muteScreenshot("muted-topic-list")
         app.terminate(); app.launch()
@@ -1142,6 +1143,8 @@ extension NavigationPilotUITests {
         name.tap(); app.typeText("my-agent"); pause(); shot("add-step1-filled")
         // The fixture's default server is unreachable; the local hook answers as an open server.
         let other = app.switches["Use another server"].firstMatch
+        // The form builds rows lazily: at large sizes on a small screen the switch isn't there until scrolled to.
+        for _ in 0..<4 where !other.exists { app.collectionViews.firstMatch.swipeUp(); pause(0.4) }
         if other.exists {
             // At large text sizes the switch sits under the keyboard; scroll it clear first.
             for _ in 0..<4 {
