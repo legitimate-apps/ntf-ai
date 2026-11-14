@@ -98,6 +98,7 @@ struct InboxView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .refreshable {
             await SubscriptionManager(store: store).pollAll(store.getSubscriptions() ?? [], manual: true)
@@ -169,6 +170,7 @@ struct WaitingAllView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .navigationTitle(String(localized: "Waiting on you"))
         .navigationBarTitleDisplayMode(.inline)

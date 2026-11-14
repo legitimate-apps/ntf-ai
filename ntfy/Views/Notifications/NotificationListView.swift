@@ -217,6 +217,7 @@ struct NotificationListView: View {
         }
         // Cards on the grouped background (C2): each message its own rounded surface.
         .listStyle(.insetGrouped)
+        .modifier(ReadableCardWidth())
         .modifier(CompactDayBreaks())
         .navigationTitle(subscription.shortDisplayName())
         .navigationBarTitleDisplayMode(.inline)

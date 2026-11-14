@@ -114,6 +114,10 @@ print(f"inbox seeded: {len(topics)} topics, {len(msgs)} messages")
 # Answers live in the app group's defaults (AnswerLog, answerLog.v1), outside the store: clear them
 # so each run starts with every question unanswered. Through cfprefsd, which caches the plist.
 import subprocess
-subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "delete", group, "answerLog.v1"],
-               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-print("answer log cleared")
+# The group's suite lives in its container, not the simulator user's domain, so name the plist by path.
+prefs = gdir / "Library/Preferences" / group
+r = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "delete", str(prefs), "answerLog.v1"],
+                   capture_output=True, text=True)
+left = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "read", str(prefs), "answerLog.v1"],
+                      capture_output=True, text=True)
+print("answer log cleared" if left.returncode != 0 else "ANSWER LOG STILL SET", r.returncode)

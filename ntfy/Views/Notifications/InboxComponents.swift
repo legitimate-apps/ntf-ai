@@ -160,6 +160,7 @@ struct PriorityMark: View {
 
 /// Priority, emoji tags right against the title, and the title (DIRECTIONS 1.5).
 struct MessageTitleLine: View {
+    @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var notification: Notification
     var font: Font = .headline
     var lineLimit: Int? = 2
@@ -171,7 +172,9 @@ struct MessageTitleLine: View {
             let emoji = notification.emojiTags().joined()
             if !emoji.isEmpty { Text(emoji).accessibilityHidden(true) }
             if let title = display.titleText {
-                Text(title).lineLimit(lineLimit).fixedSize(horizontal: false, vertical: true)
+                // At accessibility sizes a title wraps in full instead of truncating.
+                Text(title).lineLimit(sizeCategory.isAccessibilityCategory ? nil : lineLimit)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .font(font)
@@ -633,6 +636,7 @@ struct MessageRowActions: ViewModifier {
 /// a topic line on top says which agent spoke.
 struct MessageCard: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var notification: Notification
     @ObservedObject private var log = AnswerLog.shared
     @ObservedObject private var waiting = WaitingObservable.shared
@@ -661,11 +665,14 @@ struct MessageCard: View {
                     time
                 }
             }
+            // At accessibility sizes the time takes its own line so the title keeps the width.
+            let timeAbove = !showsTopic && sizeCategory.isAccessibilityCategory
+            if timeAbove { time }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 if showsUnread { UnreadDot().alignmentGuide(.firstTextBaseline) { $0[.bottom] } }
                 MessageTitleLine(notification: notification, lineLimit: 2)
                 Spacer(minLength: 8)
-                if !showsTopic { time }
+                if !showsTopic && !timeAbove { time }
             }
             if !display.body.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -888,4 +895,28 @@ enum NavigationSettle {
         if let presented = controller.presentedViewController { found += navigationControllers(in: presented) }
         return found
     }
+}
+
+/// On a wide screen (iPad) a card list keeps a readable measure, about as wide as the message
+/// page, centred; on iPhone the list keeps its own margins.
+struct ReadableCardWidth: ViewModifier {
+    @State private var width: CGFloat = 0
+    private static let measure: CGFloat = 720
+
+    func body(content: Content) -> some View {
+        let side: CGFloat? = width > Self.measure + 40 ? (width - Self.measure) / 2 : nil
+        if #available(iOS 17.0, *) {
+            content
+                .contentMargins(.horizontal, side, for: .scrollContent)
+                .background(GeometryReader { Color.clear.preference(key: ListWidthKey.self, value: $0.size.width) })
+                .onPreferenceChange(ListWidthKey.self) { width = $0 }
+        } else {
+            content
+        }
+    }
+}
+
+private struct ListWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

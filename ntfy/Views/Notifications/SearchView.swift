@@ -47,6 +47,7 @@ struct SearchView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .modifier(ReadableCardWidth())
         }
     }
 }

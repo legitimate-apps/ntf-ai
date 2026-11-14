@@ -214,10 +214,12 @@ final class NavigationPilotUITests: XCTestCase {
             muteScreenshot("mute-duration-picker-scrolled")
         }
         revealMuteChoice("30 minutes", scrollingUp: false).tap()
-        let status = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Notifications muted until ")).firstMatch
+        // 1.26 (A1): a muted row carries the bell.slash mark, spoken "Muted"; the duration lives on the topic's page.
+        let status = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Muted")).firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 3))
         muteScreenshot("muted-topic-list")
         app.terminate(); app.launch()
+        openTopics() // 1.26: the app opens on Inbox
         XCTAssertTrue(status.waitForExistence(timeout: 5), "mute must survive a restart")
         row.swipeLeft()
         muteScreenshot("mute-swipe-actions")
@@ -1071,6 +1073,13 @@ extension NavigationPilotUITests {
         let element = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
         if !(element.exists && element.isHittable) { toTop() }
         scrollUntilHittable(element, max: 10)
+        // A row under the translucent bar still reports hittable, but the tap lands on the bar.
+        let bar = app.navigationBars.firstMatch
+        for _ in 0..<3 where bar.exists && element.exists && element.frame.minY < bar.frame.maxY + 8 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 160)))
+            pause(0.6)
+        }
         element.tap()
         pause(1.2)
     }
@@ -1090,8 +1099,9 @@ extension NavigationPilotUITests {
         if showAll.waitForExistence(timeout: 2) { showAll.tap(); pause(1.2); shot("waiting-all"); back() }
 
         // Receipts: a request that can't connect, one the hook holds, one it answers.
-        if tapScrolling("Retry") { pause(1.5); shot("receipt-failed") }
+        if tapScrolling("Retry") { pause(0.3); shot("receipt-failed-sending") }
         XCTAssertTrue(app.staticTexts["Didn't reach the agent. Try again."].waitForExistence(timeout: 5), "a failure says so, never a check")
+        pause(0.5); shot("receipt-failed")
         if tapScrolling("Roll back") { pause(0.3); shot("receipt-sending") }
         if tapScrolling("Approve") { pause(0.7); shot("receipt-answered") }
         pause(3); shot("inbox-after-answers")
@@ -1133,9 +1143,19 @@ extension NavigationPilotUITests {
         // The fixture's default server is unreachable; the local hook answers as an open server.
         let other = app.switches["Use another server"].firstMatch
         if other.exists {
+            // At large text sizes the switch sits under the keyboard; scroll it clear first.
+            for _ in 0..<4 {
+                let kb = app.keyboards.firstMatch
+                if !kb.exists || other.frame.maxY < kb.frame.minY - 8 { break }
+                app.collectionViews.firstMatch.swipeUp(); pause(0.4)
+            }
             other.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap(); pause(0.5)
-            let server = app.textFields.element(boundBy: 1)
-            if server.waitForExistence(timeout: 2) { server.tap(); app.typeText("http://127.0.0.1:8765"); pause(0.5) }
+            let server = app.textFields["subscription-server-url"].firstMatch
+            if server.waitForExistence(timeout: 2) {
+                server.tap(); pause(0.3)
+                app.typeText("http://127.0.0.1:8765"); pause(0.5)
+                XCTAssertEqual(server.value as? String, "http://127.0.0.1:8765", "the server URL lands in the server field")
+            }
         }
         tapFirst(["Subscribe"])
         if app.buttons["Not now"].waitForExistence(timeout: 4) { shot("add-primer"); app.buttons["Not now"].tap() }
@@ -1178,11 +1198,18 @@ extension NavigationPilotUITests {
         app.launchEnvironment["NTFY_NAV_MESSAGE_ID"] = "m-report"
         app.launchEnvironment["NTFY_NAV_BASE_URL"] = "http://127.0.0.1:1"
         launchInbox()
-        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
-        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.waitForExistence(timeout: 12), "the tapped message's page opens")
+        let post = { CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true) }
+        post()
+        // The Darwin post can be lost before the harness registers (seen at large text sizes:
+        // no NAV_FIXTURE_RESPONSE_COMPLETED at all). Each post is a fresh notification id, so one repost is safe.
+        // Only the message page has this menu; "What I found" alone can be an Inbox card (iPad shows it).
+        let page = app.buttons["message-actions"].firstMatch
+        if !page.waitForExistence(timeout: 6) { post() }
+        XCTAssertTrue(page.waitForExistence(timeout: 10), "the tapped message's page opens")
+        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.exists)
         XCTAssertTrue(navButton("claude-code").waitForExistence(timeout: 5), "Back leads to its topic")
         pause(4)
-        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.exists, "the page stays open on its own")
+        XCTAssertTrue(page.exists, "the page stays open on its own")
         shot("notification-page")
         navButton("claude-code").tap()
         XCTAssertTrue(app.navigationBars.staticTexts["claude-code"].waitForExistence(timeout: 5))
