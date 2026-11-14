@@ -27,6 +27,14 @@ struct SubscriptionAddView: View {
     /// The topic address read from a QR code, filling the sheet the same way a Universal Link does.
     @State private var scannedLink: TopicLink?
     @State private var showServerDetails = false
+    /// Step 2 (DECISION change 10): the topic just added, shown as "Connect an agent".
+    @State private var connecting: ConnectStep?
+
+    struct ConnectStep: Equatable {
+        let baseUrl: String
+        let topic: String
+        let url: String
+    }
 
     init(isShowing: Binding<Bool>, topicLink: TopicLink? = nil) {
         self.topicLink = topicLink
@@ -47,7 +55,12 @@ struct SubscriptionAddView: View {
             // If anyone has a better way to do a two-page layout let me know.
             
             Group {
-                if let primingTopicUrl {
+                if let connecting {
+                    ConnectAgentView(baseUrl: connecting.baseUrl, topic: connecting.topic) {
+                        resetAndHide(openingTopicUrl: connecting.url)
+                    }
+                    .navigationBarBackButtonHidden(true)
+                } else if let primingTopicUrl {
                     permissionPrimingView(topicUrl: primingTopicUrl)
                 } else {
                     addView
@@ -328,6 +341,9 @@ struct SubscriptionAddView: View {
     private func finishSubscribing(topicURLs: [String]? = nil) {
         let urls = topicURLs ?? [topicUrl(baseUrl: selectedBaseUrl, topic: sanitizedTopic)]
         guard let url = urls.first else { return }
+        // One topic named here goes on to "Connect an agent"; topics picked from an account were
+        // made elsewhere and already have their senders.
+        let step = topicURLs == nil ? ConnectStep(baseUrl: selectedBaseUrl, topic: sanitizedTopic, url: url) : nil
         // Pop the account picker before replacing the root with the permission primer.
         showAccountTopics = false
         primingTopicCount = urls.count
@@ -336,9 +352,22 @@ struct SubscriptionAddView: View {
                 NotificationPermissionPolicy.recordPrimerOffered()
                 showLogin = false
                 primingTopicUrl = url
+                pendingConnect = step
             } else {
-                resetAndHide(openingTopicUrl: url)
+                proceed(to: step, else: url)
             }
+        }
+    }
+
+    /// The step-2 target held while the permission primer shows.
+    @State private var pendingConnect: ConnectStep?
+
+    private func proceed(to step: ConnectStep?, else url: String) {
+        if let step {
+            primingTopicUrl = nil
+            connecting = step
+        } else {
+            resetAndHide(openingTopicUrl: url)
         }
     }
 
@@ -372,7 +401,7 @@ struct SubscriptionAddView: View {
             VStack(spacing: 12) {
                 Button {
                     delegate.requestStandardNotificationAuthorization {
-                        resetAndHide(openingTopicUrl: url)
+                        proceed(to: pendingConnect, else: url)
                     }
                 } label: {
                     Text(String(localized: "Continue"))
@@ -384,7 +413,7 @@ struct SubscriptionAddView: View {
                 .controlSize(.large)
                 .accessibilityHint(String(localized: "Shows the system notification permission prompt"))
                 Button(String(localized: "Not now")) {
-                    resetAndHide(openingTopicUrl: url)
+                    proceed(to: pendingConnect, else: url)
                 }
                 .accessibilityHint(String(localized: "Skips notifications for now. Messages still appear in the app."))
             }
@@ -461,6 +490,8 @@ struct SubscriptionAddView: View {
             useAnother = false
             primingTopicUrl = nil
             primingTopicCount = 1
+            connecting = nil
+            pendingConnect = nil
             scannedLink = nil
             showAccountTopics = false
         }

@@ -34,6 +34,8 @@ struct ActionExecutor {
         credentialStore: CredentialStoring = KeychainCredentialStore.shared,
         openURL: ((URL) -> Void)? = nil,
         replyText: String? = nil,
+        answer: AnswerKey? = nil,
+        answerLog: AnswerLog = .shared,
         completion: @escaping () -> Void = {}
     ) -> Progress {
         let execution = Progress(totalUnitCount: 1)
@@ -65,7 +67,17 @@ struct ActionExecutor {
                 Log.w(tag, "Unable to parse action URL", action)
             }
         case "http":
-            http(action, baseUrl: baseUrl, credentialStore: credentialStore, execution: execution, completion: completion)
+            // An answer to a question (a tapped `http` button or a typed reply) is logged, so the
+            // app can show the receipt and take the question out of Waiting on every path.
+            var report: (Bool) -> Void = { _ in }
+            if let answer {
+                answerLog.begin(answer, actionId: action.id)
+                let label = action.label, text = replyText
+                report = { ok in
+                    answerLog.record(answer, AnswerEntry(kind: text == nil ? .tap : .reply, label: label, text: text, at: Date(), ok: ok))
+                }
+            }
+            http(action, baseUrl: baseUrl, credentialStore: credentialStore, execution: execution, report: report, completion: completion)
             return execution
         case "copy":
             if let value = action.value {
@@ -95,24 +107,27 @@ struct ActionExecutor {
     }
     
     private static func http(_ action: Action, baseUrl: String?, credentialStore: CredentialStoring,
-                             execution: Progress, completion: @escaping () -> Void) {
+                             execution: Progress, report: @escaping (Bool) -> Void = { _ in }, completion: @escaping () -> Void) {
         guard let request = makeHTTPRequest(action, baseUrl: baseUrl, credentialStore: credentialStore) else {
             Log.w(tag, "Unable to execute HTTP action, no or invalid URL", action.id)
+            report(false)
             completion()
             return
         }
-        perform(request, action: action, baseUrl: baseUrl, credentialStore: credentialStore, attempt: 1, execution: execution, completion: completion)
+        perform(request, action: action, baseUrl: baseUrl, credentialStore: credentialStore, attempt: 1, execution: execution, report: report, completion: completion)
     }
 
     private static func perform(_ request: URLRequest, action: Action, baseUrl: String?,
-                                credentialStore: CredentialStoring, attempt: Int, execution: Progress, completion: @escaping () -> Void) {
-        guard !execution.isCancelled else { completion(); return }
+                                credentialStore: CredentialStoring, attempt: Int, execution: Progress,
+                                report: @escaping (Bool) -> Void = { _ in }, completion: @escaping () -> Void) {
+        guard !execution.isCancelled else { report(false); completion(); return }
         let server = cooldownServer(for: request, baseUrl: baseUrl)
         guard let permit = ServerCooldown.shared.claimAttempt(server: server, manual: attempt == 1, kind: .action) else {
             let seconds = max(1, Int(ceil(ServerCooldown.shared.deadline(for: server, kind: .action).timeIntervalSinceNow)))
             let detail = ServerCooldown.shared.hasNonTimeRefusal(server: server, kind: .action)
                 ? String(localized: "The server or action request must change before trying again.")
                 : String(format: NSLocalizedString("The server is limiting this action. Try again in %lld seconds.", comment: "Retry interval in seconds"), locale: DeliveryHealthCopy.retryIntervalLocale(), seconds)
+            report(false)
             notifyActionResult(action, success: false, detail: detail, completion: completion)
             return
         }
@@ -137,7 +152,7 @@ struct ActionExecutor {
             if let delay = retryDelay(response: response, error: error, attempt: attempt) {
                 Log.w(self.tag, "HTTP \(method) action not processed, retrying in \(delay)s")
                 DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
-                    perform(request, action: action, baseUrl: baseUrl, credentialStore: credentialStore, attempt: attempt + 1, execution: execution, completion: completion)
+                    perform(request, action: action, baseUrl: baseUrl, credentialStore: credentialStore, attempt: attempt + 1, execution: execution, report: report, completion: completion)
                 }
                 return
             }
@@ -146,9 +161,11 @@ struct ActionExecutor {
                 ServerCooldown.shared.succeeded(server: server, attempt: permit)
                 Log.d(self.tag, "HTTP \(method) action succeeded", response)
                 recordOutcome(actionId: action.id, success: true)
+                report(true)
                 notifyActionResult(action, success: true, detail: nil, completion: completion)
             case .failure(let reason):
                 Log.e(self.tag, "HTTP \(method) action failed: \(reason)")
+                report(false)
                 guard recordOutcome(actionId: action.id, success: false) else {
                     Log.d(self.tag, "Keeping the earlier success for this action on screen")
                     completion()

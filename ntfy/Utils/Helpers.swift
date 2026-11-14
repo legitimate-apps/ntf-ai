@@ -147,6 +147,12 @@ enum PublishCommand {
         command(["-d", "Hello from NTF-AI"], baseUrl: baseUrl, topic: topic, auth: auth)
     }
 
+    /// An agent's first message, tagged `agent` as the agent guide teaches, so written replies
+    /// (untagged) can be told apart from it.
+    static func agentSend(baseUrl: String, topic: String, auth: Auth = .none) -> String {
+        command(["-H", "Tags: agent", "-d", "Build finished"], baseUrl: baseUrl, topic: topic, auth: auth)
+    }
+
     static func titled(baseUrl: String, topic: String, auth: Auth = .none) -> String {
         command(["-H", "Title: Backup finished", "-H", "Priority: high", "-d", "All files copied"],
                 baseUrl: baseUrl, topic: topic, auth: auth)

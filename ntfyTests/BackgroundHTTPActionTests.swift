@@ -3,6 +3,7 @@ import UserNotifications
 import CryptoKit
 import Network
 import UIKit
+import CoreData
 @testable import ntfy
 
 final class BackgroundHTTPActionTests: XCTestCase {
@@ -473,4 +474,81 @@ private final class ReplyLoopbackServer {
         }
     }
     func stop() { queue.sync { listener.cancel(); connections.forEach { $0.cancel() } } }
+}
+
+/// Both ways of answering a question write the same answer log (DIRECTIONS 1.6): the banner's
+/// button or reply field through the app delegate, and the card or page through MessageActionRunner.
+extension BannerReplyTests {
+    private func answerFixture() throws -> (ReplyLoopbackServer, AnswerLog, String) {
+        let server = try ReplyLoopbackServer()
+        let ready = expectation(description: "ready")
+        server.start { ready.fulfill() }
+        wait(for: [ready], timeout: 5)
+        let suite = "answer-path-\(UUID().uuidString)"
+        return (server, AnswerLog(defaults: UserDefaults(suiteName: suite)!), suite)
+    }
+
+    private func waitForEntry(_ log: AnswerLog, _ key: AnswerKey, file: StaticString = #filePath, line: UInt = #line) -> AnswerEntry? {
+        let logged = expectation(for: NSPredicate { _, _ in log.entry(for: key) != nil }, evaluatedWith: nil)
+        wait(for: [logged], timeout: 10)
+        return log.entry(for: key)
+    }
+
+    @MainActor
+    func testBannerButtonAndBannerReplyWriteTheAnswerLog() throws {
+        let (server, log, suite) = try answerFixture()
+        defer { server.stop(); UserDefaults().removePersistentDomain(forName: suite) }
+        let button = Action(id: UUID().uuidString, action: "http", label: "Approve", url: "http://127.0.0.1:\(server.port)/answers",
+                            method: "POST", headers: nil, body: "reply:r1:approve", clear: nil)
+        let replyAction = reply("http://127.0.0.1:\(server.port)/answers")
+        for (action, text, sequence) in [(button, nil, "ask-1"), (replyAction, "Ship it", "ask-2")] as [(Action, String?, String)] {
+            let info: [AnyHashable: Any] = ["id": UUID().uuidString, "time": "1700000000", "event": "message", "topic": "answers-fixture",
+                                            "base_url": "https://agents.example", "sequence_id": sequence, "message": "Deploy?",
+                                            "actions": String(decoding: try JSONEncoder().encode([action]), as: UTF8.self)]
+            let delegate = AppDelegate()
+            delegate.answerLog = log
+            delegate.beginNotificationBackgroundTask = { _ in UIBackgroundTaskIdentifier(rawValue: 48) }
+            delegate.endNotificationBackgroundTask = { _ in }
+            let done = expectation(description: "completed")
+            delegate.handleNotificationResponse(userInfo: info, actionIdentifier: action.id,
+                                                notificationId: UUID().uuidString, userText: text) { done.fulfill() }
+            wait(for: [done], timeout: 10)
+            let key = AnswerKey(baseUrl: "https://agents.example", topic: "answers-fixture", sequence: sequence)
+            let entry = try XCTUnwrap(waitForEntry(log, key))
+            XCTAssertEqual(entry.kind, text == nil ? .tap : .reply)
+            XCTAssertEqual(entry.label, action.label)
+            XCTAssertEqual(entry.text, text)
+            XCTAssertTrue(entry.ok)
+        }
+    }
+
+    func testInAppAnswerWritesTheAnswerLogAndAFailureIsNotAnAnswer() throws {
+        let (server, log, suite) = try answerFixture()
+        defer { server.stop(); UserDefaults().removePersistentDomain(forName: suite) }
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        let subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "in-app")
+        let good = Action(id: UUID().uuidString, action: "http", label: "Approve", url: "http://127.0.0.1:\(server.port)/answers",
+                          method: "POST", headers: nil, body: "reply:r1:approve", clear: nil)
+        // Nothing listens on port 9: the request fails and must not read as answered.
+        let bad = Action(id: UUID().uuidString, action: "http", label: "Reject", url: "http://127.0.0.1:9/answers",
+                         method: "POST", headers: nil, body: "reply:r2:reject", clear: nil)
+        _ = store.save(notificationsFromMessages: [
+            Message(id: "m1", time: 1_800_000_000, event: "message", topic: "in-app", message: "Deploy?", actions: [good], sequenceID: "q1"),
+            Message(id: "m2", time: 1_800_000_001, event: "message", topic: "in-app", message: "Wipe?", actions: [bad], sequenceID: "q2"),
+        ], withSubscription: subscription)
+        let request = ntfy.Notification.fetchRequest() as NSFetchRequest<ntfy.Notification>
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: true)]
+        let rows = try store.context.fetch(request)
+        XCTAssertEqual(rows.count, 2)
+        for (row, action, ok) in [(rows[0], good, true), (rows[1], bad, false)] {
+            let key = try XCTUnwrap(AnswerKey(notification: row))
+            MessageActionRunner(notification: row, openURL: { _ in }, answerLog: log).run(action)
+            XCTAssertTrue(log.isSending(key) || log.entry(for: key) != nil, "the tap shows Sending at once")
+            let entry = try XCTUnwrap(waitForEntry(log, key))
+            XCTAssertEqual(entry.kind, .tap)
+            XCTAssertEqual(entry.label, action.label)
+            XCTAssertEqual(entry.ok, ok)
+        }
+    }
 }

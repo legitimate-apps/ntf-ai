@@ -7,6 +7,8 @@ import UIKit
 struct SubscriptionListView: View {
     let tag = "SubscriptionList"
     var linkRoute: TopicLinkRoute? = nil
+    /// With an `.open` route from a banner tap: the message whose page opens on top of the topic.
+    var openMessageSequence: String? = nil
     
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var delegate: AppDelegate
@@ -16,16 +18,11 @@ struct SubscriptionListView: View {
     // (and its delegate registration) mid-flight. @StateObject makes the view the owner, so exactly
     // one controller is created for the view's lifetime.
     @StateObject private var subscriptionsModel = SubscriptionsObservable()
-    @ObservedObject private var launchExperience = LaunchExperience.shared
-    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var waiting = WaitingObservable.shared
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     @State private var showingAddDialog = false
     @State private var handledTopicLink = false
     @State private var openedSubscription: Subscription?
-    /// Topics `RetiredDefaultServerMigration` moved to ntfy-me.com that the user hasn't been told about.
-    @State private var movedTopicsNotice: [String] = []
-    @State private var listVisible = false
-    private let appGroupDefaults = UserDefaults(suiteName: Store.appGroup) ?? .standard
     
     private var subscriptionManager: SubscriptionManager {
         return SubscriptionManager(store: store)
@@ -33,42 +30,12 @@ struct SubscriptionListView: View {
     
     var body: some View {
         NavigationView {
-            if #available(iOS 15.0, *) {
-                subscriptionList
-                    .refreshable {
-                        await pollSubscriptions(manual: true)
-                    }
-            } else {
-                subscriptionList
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button {
-                                Task { await pollSubscriptions(manual: true) }
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
-                            }
-                            .accessibilityLabel(String(localized: "Refresh"))
-                        }
-                    }
-            }
+            subscriptionList
+                .refreshable {
+                    await pollSubscriptions(manual: true)
+                }
         }
         .navigationViewStyle(StackNavigationViewStyle())
-        .sheet(isPresented: $launchExperience.showingWhatsNew,
-               onDismiss: launchExperience.dismissWhatsNew) {
-            WhatsNewView(entries: launchExperience.entries) {
-                launchExperience.showingWhatsNew = false
-            }
-        }
-        .task(id: scenePhase) {
-            guard scenePhase == .active, linkRoute == nil else { return }
-            launchExperience.prepare(hasSubscriptions: !(store.getSubscriptions() ?? []).isEmpty)
-            do { try await Task.sleep(nanoseconds: 600_000_000) } catch { return }
-            guard movedTopicsNotice.isEmpty, !showingAddDialog, !launchExperience.presentWhatsNew() else { return }
-            // The review request waits for a quiet moment on the list itself, never inside a topic.
-            do { try await Task.sleep(nanoseconds: 1_500_000_000) } catch { return }
-            guard listVisible, !showingAddDialog else { return }
-            await launchExperience.requestReview(store: store)
-        }
     }
     
     private var subscriptionList: some View {
@@ -80,17 +47,31 @@ struct SubscriptionListView: View {
         }
     }
 
+    /// The newest waiting question per topic, so a question never hides behind a later message.
+    private var waitingByTopic: [NSManagedObjectID: Notification] {
+        var result: [NSManagedObjectID: Notification] = [:]
+        for notification in waiting.notifications {
+            guard let id = notification.subscription?.objectID, result[id] == nil else { continue }
+            result[id] = notification
+        }
+        return result
+    }
+
     private var topicList: some View {
         let ambiguousNames = TopicServerAddressPolicy.ambiguousNames(in: subscriptionsModel.subscriptions)
+        let waitingByTopic = waitingByTopic
         return List {
             ForEach(subscriptionsModel.subscriptions) { subscription in
                 SubscriptionItemNavView(subscription: subscription,
                                         summary: subscriptionsModel.summaries[subscription.objectID],
                                         showServerAddress: TopicServerAddressPolicy.showsAddress(
                                             name: subscription.shortDisplayName(), showAddresses: showServerAddresses,
-                                            ambiguousNames: ambiguousNames))
+                                            ambiguousNames: ambiguousNames),
+                                        waiting: waitingByTopic[subscription.objectID])
                     // A rule above the first row read as an underline on the large title.
                     .listRowSeparator(subscription == subscriptionsModel.subscriptions.first ? .hidden : .automatic, edges: .top)
+                    // The unread dot sits in the leading gutter, as in Mail (DIRECTIONS A1).
+                    .listRowInsets(EdgeInsets(top: 10, leading: 28, bottom: 10, trailing: 16))
             }
         }
         // This link lives outside the lazy List rows, so an external request can open any topic.
@@ -100,7 +81,7 @@ struct SubscriptionListView: View {
                 set: { if !$0 { openedSubscription = nil } }
             )) {
                 if let subscription = openedSubscription {
-                    NotificationListView(subscription: subscription)
+                    NotificationListView(subscription: subscription, openMessageSequence: openMessageSequence)
                 }
             } label: {
                 EmptyView()
@@ -121,49 +102,17 @@ struct SubscriptionListView: View {
         }
         .overlay(Group {
             if subscriptionsModel.subscriptions.isEmpty {
-                GeometryReader { geometry in
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            Text(String(localized: "No topics yet"))
-                                .font(.title3.weight(.semibold))
-                                .foregroundColor(.primary)
-                                .multilineTextAlignment(.center)
-                                .accessibilityAddTraits(.isHeader)
-
-                            Text(String(localized: "Messages to your topics show up here and as notifications."))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                // Narrow enough that the sentence breaks into two even lines
-                                // instead of leaving one word alone on the second.
-                                .frame(maxWidth: 300)
-
-                            Button(String(localized: "Create a topic")) {
-                                showingAddDialog = true
-                            }
-                            .brandProminentButton()
-                            .padding(.top, 4)
-                            .accessibilityIdentifier("empty-create-topic")
-
-                            if let help = URL(string: Config.helpUrl) {
-                                Link(String(localized: "Quick start at \(shortUrl(url: normalizeBaseUrl(Config.helpUrl)))"), destination: help)
-                                    .font(.subheadline)
-                            }
-                        }
-                        .padding(40)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: geometry.size.height)
-                    }
-                }
+                InboxEmptyState(symbol: "tray.full",
+                                title: String(localized: "No topics yet"),
+                                message: String(localized: "Each agent sends to a topic. Add one and connect your agent to it."),
+                                actionTitle: String(localized: "Connect your first agent"),
+                                actionIdentifier: "empty-create-topic") { showingAddDialog = true }
             }
         })
         .sheet(isPresented: $showingAddDialog) {
             SubscriptionAddView(isShowing: $showingAddDialog, topicLink: addTopicLink)
         }
-        .onDisappear { listVisible = false }
         .onAppear {
-            listVisible = true
             if let linkRoute, !handledTopicLink {
                 handledTopicLink = true
                 switch linkRoute {
@@ -172,30 +121,12 @@ struct SubscriptionListView: View {
                     openedSubscription = (store.getSubscriptions() ?? []).first { $0.urlString() == url }
                 }
             }
-            if linkRoute == nil {
-                movedTopicsNotice = RetiredDefaultServerMigration.pendingNoticeTopics(defaults: appGroupDefaults)
-            }
-        }
-        .alert(isPresented: Binding(
-            get: { !movedTopicsNotice.isEmpty },
-            set: { if !$0 { dismissMovedTopicsNotice() } }
-        )) {
-            Alert(
-                title: Text(movedTopicsNotice.count == 1 ? String(localized: "Your topic moved to ntf-ai.app") : String(localized: "Your topics moved to ntf-ai.app")),
-                message: Text(RetiredDefaultServerMigration.noticeMessage(topics: movedTopicsNotice)),
-                dismissButton: .default(Text("OK")) { dismissMovedTopicsNotice() }
-            )
         }
     }
 
     private var addTopicLink: TopicLink? {
         if case .add(let link) = linkRoute { return link }
         return nil
-    }
-
-    private func dismissMovedTopicsNotice() {
-        RetiredDefaultServerMigration.dismissNotice(defaults: appGroupDefaults)
-        movedTopicsNotice = []
     }
 
     @MainActor
@@ -208,7 +139,9 @@ struct SubscriptionItemNavView: View {
     @EnvironmentObject private var store: Store
     @ObservedObject var subscription: Subscription
     let summary: Store.SubscriptionSummary?
-    var showServerAddress: Bool = true
+    var showServerAddress: Bool = false
+    /// The topic's newest question waiting on you, shown in the preview instead of the newest message.
+    var waiting: Notification? = nil
     @State private var unsubscribeAlert = false
     @State private var showMuteOptions = false
     @State private var showQuietOptions = false
@@ -334,7 +267,8 @@ struct SubscriptionItemNavView: View {
             .opacity(0.0)
             .buttonStyle(PlainButtonStyle())
             
-            SubscriptionItemRowView(subscription: subscription, summary: summary, showServerAddress: showServerAddress)
+            SubscriptionItemRowView(subscription: subscription, summary: summary, showServerAddress: showServerAddress,
+                                    waiting: waiting)
         }
         .accessibilityElement(children: .combine)
         .sheet(isPresented: $showQuietOptions) { QuietTopicView(subscription: subscription) }
@@ -354,108 +288,109 @@ struct SubscriptionItemNavView: View {
     }
 }
 
+/// A topic in the list (DIRECTIONS A1): who (avatar and name), when, and what it last said, with
+/// an unread dot in the leading gutter and the hand when a question is waiting.
 struct SubscriptionItemRowView: View {
     @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject private var deliveryHealth = DeliveryHealthMonitor.shared
     @ObservedObject var subscription: Subscription
     let summary: Store.SubscriptionSummary?
     let showServerAddress: Bool
+    var waiting: Notification? = nil
 
-    init(subscription: Subscription, summary: Store.SubscriptionSummary?, showServerAddress: Bool = true) {
+    init(subscription: Subscription, summary: Store.SubscriptionSummary?, showServerAddress: Bool = false,
+         waiting: Notification? = nil) {
         self.subscription = subscription
         self.summary = summary
         self.showServerAddress = showServerAddress
+        self.waiting = waiting
     }
 
     var body: some View {
-        // Name and time, then what the topic last said, then (if shown) where it lives. The
-        // newest message is what someone opening the list wants; a total count duplicated the
-        // badge and read "0 notifications" on every new topic.
         // From one aggregate for the whole list. The fallbacks keep previews and any caller
         // without a summary working; they are the old per-row faulting path and should stay unused
         // in the list itself.
         let unread = summary?.unread ?? subscription.unreadCount()
-        let address = subscription.shortUrlString()
         let lastNotification = summary.map { $0.lastNotification } ?? subscription.lastNotification()
-        let preview = lastNotification?.previewText()
-        let previewNotEncrypted = lastNotification?.previewIsMarkedNotEncrypted == true
-        // Each line is a full-width HStack, so the timestamp and the chevron both resolve against
-        // the row's own trailing edge. Nesting the text in its own column instead made the time
-        // align to that column's edge, which shifted per row with the badge's width.
+        // A waiting question leads the preview, so it never hides behind a later "build passed".
+        let shown = waiting ?? lastNotification
         let lastTime = summary.map { $0.lastTime } ?? subscription.lastNotification().map { $0.time }
         let lastDateTime = lastTime.map { Notification.topicListTime(for: Date(timeIntervalSince1970: TimeInterval($0))) }
-        VStack(alignment: .leading, spacing: 2) {
-            if sizeCategory.isAccessibilityCategory {
-                // At accessibility sizes one line can't hold a name, a time and a badge: the name
-                // shrank to "…". The name gets its own lines, and the time and badge the next one.
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if subscription.pinned {
-                        PinBadge()
+        HStack(alignment: .top, spacing: 12) {
+            TopicAvatar(name: subscription.shortDisplayName(), iconUrl: lastNotification?.iconUrl())
+            VStack(alignment: .leading, spacing: 2) {
+                if sizeCategory.isAccessibilityCategory {
+                    // At accessibility sizes the name gets its own lines and the time the next.
+                    nameLine.lineLimit(3)
+                    if let lastDateTime { timeText(lastDateTime, unread: unread > 0) }
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        nameLine.lineLimit(1)
+                        Spacer(minLength: 8)
+                        if let lastDateTime { timeText(lastDateTime, unread: unread > 0) }
+                        RowAccessoryGlyph()
                     }
-                    topicName.lineLimit(2)
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let lastDateTime { timeText(lastDateTime) }
-                    Spacer(minLength: 8)
-                    rowAccessory(unread: unread)
+                if showServerAddress {
+                    // Only when two topics share a name (or the user asked for addresses).
+                    Text(subscription.shortUrlString())
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .accessibilityLabel(Text(String(localized: "on \(subscription.serverHost())")))
                 }
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if subscription.pinned {
-                        PinBadge()
+                if let shown {
+                    preview(shown, waiting: waiting != nil, unread: unread > 0)
+                        .font(.subheadline)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("topic-row-preview")
+                }
+                if let health = deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString], let label = health.label {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        if health.needsAttention {
+                            Image(systemName: "exclamationmark.triangle")
+                                .accessibilityHidden(true)
+                        }
+                        Text(label).fixedSize(horizontal: false, vertical: true)
                     }
-                    topicName.lineLimit(1)
-                    Spacer(minLength: 8)
-                    if let lastDateTime { timeText(lastDateTime) }
-                    rowAccessory(unread: unread)
-                }
-            }
-
-            if let preview, !preview.isEmpty {
-                previewLine(preview, notEncrypted: previewNotEncrypted, unread: unread > 0)
                     .font(.subheadline)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("topic-row-preview")
-            }
-
-            if showServerAddress {
-                // Monospaced so hostnames stay scannable, middle-truncated so both the server and the
-                // topic survive on narrow screens instead of losing the tail.
-                Text(address)
-                    .font(.system(.footnote, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .lineLimit(sizeCategory.isAccessibilityCategory ? nil : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .truncationMode(.middle)
-                    .accessibilityLabel(Text(String(localized: "on \(subscription.serverHost())")))
-            }
-
-            TopicMuteStatus(subscription: subscription)
-            if let health = deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString], let label = health.label {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    if health.needsAttention {
-                        Image(systemName: "exclamationmark.triangle")
-                            .accessibilityHidden(true)
-                    }
-                    Text(label).fixedSize(horizontal: false, vertical: true)
                 }
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            }
+            .modifier(SeparatorUnderText())
+        }
+        .overlay(alignment: .topLeading) {
+            if unread > 0 {
+                Circle().fill(InboxColor.ink).frame(width: 10, height: 10)
+                    .offset(x: -23, y: 6)
+                    .accessibilityHidden(true)
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(unread > 0 ? String(localized: "\(unread) unread") : "")
     }
 
-    private var topicName: some View {
-        Text(subscription.shortDisplayName())
-            .font(.headline)
+    private var nameLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(subscription.shortDisplayName()).font(.headline)
+            if subscription.pinned {
+                Image(systemName: "pin.fill").font(.footnote).foregroundColor(.secondary)
+                    .accessibilityLabel(Text(String(localized: "Pinned")))
+            }
+            if TopicMute.isMuted(until: subscription.mutedUntil) {
+                Image(systemName: "bell.slash.fill").font(.footnote).foregroundColor(.secondary)
+                    .accessibilityLabel(Text(String(localized: "Muted")))
+            }
+        }
     }
 
-    private func timeText(_ value: String) -> some View {
+    private func timeText(_ value: String, unread: Bool) -> some View {
         Text(value)
-            .font(.footnote)
-            .foregroundColor(.secondary)
+            .font(.subheadline)
+            .foregroundColor(unread ? InboxColor.ink : .secondary)
             .lineLimit(1)
             // The timestamp keeps its full width and the topic name yields instead (ntfy#1205): a
             // name reads fine truncated, a clipped clock does not.
@@ -463,25 +398,46 @@ struct SubscriptionItemRowView: View {
             .layoutPriority(1)
     }
 
-    /// The preview, led by the message row's orange lock.open "Not encrypted" mark when the
-    /// newest message came without the topic's password.
-    private func previewLine(_ preview: String, notEncrypted: Bool, unread: Bool) -> Text {
-        let text = Text(preview).foregroundColor(unread ? .primary : .secondary)
-        guard notEncrypted else { return text }
-        return Text(Image(systemName: "lock.open")).foregroundColor(.orange)
-            + Text(" " + String(localized: "Not encrypted") + " · ").foregroundColor(.orange)
-            + text
+    /// Title, a dash, then the body, led by the waiting hand, a priority mark, or the orange
+    /// "Not encrypted" mark when the message came without the topic's password.
+    private func preview(_ notification: Notification, waiting: Bool, unread: Bool) -> Text {
+        var text = Text("")
+        if waiting {
+            text = text + Text(Image(systemName: "hand.raised.fill")).foregroundColor(InboxColor.ink) + Text(" ")
+        }
+        if notification.priority == 5 {
+            text = text + Text(Image(systemName: "exclamationmark.2")).foregroundColor(.red) + Text(" ")
+        } else if notification.priority == 4 {
+            text = text + Text(Image(systemName: "exclamationmark")).foregroundColor(.orange) + Text(" ")
+        }
+        if notification.previewIsMarkedNotEncrypted {
+            text = text + Text(Image(systemName: "lock.open")).foregroundColor(.orange)
+                + Text(" " + String(localized: "Not encrypted") + " · ").foregroundColor(.orange)
+        }
+        if notification.encryptionState == .locked {
+            return text + Text(notification.formatMessage()).foregroundColor(.secondary)
+        }
+        let display = notification.display
+        let plainBody = String(renderMessageBody(display.body, contentType: display.markdown ? "text/markdown" : nil).characters)
+            .components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        let words = [display.title, plainBody.isEmpty ? nil : plainBody].compactMap { $0 }.joined(separator: " – ")
+        return text + Text(words).foregroundColor(unread ? .primary : .secondary)
     }
+}
 
-    private func rowAccessory(unread: Int) -> some View {
-        HStack(spacing: 6) {
-            if unread > 0 { UnreadBadge(count: unread) }
-            RowAccessoryGlyph()
+/// The row's separator starts under the name, past the avatar, as in Messages.
+private struct SeparatorUnderText: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+        } else {
+            content
         }
     }
 }
 
-/// Count pill for unread messages in a topic. Capsule rather than a strict circle so three-digit
+/// Count pill for unread messages. Capsule rather than a strict circle so three-digit
 /// counts stay legible instead of squashing, matching how iOS badges grow.
 struct UnreadBadge: View {
     let count: Int
@@ -549,7 +505,8 @@ struct SubscriptionListView_Previews: PreviewProvider {
 
 enum TopicServerAddressPolicy {
     static let preferenceKey = "showTopicServerAddresses"
-    static let defaultValue = true
+    /// Off: every row carried the same host. Shown only where two topics share a name (A1).
+    static let defaultValue = false
 
     static func ambiguousNames(in subscriptions: [Subscription]) -> Set<String> {
         let groups = Dictionary(grouping: subscriptions) { $0.shortDisplayName().lowercased() }

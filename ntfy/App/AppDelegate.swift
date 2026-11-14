@@ -46,6 +46,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     
     // Implements navigation from notifications, see https://stackoverflow.com/a/70731861/1440785
     @Published var selectedBaseUrl: String? = nil
+    /// The sequence of the message whose banner was tapped, read together with `selectedBaseUrl`:
+    /// a tap opens that message's page, one Back from its topic.
+    var selectedMessageSequence: String? = nil
     @Published private(set) var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
     @Published private(set) var timeSensitiveSetting: UNNotificationSetting = .notSupported
     @Published private(set) var notificationSwitches = NotificationSwitches()
@@ -417,6 +420,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         UNUserNotificationCenter.current().add($0, withCompletionHandler: $1)
     }
 
+    /// Where banner answers are logged; tests inject their own.
+    var answerLog: AnswerLog = .shared
     var beginNotificationBackgroundTask: (@escaping () -> Void) -> UIBackgroundTaskIdentifier = {
         UIApplication.shared.beginBackgroundTask(withName: "Schedule notification", expirationHandler: $0)
     }
@@ -562,6 +567,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
         if isQuietAlert {
             if let baseUrl = userInfo["base_url"] as? String, let topic = userInfo["topic"] as? String {
+                selectedMessageSequence = nil
                 selectedBaseUrl = topicUrl(baseUrl: baseUrl, topic: topic)
             }
             completionHandler()
@@ -580,8 +586,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
         Store.shared.read(message: message, baseUrl: baseUrl)
         
-        // Show current topic
+        // Show current topic, and the tapped message's page on top of it
         if message.topic != "" {
+            selectedMessageSequence = actionIdentifier == UNNotificationDefaultActionIdentifier ? message.sequence : nil
             selectedBaseUrl = topicUrl(baseUrl: baseUrl, topic: message.topic)
         }
         
@@ -604,7 +611,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                         finish()
                     }
                     execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl,
-                                                       replyText: isReply ? userText : nil) {
+                                                       replyText: isReply ? userText : nil,
+                                                       answer: AnswerKey(baseUrl: baseUrl, topic: message.topic, sequence: message.sequence),
+                                                       answerLog: self.answerLog) {
                         DispatchQueue.main.async(execute: finish)
                     }
                 }

@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 557DE638A451FB775522B9EA /* InboxTests.swift */; };
+		858C5BC7EB1A4A5092D8CF79 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F108AFD59072B706FA5EBC /* SearchView.swift */; };
+		0522C9CE8030CC70DF85A5E6 /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC50D82C4857D122D28E0A2 /* InboxView.swift */; };
+		477477D830D6B013E64E307D /* ConnectAgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52B10557119319C2D4DBB85D /* ConnectAgentView.swift */; };
+		BFFC643784B139BA9DA93672 /* MessagePageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FBED15780CA852224CD43A1 /* MessagePageView.swift */; };
+		00F977A49A05F4EDDE68D985 /* InboxComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23199A90417B73A23536A0B6 /* InboxComponents.swift */; };
+		BE671D54135F1B370843D9D1 /* AnswerLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3151EA4AE89DD0DC417C7D2 /* AnswerLog.swift */; };
 		C12500000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9474F1C4282F2AA800CDE4DD /* Assets.xcassets */; };
 		A12700000000000000000001 /* NotificationTestBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12700000000000000000002 /* NotificationTestBootstrap.swift */; };
 		A124DA7F0000000000000002 /* NotificationSwitches.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124DA7F0000000000000001 /* NotificationSwitches.swift */; };
@@ -253,6 +260,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		557DE638A451FB775522B9EA /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
+		85F108AFD59072B706FA5EBC /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		CAC50D82C4857D122D28E0A2 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		52B10557119319C2D4DBB85D /* ConnectAgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentView.swift; sourceTree = "<group>"; };
+		5FBED15780CA852224CD43A1 /* MessagePageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagePageView.swift; sourceTree = "<group>"; };
+		23199A90417B73A23536A0B6 /* InboxComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxComponents.swift; sourceTree = "<group>"; };
+		D3151EA4AE89DD0DC417C7D2 /* AnswerLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerLog.swift; sourceTree = "<group>"; };
 		A12700000000000000000002 /* NotificationTestBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/NotificationTestBootstrap.swift"; sourceTree = SOURCE_ROOT; };
 		A124DA7F0000000000000001 /* NotificationSwitches.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSwitches.swift; sourceTree = "<group>"; };
 		A124DA7F0000000000000003 /* NotificationSwitchesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/NotificationSwitchesTests.swift"; sourceTree = SOURCE_ROOT; };
@@ -501,6 +515,11 @@
 				29E841A22FB417EA00F927E4 /* NotificationListView.swift */,
 				29EE00042FD0000100F927E4 /* TopicEncryptionView.swift */,
 				29E841A32FB417EA00F927E4 /* NotificationRowView.swift */,
+				85F108AFD59072B706FA5EBC /* SearchView.swift */,
+				CAC50D82C4857D122D28E0A2 /* InboxView.swift */,
+				52B10557119319C2D4DBB85D /* ConnectAgentView.swift */,
+				5FBED15780CA852224CD43A1 /* MessagePageView.swift */,
+				23199A90417B73A23536A0B6 /* InboxComponents.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -655,6 +674,7 @@
 				F576A27EB64E4AB483082C5F /* DeliveryHealth.swift */,
 				C11800010000000000000003 /* ClearThrough.swift */,
 				948671492841D0CE0093C7A4 /* ActionExecutor.swift */,
+				D3151EA4AE89DD0DC417C7D2 /* AnswerLog.swift */,
 				2E1C0B012FF0000100A52946 /* NotificationResponseRelay.swift */,
 				B41DCA4C2F0F12323B64C2F2 /* ComposeModel.swift */,
                 C12200000000000000000011 /* TopicPublisher.swift */,
@@ -699,6 +719,7 @@
                 C12400000000000000000012 /* ShortcutsReadTests.swift */,
 				DE1190000000000000000013 /* LocalizationTests.swift */,
 				FFB072E4CE7885C446A0546C /* ntfyTests.swift */,
+				557DE638A451FB775522B9EA /* InboxTests.swift */,
 				CE0D7AE636FF4807D4E3659F,
 				D55080135EC8D994F3DC44DB,
 				A12940000000000000000002,
@@ -970,6 +991,12 @@
 				A18000120000000000000001 /* RetentionSettingsView.swift in Sources */,
 				F11900000000000000000003 /* TopicMuteView.swift in Sources */,
 				9486714A2841D0CE0093C7A4 /* ActionExecutor.swift in Sources */,
+				858C5BC7EB1A4A5092D8CF79 /* SearchView.swift in Sources */,
+				0522C9CE8030CC70DF85A5E6 /* InboxView.swift in Sources */,
+				477477D830D6B013E64E307D /* ConnectAgentView.swift in Sources */,
+				BFFC643784B139BA9DA93672 /* MessagePageView.swift in Sources */,
+				00F977A49A05F4EDDE68D985 /* InboxComponents.swift in Sources */,
+				BE671D54135F1B370843D9D1 /* AnswerLog.swift in Sources */,
 				2E1C0B022FF0000100A52946 /* NotificationResponseRelay.swift in Sources */,
 				9474F1FF28316ACE00CDE4DD /* Subscription.swift in Sources */,
 				94CD196A283E666900973B93 /* EmojiManager.swift in Sources */,
@@ -1098,6 +1125,7 @@
 				547100000000000000000304,
 				DE1190000000000000000004 /* LocalizationTests.swift in Sources */,
 				9B84D8DCA80BE0722286AFD4 /* ntfyTests.swift in Sources */,
+				10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */,
 				A12300000000000000000001 /* BackgroundHTTPActionTests.swift in Sources */,
 				DDDFAC17B65143878A1319E9 /* FcmTeardownLedgerTests.swift in Sources */,
 				BA1180000000000000000012 /* ServerContractTests.swift in Sources */,

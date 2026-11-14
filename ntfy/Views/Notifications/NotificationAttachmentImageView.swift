@@ -78,18 +78,35 @@ enum AttachmentImageLayout {
         let height = min(maxHeight, image.height)
         return CGSize(width: min(availableWidth, height * aspect), height: height)
     }
+
+    /// The card and page sizing (DIRECTIONS C5): the whole image, scaled to fit the width and a
+    /// height cap, never cropped and never upscaled. Portrait sits leading at the cap's height.
+    static func fittedSize(for image: CGSize, availableWidth: CGFloat, maxHeight cap: CGFloat) -> CGSize {
+        guard image.width > 0, image.height > 0, availableWidth > 0, availableWidth.isFinite else {
+            return CGSize(width: max(0, availableWidth.isFinite ? availableWidth : 0), height: placeholderHeight)
+        }
+        let aspect = image.width / image.height
+        var width = min(availableWidth, image.width)
+        var height = width / aspect
+        if height > cap {
+            height = cap
+            width = height * aspect
+        }
+        return CGSize(width: width.rounded(), height: height.rounded())
+    }
 }
 
 /// The image at `AttachmentImageLayout`'s size, with a hairline so a white screenshot doesn't
 /// dissolve into a light background.
 struct AttachmentThumbnail: View {
     let image: UIImage
+    @Environment(\.attachmentImageMaxHeight) private var fittedMaxHeight
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: AttachmentImageLayout.cornerRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: fittedMaxHeight == nil ? AttachmentImageLayout.cornerRadius : 12, style: .continuous)
         Group {
             if #available(iOS 16.0, *) {
-                AttachmentImageFrame(imageSize: image.size) {
+                AttachmentImageFrame(imageSize: image.size, fittedMaxHeight: fittedMaxHeight) {
                     Color.clear
                         .overlay(Image(uiImage: image).resizable().scaledToFill())
                         .clipped()
@@ -98,11 +115,11 @@ struct AttachmentThumbnail: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: AttachmentImageLayout.maxHeight, alignment: .leading)
+                    .frame(maxWidth: .infinity, maxHeight: fittedMaxHeight ?? AttachmentImageLayout.maxHeight, alignment: .leading)
             }
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .overlay(shape.strokeBorder(fittedMaxHeight == nil ? Color.primary.opacity(0.08) : Color(.separator), lineWidth: 0.5))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -110,9 +127,13 @@ struct AttachmentThumbnail: View {
 @available(iOS 16.0, *)
 private struct AttachmentImageFrame: Layout {
     let imageSize: CGSize
+    var fittedMaxHeight: CGFloat? = nil
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        AttachmentImageLayout.size(for: imageSize, availableWidth: proposal.width ?? 320)
+        if let fittedMaxHeight {
+            return AttachmentImageLayout.fittedSize(for: imageSize, availableWidth: proposal.width ?? 320, maxHeight: fittedMaxHeight)
+        }
+        return AttachmentImageLayout.size(for: imageSize, availableWidth: proposal.width ?? 320)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
@@ -124,7 +145,27 @@ private struct AttachmentImageFrame: Layout {
 
 /// A download in progress: the space an image takes, so the row doesn't jump when it arrives.
 struct AttachmentLoadingPlaceholder: View {
+    @Environment(\.attachmentImageMaxHeight) private var fittedMaxHeight
+
     var body: some View {
+        if fittedMaxHeight != nil {
+            // Cards and the page (DIRECTIONS 1.5): the 4:3 space the picture will take, with a
+            // photo symbol, not an empty box with a spinner that reads as broken.
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.quaternary)
+                .aspectRatio(4 / 3, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .overlay {
+                    Image(systemName: "photo").font(.title2).foregroundStyle(.tertiary)
+                }
+                .accessibilityElement()
+                .accessibilityLabel(String(localized: "Loading preview"))
+        } else {
+            denseBody
+        }
+    }
+
+    private var denseBody: some View {
         RoundedRectangle(cornerRadius: AttachmentImageLayout.cornerRadius, style: .continuous)
             .fill(Color(.secondarySystemFill))
             .frame(maxWidth: .infinity)
@@ -221,5 +262,19 @@ private struct ZoomableImageScrollView: UIViewRepresentable {
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             imageView
         }
+    }
+}
+
+
+private struct AttachmentImageMaxHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    /// Set by message cards (300 pt) and the message page (520 pt): images there fit whole under
+    /// this height instead of the dense row's cropped 180 pt thumbnail.
+    var attachmentImageMaxHeight: CGFloat? {
+        get { self[AttachmentImageMaxHeightKey.self] }
+        set { self[AttachmentImageMaxHeightKey.self] = newValue }
     }
 }

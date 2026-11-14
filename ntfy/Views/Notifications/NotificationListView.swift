@@ -29,12 +29,9 @@ struct NotificationListView: View {
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     /// Names shared by topics on different servers, read once on appear for the subtitle rule.
     @State private var ambiguousNames = Set<String>()
-    @State private var searchText = ""
     @State private var editMode = EditMode.inactive
     @State private var selection = Set<Notification>()
     @State private var heldUnread = HeldUnreadMarkers<NSManagedObjectID>()
-    /// The List's width, for the row margin on iOS before 26 (see MessageRowMetrics).
-    @State private var listWidth: CGFloat = 0
     
     @State private var showAlert = false
     @State private var activeAlert: ActiveAlert = .publishFailed
@@ -54,13 +51,20 @@ struct NotificationListView: View {
     @State private var sendingTest = false
     @State private var publishError = ""
     @State private var draftDisplayName = ""
+    @State private var showConnectSheet = false
+    /// The message whose page is pushed on top of this topic.
+    @State private var opened: OpenedMessage?
+    /// A notification tap's message, opened once on arrival so Back lands on its topic.
+    let openMessageSequence: String?
+    @State private var didOpenRequested = false
     
     private var subscriptionManager: SubscriptionManager {
         return SubscriptionManager(store: store)
     }
 
-    init(subscription: Subscription) {
+    init(subscription: Subscription, openMessageSequence: String? = nil) {
         self.subscription = subscription
+        self.openMessageSequence = openMessageSequence
         // StateObject's wrappedValue is an autoclosure, so this is evaluated once for the view's
         // lifetime rather than on every struct rebuild.
         _notificationsModel = StateObject(wrappedValue: NotificationsObservable(subscriptionID: subscription.objectID))
@@ -68,14 +72,8 @@ struct NotificationListView: View {
 
     var body: some View {
         notificationList
-            .searchable(text: $searchText, prompt: NotificationHistoryStrings.search)
-            // Inside a topic both tabs are noise (Topics is the screen you came from), and iOS
-            // versions disagreed on whether the tab bar or the search field took the bottom.
-            .modifier(HidesTabBar())
-            .onChange(of: searchText) { value in
-                selection = []
-                notificationsModel.scheduleSearch(value)
-            }
+            // Search is its own tab now (DECISION change 9), across every topic.
+            .modifier(MessagePageLink(opened: $opened))
             .refreshable {
                 _ = await pollOnce()
             }
@@ -86,6 +84,7 @@ struct NotificationListView: View {
                 // that were unread keep their marker until the user leaves, so they can see what was new.
                 heldUnread.hold(store.setRead(true, forSubscription: subscription))
                 ambiguousNames = TopicServerAddressPolicy.ambiguousNames(in: store.getSubscriptions() ?? [])
+                openRequestedMessage()
             }
             .onDisappear {
                 heldUnread.clear()
@@ -126,6 +125,23 @@ struct NotificationListView: View {
         }
     }
     
+    /// A notification tap opens that message's page (DECISION change 7), pushed on this topic so
+    /// one Back returns to it. Looked up by sequence, so an updated message opens as it is now.
+    private func openRequestedMessage() {
+        guard !didOpenRequested, let sequence = openMessageSequence, !sequence.isEmpty else { return }
+        didOpenRequested = true
+        let request = Notification.fetchRequest() as NSFetchRequest<Notification>
+        request.predicate = NSPredicate(format: "subscription == %@ AND (sequenceID == %@ OR id == %@)",
+                                        subscription, sequence, sequence)
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
+        request.fetchLimit = 1
+        guard let notification = try? store.context.fetch(request).first else { return }
+        // After the topic's push settles, so the page lands on top of it rather than racing it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            opened = OpenedMessage(notification: notification)
+        }
+    }
+
     private var signInFailed: Bool {
         deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString]?.failure == .unauthorized
     }
@@ -193,14 +209,14 @@ struct NotificationListView: View {
         .sheet(isPresented: $showQuietOptions) { QuietTopicView(subscription: subscription) }
         .sheet(isPresented: $showSoundOptions) { TopicSoundView(subscription: subscription) }
         .sheet(isPresented: $showMuteOptions) { TopicMuteView(subscription: subscription) }
-        .listStyle(PlainListStyle())
-        .modifier(SearchEmptyState(searchText: searchText,
-                                   isEmpty: notificationsModel.notifications.isEmpty && !searchText.isEmpty))
+        .sheet(isPresented: $showConnectSheet) {
+            ConnectAgentSheet(baseUrl: subscription.baseUrl ?? "", topic: subscription.topicName(),
+                              isShowing: $showConnectSheet)
+                .environmentObject(store)
+        }
+        // Cards on the grouped background (C2): each message its own rounded surface.
+        .listStyle(.insetGrouped)
         .modifier(CompactDayBreaks())
-        .background(GeometryReader { proxy in
-            Color.clear.preference(key: ListWidthKey.self, value: proxy.size.width)
-        })
-        .onPreferenceChange(ListWidthKey.self) { listWidth = $0 }
         .navigationTitle(subscription.shortDisplayName())
         .navigationBarTitleDisplayMode(.inline)
         .modifier(TopicAddressSubtitle(address: showsAddress ? TopicSubtitle.address(for: subscription) : nil))
@@ -301,12 +317,7 @@ struct NotificationListView: View {
         // The empty state is a row of the list, not an overlay on top of it. As an overlay it sat over
         // the (empty) list and swallowed the drag, so pull-to-refresh did nothing on a new topic, and on
         // a small phone its text ran off the screen with no way to scroll to the copy buttons.
-        if notificationsModel.notifications.isEmpty && !searchText.isEmpty {
-            // iOS 17 and later show the system's search empty state over the list instead.
-            if #unavailable(iOS 17.0) {
-                Text(NotificationHistoryStrings.noMatches).foregroundColor(.secondary)
-            }
-        } else if notificationsModel.notifications.isEmpty && editMode == .inactive && !signInFailed, let baseUrl = subscription.baseUrl {
+        if notificationsModel.notifications.isEmpty && editMode == .inactive && !signInFailed, let baseUrl = subscription.baseUrl {
             TopicPublishHelpView(
                 baseUrl: baseUrl,
                 topic: subscription.topicName(),
@@ -320,20 +331,17 @@ struct NotificationListView: View {
         }
         // One header per day, so each row shows only its time.
         ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
-            Section(header: Text(Notification.daySectionTitle(for: group.day))
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(.secondary)
-                .textCase(nil)
-                .accessibilityAddTraits(.isHeader)
+            Section(header: DayHeader(title: Notification.daySectionTitle(for: group.day))
                 .modifier(CompactDayHeaderInsets())) {
                 ForEach(group.items, id: \.self) { notification in
-                    NotificationRowView(
-                        notification: notification,
-                        onCopyMessage: showCopyConfirmation,
-                        heldUnread: heldUnread.ids.contains(notification.objectID),
-                        onReleaseHeldUnread: { heldUnread.release(notification.objectID) }
-                    )
-                    .modifier(MessageRowInsets(listWidth: listWidth))
+                    let held = heldUnread.ids.contains(notification.objectID)
+                    MessageCard(notification: notification, heldUnread: held,
+                                open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                                onCopy: showCopyConfirmation)
+                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                        .modifier(MessageRowActions(notification: notification, heldUnread: held,
+                                                    onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
+                                                    onCopy: showCopyConfirmation))
                 }
             }
         }
@@ -390,6 +398,11 @@ struct NotificationListView: View {
                 } label: {
                     Label(String(localized: "Copy publish URL"), systemImage: AppSymbol.copyLink)
                 }
+                // Step 2 of Add topic, again whenever another agent should use this topic.
+                Button { showConnectSheet = true } label: {
+                    Label(String(localized: "Connect an agent"), systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .accessibilityIdentifier("topic-connect-agent")
                 Button { showQRCodeSheet = true } label: {
                     Label(String(localized: "Show QR code"), systemImage: AppSymbol.qrCode)
                 }
@@ -433,7 +446,7 @@ struct NotificationListView: View {
                 }
             }
             Section {
-                if searchText.isEmpty && notificationsModel.notifications.count > 0 {
+                if notificationsModel.notifications.count > 0 {
                     Button(role: .destructive) { confirmClear = true } label: {
                         Label(String(localized: "Clear all notifications"), systemImage: AppSymbol.delete())
                     }
@@ -742,20 +755,6 @@ enum FirstTopicTest {
     static let body = String(localized: "This is a test notification from NTF-AI. Your topic is ready.")
 }
 
-/// The message row's vertical insets, keeping the system's horizontal margin so the text lines up
-/// with the navigation title and the day headers (20 pt on wide phones, 16 on narrow ones).
-private struct MessageRowInsets: ViewModifier {
-    let listWidth: CGFloat
-
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.listRowInsets(.vertical, MessageRowMetrics.verticalInset)
-        } else {
-            content.listRowInsets(MessageRowMetrics.insets(listWidth: listWidth))
-        }
-    }
-}
-
 /// Day headers sit close to the rows around them instead of opening a wide gap at each day.
 private struct CompactDayBreaks: ViewModifier {
     func body(content: Content) -> some View {
@@ -778,23 +777,6 @@ private struct CompactDayHeaderInsets: ViewModifier {
                 .padding(.top, 6)
                 .padding(.bottom, 2)
                 .listRowInsets(.vertical, 0)
-        } else {
-            content
-        }
-    }
-}
-
-private struct ListWidthKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-private struct HidesTabBar: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 16.0, *) {
-            content.toolbar(.hidden, for: .tabBar)
         } else {
             content
         }
@@ -836,22 +818,6 @@ private extension View {
             safeAreaBar(edge: .top, spacing: 0, content: notice)
         } else {
             safeAreaInset(edge: .top, spacing: 0) { notice().background(.bar) }
-        }
-    }
-}
-
-/// The system's search empty state, localized by iOS, from iOS 17 on.
-private struct SearchEmptyState: ViewModifier {
-    let searchText: String
-    let isEmpty: Bool
-
-    func body(content: Content) -> some View {
-        if #available(iOS 17.0, *) {
-            content.overlay {
-                if isEmpty { ContentUnavailableView.search(text: searchText) }
-            }
-        } else {
-            content
         }
     }
 }

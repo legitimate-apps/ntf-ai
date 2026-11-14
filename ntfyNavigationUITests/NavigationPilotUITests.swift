@@ -18,13 +18,21 @@ final class NavigationPilotUITests: XCTestCase {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 3) { springboard.buttons["Allow"].tap() }
+        openTopics()
+    }
+    /// The app opens on Inbox (1.26); the topic list is the second tab.
+    func openTopics() {
+        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: 8) || app.navigationBars["Topics"].exists)
+        if app.navigationBars["Topics"].exists { return }
+        let tab = app.tabBars.buttons["Topics"].firstMatch
+        (tab.exists ? tab : app.buttons["Topics"].firstMatch).tap()
         XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
     }
     func launchList() {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
+        openTopics()
         XCTAssertFalse(app.navigationBars.staticTexts[target].exists)
         XCTAssertFalse(app.navigationBars["What's new"].exists, "Ordinary navigation starts after the current release was seen")
         // 60 earlier rows make the target absent from the rendered viewport.
@@ -248,7 +256,7 @@ final class NavigationPilotUITests: XCTestCase {
     func testAccessibilityControlNames() {
         continueAfterFailure = true
         app.launch()
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         captureAX("regression-list")
         XCTAssertTrue(app.buttons["Add topic"].exists, "The primary action needs its spoken name")
         app.staticTexts["aaa-nav-000"].firstMatch.tap()
@@ -264,14 +272,14 @@ final class NavigationPilotUITests: XCTestCase {
     // Run separately with --seed --empty-fixture, after the navigation suite.
     func testAccessibilityEmptyList() throws {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         guard !app.staticTexts["aaa-nav-000"].exists else { throw XCTSkip("Run with --seed --empty-fixture") }
         captureAX("empty-topic-list")
         XCTAssertTrue(app.staticTexts["No topics yet"].exists)
     }
     func testCaptureSavedUserRow() {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         app.buttons["Settings"].tap()
         let user = app.buttons.matching(NSPredicate(format: "label CONTAINS 'accessibility-user'")).firstMatch
         for _ in 0..<16 { if user.exists && user.isHittable { break }; app.swipeUp() }
@@ -283,7 +291,7 @@ final class NavigationPilotUITests: XCTestCase {
     }
     func testCaptureAccessibilityScreens() {
         app.launch()
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         captureAX("topic-list")
         tapEither("Add topic", "Add")
         XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 5))
@@ -460,7 +468,7 @@ extension NavigationPilotUITests {
         if springboard.buttons["Allow"].waitForExistence(timeout: 2) { springboard.buttons["Allow"].tap() }
         // The fixture's last-seen version can trail the build, which opens What's new first.
         if app.navigationBars["What's new"].waitForExistence(timeout: 3) { app.buttons["Continue"].tap(); pause() }
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         pause(1.5)
         shot("topics")
 
@@ -940,7 +948,7 @@ extension NavigationPilotUITests {
         if app.navigationBars["What's new"].waitForExistence(timeout: 8) {
             pause(); shot("whats-new-3"); app.buttons["Continue"].firstMatch.tap(); pause()
         }
-        XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 8))
+        openTopics()
         pause(1.2)
 
         ensureTopic()
@@ -1009,5 +1017,129 @@ extension NavigationPilotUITests {
                 closeSheet(since: before)
             } else { app.tapCoordinateOutsideMenu() }
         }
+    }
+}
+
+/// 1.26 Inbox captures and the notification-to-message route, run on the inbox-seed.py fixture
+/// (agent topics, waiting questions whose answers go to a local hook on port 8765).
+extension NavigationPilotUITests {
+    func launchInbox() {
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 2) { springboard.buttons["Allow"].tap() }
+        if app.navigationBars["What's new"].waitForExistence(timeout: 3) { app.buttons["Continue"].firstMatch.tap(); pause() }
+        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: 8))
+        pause(1.5)
+    }
+    func tab(_ name: String) {
+        let button = app.tabBars.buttons[name].firstMatch
+        (button.exists ? button : app.buttons[name].firstMatch).tap()
+        pause(1)
+    }
+    func back() {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        pause(1)
+    }
+    func openText(_ text: String) {
+        let element = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+        scrollUntilHittable(element, max: 8)
+        element.tap()
+        pause(1.2)
+    }
+
+    func testInboxCapture() {
+        continueAfterFailure = true
+        launchInbox()
+        captureAX("inbox")
+        XCTAssertTrue(app.otherElements["waiting-header"].exists || app.staticTexts["Waiting on you"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Muted topic'")).firstMatch.exists,
+                       "a muted topic stays out of Activity")
+        app.swipeUp(); pause(); shot("inbox-activity")
+        app.swipeUp(); pause(); shot("inbox-activity-2")
+        app.swipeDown(); app.swipeDown(); app.swipeDown(); pause()
+
+        let showAll = app.buttons["waiting-show-all"].firstMatch
+        if showAll.waitForExistence(timeout: 2) { showAll.tap(); pause(1.2); shot("waiting-all"); back() }
+
+        // Receipts: a request that can't connect, one the hook holds, one it answers.
+        if tapFirst(["Retry"]) { pause(1.5); shot("receipt-failed") }
+        XCTAssertTrue(app.staticTexts["Didn't reach the agent. Try again."].waitForExistence(timeout: 5), "a failure says so, never a check")
+        if tapFirst(["Roll back"]) { pause(0.3); shot("receipt-sending") }
+        if tapFirst(["Approve"]) { pause(0.7); shot("receipt-answered") }
+        pause(3); shot("inbox-after-answers")
+
+        // The page: a long report from its card's Show more, then a question with its answer bar.
+        let more = app.buttons["card-show-more"].firstMatch
+        scrollUntilHittable(more, max: 8)
+        if more.exists { more.tap(); pause(1.2); captureAX("page-report"); app.swipeUp(); pause(); shot("page-report-2"); back() }
+        app.swipeDown(); app.swipeDown(); pause()
+        openText("Front door is unlocked"); captureAX("page-question"); back()
+        openText("Which branch should I release from?")
+        let field = app.textFields["reply-field"].firstMatch.exists ? app.textFields["reply-field"].firstMatch : app.textViews["reply-field"].firstMatch
+        if field.waitForExistence(timeout: 3) {
+            field.tap(); app.typeText("release/1.26"); pause(); shot("page-reply-typing")
+            app.buttons["reply-send"].firstMatch.tap(); pause(1.5); shot("receipt-replied")
+        }
+        back()
+
+        tab("Topics"); captureAX("topics")
+        openText("claude-code"); shot("topic-claude-code")
+        app.swipeUp(); pause(); shot("topic-claude-code-2")
+        if openTopicMenu() {
+            shot("topic-menu")
+            if tapFirst(["Connect an agent"]) {
+                pause(1.2); captureAX("connect-sheet")
+                app.swipeUp(); pause(); shot("connect-sheet-2")
+                app.buttons["connect-done"].firstMatch.tap(); pause()
+            } else { app.tapCoordinateOutsideMenu() }
+        }
+        back()
+        openText("deploys"); app.swipeUp(); pause(); shot("topic-image"); back()
+
+        // Add topic, two steps.
+        tapFirst(["Add topic", "Add"])
+        XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 5))
+        shot("add-step1")
+        let name = app.textFields["Topic name"].firstMatch
+        name.tap(); app.typeText("my-agent"); pause(); shot("add-step1-filled")
+        tapFirst(["Subscribe"])
+        if app.buttons["Not now"].waitForExistence(timeout: 4) { shot("add-primer"); app.buttons["Not now"].tap() }
+        XCTAssertTrue(app.staticTexts["connect-instructions"].waitForExistence(timeout: 8) || app.otherElements["connect-instructions"].exists)
+        pause(); captureAX("add-step2")
+        app.swipeUp(); pause(); shot("add-step2-bottom")
+        app.buttons["connect-done"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars.staticTexts["my-agent"].waitForExistence(timeout: 8), "Done opens the new topic")
+        pause(1.2); shot("add-new-topic")
+
+        tab("Search"); shot("search-prompt")
+        let search = app.searchFields.firstMatch
+        if search.waitForExistence(timeout: 3) {
+            search.tap(); app.typeText("migration"); pause(1.5); shot("search-results")
+        }
+    }
+
+    /// Run on the inbox fixture seeded with --empty.
+    func testInboxEmptyCapture() {
+        launchInbox()
+        captureAX("inbox-empty")
+        XCTAssertTrue(app.buttons["Connect your first agent"].exists)
+        tab("Topics"); captureAX("topics-empty")
+        XCTAssertTrue(app.buttons["Connect your first agent"].exists)
+    }
+
+    /// A notification tap opens that message's page, one Back from its topic (DECISION change 7).
+    func testNotificationOpensMessagePage() {
+        app.launchEnvironment["NTFY_NAV_TOPIC"] = "claude-code"
+        app.launchEnvironment["NTFY_NAV_MESSAGE_ID"] = "m-report"
+        app.launchEnvironment["NTFY_NAV_BASE_URL"] = "http://127.0.0.1:1"
+        launchInbox()
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
+        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.waitForExistence(timeout: 8), "the tapped message's page opens")
+        XCTAssertTrue(app.navigationBars.buttons["claude-code"].waitForExistence(timeout: 5), "Back leads to its topic")
+        pause(); shot("notification-page")
+        app.navigationBars.buttons["claude-code"].tap()
+        XCTAssertTrue(app.navigationBars.staticTexts["claude-code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars.buttons["Topics"].waitForExistence(timeout: 5))
+        shot("notification-topic")
     }
 }

@@ -33,6 +33,8 @@ struct AppMain: App {
                     Log.d(tag, "App became active, refreshing objects")
                     store.mergeRemoteHistory()
                     store.pruneNotifications()
+                    // Answers outlive Waiting's 7 days so old cards keep their receipt, but not forever.
+                    AnswerLog.shared.prune(before: Date().addingTimeInterval(-AnswerLog.keepFor))
                     // Open encrypted messages that arrived while the key couldn't be read (before
                     // first unlock, a Keychain hiccup, or a key the extension couldn't derive).
                     store.retryLockedMessages()

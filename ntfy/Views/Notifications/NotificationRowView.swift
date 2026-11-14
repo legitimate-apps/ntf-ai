@@ -652,7 +652,7 @@ extension NotificationRowView {
         }
     }
 
-    private struct ActivityView: UIViewControllerRepresentable {
+    struct ActivityView: UIViewControllerRepresentable {
         let activityItems: [Any]
 
         func makeUIViewController(context: Context) -> UIActivityViewController {
@@ -663,7 +663,7 @@ extension NotificationRowView {
         }
     }
 
-    private struct AttachmentPresentation: Identifiable {
+    struct AttachmentPresentation: Identifiable {
         enum Mode {
             case preview
             case share
@@ -674,7 +674,7 @@ extension NotificationRowView {
         let mode: Mode
     }
 
-    private struct AttachmentPreviewView: UIViewControllerRepresentable {
+    struct AttachmentPreviewView: UIViewControllerRepresentable {
         let url: URL
 
         func makeUIViewController(context: Context) -> UINavigationController {
@@ -804,7 +804,7 @@ extension NotificationRowView {
     }
 
     @MainActor
-    private final class AttachmentExportPresenter: NSObject, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
+    final class AttachmentExportPresenter: NSObject, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
         static let shared = AttachmentExportPresenter()
         private var activePicker: UIDocumentPickerViewController?
         private var activeExportUrl: URL?
