@@ -78,7 +78,14 @@ struct MessageDisplay: Equatable {
 
 extension Notification {
     var display: MessageDisplay {
-        MessageDisplay.of(title: formatTitle(), body: formatMessage(), contentType: contentType)
+        // An old full settle shows the question as it was; its appended line becomes the receipt.
+        MessageDisplay.of(title: formatTitle(), body: agentSettle?.question ?? formatMessage(), contentType: contentType)
+    }
+
+    /// The question re-sent by ntf 0.1/0.2 to settle it: no buttons, the outcome line appended.
+    var agentSettle: AgentAck.Settle? {
+        guard (actions ?? "").isEmpty || actions == "[]" else { return nil }
+        return AgentAck.settle(body: formatMessage(), tags: parseAllTags(tags), hasActions: false)
     }
 
     /// The fine print under a picture: "87 KB · expires Nov 26". Name first on the page.
@@ -287,7 +294,7 @@ struct AnswerReceiptView: View {
             } else if let entry, entry.ok, entry.kind != .dismissed {
                 let time = Notification.shortTime(for: entry.at)
                 Label {
-                    Text(entry.kind == .tap ? String(localized: "You tapped \(entry.label) · \(time)")
+                    Text(entry.kind == .tap ? String(localized: "You answered \(entry.label) · \(time)")
                                             : String(localized: "You replied · \(time)"))
                         .foregroundColor(.primary)
                 } icon: {
@@ -301,6 +308,147 @@ struct AnswerReceiptView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The receipt on an agent's question (ACK-SPEC): the person's answer on this device, then the
+/// agent's confirmation, from its ack or from an old full settle. Built from what the app already
+/// has; the agent never sends the question again.
+struct AgentReceipt: Equatable {
+    enum Agent: Equatable {
+        case got(Date, note: String?)
+        /// No answer came in time, or the agent stopped waiting: quieter than a confirmation.
+        case movedOn(Date)
+    }
+
+    /// The person's answer here, when it reached the agent.
+    var answer: AnswerEntry?
+    /// The answer as the ack or settle names it, for a question answered on another device.
+    var namedAnswer: String?
+    /// The agent's side. Nil without an ack, and with "Show agent confirmations" off.
+    var agent: Agent?
+    /// Acked or settled: the question is done and takes no more answers, whatever the setting.
+    var resolved: Bool
+
+    init(notification: Notification, log: AnswerLog, acks: AckLog = .shared, shows: Bool) {
+        let key = AnswerKey(notification: notification)
+        var entry = log.entry(for: key)
+        var agent: Agent?
+        var named: String?
+        if let key, let record = acks.record(forKey: key.id, version: key.version) {
+            agent = .got(Date(timeIntervalSince1970: TimeInterval(record.time)), note: record.note)
+            named = record.answer
+        } else if let settle = notification.agentSettle {
+            // The settle replaced the question's row, so the answer was logged on the version before it.
+            entry = entry ?? key.flatMap { log.entry(for: AnswerKey(baseUrl: $0.baseUrl, topic: $0.topic, sequence: $0.sequence)) }
+            switch settle.outcome {
+            case .got(let label): agent = .got(notification.date(), note: nil); named = label
+            case .movedOn: agent = .movedOn(notification.date())
+            }
+        }
+        answer = entry.flatMap { $0.ok && $0.kind != .dismissed ? $0 : nil }
+        namedAnswer = named
+        resolved = agent != nil
+        self.agent = shows ? agent : nil
+    }
+
+    /// What the card names as the answer: the button, the typed text, or what the agent says it got.
+    var answerText: String? {
+        if let answer {
+            if answer.kind == .tap { return answer.label }
+            if let text = answer.text, !text.isEmpty { return "\u{201C}\(text)\u{201D}" }
+        }
+        return namedAnswer
+    }
+}
+
+/// The message page's receipt (ACK-SPEC): a two-step timeline under the question. First what you
+/// answered, then that the agent got it, with its note.
+struct AgentReceiptTimeline: View {
+    let receipt: AgentReceipt
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let answer = receipt.answer {
+                let time = Notification.shortTime(for: answer.at)
+                step(icon: "arrow.up.circle.fill", tint: InboxColor.ink,
+                     title: answer.kind == .tap ? String(localized: "You answered \(answer.label) · \(time)")
+                                                : String(localized: "You replied · \(time)"),
+                     detail: answer.kind == .reply ? answer.text : nil, connects: receipt.agent != nil, id: "receipt-you")
+            }
+            switch receipt.agent {
+            case .got(let at, let note):
+                step(icon: "checkmark.circle.fill", tint: .green,
+                     title: String(localized: "Agent got it · \(Notification.shortTime(for: at))"),
+                     detail: note, connects: false, id: "receipt-agent")
+            case .movedOn(let at):
+                step(icon: "clock", tint: .secondary,
+                     title: String(localized: "Agent stopped waiting · \(Notification.shortTime(for: at))"),
+                     detail: nil, connects: false, id: "receipt-moved-on", quiet: true)
+            case nil:
+                EmptyView()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func step(icon: String, tint: Color, title: String, detail: String?, connects: Bool, id: String, quiet: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundColor(tint)
+                    .accessibilityHidden(true)
+                if connects {
+                    Capsule().fill(Color.secondary.opacity(0.35)).frame(width: 2).frame(maxHeight: .infinity)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(quiet ? .regular : .medium))
+                    .foregroundColor(quiet ? .secondary : .primary)
+                if let detail, !detail.isEmpty {
+                    Text(detail).font(.subheadline).foregroundColor(.secondary).lineLimit(4)
+                        .accessibilityIdentifier(id == "receipt-agent" ? "receipt-note" : "receipt-text")
+                }
+            }
+            .padding(.bottom, connects ? 10 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(id)
+    }
+}
+
+/// The list card's receipt (ACK-SPEC): one line, "Agent got it · <answer> · time".
+struct AgentReceiptLine: View {
+    let receipt: AgentReceipt
+
+    var body: some View {
+        switch receipt.agent {
+        case .got(let at, _):
+            let time = Notification.shortTime(for: at)
+            Label {
+                Text(receipt.answerText.map { String(localized: "Agent got it · \($0) · \(time)") }
+                     ?? String(localized: "Agent got it · \(time)"))
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+            } icon: {
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+            }
+            .font(.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("card-agent-got")
+        case .movedOn(let at):
+            Label(String(localized: "Agent stopped waiting · \(Notification.shortTime(for: at))"), systemImage: "clock")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("card-agent-moved-on")
+        case nil:
+            EmptyView()
+        }
     }
 }
 
@@ -699,6 +847,8 @@ struct MessageCard: View {
     @Environment(\.editMode) private var editMode
     @ObservedObject var notification: Notification
     @ObservedObject private var log = AnswerLog.shared
+    @ObservedObject private var acks = AckLog.shared
+    @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showsAcks = true
     @ObservedObject private var waiting = WaitingObservable.shared
     var showsTopic = false
     /// Inbox Activity: a question already listed in Waiting on you says so instead of showing its
@@ -715,6 +865,7 @@ struct MessageCard: View {
 
     var body: some View {
         let state = AnswerState(notification: notification, log: log)
+        let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
         let items = ActionBarItem.items(actions: notification.actionsList(), click: nil, context: .card)
         VStack(alignment: .leading, spacing: 8) {
             if showsTopic, let subscription = notification.subscription {
@@ -756,8 +907,13 @@ struct MessageCard: View {
             }
             TagLine(tags: notification.nonEmojiTags())
             MessageAttachmentBlock(notification: notification, maxHeight: 300, onCopy: onCopy)
-            if state.answered {
+            if receipt.agent != nil {
+                AgentReceiptLine(receipt: receipt)
+            } else if state.answered {
                 AnswerReceiptView(entry: state.entry)
+            } else if receipt.resolved {
+                // Confirmations are off: the agent got it, so the question takes no more answers.
+                EmptyView()
             } else if defersToWaiting && waiting.contains(notification) {
                 Label(String(localized: "Waiting on you"), systemImage: "hand.raised.fill")
                     .font(.footnote.weight(.semibold))
@@ -813,6 +969,8 @@ struct WaitingRow: View {
     @Environment(\.openURL) private var openURL
     @ObservedObject var notification: Notification
     @ObservedObject private var log = AnswerLog.shared
+    @ObservedObject private var acks = AckLog.shared
+    @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showsAcks = true
     let open: (_ focusReply: Bool) -> Void
     var now = Date()
     @State private var browserURL: URL?
@@ -839,9 +997,12 @@ struct WaitingRow: View {
             if !display.body.isEmpty {
                 Text(display.cardBody).font(.body).foregroundColor(.secondary).lineLimit(3)
             }
-            if state.answered {
+            let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
+            if receipt.agent != nil {
+                AgentReceiptLine(receipt: receipt)
+            } else if state.answered {
                 AnswerReceiptView(entry: state.entry)
-            } else {
+            } else if !receipt.resolved {
                 if state.failed { AnswerReceiptView(failed: true) }
                 ActionBar(items: items, prominentId: items.first { if case .answer = $0 { return true } else { return false } }?.id,
                           size: .regular, sendingId: state.sendingActionId) { item in

@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Combine
 
 /// Two public hosts, one stored server identity. This deliberately does not rename FCM bindings,
 /// Keychain entries, topic encryption salts or existing subscriptions.
@@ -128,7 +129,177 @@ enum ProtocolTag {
 
     static func isNoReply(_ tag: String) -> Bool { tag.lowercased() == noReply }
 
-    static func isHidden(_ tag: String) -> Bool { isNoReply(tag) || isReply(tag) }
+    static func isHidden(_ tag: String) -> Bool { isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) }
+}
+
+/// The agent's confirmation that it got the person's answer (ACK-SPEC, build 48): a message on the
+/// question's sequence tagged `agent,ack`, its body an optional short note. It never replaces the
+/// question: the app keeps the question, records the ack beside it, and shows a receipt. The newest
+/// ack on a sequence wins. It never alerts, whatever priority it was sent at.
+///
+/// An agent that stopped waiting (a timeout) still sends the full settle of ntf 0.1/0.2: the question
+/// again, without buttons, with one line appended. Every app version reads that as resolved, so the
+/// quieter outcome needs no second tag. `settle(body:tags:hasActions:)` reads those lines.
+enum AgentAck {
+    static let tag = "ack"
+    /// What ntf sends when there is no note; stock ntfy clients show the body as it is.
+    static let defaultBody = "\u{2713} Got it"
+    /// Settings, "Show agent confirmations". Default on. In the app group, so the extension reads it.
+    static let showKey = "showAgentConfirmations"
+
+    static var defaults: UserDefaults { UserDefaults(suiteName: Config.appGroupId) ?? .standard }
+
+    static func isAck(_ tag: String) -> Bool { tag.lowercased() == Self.tag }
+    static func isAck(tags: [String]?) -> Bool { tags?.contains(where: isAck) == true }
+
+    static func showsConfirmations(_ defaults: UserDefaults = AgentAck.defaults) -> Bool {
+        defaults.object(forKey: showKey) as? Bool ?? true
+    }
+
+    /// The body without a leading check, lower-cased: "\u{2713} Got: Lock" is "got: lock".
+    private static func bare(_ body: String?) -> String {
+        var text = (body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        while let first = text.first, "\u{2713}\u{2714}\u{2705}".contains(first) { text.removeFirst() }
+        return text.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// A body an agent sends when it has nothing to add: "\u{2713} Got it", "\u{2713} Got your reply" or
+    /// "\u{2713} Got: Lock" (what `ntf ask` sends). These are never shown as a note.
+    static func isDefaultBody(_ body: String?) -> Bool {
+        let text = bare(body).lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
+        return text.isEmpty || text == "got it" || text == "got your reply" || text.hasPrefix("got: ")
+    }
+
+    /// The note under "Agent got it", or nil for a default body.
+    static func note(fromBody body: String?) -> String? {
+        isDefaultBody(body) ? nil : body?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The answer an ack names ("\u{2713} Got: Lock" is "Lock"), for a question answered on another device.
+    static func answer(fromBody body: String?) -> String? {
+        let text = bare(body)
+        guard text.lowercased().hasPrefix("got: ") else { return nil }
+        let label = text.dropFirst(5).trimmingCharacters(in: .whitespaces)
+        return label.isEmpty ? nil : label
+    }
+
+    struct Record: Codable, Equatable {
+        /// The ack's own message id and time.
+        var id: String
+        var time: Int64
+        var note: String?
+        var answer: String?
+        /// The id of the question version it confirms: a new question on the sequence waits again.
+        var version: String
+    }
+
+    enum Outcome: Equatable {
+        /// The agent got the answer; the label when the line names it.
+        case got(String?)
+        /// No answer came, or the agent stopped waiting.
+        case movedOn
+    }
+
+    struct Settle: Equatable {
+        /// The question as it was, without the appended line.
+        var question: String
+        var outcome: Outcome
+    }
+
+    /// A full settle (ntf 0.1/0.2): the question's text, a blank line, and one of "\u{2713} Agent got: X",
+    /// "\u{2713} Agent got your reply", "No answer in 10 min; the agent moved on" or "The agent stopped
+    /// waiting; no answer needed". Only on an agent message without buttons.
+    static func settle(body: String?, tags: [String], hasActions: Bool) -> Settle? {
+        guard !hasActions, tags.contains(where: { $0.lowercased() == "agent" }) else { return nil }
+        let text = (body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let question: String
+        let line: String
+        if let split = text.range(of: "\n\n", options: .backwards) {
+            question = String(text[..<split.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            line = String(text[split.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            question = ""
+            line = text
+        }
+        let outcome: Outcome
+        if line.hasPrefix("\u{2713} Agent got: ") {
+            let label = line.dropFirst("\u{2713} Agent got: ".count).trimmingCharacters(in: .whitespaces)
+            outcome = .got(label.isEmpty ? nil : label)
+        } else if line == "\u{2713} Agent got your reply" || line == "\u{2713} Agent got it" {
+            outcome = .got(nil)
+        } else if line.hasPrefix("No answer in "), line.hasSuffix("; the agent moved on") {
+            outcome = .movedOn
+        } else if line == "The agent stopped waiting; no answer needed" {
+            outcome = .movedOn
+        } else {
+            return nil
+        }
+        return Settle(question: question, outcome: outcome)
+    }
+}
+
+/// The acks received, in the app group's defaults so the extension and the app share them. Keyed
+/// like `AnswerKey.id`: server, topic and sequence. No Core Data entity, so no migration.
+final class AckLog: ObservableObject {
+    static let shared = AckLog(defaults: AgentAck.defaults)
+    static let defaultsKey = "agentAcks.v1"
+    static let didChange = Foundation.Notification.Name("ntfy.ackLogDidChange")
+    /// Old acks drop out past this many; a question is out of Waiting after seven days anyway.
+    static let limit = 500
+
+    /// Bumped on the main queue whenever an ack lands here, or the extension may have added one.
+    @Published private(set) var revision = 0
+    private let defaults: UserDefaults
+    private let lock = NSLock()
+
+    init(defaults: UserDefaults) { self.defaults = defaults }
+
+    /// Redraw what shows acks: one was saved here, or the extension may have saved one meanwhile.
+    func changed() {
+        DispatchQueue.main.async {
+            self.revision &+= 1
+            NotificationCenter.default.post(name: Self.didChange, object: nil)
+        }
+    }
+
+    static func key(baseUrl: String, topic: String, sequence: String) -> String {
+        "\(normalizeBaseUrl(baseUrl))|\(topic)|\(sequence)"
+    }
+
+    private func all() -> [String: AgentAck.Record] {
+        guard let data = defaults.data(forKey: Self.defaultsKey),
+              let decoded = try? JSONDecoder().decode([String: AgentAck.Record].self, from: data) else { return [:] }
+        return decoded
+    }
+
+    /// The ack on this version of the question, if any.
+    func record(forKey key: String, version: String?) -> AgentAck.Record? {
+        lock.lock(); defer { lock.unlock() }
+        guard let record = all()[key], version == nil || record.version == version else { return nil }
+        return record
+    }
+
+    /// Keeps the newest ack per question version. False when an ack as new or newer is already there.
+    @discardableResult
+    func save(_ record: AgentAck.Record, forKey key: String) -> Bool {
+        lock.lock()
+        var records = all()
+        if let current = records[key], current.version == record.version,
+           current.time > record.time || current.id == record.id {
+            lock.unlock()
+            return false
+        }
+        records[key] = record
+        if records.count > Self.limit {
+            for old in records.sorted(by: { $0.value.time < $1.value.time }).prefix(records.count - Self.limit) {
+                records.removeValue(forKey: old.key)
+            }
+        }
+        if let data = try? JSONEncoder().encode(records) { defaults.set(data, forKey: Self.defaultsKey) }
+        lock.unlock()
+        changed()
+        return true
+    }
 }
 
 /// Topic names ntfy accepts: letters, digits, dash and underscore, at most 64 characters.

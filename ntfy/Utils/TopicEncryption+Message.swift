@@ -57,6 +57,8 @@ enum PushedMessageResult {
     case handled
     /// Same-second events need the server cache order, not APNs arrival order.
     case reconcile(PollRequest)
+    /// An agent ack (ACK-SPEC): recorded on its question, shown only as a silent receipt.
+    case acknowledged(Message, questionTitle: String?)
 
     var message: Message? {
         if case .stored(let message) = self { return message }

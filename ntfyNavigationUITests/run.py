@@ -123,5 +123,5 @@ if not args.only:
                     for name in ["testInboxCapture", "testInboxEmptyCapture", "testNotificationOpensMessagePage", "testTopicCardOpensAndStays",
                                  "testWaitingRowOnlyTheButtonAnswers", "testTopicCardOnlyTheButtonAnswers",
                                  "testTopicMenuConfirmationsShow", "testAgentReplyCapture",
-                                 "testProtocolTagsCapture"]]
+                                 "testProtocolTagsCapture", "testAgentAckCapture"]]
 run(*command)

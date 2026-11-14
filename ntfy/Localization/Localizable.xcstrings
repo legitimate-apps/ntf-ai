@@ -31681,6 +31681,342 @@
           }
         }
       }
+    },
+    "You answered %@ · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the answer button's label, then the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You answered %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ geantwortet · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondiste %@ · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai risposto %@ · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedziano: %@ · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je antwoordde %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez répondu %@ · %@"
+          }
+        }
+      }
+    },
+    "Agent got it · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the agent confirmed it got the answer; the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu · %@"
+          }
+        }
+      }
+    },
+    "Agent got it · %@ · %@": {
+      "extractionState": "manual",
+      "comment": "List card receipt: the answer, then the time of the agent's confirmation",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it · %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten · %@ · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió · %@ · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto · %@ · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał · %@ · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen · %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu · %@ · %@"
+          }
+        }
+      }
+    },
+    "Agent stopped waiting · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the agent stopped waiting for an answer; the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent stopped waiting · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wartet nicht mehr · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente dejó de esperar · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente ha smesso di aspettare · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent przestał czekać · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wacht niet meer · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent n'attend plus · %@"
+          }
+        }
+      }
+    },
+    "Agent got it": {
+      "extractionState": "manual",
+      "comment": "Notification body: the agent confirmed it got the answer",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu"
+          }
+        }
+      }
+    },
+    "Show agent confirmations": {
+      "extractionState": "manual",
+      "comment": "Settings toggle",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show agent confirmations"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent-Bestätigungen anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar confirmaciones del agente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra conferme dell'agente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokazuj potwierdzenia agenta"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bevestigingen van agents tonen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les confirmations de l'agent"
+          }
+        }
+      }
+    },
+    "When an agent confirms it got your answer, the question shows a receipt and the agent's note. Confirmations never make a sound. When this is off, they still close the question and show nothing.": {
+      "extractionState": "manual",
+      "comment": "Settings footer under Show agent confirmations",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When an agent confirms it got your answer, the question shows a receipt and the agent's note. Confirmations never make a sound. When this is off, they still close the question and show nothing."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn ein Agent bestätigt, dass er deine Antwort erhalten hat, zeigt die Frage eine Bestätigung und die Notiz des Agents. Bestätigungen machen nie ein Geräusch. Ist dies aus, schließen sie die Frage trotzdem und zeigen nichts an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando un agente confirma que recibió tu respuesta, la pregunta muestra un recibo y la nota del agente. Las confirmaciones nunca suenan. Si esto está desactivado, igualmente cierran la pregunta y no muestran nada."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quando un agente conferma di aver ricevuto la tua risposta, la domanda mostra una ricevuta e la nota dell'agente. Le conferme non emettono mai suoni. Se è disattivato, chiudono comunque la domanda e non mostrano nulla."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gdy agent potwierdzi, że otrzymał Twoją odpowiedź, pytanie pokazuje potwierdzenie i notatkę agenta. Potwierdzenia nigdy nie wydają dźwięku. Gdy to jest wyłączone, nadal zamykają pytanie i niczego nie pokazują."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als een agent bevestigt dat hij je antwoord heeft ontvangen, toont de vraag een ontvangstbevestiging en de notitie van de agent. Bevestigingen maken nooit geluid. Staat dit uit, dan sluiten ze de vraag toch en tonen ze niets."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand un agent confirme avoir reçu votre réponse, la question affiche un accusé de réception et la note de l'agent. Les confirmations ne font jamais de bruit. Si c'est désactivé, elles ferment quand même la question et n'affichent rien."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

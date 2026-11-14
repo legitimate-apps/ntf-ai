@@ -197,6 +197,12 @@ extension UNMutableNotificationContent {
             self.sound = nil
             self.interruptionLevel = .passive
         }
+        // An agent's ack never alerts, whatever priority it was sent at (ACK-SPEC).
+        if AgentAck.isAck(tags: message.tags) {
+            self.sound = nil
+            self.interruptionLevel = .passive
+            self.relevanceScore = 0
+        }
     }
 
     func attachImageIfNeeded(

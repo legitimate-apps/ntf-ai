@@ -10,6 +10,10 @@ tapprobe = '--tapprobe' in sys.argv
 replyhook = '--replyhook' in sys.argv
 # --protocol: on Home, a question sent with `ntf ask --no-reply` and the person's typed reply to q-door.
 protocol = '--protocol' in sys.argv
+# --acks: agent confirmations (build 48) on Home, which polls the local hook. Answers and acks are
+# seeded into the app group's defaults; q-live gets its ack from the hook's poll, through the store.
+acks = '--acks' in sys.argv
+replyhook = replyhook or acks
 base = pathlib.Path.home() / "Library/Developer/CoreSimulator/Devices" / udid / "data/Containers/Shared/AppGroup"
 gdir = next(d for d in base.iterdir()
             if (d / ".com.apple.mobile_container_manager.metadata.plist").exists()
@@ -114,6 +118,25 @@ with sqlite3.connect(store) as db:
                      [http("Restart", "/ok", "reply:r6:restart"), http("Not now", "/ok", "reply:r6:later")], "agent,no-reply", None, None))
         msgs.append((31, 4, "m-reply", "m-reply", 2 * 60, 3, 1, None, "Locked it from the app, thanks",
                      None, "re-q-door", None, None))
+    if acks:
+        msgs += [
+            (40, 4, "q-garage", "q-garage", 9 * 60, 3, 1, "Garage door is open",
+             "It has been open for 15 minutes. Close it?",
+             [http("Close", "/ok", "reply:r7:close"), http("Leave it", "/ok", "reply:r7:leave")], "agent", None, None),
+            (41, 4, "q-wifi", "q-wifi", 14 * 60, 3, 1, "Which Wi-Fi name should guests use?",
+             "I'm setting up the guest network. Type the name you want, or pick one.",
+             [http("HomeGuest", "/ok", "reply:r8:homeguest")], "agent", None, None),
+            (42, 4, "q-live", "q-live", 4 * 60, 4, 0, "Restart the media server?",
+             "Playback stalled twice in the last hour. A restart takes about a minute.",
+             [http("Restart", "/ok", "reply:r9:restart"), http("Not now", "/ok", "reply:r9:later")], "agent", None, None),
+            (43, 4, "q-thermo", "q-thermo", 20 * 60, 3, 1, "Turn the heating down?",
+             "Nobody is home until 6 pm. Lowering it to 17 °C saves about 2 kWh.",
+             [http("Lower it", "/ok", "reply:r10:lower"), http("Keep it", "/ok", "reply:r10:keep")], "agent", None, None),
+            (44, 4, "q-sprinkler", "q-sprinkler", 35 * 60, 1, 1, "Skip today's watering?",
+             "Rain is forecast at 4 pm.\n\nNo answer in 10 min; the agent moved on", None, "agent", None, None),
+            (45, 4, "q-lights", "q-lights", 45 * 60, 1, 1, "Porch lights are still on",
+             "It's daylight. Turn them off?\n\n\u2713 Agent got: Turn off", None, "agent", None, None),
+        ]
     for pk, sub, mid, seq, age, prio, read, title, body, actions, tags, ctype, att in msgs:
         topic = [t for t in topics if t[0] == sub][0][1]
         cols = dict(Z_PK=pk, Z_ENT=ent["Notification"], Z_OPT=1, ZPRESENTED=1, ZREAD=read, ZPRIORITY=prio, ZTIME=now - age,
@@ -138,3 +161,27 @@ r = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "delete", str(
 left = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "read", str(prefs), "answerLog.v1"],
                       capture_output=True, text=True)
 print("answer log cleared" if left.returncode != 0 else "ANSWER LOG STILL SET", r.returncode)
+
+# Confirmations: start with none recorded and the setting at its default (on).
+for key in ("agentAcks.v1", "showAgentConfirmations"):
+    subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "delete", str(prefs), key], capture_output=True)
+if acks and not empty:
+    REF2001 = 978307200
+    base = HOOK.rstrip("/")
+    def k(seq): return f"{base}|home|{seq}"
+    def entry(kind, label, ago, mid, text=None):
+        e = {"kind": kind, "label": label, "at": now - ago - REF2001, "ok": True, "messageId": mid}
+        if text: e["text"] = text
+        return e
+    log = {k("q-garage"): entry("tap", "Close", 8 * 60, "q-garage"),
+           k("q-wifi"): entry("reply", "Reply", 13 * 60, "q-wifi", "Call it HomeGuest-5G"),
+           k("q-door"): entry("tap", "Lock", 54 * 60, "q-door"),
+           k("q-thermo"): entry("reply", "Reply", 19 * 60, "q-thermo", "Lower it to 18, not 17"),
+           k("q-lights"): entry("tap", "Turn off", 46 * 60, "q-lights-0")}
+    acklog = {k("q-door"): {"id": "a-door", "time": now - 53 * 60, "note": "Locked. I'll check the back door too.", "version": "q-door"},
+              k("q-thermo"): {"id": "a-thermo", "time": now - 18 * 60, "version": "q-thermo"}}
+    for key, value in (("answerLog.v1", log), ("agentAcks.v1", acklog)):
+        hexdata = json.dumps(value).encode().hex()
+        r = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "write", str(prefs), key, "-data", hexdata],
+                           capture_output=True, text=True)
+        print(f"{key} seeded" if r.returncode == 0 else f"{key} SEED FAILED {r.stderr}")

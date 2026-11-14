@@ -1,6 +1,7 @@
 import CoreData
 import Foundation
 import Combine
+import UserNotifications
 
 /// Which question an answer belongs to: server, topic and sequence. A sequence update replaces its
 /// row in place, so the key outlives an agent's edit of the question. `version` is the message id
@@ -145,8 +146,9 @@ enum WaitingRule {
     /// whenever a message is read here or on another device, so it can't tell an agent's withdrawal
     /// from the person having looked at the question.
     /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], now: Date = Date()) -> Bool {
-        guard hasAnswerAction(actions), !tags.contains(where: ProtocolTag.isReply) else { return false }
+    /// An agent's ack on the question resolves it, however it was answered (ACK-SPEC).
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], acked: Bool = false, now: Date = Date()) -> Bool {
+        guard hasAnswerAction(actions), !acked, !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
@@ -217,14 +219,17 @@ extension Store {
     /// the rule filters after the fetch, so a cap would let a busy bot push real questions out.
     /// The predicate keeps the set to rows with actions from the last seven days.
     func waitingNotifications(log: AnswerLog = .shared, now: Date = Date()) -> [Notification] {
+        let acks = ackLog
         let request = Notification.fetchRequest()
         request.predicate = NSPredicate(format: "actions != nil AND actions != '' AND actions != '[]' AND time >= %lld AND subscription != nil",
                                         Int64(now.addingTimeInterval(-WaitingRule.maxAge).timeIntervalSince1970))
         request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
-            WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: AnswerKey(notification: row)),
-                                  tags: parseAllTags(row.tags), now: now)
+            let key = AnswerKey(notification: row)
+            return WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: key),
+                                         tags: parseAllTags(row.tags),
+                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false, now: now)
         }
         .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
     }
@@ -251,6 +256,9 @@ final class WaitingObservable: ObservableObject {
         observers.append(NotificationCenter.default.addObserver(
             forName: Store.didResetHistory, object: nil, queue: .main
         ) { [weak self] _ in self?.refresh() })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AckLog.didChange, object: nil, queue: .main
+        ) { [weak self] _ in self?.scheduleRefresh() })
         // An answered row shows its receipt for two seconds before it leaves the queue (C1).
         // "Not needed" refreshes at once through `dismiss`.
         log.$entries.dropFirst().debounce(for: .seconds(2), scheduler: DispatchQueue.main)
@@ -291,5 +299,28 @@ final class WaitingObservable: ObservableObject {
         guard let key = AnswerKey(notification: notification) else { return }
         log.dismiss(key)
         refresh()
+    }
+}
+
+extension AgentAck {
+    /// With "Show agent confirmations" off, an ack the extension had to deliver (it can't drop a
+    /// push without Apple's filtering entitlement) leaves Notification Center once the app runs.
+    static func removeDeliveredReceiptsIfHidden(center: UNUserNotificationCenter = .current(),
+                                                shows: Bool = AgentAck.showsConfirmations()) {
+        guard !shows else { return }
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered.filter { isReceipt($0.request.content.userInfo) }.map(\.request.identifier)
+            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+
+    /// An ack arriving while the app is open: never a banner or sound; in Notification Center only
+    /// when confirmations show.
+    static func foregroundPresentation(shows: Bool) -> UNNotificationPresentationOptions {
+        shows ? [.list] : []
+    }
+
+    static func isReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
+        isAck(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ","))
     }
 }

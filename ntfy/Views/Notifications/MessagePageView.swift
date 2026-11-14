@@ -12,6 +12,8 @@ struct MessagePageView: View {
     @ObservedObject var notification: Notification
     var focusReply = false
     @ObservedObject private var log = AnswerLog.shared
+    @ObservedObject private var acks = AckLog.shared
+    @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showsAcks = true
     @ObservedObject private var waiting = WaitingObservable.shared
     @State private var browserURL: URL?
     @State private var showCopied = false
@@ -171,17 +173,36 @@ struct MessagePageView: View {
         return URL(string: click)
     }
 
+    private var receipt: AgentReceipt {
+        AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
+    }
+
+    /// Links still open after answering; answers are done.
+    private var links: [ActionBarItem] {
+        items.filter { if case .answer = $0 { return false } else { return true } }
+    }
+
+    /// Answered here, or the agent confirmed (or settled) the question: the receipt replaces the answers.
+    private var isSettled: Bool {
+        AnswerState(notification: notification, log: log).answered || receipt.resolved
+    }
+
     private var hasAnswerArea: Bool {
-        !items.isEmpty || replyAction != nil || offersAgentReply || AnswerState(notification: notification, log: log).answered
+        if isSettled {
+            let receipt = receipt
+            return receipt.answer != nil || receipt.agent != nil || !links.isEmpty
+        }
+        return !items.isEmpty || replyAction != nil || offersAgentReply
     }
 
     @ViewBuilder private var answerArea: some View {
         let state = AnswerState(notification: notification, log: log)
         VStack(spacing: 10) {
-            if state.answered {
-                AnswerReceiptView(entry: state.entry)
-                // Links still open after answering; answers are done.
-                let links = items.filter { if case .answer = $0 { return false } else { return true } }
+            if isSettled {
+                let receipt = receipt
+                if receipt.answer != nil || receipt.agent != nil {
+                    AgentReceiptTimeline(receipt: receipt)
+                }
                 if !links.isEmpty {
                     ActionBar(items: links, size: .large, run: run)
                 }

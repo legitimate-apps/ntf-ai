@@ -85,6 +85,10 @@ class Store: ObservableObject {
     var notificationBatchRemover: ([SequenceRemoval]) -> Void = SequenceRemoval.removeDelivered
     var topicNotificationRemover: (String, String, Int64, Date) -> Void = SequenceRemoval.removeDelivered
     var notificationRemover: (SequenceRemoval) -> Void = { $0.removeDelivered() }
+    /// Where agent acks are kept (ACK-SPEC). Tests give each store its own.
+    var ackLog: AckLog = .shared
+    /// The pushed message the last save took as an agent ack: it confirms a question, never alerts.
+    private(set) var acknowledgedPush: (id: String, questionTitle: String?)?
     /// Whether a missing cached key may be re-derived from the password (PBKDF2). Off in the
     /// notification service extension, which has a tight time and memory budget; the app derives it
     /// the next time it reads the topic, and `retryLockedMessages` then opens what arrived meanwhile.
@@ -997,7 +1001,9 @@ class Store: ObservableObject {
                     return
                 }
                 let changed = try saveNotifications(ingested, withSubscription: subscription, isPush: true)
-                if let updated = changed.first {
+                if let ack = acknowledgedPush, ack.id == message.id {
+                    stored = .acknowledged(ingested.first?.message ?? message, questionTitle: ack.questionTitle)
+                } else if let updated = changed.first {
                     stored = .stored(updated)
                 } else if deferredPushID == message.id, let request = pollRequest(for: subscription) {
                     stored = .reconcile(request)
@@ -1024,7 +1030,7 @@ class Store: ObservableObject {
             }
         }
         switch stored {
-        case .stored, .handled: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
+        case .stored, .handled, .acknowledged: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
         default: break // A deferred reconciliation has not demonstrated recovery yet.
         }
         return stored
@@ -1937,7 +1943,7 @@ class Store: ObservableObject {
     /// asking from the current cursor orders an answer only after states from an earlier second.
     @discardableResult
     private func saveNotifications(_ ingested: [IngestedMessage], withSubscription subscription: Subscription, polledSince: String? = nil, isPush: Bool = false, applyingRetention: Bool = false) throws -> [Message] {
-        if isPush { deferredPushID = nil }
+        if isPush { deferredPushID = nil; acknowledgedPush = nil }
         let request = Notification.fetchRequest()
         let sequences = ingested.map { $0.message.sequence }
         let ids = ingested.map { $0.message.id }
@@ -2021,6 +2027,17 @@ class Store: ObservableObject {
                 }
                 removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
                                                 sequence: sequence, throughTime: message.time))
+            } else if AgentAck.isAck(tags: message.tags), let row, !AgentAck.isAck(tags: parseAllTags(row.tags)), let version = row.id {
+                // An ack confirms the question on its sequence; it never replaces it. The question
+                // keeps its row, leaves Waiting, and its banner goes. The ack itself is never presented.
+                ackLog.save(AgentAck.Record(id: message.id, time: message.time,
+                                            note: AgentAck.note(fromBody: message.message),
+                                            answer: AgentAck.answer(fromBody: message.message), version: version),
+                            forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: sequence))
+                row.read = true
+                removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
+                                                sequence: sequence, throughTime: message.time, keepingID: message.id))
+                if isPush { acknowledgedPush = (message.id, row.title) }
             } else {
                 let notification = row ?? Notification(context: context)
                 message.isUpdate = row != nil
@@ -2035,7 +2052,13 @@ class Store: ObservableObject {
                 populate(notification, from: item)
                 notification.subscription = subscription
                 if row == nil { rows.append(notification) }
-                presentations.append(message)
+                if AgentAck.isAck(tags: message.tags) {
+                    // An ack with no question here (pruned, or never received): kept as a quiet row.
+                    notification.read = true
+                    if isPush { acknowledgedPush = (message.id, nil) }
+                } else {
+                    presentations.append(message)
+                }
             }
         }
         if !isPush, !subscription.sequenceReconcile, let last = ingested.last(where: { $0.message.topic == subscription.topic && ($0.message.event == "message" || $0.message.isControl) })?.message {

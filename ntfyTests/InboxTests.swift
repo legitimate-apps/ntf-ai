@@ -1,5 +1,6 @@
 import XCTest
 import CoreData
+import UserNotifications
 @testable import ntfy
 
 /// The Waiting on you rule (DIRECTIONS 1.6) on its own.
@@ -399,5 +400,239 @@ final class AgentReplyTests: XCTestCase {
         XCTAssertNotNil(BannerReply.destination(for: viewReply), "fixture is a real view-action reply")
         XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("http"), viewReply]),
                        "the reply action posts to its own target, so the page uses that instead")
+    }
+}
+
+/// Agent confirmations (ACK-SPEC, build 48): an ack on the question's sequence resolves it without
+/// replacing it, never alerts, and hides behind "Show agent confirmations" without losing its effect.
+final class AgentAckTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+    private var subscription: Subscription!
+    private var removals: [SequenceRemoval] = []
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func defaults() -> UserDefaults {
+        let name = "ack-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+        store.ackLog = acks
+        removals = []
+        store.notificationRemover = { [weak self] in self?.removals.append($0) }
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "home")
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private func http() -> Action {
+        Action(id: UUID().uuidString, action: "http", label: "Lock", url: "https://agents.example/ok",
+               method: "POST", headers: nil, body: "lock", clear: nil)
+    }
+
+    private func question(age: TimeInterval = 600) -> Message {
+        Message(id: "q-1", time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "home",
+                message: "Front door is unlocked", title: "Front door", priority: 4, tags: ["agent"], actions: [http()],
+                sequenceID: "door")
+    }
+
+    private func ack(_ id: String, _ body: String, age: TimeInterval, priority: Int16 = 5) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "home",
+                message: body, priority: priority, tags: ["agent", "ack"], sequenceID: "door")
+    }
+
+    @discardableResult
+    private func save(_ messages: Message...) -> [Message] {
+        let presented = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+        return presented
+    }
+
+    private var rows: [ntfy.Notification] {
+        let request = ntfy.Notification.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: true)]
+        return (try? store.context.fetch(request)) ?? []
+    }
+
+    private func receipt(shows: Bool = true) throws -> AgentReceipt {
+        AgentReceipt(notification: try XCTUnwrap(rows.first), log: log, acks: acks, shows: shows)
+    }
+
+    // MARK: parsing
+
+    func testADefaultBodyIsNeverANote() {
+        for body in ["\u{2713} Got it", "Got it", "\u{2713} Got your reply", "\u{2713} Got: Lock", "\u{2713}", "", "  ", nil, "got it."] {
+            XCTAssertNil(AgentAck.note(fromBody: body), "\(String(describing: body)) is a default, not a note")
+        }
+        XCTAssertEqual(AgentAck.note(fromBody: " Restarting now \n"), "Restarting now")
+        XCTAssertEqual(AgentAck.note(fromBody: "Got it, restarting the router"), "Got it, restarting the router")
+        XCTAssertEqual(AgentAck.answer(fromBody: "\u{2713} Got: Lock"), "Lock")
+        XCTAssertNil(AgentAck.answer(fromBody: "\u{2713} Got it"))
+        XCTAssertEqual(AgentAck.defaultBody, "\u{2713} Got it", "the default ntf sends")
+        XCTAssertTrue(AgentAck.isDefaultBody(AgentAck.defaultBody))
+    }
+
+    func testTheOldFullSettleReadsAsResolved() {
+        let agent = ["agent"]
+        XCTAssertEqual(AgentAck.settle(body: "Front door is unlocked\n\n\u{2713} Agent got: Lock", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Front door is unlocked", outcome: .got("Lock")))
+        XCTAssertEqual(AgentAck.settle(body: "Which branch?\n\n\u{2713} Agent got your reply", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Which branch?", outcome: .got(nil)))
+        XCTAssertEqual(AgentAck.settle(body: "Deploy?\n\nNo answer in 10 min; the agent moved on", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Deploy?", outcome: .movedOn))
+        XCTAssertEqual(AgentAck.settle(body: "Deploy?\n\nThe agent stopped waiting; no answer needed", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Deploy?", outcome: .movedOn))
+        XCTAssertNil(AgentAck.settle(body: "Deploy?\n\n\u{2713} Agent got: Lock", tags: agent, hasActions: true), "still has buttons")
+        XCTAssertNil(AgentAck.settle(body: "Deploy?\n\n\u{2713} Agent got: Lock", tags: [], hasActions: false), "not from an agent")
+        XCTAssertNil(AgentAck.settle(body: "Build finished\n\nAll green", tags: agent, hasActions: false), "an ordinary message")
+    }
+
+    // MARK: resolution
+
+    func testAnAckResolvesTheQuestionWithoutReplacingIt() throws {
+        save(question())
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-1"])
+        let presented = save(ack("a-1", "Locking it now", age: 60))
+        XCTAssertEqual(presented.map(\.id), [], "an ack is never presented")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "the question keeps its row")
+        XCTAssertEqual(rows.first?.message, "Front door is unlocked")
+        XCTAssertEqual(rows.first?.actionsList().count, 1, "the question keeps its buttons")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [], "out of Waiting on you")
+        let record = try XCTUnwrap(acks.record(forKey: AckLog.key(baseUrl: "https://agents.example", topic: "home", sequence: "door"), version: "q-1"))
+        XCTAssertEqual(record.note, "Locking it now")
+        XCTAssertEqual(record.id, "a-1")
+        XCTAssertTrue(removals.contains { $0.sequence == "door" && $0.keepingID == "a-1" }, "the question's banner goes")
+    }
+
+    func testTheNewestAckWins() throws {
+        save(question())
+        save(ack("a-1", "Restarting now", age: 120))
+        save(ack("a-2", "Restarted, all good", age: 60))
+        XCTAssertEqual(try receipt().agent, .got(now.addingTimeInterval(-60), note: "Restarted, all good"))
+        save(ack("a-0", "An older note", age: 90))
+        XCTAssertEqual(try receipt().agent, .got(now.addingTimeInterval(-60), note: "Restarted, all good"), "an older ack loses")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    func testAnAckBeforeAnyAnswerHereStillShows() throws {
+        save(question())
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        let receipt = try receipt()
+        XCTAssertNil(receipt.answer, "nothing answered on this device")
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-60), note: nil), "a default body is no note")
+        XCTAssertEqual(receipt.answerText, "Lock", "the ack names the answer given elsewhere")
+        XCTAssertTrue(receipt.resolved)
+    }
+
+    func testANewQuestionOnTheSequenceWaitsAgain() {
+        save(question(age: 600))
+        save(ack("a-1", "ok then", age: 300))
+        var next = question(age: 60)
+        next.id = "q-2"
+        save(next)
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-2"], "the ack was for the old version")
+    }
+
+    func testAnOrphanAckIsKeptQuietly() {
+        let presented = save(ack("a-9", "Done", age: 60))
+        XCTAssertEqual(presented.map(\.id), [], "no question here: stored, never presented")
+        XCTAssertEqual(rows.first?.read, true)
+    }
+
+    func testAPushedAckIsAcknowledgedNotStored() throws {
+        save(question())
+        let result = store.ingest(pushedMessage: ack("a-1", "Locking it now", age: 60), baseUrl: "https://agents.example", topic: "home")
+        guard case .acknowledged(let message, let title) = result else { return XCTFail("got \(String(describing: result))") }
+        XCTAssertEqual(message.id, "a-1")
+        XCTAssertEqual(title, "Front door")
+    }
+
+    func testTheOldSettleRowShowsTheQuestionAndAReceipt() throws {
+        save(question(age: 600))
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-300), ok: true, messageId: "q-1")
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        var settle = question(age: 200)
+        settle.id = "s-1"
+        settle.actions = nil
+        settle.priority = 1
+        settle.message = "Front door is unlocked\n\n\u{2713} Agent got: Lock"
+        save(settle)
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(row.display.body, "Front door is unlocked", "the appended line leaves the body")
+        XCTAssertEqual(row.display.title, "Front door")
+        let receipt = try receipt()
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-200), note: nil))
+        XCTAssertEqual(receipt.answer?.label, "Lock", "the answer logged on the question's version")
+        var timeout = question(age: 100)
+        timeout.id = "s-2"
+        timeout.actions = nil
+        timeout.message = "Front door is unlocked\n\nNo answer in 10 min; the agent moved on"
+        save(timeout)
+        XCTAssertEqual(try self.receipt().agent, .movedOn(now.addingTimeInterval(-100)))
+    }
+
+    // MARK: silence
+
+    func testAnAckNeverAlertsAtAnyPriority() {
+        for priority: Int16 in 1...5 {
+            let content = UNMutableNotificationContent()
+            content.configureInterruption(message: ack("a-\(priority)", "note", age: 1, priority: priority), soundName: "custom.wav",
+                                          criticalEnabled: true, criticalAuthorized: true)
+            XCTAssertNil(content.sound, "priority \(priority)")
+            XCTAssertEqual(content.interruptionLevel, .passive, "priority \(priority)")
+            XCTAssertEqual(content.relevanceScore, 0, "priority \(priority)")
+        }
+        let content = UNMutableNotificationContent()
+        content.configureInterruption(message: question(), soundName: nil, criticalEnabled: false, criticalAuthorized: false)
+        XCTAssertNotNil(content.sound, "a question still alerts")
+    }
+
+    func testInTheForegroundAnAckIsNeverABanner() {
+        XCTAssertEqual(AgentAck.foregroundPresentation(shows: true), [.list])
+        XCTAssertEqual(AgentAck.foregroundPresentation(shows: false), [])
+        var info = ack("a-1", "x", age: 1).toUserInfo()
+        XCTAssertTrue(AgentAck.isReceipt(info))
+        info["tags"] = "agent"
+        XCTAssertFalse(AgentAck.isReceipt(info))
+    }
+
+    // MARK: the setting
+
+    func testWithConfirmationsOffTheAckStillResolvesButShowsNothing() throws {
+        save(question())
+        save(ack("a-1", "Locking it now", age: 60))
+        let hidden = try receipt(shows: false)
+        XCTAssertNil(hidden.agent, "no receipt line or note")
+        XCTAssertTrue(hidden.resolved, "the question is still done")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [])
+        XCTAssertNotNil(try receipt(shows: true).agent)
+    }
+
+    func testConfirmationsShowByDefault() {
+        let defaults = defaults()
+        XCTAssertTrue(AgentAck.showsConfirmations(defaults))
+        defaults.set(false, forKey: AgentAck.showKey)
+        XCTAssertFalse(AgentAck.showsConfirmations(defaults))
+    }
+
+    // MARK: hiding
+
+    func testTheAckTagIsNeverShown() {
+        XCTAssertEqual(parseNonEmojiTags("agent,ack,deploy,ACK"), ["agent", "deploy"])
+        XCTAssertEqual(parseEmojiTags("ack,thumbsup"), ["👍"])
+        XCTAssertEqual(parseNonEmojiTags("acknowledged,backup"), ["acknowledged", "backup"], "only the exact tag")
     }
 }

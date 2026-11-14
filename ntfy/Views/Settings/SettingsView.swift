@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject private var delegate: AppDelegate
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     @AppStorage(InAppBrowser.preferenceKey) private var openWebLinksInApp = false
+    @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -30,6 +31,10 @@ struct SettingsView: View {
                 ) {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
+                }
+                Section(footer: Text(String(localized: "When an agent confirms it got your answer, the question shows a receipt and the agent's note. Confirmations never make a sound. When this is off, they still close the question and show nothing."))) {
+                    Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
+                        .accessibilityIdentifier("settings-agent-confirmations")
                 }
                 NotificationStatusView()
                 RetentionSettingsView(store: store)

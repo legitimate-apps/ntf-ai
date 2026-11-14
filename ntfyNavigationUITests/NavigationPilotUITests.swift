@@ -1363,6 +1363,70 @@ extension NavigationPilotUITests {
         shot("protocol-noreply-page")
     }
 
+    /// Build 48, agent confirmations: the receipt on each kind of question, the list after the acks,
+    /// and the same with "Show agent confirmations" off. q-live's ack comes from the hook's poll.
+    func testAgentAckCapture() {
+        continueAfterFailure = true
+        launchInbox()
+        let any = app.descendants(matching: .any)
+        let hidden = NSPredicate(format: "label == 'ack' OR label CONTAINS 'Got it'")
+        shot("ack-inbox")
+        tab("Topics"); openText("Home")
+        // The poll at launch may not have run yet: pull to refresh brings q-live's ack in.
+        toTop(); pause(2)
+        XCTAssertTrue(any["card-agent-got"].firstMatch.waitForExistence(timeout: 5), "the card shows the agent got it")
+        shot("ack-home-list")
+        app.swipeUp(); pause(0.6); shot("ack-home-list-2")
+        XCTAssertFalse(app.staticTexts.matching(hidden).firstMatch.exists, "no ack tag or default body shows")
+        let pages: [(String, String)] = [
+            ("Front door is unlocked", "ack-page-button-note"),
+            ("Turn the heating down?", "ack-page-reply-no-note"),
+            ("Restart the media server?", "ack-page-live-no-answer"),
+            ("Garage door is open", "ack-page-button"),
+            ("Which Wi-Fi name", "ack-page-reply"),
+            ("Skip today's watering?", "ack-page-moved-on"),
+            ("Porch lights are still on", "ack-page-old-settle"),
+        ]
+        for (title, name) in pages {
+            openText(title)
+            pause(1)
+            shot(name)
+            let receipt = any.matching(NSPredicate(format: "identifier BEGINSWITH 'receipt-'")).firstMatch
+            // At accessibility sizes the receipt follows the text, under the tab bar: scroll to it.
+            if receipt.exists && (!receipt.isHittable || receipt.frame.maxY > app.frame.height * 0.8) {
+                app.swipeUp(); pause(0.8)
+                shot(name + "-end")
+            }
+            back()
+        }
+        XCTAssertTrue(any["card-agent-moved-on"].firstMatch.exists || any["card-agent-got"].firstMatch.exists)
+        // Off: acks still close the question, but no receipt line or note shows.
+        tab("Settings")
+        let toggle = app.switches["settings-agent-confirmations"].firstMatch
+        scrollUntilHittable(toggle, max: 10)
+        shot("ack-settings-on")
+        if toggle.exists { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap() }
+        pause(0.8)
+        XCTAssertEqual(toggle.value as? String, "0", "the toggle turned off")
+        shot("ack-settings-off")
+        tab("Topics"); pause(0.6)
+        if !app.staticTexts["Front door is unlocked"].firstMatch.exists { openText("Home") }
+        toTop()
+        XCTAssertFalse(any["card-agent-got"].firstMatch.exists, "no receipt line with confirmations off")
+        shot("ack-home-list-off")
+        openText("Front door is unlocked"); pause(1)
+        XCTAssertFalse(any["receipt-agent"].firstMatch.exists, "no agent line on the page")
+        XCTAssertFalse(app.buttons["Lock"].firstMatch.exists, "the answered question takes no more answers")
+        shot("ack-page-off")
+        back()
+        openText("Restart the media server?"); pause(1)
+        XCTAssertFalse(app.buttons["Restart"].firstMatch.exists, "an acked question shows no buttons even unanswered here")
+        shot("ack-page-live-off")
+        back()
+        tab("Inbox"); pause(1)
+        shot("ack-inbox-off")
+    }
+
     func testInboxEmptyCapture() {
         launchInbox()
         captureAX("inbox-empty")

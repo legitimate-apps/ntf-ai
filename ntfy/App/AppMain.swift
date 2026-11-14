@@ -35,6 +35,10 @@ struct AppMain: App {
                     store.pruneNotifications()
                     // Answers outlive Waiting's 7 days so old cards keep their receipt, but not forever.
                     AnswerLog.shared.prune(before: Date().addingTimeInterval(-AnswerLog.keepFor))
+                    // The extension may have recorded acks meanwhile; with confirmations off, its
+                    // receipts leave Notification Center.
+                    AckLog.shared.changed()
+                    AgentAck.removeDeliveredReceiptsIfHidden()
                     // Open encrypted messages that arrived while the key couldn't be read (before
                     // first unlock, a Keychain hiccup, or a key the extension couldn't derive).
                     store.retryLockedMessages()

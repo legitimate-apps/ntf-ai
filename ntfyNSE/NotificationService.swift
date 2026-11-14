@@ -142,7 +142,7 @@ class NotificationService: UNNotificationServiceExtension {
             if let identity = processedIdentity {
                 info["base_url"] = identity.baseUrl; info["topic"] = identity.message.topic
             }
-            let quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info)
+            let quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
             presentationLock.unlock()
             if quiet { final.sound = nil; final.interruptionLevel = .passive; final.relevanceScore = 0 }
             _ = handoff(final)
@@ -191,6 +191,12 @@ class NotificationService: UNNotificationServiceExtension {
     
     private func handleMessage(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ received: Message) {
         if received.event == "message" { alertIdentity = (received, baseUrl) }
+        if AgentAck.isAck(tags: received.tags) {
+            // Silent from the first moment, so even the expiry fallback makes no sound.
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.relevanceScore = 0
+        }
         // Save notification first so attachment downloads can update persistent state. What comes back
         // is the message as stored: decrypted for an end-to-end encrypted topic (or its "Encrypted
         // message" placeholder), so the banner never shows ciphertext and matches the in-app row.
@@ -220,6 +226,10 @@ class NotificationService: UNNotificationServiceExtension {
             deliverSynchronizationReceipt(content, baseUrl, received)
             return
         }
+        if case .acknowledged(let ack, let questionTitle) = result {
+            deliverAcknowledgement(request, content, baseUrl, ack, questionTitle: questionTitle)
+            return
+        }
         guard case .stored(let message) = result else {
             // A re-posted copy of an encrypted message this topic already has: it is not stored again.
             // Empty content would NOT hide the banner (that needs the filtering entitlement, which this
@@ -246,6 +256,42 @@ class NotificationService: UNNotificationServiceExtension {
         content.userInfo = received.toUserInfo()
         content.userInfo["base_url"] = baseUrl
         deliver(content)
+    }
+
+    /// An agent's ack (ACK-SPEC). The store already took the question out of Waiting and removed its
+    /// banner. This push still has to show something: dropping it needs Apple's filtering
+    /// entitlement. So it is a passive, silent receipt with the lowest relevance, whatever priority
+    /// the agent sent. With "Show agent confirmations" off it is a neutral receipt that is removed
+    /// right after delivery, and again when the app next runs.
+    private func deliverAcknowledgement(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ ack: Message, questionTitle: String?) {
+        let shows = AgentAck.showsConfirmations()
+        let note = AgentAck.note(fromBody: ack.message)
+        let topicName = store?.subscriptionDisplayName(baseUrl: baseUrl, topic: ack.topic) ?? ack.topic
+        if shows {
+            content.title = questionTitle.flatMap { $0.isEmpty ? nil : $0 } ?? topicName
+            content.body = [String(localized: "Agent got it"), note].compactMap { $0 }.joined(separator: "\n")
+        } else {
+            content.title = "ntfy"
+            content.body = String(localized: "Notification state synchronized")
+        }
+        content.subtitle = ""
+        content.attachments = []
+        content.categoryIdentifier = ""
+        content.sound = nil
+        content.interruptionLevel = .passive
+        content.relevanceScore = 0
+        content.threadIdentifier = topicUrl(baseUrl: baseUrl, topic: ack.topic)
+        content.badge = NSNumber(value: Store.shared.totalUnreadCount())
+        content.userInfo = ack.toUserInfo()
+        content.userInfo["base_url"] = baseUrl
+        deliver(content)
+        if !shows {
+            // Best effort: the extension may be suspended before this runs. The app sweeps again.
+            let identifier = request.identifier
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+            }
+        }
     }
 
     private func handlePresentation(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool = false) {

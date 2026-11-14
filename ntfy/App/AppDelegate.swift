@@ -518,6 +518,12 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     }
                 }
                 if message.isControl { completionHandler([]); return }
+                // An ack is a silent receipt: never a banner or sound. With confirmations off it
+                // stays out of Notification Center too.
+                if AgentAck.isAck(tags: message.tags) {
+                    completionHandler(AgentAck.foregroundPresentation(shows: AgentAck.showsConfirmations()))
+                    return
+                }
             }
         }
         let muted = Store.shared.isNotificationMuted(userInfo: userInfo)
