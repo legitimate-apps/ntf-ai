@@ -1154,6 +1154,8 @@ extension NavigationPilotUITests {
                 if knob.exists { knob.tap() } else { other.tap() }
                 pause(0.5)
             }
+            // The new row is built lazily too: below the fold at large sizes it isn't there until scrolled to.
+            for _ in 0..<4 where !server.exists { app.collectionViews.firstMatch.swipeUp(); pause(0.4) }
             if server.waitForExistence(timeout: 2) {
                 server.tap(); pause(0.3)
                 app.typeText("http://127.0.0.1:8765"); pause(0.5)
