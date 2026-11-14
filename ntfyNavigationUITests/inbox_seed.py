@@ -110,3 +110,10 @@ with sqlite3.connect(store) as db:
     db.execute("UPDATE Z_PRIMARYKEY SET Z_MAX=? WHERE Z_NAME='Notification'", (len(msgs),))
     db.execute("UPDATE Z_PRIMARYKEY SET Z_MAX=? WHERE Z_NAME='Subscription'", (len(topics),))
 print(f"inbox seeded: {len(topics)} topics, {len(msgs)} messages")
+
+# Answers live in the app group's defaults (AnswerLog, answerLog.v1), outside the store: clear them
+# so each run starts with every question unanswered. Through cfprefsd, which caches the plist.
+import subprocess
+subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "delete", group, "answerLog.v1"],
+               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print("answer log cleared")

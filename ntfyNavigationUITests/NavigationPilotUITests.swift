@@ -22,10 +22,11 @@ final class NavigationPilotUITests: XCTestCase {
     }
     /// The app opens on Inbox (1.26); the topic list is the second tab.
     func openTopics() {
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: 8) || app.navigationBars["Topics"].exists)
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 8), "the app shows a screen")
         if app.navigationBars["Topics"].exists { return }
-        let tab = app.tabBars.buttons["Topics"].firstMatch
-        (tab.exists ? tab : app.buttons["Topics"].firstMatch).tap()
+        tab("Topics")
+        // Tapping the selected tab returns its stack to the root.
+        if !app.navigationBars["Topics"].waitForExistence(timeout: 2) { tab("Topics") }
         XCTAssertTrue(app.navigationBars["Topics"].waitForExistence(timeout: 5))
     }
     func launchList() {
@@ -547,12 +548,14 @@ extension NavigationPilotUITests {
         if openTopicMenu() { if tapFirst(["Clear all notifications"]) { pause(); shot("confirm-clear"); tapFirst(["Cancel"]); pause() } }
 
         // A topic muted and holding an unencrypted message (seeded) shows its notices.
-        let back = app.navigationBars.buttons["Topics"].firstMatch
-        if back.exists && back.isHittable { back.tap(); pause() }
+        closeSheet()
+        if !app.navigationBars["Topics"].exists { openTopics() }
         let noticeTopic = app.staticTexts["aaa-nav-001"].firstMatch
         scrollUntilHittable(noticeTopic, max: 2)
         if noticeTopic.exists && noticeTopic.isHittable { noticeTopic.tap(); pause() }
-        if openTopicMenu(), tapFirst(["Mute topic"]) { pause(); tapFirst(["1 hour"]); pause(1.2) }
+        // Mute only aaa-nav-001: a mute left on aaa-nav-000 breaks the mute-menu test that follows.
+        if app.navigationBars.staticTexts["aaa-nav-001"].waitForExistence(timeout: 3),
+           openTopicMenu(), tapFirst(["Mute topic"]) { pause(); tapFirst(["1 hour"]); pause(1.2) }
         shot("topic-notices")
         let back2 = app.navigationBars.buttons["Topics"].firstMatch
         if back2.exists && back2.isHittable { back2.tap(); pause() }
@@ -1031,17 +1034,34 @@ extension NavigationPilotUITests {
         pause(1.5)
     }
     func tab(_ name: String) {
-        var button = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
-        if !button.exists {
+        let label = NSPredicate(format: "label == %@", name)
+        var button = app.tabBars.buttons.matching(label).firstMatch
+        if !button.exists && app.tabBars.buttons.firstMatch.exists {
             // Scrolling down minimizes the iOS 26 tab bar to the selected tab; a tap expands it.
             app.tabBars.buttons.firstMatch.tap(); pause(0.8)
-            button = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+            button = app.tabBars.buttons.matching(label).firstMatch
         }
-        (button.exists ? button : app.buttons[name].firstMatch).tap()
+        // On iPad the tabs sit in the top bar, outside any tab bar element; Search shows as an image.
+        if !button.exists { button = app.buttons.matching(label).firstMatch }
+        if !button.exists { button = app.images.matching(label).firstMatch }
+        button.tap()
         pause(1)
     }
     func navButton(_ label: String) -> XCUIElement {
         app.navigationBars.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+    }
+    /// Scrolls the visible list back to its top (small screens and AX sizes scroll a lot).
+    func toTop() {
+        for _ in 0..<6 { app.swipeDown() }
+        pause(0.5)
+    }
+    /// Scrolls until a button with this label can be tapped, then taps it.
+    @discardableResult func tapScrolling(_ label: String) -> Bool {
+        let button = app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+        if !(button.exists && button.isHittable) { toTop() }
+        scrollUntilHittable(button, max: 10)
+        guard button.exists && button.isHittable else { return false }
+        button.tap(); return true
     }
     func back() {
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -1049,7 +1069,8 @@ extension NavigationPilotUITests {
     }
     func openText(_ text: String) {
         let element = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
-        scrollUntilHittable(element, max: 8)
+        if !(element.exists && element.isHittable) { toTop() }
+        scrollUntilHittable(element, max: 10)
         element.tap()
         pause(1.2)
     }
@@ -1069,10 +1090,10 @@ extension NavigationPilotUITests {
         if showAll.waitForExistence(timeout: 2) { showAll.tap(); pause(1.2); shot("waiting-all"); back() }
 
         // Receipts: a request that can't connect, one the hook holds, one it answers.
-        if tapFirst(["Retry"]) { pause(1.5); shot("receipt-failed") }
+        if tapScrolling("Retry") { pause(1.5); shot("receipt-failed") }
         XCTAssertTrue(app.staticTexts["Didn't reach the agent. Try again."].waitForExistence(timeout: 5), "a failure says so, never a check")
-        if tapFirst(["Roll back"]) { pause(0.3); shot("receipt-sending") }
-        if tapFirst(["Approve"]) { pause(0.7); shot("receipt-answered") }
+        if tapScrolling("Roll back") { pause(0.3); shot("receipt-sending") }
+        if tapScrolling("Approve") { pause(0.7); shot("receipt-answered") }
         pause(3); shot("inbox-after-answers")
 
         // The page: a long report from its card's Show more, then a question with its answer bar.
@@ -1109,6 +1130,13 @@ extension NavigationPilotUITests {
         shot("add-step1")
         let name = app.textFields["Topic name"].firstMatch
         name.tap(); app.typeText("my-agent"); pause(); shot("add-step1-filled")
+        // The fixture's default server is unreachable; the local hook answers as an open server.
+        let other = app.switches["Use another server"].firstMatch
+        if other.exists {
+            other.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap(); pause(0.5)
+            let server = app.textFields.element(boundBy: 1)
+            if server.waitForExistence(timeout: 2) { server.tap(); app.typeText("http://127.0.0.1:8765"); pause(0.5) }
+        }
         tapFirst(["Subscribe"])
         if app.buttons["Not now"].waitForExistence(timeout: 4) { shot("add-primer"); app.buttons["Not now"].tap() }
         XCTAssertTrue(app.staticTexts["connect-instructions"].waitForExistence(timeout: 8) || app.otherElements["connect-instructions"].exists)

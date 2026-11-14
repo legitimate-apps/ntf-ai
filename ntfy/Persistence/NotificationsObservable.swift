@@ -121,11 +121,18 @@ class NotificationsObservable: NSObject, ObservableObject {
         }
         let removed = (info[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? [])
             .union(info[NSInvalidatedObjectsKey] as? Set<NSManagedObject> ?? [])
-        let changed = (info[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? [])
-            .union(info[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
-            .union(info[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? [])
         let removedIDs = Set(removed.map(\.objectID))
         let loadedIDs = Set(notifications.map(\.objectID))
+        var refreshed = info[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? []
+        if case .topic = scope {} else {
+            // The cross-topic feeds see every topic's refreshes. A refreshed fault that isn't on
+            // screen changed nothing in memory, and reading its topic would load it: a store-wide
+            // refresh would otherwise load every registered row (RetentionTests, 10k unread).
+            refreshed = refreshed.filter { !$0.isFault || loadedIDs.contains($0.objectID) }
+        }
+        let changed = (info[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? [])
+            .union(info[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
+            .union(refreshed)
         let rows = changed.compactMap { $0 as? Notification }.filter {
             loadedIDs.contains($0.objectID) || (!$0.isDeleted && inScope($0))
         }
