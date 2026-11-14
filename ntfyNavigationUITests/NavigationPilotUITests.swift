@@ -441,6 +441,19 @@ extension NavigationPilotUITests {
         guard more.waitForExistence(timeout: 3) else { return false }
         more.tap(); pause(0.6); return true
     }
+    /// Taps an item low in the open topic menu, scrolling the menu when the item is below its fold
+    /// (on iPad the menu is shorter than its items and the destructive section starts hidden).
+    func tapMenuItem(_ label: String) -> Bool {
+        let item = app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+        guard item.waitForExistence(timeout: 3) else { return false }
+        let menu = app.collectionViews.containing(NSPredicate(format: "label == 'Send test'")).firstMatch
+        for _ in 0..<3 where !item.isHittable && menu.exists {
+            menu.swipeUp(velocity: .slow); pause(0.5)
+        }
+        XCTContext.runActivity(named: "MENUITEM \(label) frame \(item.frame) hittable \(item.isHittable)") { _ in }
+        item.tap(); pause(0.8)
+        return true
+    }
     func fromTopicMenu(_ item: String, _ name: String, settle: Double = 1.0) {
         guard openTopicMenu() else { return }
         let before = barIDs()
@@ -1189,6 +1202,144 @@ extension NavigationPilotUITests {
     }
 
     /// Run on the inbox fixture seeded with --empty.
+    /// The waiting count in the header, "Waiting on you, 12".
+    func waitingCount() -> Int {
+        let header = app.descendants(matching: .any)["waiting-header"].firstMatch
+        guard header.waitForExistence(timeout: 2) else { return -1 }
+        return Int(header.label.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }.last ?? "") ?? -1
+    }
+
+    /// Taps a point in the top probe question's row and says what happened: "opened" (the page),
+    /// "answered" (the question left Waiting), both, or "nothing".
+    func probeTap(_ name: String, at point: (_ body: CGRect, _ approve: CGRect, _ reject: CGRect) -> CGPoint) -> String {
+        toTop()
+        let body = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Probe body'")).firstMatch
+        guard body.waitForExistence(timeout: 3) else { return "no-probe-left" }
+        let below = { [self] (label: String) -> XCUIElement? in
+            app.buttons.matching(NSPredicate(format: "label == %@", label)).allElementsBoundByIndex
+                .filter { $0.frame.minY > body.frame.maxY - 1 }.min { $0.frame.minY < $1.frame.minY }
+        }
+        guard let approve = below("Approve"), let reject = below("Reject") else { return "no-buttons" }
+        let before = waitingCount()
+        let p = point(body.frame, approve.frame, reject.frame)
+        print("TAPPROBE \(name) body=\(body.frame) approve=\(approve.frame) reject=\(reject.frame) tap=\(p)")
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: p.x, dy: p.y)).tap()
+        pause(1.0)
+        let opened = app.buttons["message-actions"].exists
+        if opened { back() }
+        pause(3)
+        let answered = waitingCount() < before
+        let result = opened && answered ? "opened+answered" : opened ? "opened" : answered ? "answered" : "nothing"
+        print("TAPPROBE \(name) -> \(result)")
+        XCTContext.runActivity(named: "TAPPROBE \(name) -> \(result)") { _ in }
+        return result
+    }
+
+    /// The iPad check of build 45: a tap on a waiting question's text answered it. Only a deliberate
+    /// tap on an answer button may answer an agent; everywhere else in the row opens the page.
+    func testWaitingRowOnlyTheButtonAnswers() {
+        continueAfterFailure = true
+        launchInbox()
+        let off: [(String, (CGRect, CGRect, CGRect) -> CGPoint)] = [
+            ("body-centre", { b, _, _ in CGPoint(x: b.midX, y: b.midY) }),
+            ("16pt-above-bar", { _, a, _ in CGPoint(x: a.midX, y: a.minY - 16) }),
+            ("8pt-above-bar", { _, a, _ in CGPoint(x: a.midX, y: a.minY - 8) }),
+            ("4pt-above-bar", { _, a, _ in CGPoint(x: a.midX, y: a.minY - 4) }),
+            ("gap-between-buttons", { _, a, r in CGPoint(x: (a.maxX + r.minX) / 2, y: a.midY) }),
+            ("4pt-below-bar", { _, a, _ in CGPoint(x: a.midX, y: a.maxY + 4) }),
+        ]
+        for (name, point) in off {
+            let result = probeTap(name, at: point)
+            XCTAssertEqual(result, "opened", "a tap at \(name) must open the page, never answer")
+        }
+        XCTAssertEqual(probeTap("approve-centre") { _, a, _ in CGPoint(x: a.midX, y: a.midY) }, "answered",
+                       "a tap on the button itself answers")
+    }
+
+    /// The iPad check of build 45: Topic actions > Unsubscribe closed the menu and no confirmation
+    /// came. Both destructive items of the topic menu must ask first, on iPad and iPhone.
+    func testTopicMenuConfirmationsShow() {
+        continueAfterFailure = true
+        launchInbox()
+        tab("Topics")
+        openText("nightly-ci")
+        XCTAssertTrue(app.navigationBars.buttons["Topic actions"].waitForExistence(timeout: 5))
+
+        XCTAssertTrue(openTopicMenu())
+        XCTAssertTrue(tapMenuItem("Clear all notifications"), "Clear all is in the menu")
+        let clearTitle = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Delete all messages in'")).firstMatch
+        XCTAssertTrue(clearTitle.waitForExistence(timeout: 3), "Clear all asks first")
+        shot("clear-all-confirm")
+        // Dismiss without deleting: Cancel on iPhone, a tap outside the popover on iPad.
+        if !tapFirst(["Cancel"]) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.9)).tap() }
+        pause()
+
+        XCTAssertTrue(openTopicMenu())
+        XCTAssertTrue(tapMenuItem("Unsubscribe"), "Unsubscribe is in the menu")
+        let title = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Unsubscribe from'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 3), "Unsubscribe asks first")
+        shot("unsubscribe-confirm")
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Unsubscribe'")).allElementsBoundByIndex.last
+        confirm?.tap(); pause(1.5)
+        XCTAssertFalse(app.staticTexts["nightly-ci"].exists && app.navigationBars.buttons["Topic actions"].exists,
+                       "the topic page closes after unsubscribing")
+        shot("after-unsubscribe")
+    }
+
+    /// The same check on a topic's message cards.
+    func testTopicCardOnlyTheButtonAnswers() {
+        continueAfterFailure = true
+        launchInbox()
+        tab("Topics")
+        openText("deploys")
+        let receipts = NSPredicate(format: "label BEGINSWITH 'You tapped'")
+        let cases: [(String, (CGRect, CGRect) -> CGPoint, String)] = [
+            ("card-body-centre", { b, _ in CGPoint(x: b.midX, y: b.midY) }, "opened"),
+            ("card-8pt-above-bar", { _, a in CGPoint(x: a.midX, y: a.minY - 8) }, "opened"),
+            ("card-approve-centre", { _, a in CGPoint(x: a.midX, y: a.midY) }, "answered"),
+        ]
+        for (index, (name, point, expected)) in cases.enumerated() {
+            toTop()
+            let body = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Probe body \(index):")).firstMatch
+            scrollUntilHittable(body, max: 6)
+            guard body.exists else { XCTFail("no probe card \(index)"); continue }
+            let approve = app.buttons.matching(NSPredicate(format: "label == 'Approve'")).allElementsBoundByIndex
+                .filter { $0.frame.minY > body.frame.maxY - 1 }.min { $0.frame.minY < $1.frame.minY }
+            guard let approve else { XCTFail("no Approve under probe card \(index)"); continue }
+            let before = app.staticTexts.matching(receipts).count
+            let p = point(body.frame, approve.frame)
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: p.x, dy: p.y)).tap()
+            pause(1.0)
+            let opened = app.buttons["message-actions"].exists
+            if opened { back() }
+            pause(1.0)
+            let answered = app.staticTexts.matching(receipts).count > before
+            let result = opened && answered ? "opened+answered" : opened ? "opened" : answered ? "answered" : "nothing"
+            XCTContext.runActivity(named: "TAPPROBE \(name) -> \(result)") { _ in }
+            XCTAssertEqual(result, expected, "\(name)")
+        }
+    }
+
+    /// An agent question with http answers only (no reply link) still takes a written answer:
+    /// the page offers the reply field, and sending it shows the replied receipt.
+    func testAgentReplyCapture() {
+        continueAfterFailure = true
+        launchInbox()
+        openText("Front door is unlocked")
+        let field = app.textFields["reply-field"].firstMatch.exists ? app.textFields["reply-field"].firstMatch : app.textViews["reply-field"].firstMatch
+        if !field.exists { app.swipeUp(); pause() }
+        let reply = app.textFields["reply-field"].firstMatch.exists ? app.textFields["reply-field"].firstMatch : app.textViews["reply-field"].firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 3), "an agent question offers the reply field")
+        scrollUntilHittable(reply, max: 4)
+        shot("agent-reply-field")
+        guard reply.exists else { return }
+        reply.tap(); app.typeText("Locked it from the app, thanks"); pause(); shot("agent-reply-typing")
+        app.buttons["reply-send"].firstMatch.tap()
+        let receipt = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'You replied'")).firstMatch
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5), "the typed answer is recorded as a reply")
+        pause(0.5); shot("agent-reply-sent")
+    }
+
     func testInboxEmptyCapture() {
         launchInbox()
         captureAX("inbox-empty")

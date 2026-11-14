@@ -160,13 +160,19 @@ struct MessagePageView: View {
         notification.actionsList().first { BannerReply.destination(for: $0) != nil }
     }
 
+    /// An agent's question with buttons only: a written reply goes to its topic (AgentReply).
+    private var offersAgentReply: Bool {
+        replyAction == nil && waiting.contains(notification)
+            && AgentReply.offersField(tags: parseAllTags(notification.tags), actions: notification.actionsList())
+    }
+
     private var clickURL: URL? {
         guard let click = notification.click, !click.isEmpty else { return nil }
         return URL(string: click)
     }
 
     private var hasAnswerArea: Bool {
-        !items.isEmpty || replyAction != nil || AnswerState(notification: notification, log: log).answered
+        !items.isEmpty || replyAction != nil || offersAgentReply || AnswerState(notification: notification, log: log).answered
     }
 
     @ViewBuilder private var answerArea: some View {
@@ -185,11 +191,15 @@ struct MessagePageView: View {
                     ActionBar(items: items, prominentId: prominentId, size: .large,
                               sendingId: state.sendingActionId, run: run)
                 }
-                if let replyAction {
+                if replyAction != nil || offersAgentReply {
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
                                disabled: state.sending, focusOnAppear: focusReply,
                                onFocus: { if answersInline { scrollToReply = UUID() } }) { text in
-                        runner.run(replyAction, replyText: text)
+                        if let replyAction {
+                            runner.run(replyAction, replyText: text)
+                        } else {
+                            AgentReply.send(text, to: notification, store: store)
+                        }
                     }
                 }
             }

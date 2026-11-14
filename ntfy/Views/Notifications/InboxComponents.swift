@@ -383,6 +383,18 @@ struct ActionBar: View {
     }
 }
 
+private struct ActionBarMissedTapKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// What a tap near, but outside, an answer button does: the row's own tap (open the message).
+    var actionBarMissedTap: (() -> Void)? {
+        get { self[ActionBarMissedTapKey.self] }
+        set { self[ActionBarMissedTapKey.self] = newValue }
+    }
+}
+
 private struct ActionBarButton: View {
     let item: ActionBarItem
     let prominent: Bool
@@ -410,7 +422,58 @@ private struct ActionBarButton: View {
         .frame(maxWidth: .infinity)
     }
 
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.actionBarMissedTap) private var missedTap
+    @State private var pressed = false
+
+    /// iOS 26 delivers a tap to the nearest small tap target even when the finger lands well
+    /// outside it: on iPad a tap on the message text 16 pt above the bar reached the answer button
+    /// and answered the agent (build 45; the same with a plain tap gesture in place of the Button).
+    /// So the styled Button is only the picture, the tap reports where it landed, and only a tap
+    /// inside the capsule answers. One that lands outside does what the row does there: it opens
+    /// the message, which can't send anything.
     var body: some View {
+        styled
+            .allowsHitTesting(false)
+            .opacity(pressed ? 0.6 : 1)
+            .overlay {
+                GeometryReader { geometry in
+                    if #available(iOS 16.0, *) {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(SpatialTapGesture().onEnded { tap in
+                                if Capsule().path(in: CGRect(origin: .zero, size: geometry.size)).contains(tap.location) {
+                                    fire()
+                                } else {
+                                    #if DEBUG
+                                    NSLog("PROBE answer tap %d,%d outside %dx%d: opens instead", Int(tap.location.x),
+                                          Int(tap.location.y), Int(geometry.size.width), Int(geometry.size.height))
+                                    #endif
+                                    missedTap?()
+                                }
+                            })
+                    } else {
+                        Color.clear.contentShape(Capsule()).onTapGesture(perform: fire)
+                    }
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(item.label)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(spinning ? String(localized: "Sending") : "")
+            .accessibilityAction(.default, fire)
+    }
+
+    private func fire() {
+        guard isEnabled, !spinning else { return }
+        pressed = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.easeOut(duration: 0.2)) { pressed = false }
+        }
+        action()
+    }
+
+    @ViewBuilder private var styled: some View {
         if prominent {
             Button(action: action) { label }
                 .buttonStyle(.borderedProminent)
@@ -418,8 +481,6 @@ private struct ActionBarButton: View {
                 .foregroundColor(InboxColor.onFill)
                 .buttonBorderShape(.capsule)
                 .controlSize(size)
-                .allowsHitTesting(!spinning)
-                .accessibilityValue(spinning ? String(localized: "Sending") : "")
         } else {
             Button(action: action) { label }
                 .buttonStyle(.bordered)
@@ -427,8 +488,6 @@ private struct ActionBarButton: View {
                 .foregroundColor(.primary)
                 .buttonBorderShape(.capsule)
                 .controlSize(size)
-                .allowsHitTesting(!spinning)
-                .accessibilityValue(spinning ? String(localized: "Sending") : "")
         }
     }
 }
@@ -710,6 +769,7 @@ struct MessageCard: View {
                           sendingId: state.sendingActionId, run: run)
                     // While selecting, a tap picks the row; it must not answer the agent.
                     .disabled(editing)
+                    .environment(\.actionBarMissedTap) { if !editing { open(false) } }
             }
         }
         .contentShape(Rectangle())
@@ -793,6 +853,7 @@ struct WaitingRow: View {
                     default: break
                     }
                 }
+                .environment(\.actionBarMissedTap) { open(false) }
             }
         }
         .contentShape(Rectangle())

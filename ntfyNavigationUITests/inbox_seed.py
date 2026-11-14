@@ -4,6 +4,10 @@
 import sys, sqlite3, plistlib, pathlib, time, json, zlib, struct, urllib.parse
 udid, group = sys.argv[1], sys.argv[2]
 empty = '--empty' in sys.argv
+# --tapprobe: ten more urgent questions on deploys, so a tap test can spend one per tap.
+tapprobe = '--tapprobe' in sys.argv
+# --replyhook: Home publishes to the local hook, so a typed reply on its question goes through.
+replyhook = '--replyhook' in sys.argv
 base = pathlib.Path.home() / "Library/Developer/CoreSimulator/Devices" / udid / "data/Containers/Shared/AppGroup"
 gdir = next(d for d in base.iterdir()
             if (d / ".com.apple.mobile_container_manager.metadata.plist").exists()
@@ -57,7 +61,7 @@ with sqlite3.connect(store) as db:
     for pk, topic, display, pinned, muted in topics:
         db.execute("INSERT INTO ZSUBSCRIPTION (Z_PK,Z_ENT,Z_OPT,ZENCRYPTED,ZFCMSUBSCRIBED,ZLASTEVENTTIME,ZPINNED,ZSEQUENCERECONCILE,"
                    "ZBASEURL,ZTOPIC,ZCUSTOMDISPLAYNAME,ZMUTEDUNTIL,ZSUBSCRIBEDAT) VALUES (?,?,1,0,1,0,?,0,?,?,?,?,?)",
-                   (pk, ent["Subscription"], pinned, SERVER, topic, display, (muted - REF) if muted else None, now - 30 * 86400 - REF))
+                   (pk, ent["Subscription"], pinned, HOOK if replyhook and topic == "home" else SERVER, topic, display, (muted - REF) if muted else None, now - 30 * 86400 - REF))
     report = ("## What I found\n"
               "The flaky test is `test_upload_resumes`. It fails when the mock server closes the socket before the "
               "client reads the last chunk.\n\n"
@@ -97,6 +101,11 @@ with sqlite3.connect(store) as db:
         (10, 4, "m-washer", "m-washer", 27 * 3600, 3, 1, "Washer finished", "The laundry is done.", None, None, None, None),
         (11, 1, "m-tests", "m-tests", 26 * 3600, 3, 1, "Tests fixed", "The 3 flaky tests in UploadTests pass 50 runs in a row.", None, "agent", None, None),
     ]
+    if tapprobe:
+        for i in range(10):
+            msgs.append((12 + i, 2, f"q-probe-{i}", f"q-probe-{i}", 60 + i * 60, 5, 0, f"Probe question {i}?",
+                         f"Probe body {i}: a tap on this text opens the page and never answers the agent.",
+                         [http("Approve", "/ok", f"reply:p{i}:approve"), http("Reject", "/ok", f"reply:p{i}:reject")], "agent", None, None))
     for pk, sub, mid, seq, age, prio, read, title, body, actions, tags, ctype, att in msgs:
         topic = [t for t in topics if t[0] == sub][0][1]
         cols = dict(Z_PK=pk, Z_ENT=ent["Notification"], Z_OPT=1, ZPRESENTED=1, ZREAD=read, ZPRIORITY=prio, ZTIME=now - age,

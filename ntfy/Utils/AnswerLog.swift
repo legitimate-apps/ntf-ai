@@ -158,6 +158,36 @@ enum WaitingRule {
     }
 }
 
+/// A written reply to an agent's question that has no reply action of its own. The agent protocol
+/// (`ntf ask`, the agent guide) takes any message on the question's topic without the `agent` tag
+/// as the person's written answer, so a waiting question tagged `agent` gets the reply field too.
+enum AgentReply {
+    static let agentTag = "agent"
+
+    /// The page offers the field: an `agent` question with answers, and no view-action reply
+    /// (that one posts to its own target).
+    static func offersField(tags: [String], actions: [Action]) -> Bool {
+        tags.contains(agentTag) && WaitingRule.hasAnswerAction(actions)
+            && !actions.contains { BannerReply.destination(for: $0) != nil }
+    }
+
+    /// Publishes `text` as a plain message on the question's topic, through the same publish path
+    /// as Compose (the topic's sign-in and password), and logs it like a typed reply.
+    @MainActor
+    static func send(_ text: String, to notification: Notification, store: Store = .shared, log: AnswerLog = .shared) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let subscription = notification.subscription,
+              let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
+        log.begin(key, actionId: "typed-reply")
+        // No tags: a reply carrying `agent` would read as the agent's own message.
+        TopicPublisher.send(subscription: subscription, store: store, message: trimmed, title: "", tags: "") { result in
+            let ok: Bool
+            if case .success = result { ok = true } else { ok = false }
+            log.record(key, AnswerEntry(kind: .reply, label: "", text: trimmed, at: Date(), ok: ok))
+        }
+    }
+}
+
 /// How long an agent has waited, the measure that matters when it is blocked: "12 min", "2 hr",
 /// "3 days". The system formatter localizes the units in every language the app ships.
 enum WaitedTime {

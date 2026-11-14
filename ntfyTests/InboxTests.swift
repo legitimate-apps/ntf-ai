@@ -323,3 +323,38 @@ final class AgentInstructionsTests: XCTestCase {
         XCTAssertFalse(text.contains("HTTPS"))
     }
 }
+
+/// Which agent questions get the written-reply field (build 46): `ntf ask` and the agent guide take
+/// a message on the topic without the `agent` tag as the person's written answer.
+final class AgentReplyTests: XCTestCase {
+    private func action(_ type: String, url: String = "https://agents.example/t-answers") -> Action {
+        Action(id: UUID().uuidString, action: type, label: "Approve", url: url, method: "POST", headers: nil, body: nil, clear: nil)
+    }
+    private var viewReply: Action {
+        Action(id: UUID().uuidString, action: "view", label: "Reply",
+               url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
+               method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    func testAnAgentQuestionWithButtonsGetsTheField() {
+        XCTAssertTrue(AgentReply.offersField(tags: ["agent"], actions: [action("http"), action("http")]))
+        XCTAssertTrue(AgentReply.offersField(tags: ["warning", "agent"], actions: [action("http")]))
+    }
+
+    func testAMessageWithoutTheAgentTagDoesNot() {
+        XCTAssertFalse(AgentReply.offersField(tags: [], actions: [action("http")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agents"], actions: [action("http")]))
+    }
+
+    func testAnAgentNoticeWithoutAnswersDoesNot() {
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: []))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("view", url: "https://example.com")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("copy")]))
+    }
+
+    func testTheViewActionReplyKeepsItsOwnField() {
+        XCTAssertNotNil(BannerReply.destination(for: viewReply), "fixture is a real view-action reply")
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("http"), viewReply]),
+                       "the reply action posts to its own target, so the page uses that instead")
+    }
+}
