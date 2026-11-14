@@ -1340,6 +1340,29 @@ extension NavigationPilotUITests {
         pause(0.5); shot("agent-reply-sent")
     }
 
+    /// `ntf ask --no-reply` and a typed reply (`re-<sequence>`): no reply field on the first, the second
+    /// is not a question, and neither protocol tag shows anywhere.
+    func testProtocolTagsCapture() {
+        continueAfterFailure = true
+        launchInbox()
+        let hidden = NSPredicate(format: "label CONTAINS 're-q-door' OR label CONTAINS[c] 'no-reply'")
+        XCTAssertTrue(app.staticTexts["Restart the router?"].firstMatch.waitForExistence(timeout: 3),
+                      "a no-reply question still waits on its buttons")
+        shot("protocol-inbox")
+        XCTAssertFalse(app.staticTexts.matching(hidden).firstMatch.exists, "no protocol tag in Activity")
+        tab("Topics"); openText("Home")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Locked it from the app'")).firstMatch
+                        .waitForExistence(timeout: 3), "the reply shows on its topic")
+        shot("protocol-topic-home")
+        XCTAssertFalse(app.staticTexts.matching(hidden).firstMatch.exists, "no protocol tag on the topic's rows")
+        openText("Restart the router?")
+        XCTAssertTrue(app.buttons["Restart"].firstMatch.waitForExistence(timeout: 3), "the buttons still show")
+        XCTAssertFalse(app.textFields["reply-field"].exists || app.textViews["reply-field"].exists,
+                       "a no-reply question has no reply field")
+        XCTAssertFalse(app.staticTexts.matching(hidden).firstMatch.exists, "no protocol tag on the page")
+        shot("protocol-noreply-page")
+    }
+
     func testInboxEmptyCapture() {
         launchInbox()
         captureAX("inbox-empty")

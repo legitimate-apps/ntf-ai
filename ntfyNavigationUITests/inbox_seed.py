@@ -8,6 +8,8 @@ empty = '--empty' in sys.argv
 tapprobe = '--tapprobe' in sys.argv
 # --replyhook: Home publishes to the local hook, so a typed reply on its question goes through.
 replyhook = '--replyhook' in sys.argv
+# --protocol: on Home, a question sent with `ntf ask --no-reply` and the person's typed reply to q-door.
+protocol = '--protocol' in sys.argv
 base = pathlib.Path.home() / "Library/Developer/CoreSimulator/Devices" / udid / "data/Containers/Shared/AppGroup"
 gdir = next(d for d in base.iterdir()
             if (d / ".com.apple.mobile_container_manager.metadata.plist").exists()
@@ -106,6 +108,12 @@ with sqlite3.connect(store) as db:
             msgs.append((12 + i, 2, f"q-probe-{i}", f"q-probe-{i}", 60 + i * 60, 5, 0, f"Probe question {i}?",
                          f"Probe body {i}: a tap on this text opens the page and never answers the agent.",
                          [http("Approve", "/ok", f"reply:p{i}:approve"), http("Reject", "/ok", f"reply:p{i}:reject")], "agent", None, None))
+    if protocol:
+        msgs.append((30, 4, "q-noreply", "q-noreply", 3 * 60, 4, 0, "Restart the router?",
+                     "It dropped 3 times this hour. A restart takes about 2 minutes.",
+                     [http("Restart", "/ok", "reply:r6:restart"), http("Not now", "/ok", "reply:r6:later")], "agent,no-reply", None, None))
+        msgs.append((31, 4, "m-reply", "m-reply", 2 * 60, 3, 1, None, "Locked it from the app, thanks",
+                     None, "re-q-door", None, None))
     for pk, sub, mid, seq, age, prio, read, title, body, actions, tags, ctype, att in msgs:
         topic = [t for t in topics if t[0] == sub][0][1]
         cols = dict(Z_PK=pk, Z_ENT=ent["Notification"], Z_OPT=1, ZPRESENTED=1, ZREAD=read, ZPRIORITY=prio, ZTIME=now - age,

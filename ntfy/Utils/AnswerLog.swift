@@ -144,8 +144,9 @@ enum WaitingRule {
     /// A `message_clear` does not: in ntfy it means "read and dismissed", and this app sends one
     /// whenever a message is read here or on another device, so it can't tell an agent's withdrawal
     /// from the person having looked at the question.
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, now: Date = Date()) -> Bool {
-        guard hasAnswerAction(actions) else { return false }
+    /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], now: Date = Date()) -> Bool {
+        guard hasAnswerAction(actions), !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
@@ -159,19 +160,24 @@ enum WaitingRule {
 }
 
 /// A written reply to an agent's question that has no reply action of its own. The agent protocol
-/// (`ntf ask`, the agent guide) takes any message on the question's topic without the `agent` tag
-/// as the person's written answer, so a waiting question tagged `agent` gets the reply field too.
+/// (`ntf ask`, the agent guide) takes a message on the question's topic tagged `re-<sequence>` as
+/// the person's written answer to that question, so a waiting question tagged `agent` gets the
+/// reply field too, unless it is tagged `no-reply`.
 enum AgentReply {
     static let agentTag = "agent"
 
-    /// The page offers the field: an `agent` question with answers, and no view-action reply
-    /// (that one posts to its own target).
+    /// The page offers the field: an `agent` question with answers, not marked `no-reply`, and no
+    /// view-action reply (that one posts to its own target).
     static func offersField(tags: [String], actions: [Action]) -> Bool {
-        tags.contains(agentTag) && WaitingRule.hasAnswerAction(actions)
+        tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && WaitingRule.hasAnswerAction(actions)
             && !actions.contains { BannerReply.destination(for: $0) != nil }
     }
 
-    /// Publishes `text` as a plain message on the question's topic, through the same publish path
+    /// The tags a typed answer to the question at `key` carries: exactly `re-<sequence>`, where the
+    /// sequence is the question's sequence_id, or its message id when it has none.
+    static func replyTags(for key: AnswerKey) -> String { ProtocolTag.reply(to: key.sequence) }
+
+    /// Publishes `text` as a message on the question's topic, through the same publish path
     /// as Compose (the topic's sign-in and password), and logs it like a typed reply.
     @MainActor
     static func send(_ text: String, to notification: Notification, store: Store = .shared, log: AnswerLog = .shared) {
@@ -179,8 +185,10 @@ enum AgentReply {
         guard !trimmed.isEmpty, let subscription = notification.subscription,
               let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
         log.begin(key, actionId: "typed-reply")
-        // No tags: a reply carrying `agent` would read as the agent's own message.
-        TopicPublisher.send(subscription: subscription, store: store, message: trimmed, title: "", tags: "") { result in
+        // One tag, `re-<sequence>`, so the agent can tell which open question this answers. Never
+        // `agent`: that would read as the agent's own message.
+        TopicPublisher.send(subscription: subscription, store: store, message: trimmed, title: "",
+                            tags: replyTags(for: key)) { result in
             let ok: Bool
             if case .success = result { ok = true } else { ok = false }
             log.record(key, AnswerEntry(kind: .reply, label: "", text: trimmed, at: Date(), ok: ok))
@@ -215,7 +223,8 @@ extension Store {
         request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
-            WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: AnswerKey(notification: row)), now: now)
+            WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: AnswerKey(notification: row)),
+                                  tags: parseAllTags(row.tags), now: now)
         }
         .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
     }

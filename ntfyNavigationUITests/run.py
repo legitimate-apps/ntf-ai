@@ -122,5 +122,6 @@ if not args.only:
         command += ["-skip-testing:NavigationPilotUITests/" + suite + "/" + name
                     for name in ["testInboxCapture", "testInboxEmptyCapture", "testNotificationOpensMessagePage", "testTopicCardOpensAndStays",
                                  "testWaitingRowOnlyTheButtonAnswers", "testTopicCardOnlyTheButtonAnswers",
-                                 "testTopicMenuConfirmationsShow", "testAgentReplyCapture"]]
+                                 "testTopicMenuConfirmationsShow", "testAgentReplyCapture",
+                                 "testProtocolTagsCapture"]]
 run(*command)

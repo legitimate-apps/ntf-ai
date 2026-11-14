@@ -98,7 +98,7 @@ func parseEmojiTags(_ tags: String?) -> [String] {
 func parseEmojiTags(_ tags: [String]?) -> [String] {
     guard let tags = tags else { return [] }
     var emojiTags: [String] = []
-    for tag in tags {
+    for tag in tags where !ProtocolTag.isHidden(tag) {
         if let emoji = EmojiManager.shared.getEmojiByAlias(alias: tag) {
             emojiTags.append(emoji.getUnicode())
         }
@@ -108,7 +108,27 @@ func parseEmojiTags(_ tags: [String]?) -> [String] {
 
 func parseNonEmojiTags(_ tags: String?) -> [String] {
     return parseAllTags(tags)
-        .filter { EmojiManager.shared.getEmojiByAlias(alias: $0) == nil }
+        .filter { !ProtocolTag.isHidden($0) && EmojiManager.shared.getEmojiByAlias(alias: $0) == nil }
+}
+
+/// Tags the agent protocol passes between `ntf` and the app. They steer behaviour and are never
+/// shown, as chips or emoji. `agent` is not one of them: it says who wrote the message, so it shows.
+enum ProtocolTag {
+    /// On a question: the agent takes no written answer, so the page offers no reply field.
+    static let noReply = "no-reply"
+    /// On a written answer: `re-<sequence>` names the question it answers, so two open questions
+    /// on one topic stay apart. A message carrying it is the person's own reply.
+    static let replyPrefix = "re-"
+
+    static func reply(to sequence: String) -> String { replyPrefix + sequence }
+
+    static func isReply(_ tag: String) -> Bool {
+        tag.lowercased().hasPrefix(replyPrefix) && tag.count > replyPrefix.count
+    }
+
+    static func isNoReply(_ tag: String) -> Bool { tag.lowercased() == noReply }
+
+    static func isHidden(_ tag: String) -> Bool { isNoReply(tag) || isReply(tag) }
 }
 
 /// Topic names ntfy accepts: letters, digits, dash and underscore, at most 64 characters.

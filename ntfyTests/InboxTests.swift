@@ -103,6 +103,31 @@ final class WaitingStoreTests: XCTestCase {
         store.waitingNotifications(log: log, now: now).compactMap(\.id)
     }
 
+    /// `re-<sequence>` marks the person's own written answer: never a question, even with buttons.
+    func testAReplyTaggedMessageIsNeverWaiting() {
+        var reply = message("r-1", sequence: "r-1", age: 60, text: "Use main", actions: [http()])
+        reply.tags = ["re-deploy-1"]
+        save(reply)
+        XCTAssertEqual(waitingIDs, [], "a re- message is the person's reply, not a question")
+        var question = message("q-9", sequence: "q-9", age: 60, actions: [http()])
+        question.tags = ["agent", "no-reply"]
+        save(question)
+        XCTAssertEqual(waitingIDs, ["q-9"], "no-reply still waits on its buttons")
+    }
+
+    /// The reply names the question by its sequence_id, or by its message id when it has none.
+    func testTheReplyTagNamesTheQuestionsSequence() throws {
+        save(message("q-a", sequence: "deploy-7", age: 60, actions: [http()]))
+        var plain = message("q-b", sequence: "", age: 30, actions: [http()])
+        plain.sequenceID = nil
+        save(plain)
+        let rows = store.waitingNotifications(log: log, now: now)
+        let a = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first { $0.id == "q-a" })))
+        let b = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first { $0.id == "q-b" })))
+        XCTAssertEqual(AgentReply.replyTags(for: a), "re-deploy-7")
+        XCTAssertEqual(AgentReply.replyTags(for: b), "re-q-b")
+    }
+
     func testAQuestionWaitsUntilItsSequenceIsUpdatedWithoutActions() {
         save(message("q1", sequence: "deploy-1", age: 600, actions: [http()]))
         XCTAssertEqual(waitingIDs, ["q1"])
@@ -350,6 +375,24 @@ final class AgentReplyTests: XCTestCase {
         XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: []))
         XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("view", url: "https://example.com")]))
         XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("copy")]))
+    }
+
+    func testANoReplyQuestionGetsNoField() {
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent", "no-reply"], actions: [action("http")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["No-Reply", "agent"], actions: [action("http")]))
+    }
+
+    func testTheReplyTagIsExactlyOneTag() {
+        let key = AnswerKey(baseUrl: "https://agents.example", topic: "deploys", sequence: "abc123XYZ")
+        XCTAssertEqual(AgentReply.replyTags(for: key), "re-abc123XYZ")
+        XCTAssertEqual(parseAllTags(AgentReply.replyTags(for: key)), ["re-abc123XYZ"], "one tag, never agent")
+    }
+
+    /// Protocol tags steer behaviour and never show, as chips or as emoji; `agent` still shows.
+    func testProtocolTagsAreNeverShown() {
+        XCTAssertEqual(parseNonEmojiTags("agent,re-abc123,no-reply,deploy,RE-X1,No-Reply"), ["agent", "deploy"])
+        XCTAssertEqual(parseEmojiTags("re-abc123,thumbsup,no-reply"), ["👍"])
+        XCTAssertEqual(parseNonEmojiTags("re-,reply,review"), ["re-", "reply", "review"], "only re-<something> is a reply tag")
     }
 
     func testTheViewActionReplyKeepsItsOwnField() {
