@@ -118,4 +118,7 @@ if not args.only:
         command += ["-only-testing:NavigationPilotUITests/" + suite + "/" + name for name in names]
     else:
         command += ["-only-testing:NavigationPilotUITests/" + suite]
+        # The 1.26 Inbox tests need inbox_seed.py's agent fixture, not this one; run them with --only.
+        command += ["-skip-testing:NavigationPilotUITests/" + suite + "/" + name
+                    for name in ["testInboxCapture", "testInboxEmptyCapture", "testNotificationOpensMessagePage", "testTopicCardOpensAndStays"]]
 run(*command)

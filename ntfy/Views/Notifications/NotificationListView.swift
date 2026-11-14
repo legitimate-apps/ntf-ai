@@ -136,8 +136,9 @@ struct NotificationListView: View {
         request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
         request.fetchLimit = 1
         guard let notification = try? store.context.fetch(request).first else { return }
-        // After the topic's push settles, so the page lands on top of it rather than racing it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        // Only once the topic's own push has finished: a second programmatic push started during
+        // that transition shows the page and then SwiftUI pops it again.
+        NavigationSettle.after {
             opened = OpenedMessage(notification: notification)
         }
     }

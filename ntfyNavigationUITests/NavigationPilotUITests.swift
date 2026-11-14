@@ -582,7 +582,6 @@ extension NavigationPilotUITests {
             app.navigationBars.buttons.firstMatch.tap(); pause()
             app.navigationBars.buttons.firstMatch.tap(); pause()
         }
-        app.navigationBars.buttons.firstMatch.tap(); pause()
 
         // What's new listing three versions, with Continue pinned.
         app.terminate()
@@ -885,7 +884,7 @@ private extension XCTestCase {
             object: app.navigationBars[german ? "Neuigkeiten" : "What's new"])
         XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed,
                        "Continue must dismiss the release sheet, not just reveal its underlying navigation bar")
-        XCTAssertTrue(app.navigationBars[german ? "Abonnierte Themen" : "Topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars[german ? "Eingang" : "Inbox"].waitForExistence(timeout: 5), "1.26 opens on Inbox")
         capture(0, suffix: "dismissed")
     }
 }
@@ -1032,9 +1031,17 @@ extension NavigationPilotUITests {
         pause(1.5)
     }
     func tab(_ name: String) {
-        let button = app.tabBars.buttons[name].firstMatch
+        var button = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        if !button.exists {
+            // Scrolling down minimizes the iOS 26 tab bar to the selected tab; a tap expands it.
+            app.tabBars.buttons.firstMatch.tap(); pause(0.8)
+            button = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        }
         (button.exists ? button : app.buttons[name].firstMatch).tap()
         pause(1)
+    }
+    func navButton(_ label: String) -> XCUIElement {
+        app.navigationBars.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
     }
     func back() {
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -1127,6 +1134,16 @@ extension NavigationPilotUITests {
         XCTAssertTrue(app.buttons["Connect your first agent"].exists)
     }
 
+    /// A card tapped inside a topic opens its page, and the page stays until Back.
+    func testTopicCardOpensAndStays() {
+        launchInbox()
+        tab("Topics"); openText("claude-code")
+        openText("Run the database migration?")
+        XCTAssertTrue(navButton("claude-code").waitForExistence(timeout: 5), "the page is pushed on its topic")
+        pause(4)
+        XCTAssertTrue(navButton("claude-code").exists, "the page stays open on its own")
+        shot("topic-card-page")
+    }
     /// A notification tap opens that message's page, one Back from its topic (DECISION change 7).
     func testNotificationOpensMessagePage() {
         app.launchEnvironment["NTFY_NAV_TOPIC"] = "claude-code"
@@ -1134,12 +1151,14 @@ extension NavigationPilotUITests {
         app.launchEnvironment["NTFY_NAV_BASE_URL"] = "http://127.0.0.1:1"
         launchInbox()
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ntfy.navigation.fixture.response" as CFString), nil, nil, true)
-        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.waitForExistence(timeout: 8), "the tapped message's page opens")
-        XCTAssertTrue(app.navigationBars.buttons["claude-code"].waitForExistence(timeout: 5), "Back leads to its topic")
-        pause(); shot("notification-page")
-        app.navigationBars.buttons["claude-code"].tap()
+        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.waitForExistence(timeout: 12), "the tapped message's page opens")
+        XCTAssertTrue(navButton("claude-code").waitForExistence(timeout: 5), "Back leads to its topic")
+        pause(4)
+        XCTAssertTrue(app.staticTexts["What I found"].firstMatch.exists, "the page stays open on its own")
+        shot("notification-page")
+        navButton("claude-code").tap()
         XCTAssertTrue(app.navigationBars.staticTexts["claude-code"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.navigationBars.buttons["Topics"].waitForExistence(timeout: 5))
+        XCTAssertTrue(navButton("Topics").waitForExistence(timeout: 5))
         shot("notification-topic")
     }
 }

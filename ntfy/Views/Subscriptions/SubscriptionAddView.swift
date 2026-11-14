@@ -341,9 +341,10 @@ struct SubscriptionAddView: View {
     private func finishSubscribing(topicURLs: [String]? = nil) {
         let urls = topicURLs ?? [topicUrl(baseUrl: selectedBaseUrl, topic: sanitizedTopic)]
         guard let url = urls.first else { return }
-        // One topic named here goes on to "Connect an agent"; topics picked from an account were
-        // made elsewhere and already have their senders.
-        let step = topicURLs == nil ? ConnectStep(baseUrl: selectedBaseUrl, topic: sanitizedTopic, url: url) : nil
+        // One topic named here goes on to "Connect an agent". Topics picked from an account, or
+        // arriving by a shared link or QR code, were made elsewhere and already have their senders.
+        let typedHere = topicURLs == nil && topicLink == nil && scannedLink == nil
+        let step = typedHere ? ConnectStep(baseUrl: selectedBaseUrl, topic: sanitizedTopic, url: url) : nil
         // Pop the account picker before replacing the root with the permission primer.
         showAccountTopics = false
         primingTopicCount = urls.count

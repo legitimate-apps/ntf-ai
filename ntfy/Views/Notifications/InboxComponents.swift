@@ -869,3 +869,23 @@ struct MessagePageLink: ViewModifier {
         )
     }
 }
+
+/// Runs `action` once no navigation controller in the app is mid-transition (polled every 0.1 s,
+/// at most 3 s), for a push that must follow another programmatic push.
+enum NavigationSettle {
+    static func after(_ action: @escaping () -> Void, tries: Int = 30) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let roots = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows).compactMap(\.rootViewController)
+            let busy = roots.flatMap(navigationControllers).contains { $0.transitionCoordinator != nil }
+            if busy && tries > 0 { after(action, tries: tries - 1) } else { action() }
+        }
+    }
+
+    private static func navigationControllers(in controller: UIViewController) -> [UINavigationController] {
+        var found = (controller as? UINavigationController).map { [$0] } ?? []
+        for child in controller.children { found += navigationControllers(in: child) }
+        if let presented = controller.presentedViewController { found += navigationControllers(in: presented) }
+        return found
+    }
+}
