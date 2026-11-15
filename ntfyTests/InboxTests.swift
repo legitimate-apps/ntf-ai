@@ -627,6 +627,26 @@ final class AgentAckTests: XCTestCase {
         XCTAssertNotEqual(AnswerReceiptView.answeredIcon, "checkmark.circle.fill")
     }
 
+    // iPad check 48: an ack the extension records must redraw an open page in the app. Two logs
+    // on one store stand in for the two processes.
+    func testAnAckSavedElsewhereRedrawsTheApp() {
+        let shared = defaults()
+        let app = AckLog(defaults: shared, observesOtherProcesses: true)
+        let extensionLog = AckLog(defaults: shared)
+        let before = app.revision
+        extensionLog.save(AgentAck.Record(id: "a-1", time: 1, note: nil, answer: nil, version: "q-1"), forKey: "k")
+        // Only the cross-process post can reach the app's log; the extension's own redraw is its own.
+        let redrawn = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in app.revision > before }, object: nil)
+        wait(for: [redrawn], timeout: 3)
+        XCTAssertGreaterThan(app.revision, before)
+    }
+
+    // 48b re-check: a long agent note was cut at 4 lines with no other place to read it.
+    func testTheAgentsNoteIsNeverCutButYourReplyIs() {
+        XCTAssertNil(AgentReceiptTimeline.detailLineLimit(id: "receipt-agent"))
+        XCTAssertEqual(AgentReceiptTimeline.detailLineLimit(id: "receipt-you"), 4)
+    }
+
     // M2: answered on another device or by a compose reply, the page still names the answer.
     func testAnAckNamingTheAnswerGivesThePageAFirstStep() throws {
         save(question())

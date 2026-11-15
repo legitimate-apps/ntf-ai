@@ -296,7 +296,9 @@ struct AnswerReceiptView: View {
                 .accessibilityIdentifier("answer-failed")
             } else if let entry, entry.ok, entry.kind != .dismissed {
                 let time = Notification.shortTime(for: entry.at)
-                Label {
+                // Not a Label: it centres the icon on a two-line title; the arrow belongs on the first line.
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: Self.answeredIcon).foregroundColor(InboxColor.ink)
                     VStack(alignment: .leading, spacing: 2) {
                         (entry.kind == .tap ? Text("You answered \(Text(entry.label).fontWeight(.semibold)) · \(time)")
                                             : Text("You replied · \(time)"))
@@ -305,8 +307,6 @@ struct AnswerReceiptView: View {
                             Text(text).foregroundColor(.secondary).lineLimit(2)
                         }
                     }
-                } icon: {
-                    Image(systemName: Self.answeredIcon).foregroundColor(InboxColor.ink)
                 }
                 .font(.footnote)
                 .accessibilityIdentifier("answer-receipt")
@@ -403,6 +403,10 @@ struct AgentReceiptTimeline: View {
     @Environment(\.sizeCategory) private var sizeCategory
     let receipt: AgentReceipt
 
+    /// The agent's note is its only content and has nowhere else to be read, so it shows in full; the
+    /// person's own reply keeps a limit (VERDICT 48b).
+    static func detailLineLimit(id: String) -> Int? { id == "receipt-agent" ? nil : 4 }
+
     /// At accessibility sizes the time takes its own line, so "·" never wraps alone (S4).
     private var stacksTime: Bool { sizeCategory.isAccessibilityCategory }
 
@@ -461,7 +465,8 @@ struct AgentReceiptTimeline: View {
                 if let detail, !detail.isEmpty {
                     // The agent's note is its only content, so it reads as primary text (S2); the
                     // person's own typed reply stays secondary.
-                    Text(detail).font(.subheadline).foregroundColor(id == "receipt-agent" ? .primary : .secondary).lineLimit(4)
+                    Text(detail).font(.subheadline).foregroundColor(id == "receipt-agent" ? .primary : .secondary)
+                        .lineLimit(Self.detailLineLimit(id: id))
                         .accessibilityIdentifier(id == "receipt-agent" ? "receipt-note" : "receipt-text")
                 }
             }
@@ -483,8 +488,8 @@ struct AgentReceiptLine: View {
         case .got(let at, _):
             let time = Notification.shortTime(for: at)
             Label {
-                Text(receipt.answerText.map { String(localized: "Agent got it · \($0) · \(time)") }
-                     ?? String(localized: "Agent got it · \(time)"))
+                (receipt.answerText.map { Text("Agent got it · \(Text($0).fontWeight(.semibold)) · \(time)") }
+                     ?? Text("Agent got it · \(time)"))
                     .foregroundColor(.primary)
                     .lineLimit(2)
             } icon: {

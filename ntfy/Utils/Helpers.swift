@@ -241,9 +241,13 @@ enum AgentAck {
 /// The acks received, in the app group's defaults so the extension and the app share them. Keyed
 /// like `AnswerKey.id`: server, topic and sequence. No Core Data entity, so no migration.
 final class AckLog: ObservableObject {
-    static let shared = AckLog(defaults: AgentAck.defaults)
+    static let shared = AckLog(defaults: AgentAck.defaults, observesOtherProcesses: true)
     static let defaultsKey = "agentAcks.v1"
     static let didChange = Foundation.Notification.Name("ntfy.ackLogDidChange")
+    /// Posted across processes after every save. The extension records an ack that arrives by push,
+    /// often before the app's own poll sees it (and the app then skips it as already seen), so
+    /// without this an open page whose question is already read never learns of the ack.
+    static let darwinName = "\(Config.appGroupId).agentAcks"
     /// Old acks drop out past this many; a question is out of Waiting after seven days anyway.
     static let limit = 500
 
@@ -252,7 +256,22 @@ final class AckLog: ObservableObject {
     private let defaults: UserDefaults
     private let lock = NSLock()
 
-    init(defaults: UserDefaults) { self.defaults = defaults }
+    init(defaults: UserDefaults, observesOtherProcesses: Bool = false) {
+        self.defaults = defaults
+        if observesOtherProcesses {
+            CFNotificationCenterAddObserver(
+                CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
+                { _, observer, _, _, _ in
+                    guard let observer else { return }
+                    Unmanaged<AckLog>.fromOpaque(observer).takeUnretainedValue().changed()
+                },
+                Self.darwinName as CFString, nil, .deliverImmediately)
+        }
+    }
+
+    deinit {
+        CFNotificationCenterRemoveEveryObserver(CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque())
+    }
 
     /// Redraw what shows acks: one was saved here, or the extension may have saved one meanwhile.
     func changed() {
@@ -298,6 +317,8 @@ final class AckLog: ObservableObject {
         if let data = try? JSONEncoder().encode(records) { defaults.set(data, forKey: Self.defaultsKey) }
         lock.unlock()
         changed()
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(Self.darwinName as CFString), nil, nil, true)
         return true
     }
 }
