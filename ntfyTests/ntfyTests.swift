@@ -10901,4 +10901,29 @@ final class ThemeColorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(contrast("FFFFFF", hex("BrandControlFill", .light)), 4.5)
         XCTAssertGreaterThanOrEqual(contrast(hex("BrandControlFill", .dark), "1C1C1E"), 3.0)
     }
+
+    private func hex(_ color: UIColor, _ style: UIUserInterfaceStyle) -> String {
+        let c = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(c.getRed(&r, green: &g, blue: &b, alpha: &a))
+        return String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+    }
+
+    /// The agent's tick and the person's answer arrow sit on adjacent lines of one receipt: they must be told
+    /// apart, and the tick must read as a symbol (3:1) on the surfaces the receipt uses.
+    func testTheAgentsTickIsNotTheAnswersGreenAndReadsOnItsSurfaces() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let tick = hex(InboxColor.agentGotUIColor, style)
+            let answer = hex("AccentColor", style)
+            XCTAssertGreaterThanOrEqual(contrast(tick, answer), 1.25, "tick vs answer, \(style.rawValue)")
+            let v = Int(tick, radix: 16)!
+            XCTAssertGreaterThan(v & 0xFF, v >> 8 & 0xFF, "tick is blue-led, not green, \(style.rawValue)")
+        }
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex(InboxColor.agentGotUIColor, .light), surface), 3.0, "tick on \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex(InboxColor.agentGotUIColor, .dark), surface), 3.0, "tick on \(surface)")
+        }
+    }
 }

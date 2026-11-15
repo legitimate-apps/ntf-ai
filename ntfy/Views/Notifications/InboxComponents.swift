@@ -12,6 +12,10 @@ enum InboxColor {
     static let onFill = Color("Ink")
     /// Links, the unread dot, "Show more", the waiting mark: the app tint.
     static let ink = Color("AccentColor")
+    /// "Agent got it": blue, the iOS colour for delivered and read, so it never looks like the person's own
+    /// answer, which wears the emerald accent (design review 2026-11-15: two greens measured 1.05:1 in dark).
+    static let agentGot = Color(uiColor: agentGotUIColor)
+    static let agentGotUIColor = UIColor.systemBlue
 }
 
 // MARK: - Text
@@ -424,7 +428,7 @@ struct AgentReceiptTimeline: View {
             switch receipt.agent {
             case .got(let at, let note):
                 let time = Notification.shortTime(for: at)
-                step(icon: "checkmark.circle.fill", tint: .green,
+                step(icon: "checkmark.circle.fill", tint: InboxColor.agentGot,
                      title: stacksTime ? Text("Agent got it") : Text("Agent got it · \(time)"), time: stacksTime ? time : nil,
                      detail: note, connects: false, id: "receipt-agent")
             case .movedOn(let at):
@@ -489,7 +493,7 @@ struct AgentReceiptLine: View {
                     .foregroundColor(.primary)
                     .lineLimit(2)
             } icon: {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                Image(systemName: "checkmark.circle.fill").foregroundColor(InboxColor.agentGot)
             }
             .font(.footnote)
             .frame(maxWidth: .infinity, alignment: .leading)
