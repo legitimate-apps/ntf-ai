@@ -148,9 +148,7 @@ enum WaitingRule {
 
     /// `http` actions post back to the agent and the reply action carries typed text; `view` and
     /// `copy` actions are links and utilities, not answers.
-    static func isAnswer(_ action: Action) -> Bool {
-        action.action == "http" || BannerReply.destination(for: action) != nil
-    }
+    static func isAnswer(_ action: Action) -> Bool { AgentQuestion.isAnswerAction(action) }
 
     static func hasAnswerAction(_ actions: [Action]) -> Bool {
         actions.contains(where: isAnswer)
@@ -163,9 +161,12 @@ enum WaitingRule {
     /// from the person having looked at the question.
     /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
     /// An agent's ack on the question resolves it, however it was answered (ACK-SPEC).
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], acked: Bool = false, now: Date = Date()) -> Bool {
+    /// A typed question past its deadline (`exp`) waits no longer; a withdrawn one is acked (SPEC 7).
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], acked: Bool = false,
+                          now: Date = Date()) -> Bool {
         guard hasAnswerAction(actions), !acked, !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
+        if AskSchema.detect(in: actions).schema?.isExpired(now: now) == true { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
     }
@@ -189,8 +190,33 @@ enum AgentReply {
     /// The page offers the field: an `agent` question with answers, not marked `no-reply`, and no
     /// view-action reply (that one posts to its own target).
     static func offersField(tags: [String], actions: [Action]) -> Bool {
-        tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && WaitingRule.hasAnswerAction(actions)
+        if let schema = AskSchema.detect(in: actions).schema {
+            // A typed question: the schema's `reply` decides; its reply-v1 link is for older apps.
+            return tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && schema.reply != false
+        }
+        return tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && WaitingRule.hasAnswerAction(actions)
             && !actions.contains { BannerReply.destination(for: $0) != nil }
+    }
+
+    /// The tags of a typed answer: `re-<sequence>,ans` (SPEC 2).
+    static func answerTags(for key: AnswerKey) -> String { replyTags(for: key) + "," + ProtocolTag.answer }
+
+    /// Sends a typed answer to the question's own topic, priority 3, tagged `re-<seq>,ans`, and logs it
+    /// with `summary` (the answer in words) as the receipt's text.
+    @MainActor
+    static func sendAnswer(_ body: String, summary: String, written: Bool = false, to notification: Notification,
+                           store: Store = .shared, log: AnswerLog = .shared) {
+        guard !body.isEmpty, let subscription = notification.subscription,
+              let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
+        log.begin(key, actionId: "typed-answer")
+        TopicPublisher.send(subscription: subscription, store: store, message: body, title: "", priority: 3,
+                            tags: answerTags(for: key)) { result in
+            let ok: Bool
+            if case .success = result { ok = true } else { ok = false }
+            // A pick reads "You answered Production"; written text and forms read "You replied".
+            log.record(key, written ? AnswerEntry(kind: .reply, label: "", text: summary, at: Date(), ok: ok)
+                                    : AnswerEntry(kind: .tap, label: summary, text: nil, at: Date(), ok: ok))
+        }
     }
 
     /// The tags a typed answer to the question at `key` carries: exactly `re-<sequence>`, where the
@@ -247,7 +273,8 @@ extension Store {
             let key = AnswerKey(notification: row)
             return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key),
                                          tags: parseAllTags(row.tags),
-                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false, now: now)
+                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false,
+                                         now: now)
         }
         .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
     }

@@ -1,0 +1,250 @@
+[
+  {
+    "name": "A1",
+    "schema": {
+      "v": 2,
+      "kind": "choice",
+      "options": [
+        {
+          "k": "staging",
+          "l": "Staging"
+        },
+        {
+          "k": "prod",
+          "l": "Production",
+          "d": true
+        },
+        {
+          "k": "both",
+          "l": "Both"
+        }
+      ],
+      "exp": 1794780000
+    },
+    "answers": [
+      {
+        "body": "prod",
+        "value": "prod",
+        "valid": true
+      },
+      {
+        "body": "both,prod",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "3",
+        "value": "both",
+        "valid": true
+      },
+      {
+        "body": "Production",
+        "value": "prod",
+        "valid": true
+      }
+    ]
+  },
+  {
+    "name": "A2",
+    "schema": {
+      "v": 2,
+      "kind": "choice",
+      "multi": true,
+      "min": 1,
+      "max": 2,
+      "options": [
+        {
+          "k": "a",
+          "l": "Logs"
+        },
+        {
+          "k": "b",
+          "l": "Metrics"
+        },
+        {
+          "k": "c",
+          "l": "Traces"
+        }
+      ]
+    },
+    "answers": [
+      {
+        "body": "a,c",
+        "value": [
+          "a",
+          "c"
+        ],
+        "valid": true
+      },
+      {
+        "body": "c,a",
+        "value": [
+          "a",
+          "c"
+        ],
+        "valid": true
+      },
+      {
+        "body": "a,b,c",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "",
+        "value": null,
+        "valid": false
+      }
+    ]
+  },
+  {
+    "name": "A3",
+    "schema": {
+      "v": 2,
+      "kind": "number",
+      "min": 1,
+      "max": 64,
+      "step": 0.5,
+      "unit": "GB",
+      "hint": "Reply with a number from 1 to 64 (GB)."
+    },
+    "answers": [
+      {
+        "body": "12.5",
+        "value": 12.5,
+        "valid": true
+      },
+      {
+        "body": "12,5",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "65",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "12.25",
+        "value": null,
+        "valid": false
+      }
+    ]
+  },
+  {
+    "name": "A4",
+    "schema": {
+      "v": 2,
+      "kind": "date",
+      "mode": "date",
+      "min": "2026-11-15",
+      "max": "2026-12-31"
+    },
+    "answers": [
+      {
+        "body": "2026-11-16",
+        "value": "2026-11-16",
+        "valid": true
+      },
+      {
+        "body": "2027-01-01",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "16/11/2026",
+        "value": null,
+        "valid": false
+      }
+    ]
+  },
+  {
+    "name": "A5",
+    "schema": {
+      "v": 2,
+      "kind": "text",
+      "placeholder": "Branch name",
+      "max": 60
+    },
+    "answers": [
+      {
+        "body": "release/1.27",
+        "value": "release/1.27",
+        "valid": true
+      },
+      {
+        "body": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "value": null,
+        "valid": false
+      }
+    ]
+  },
+  {
+    "name": "A6",
+    "schema": {
+      "v": 2,
+      "kind": "form",
+      "fields": [
+        {
+          "k": "branch",
+          "kind": "text",
+          "l": "Branch",
+          "max": 60
+        },
+        {
+          "k": "replicas",
+          "kind": "number",
+          "l": "Replicas",
+          "min": 1,
+          "max": 5
+        },
+        {
+          "k": "when",
+          "kind": "date",
+          "l": "When",
+          "mode": "datetime",
+          "opt": true
+        }
+      ]
+    },
+    "answers": [
+      {
+        "body": "{\"branch\":\"main\",\"replicas\":2}",
+        "value": {
+          "branch": "main",
+          "replicas": 2
+        },
+        "valid": true
+      },
+      {
+        "body": "{\"branch\":\"main\",\"replicas\":9}",
+        "value": null,
+        "valid": false
+      },
+      {
+        "body": "Branch: main\nReplicas: 2",
+        "value": {
+          "branch": "main",
+          "replicas": 2
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "name": "A7",
+    "schema": {
+      "v": 3,
+      "kind": "choice",
+      "options": []
+    },
+    "answers": []
+  },
+  {
+    "name": "A8",
+    "schema": {
+      "v": 2,
+      "kind": "slider"
+    },
+    "answers": []
+  }
+]

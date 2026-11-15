@@ -1495,6 +1495,18 @@
         }
       }
     },
+    "Agent reminders": {
+      "comment": "Settings toggle: let an agent's reminder about an unanswered question alert again",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent reminders"
+          }
+        }
+      }
+    },
     "All topics for %@ use this login. Leave the secret blank to keep it unchanged. Enter a new secret when changing the sign-in method.": {
       "extractionState": "manual",
       "localizations": {
@@ -1824,6 +1836,18 @@
         }
       }
     },
+    "An agent can remind you of a question you haven't answered: up to three times, at least five minutes apart. Off, reminders arrive silently.": {
+      "comment": "Settings footer under Agent reminders",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An agent can remind you of a question you haven't answered: up to three times, at least five minutes apart. Off, reminders arrive silently."
+          }
+        }
+      }
+    },
     "An automatic relay check requires HTTPS for both your topic server and the relay. No test message was sent.": {
       "extractionState": "manual",
       "localizations": {
@@ -1867,6 +1891,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "La vérification automatique du relais nécessite HTTPS pour le serveur du sujet et le relais. Aucun message de test n’a été envoyé."
+          }
+        }
+      }
+    },
+    "Answer": {
+      "comment": "Button that opens a form question on its page; also the text answer placeholder",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer"
           }
         }
       }
@@ -1961,6 +1997,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Licence Apache 2.0"
+          }
+        }
+      }
+    },
+    "At least %@": {
+      "comment": "Under a number answer: the minimum",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At least %@"
+          }
+        }
+      }
+    },
+    "At most %@": {
+      "comment": "Under a number answer: the maximum",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At most %@"
           }
         }
       }
@@ -3182,6 +3242,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vérification de la prise en charge de ce test par le relais…"
+          }
+        }
+      }
+    },
+    "Choose": {
+      "comment": "Empty choice in a form field menu",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose"
+          }
+        }
+      }
+    },
+    "Choose %lld": {
+      "comment": "Under a multiple choice: how many options to pick",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose %lld"
+          }
+        }
+      }
+    },
+    "Choose %lld to %lld": {
+      "comment": "Under a multiple choice: the allowed number of options",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose %lld to %lld"
           }
         }
       }
@@ -4498,6 +4594,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "En-têtes HTTP personnalisés"
+          }
+        }
+      }
+    },
+    "Date": {
+      "comment": "Label of a date answer picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
+          }
+        }
+      }
+    },
+    "Decrease": {
+      "comment": "Accessibility label: number answer minus button",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decrease"
           }
         }
       }
@@ -6658,6 +6778,30 @@
         }
       }
     },
+    "Expired": {
+      "comment": "Status line on a question past the agent's deadline",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expired"
+          }
+        }
+      }
+    },
+    "Expires in %@": {
+      "comment": "Status line on a question with a deadline: a duration such as 1h 20m",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expires in %@"
+          }
+        }
+      }
+    },
     "Fair. A longer password, or Generate, is safer.": {
       "extractionState": "manual",
       "localizations": {
@@ -6936,6 +7080,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Indéfiniment"
+          }
+        }
+      }
+    },
+    "From %@ to %@": {
+      "comment": "Under a number answer: the allowed range",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From %@ to %@"
           }
         }
       }
@@ -8064,6 +8220,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "En cours"
+          }
+        }
+      }
+    },
+    "Increase": {
+      "comment": "Accessibility label: number answer plus button",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Increase"
           }
         }
       }
@@ -11031,6 +11199,18 @@
         }
       }
     },
+    "Number": {
+      "comment": "Placeholder of a number answer field",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number"
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "en": {
@@ -11590,6 +11770,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvrez l’app pour mettre à jour les notifications de %@."
+          }
+        }
+      }
+    },
+    "Optional": {
+      "comment": "Next to a form field that may stay empty",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional"
           }
         }
       }
@@ -14180,6 +14372,18 @@
         }
       }
     },
+    "Send “%@” to the agent?": {
+      "comment": "Confirmation before sending an option the agent marked as destructive: the option's label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send “%@” to the agent?"
+          }
+        }
+      }
+    },
     "Sending needs write access to this topic; read access alone isn't enough.": {
       "extractionState": "manual",
       "localizations": {
@@ -15304,6 +15508,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les espaces en début et fin sont supprimés."
+          }
+        }
+      }
+    },
+    "steps of %@": {
+      "comment": "Under a number answer, after the range: the step",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "steps of %@"
           }
         }
       }
@@ -19465,6 +19681,18 @@
       },
       "comment": "Mute until tomorrow at the displayed local time. The argument is already formatted with the user's clock settings."
     },
+    "Update NTF-AI to answer this here": {
+      "comment": "Status line on a question this version can't show natively; it still has its other buttons",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update NTF-AI to answer this here"
+          }
+        }
+      }
+    },
     "Upload limits are unavailable. You can still attach a URL.": {
       "extractionState": "manual",
       "localizations": {
@@ -20609,6 +20837,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Avec un titre et une priorité élevée"
+          }
+        }
+      }
+    },
+    "Withdrawn by the agent": {
+      "comment": "Status line on a question the agent took back",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Withdrawn by the agent"
+          }
+        }
+      }
+    },
+    "Withdrawn by the agent · %@": {
+      "comment": "Receipt under a question the agent took back: the time",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Withdrawn by the agent · %@"
           }
         }
       }

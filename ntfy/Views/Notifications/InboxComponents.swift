@@ -77,7 +77,10 @@ struct MessageDisplay: Equatable {
 extension Notification {
     var display: MessageDisplay {
         // An old full settle shows the question as it was; its appended line becomes the receipt.
-        MessageDisplay.of(title: formatTitle(), body: agentSettle?.question ?? formatMessage(), contentType: contentType)
+        // A typed question drops the plain-text hint `ntf` added for older apps (SPEC 2).
+        MessageDisplay.of(title: formatTitle(),
+                          body: agentSettle?.question ?? AskSchema.strippingHint(formatMessage(), hint: askDetection.schema?.hint),
+                          contentType: contentType)
     }
 
     /// The question re-sent by ntf 0.1/0.2 to settle it: no buttons, the outcome line appended.
@@ -378,6 +381,8 @@ struct AgentReceipt: Equatable {
         case got(Date, note: String?)
         /// No answer came in time, or the agent stopped waiting: quieter than a confirmation.
         case movedOn(Date)
+        /// `ntf withdraw` took the question back (SPEC 7). Shown whatever the confirmations setting.
+        case withdrawn(Date)
     }
 
     /// The person's answer here, when it reached the agent.
@@ -395,7 +400,8 @@ struct AgentReceipt: Equatable {
         var agent: Agent?
         var named: String?
         if let key, let record = acks.record(forKey: key.id, version: key.version) {
-            agent = .got(Date(timeIntervalSince1970: TimeInterval(record.time)), note: record.note)
+            let at = Date(timeIntervalSince1970: TimeInterval(record.time))
+            agent = record.withdrawn == true ? .withdrawn(at) : .got(at, note: record.note)
             named = record.answer
         } else if let settle = notification.agentSettle {
             // The settle replaced the question's row, so the answer was logged on the version before it.
@@ -408,7 +414,7 @@ struct AgentReceipt: Equatable {
         answer = entry.flatMap { $0.ok && $0.kind != .dismissed ? $0 : nil }
         namedAnswer = named
         resolved = agent != nil
-        self.agent = shows ? agent : nil
+        if case .withdrawn = agent { self.agent = agent } else { self.agent = shows ? agent : nil }
     }
 
     /// What the card names as the answer: the button, the typed text, or what the agent says it got.
@@ -490,6 +496,11 @@ struct AgentReceiptTimeline: View {
                 step(icon: "clock", tint: .secondary,
                      title: stacksTime ? Text("Agent stopped waiting") : Text("Agent stopped waiting · \(time)"),
                      time: stacksTime ? time : nil, detail: nil, connects: false, id: "receipt-moved-on", quiet: true)
+            case .withdrawn(let at):
+                let time = Notification.shortTime(for: at)
+                step(icon: "arrow.uturn.backward.circle", tint: .secondary,
+                     title: stacksTime ? Text("Withdrawn by the agent") : Text("Withdrawn by the agent · \(time)"),
+                     time: stacksTime ? time : nil, detail: nil, connects: false, id: "receipt-withdrawn", quiet: true)
             case nil:
                 EmptyView()
             }
@@ -558,6 +569,13 @@ struct AgentReceiptLine: View {
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("card-agent-moved-on")
+        case .withdrawn(let at):
+            Label(String(localized: "Withdrawn by the agent · \(Notification.shortTime(for: at))"),
+                  systemImage: "arrow.uturn.backward.circle")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("card-agent-withdrawn")
         case nil:
             EmptyView()
         }
@@ -1037,7 +1055,8 @@ struct MessageCard: View {
     var body: some View {
         let state = AnswerState(notification: notification, log: log)
         let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
-        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .card)
+        let detection = notification.askDetection
+        let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .card)
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             if showsTopic, let subscription = notification.subscription {
                 HStack(spacing: 8) {
@@ -1092,6 +1111,20 @@ struct MessageCard: View {
                     .foregroundColor(InboxColor.ink)
                     .accessibilityIdentifier("card-waiting-line")
                     .padding(.top, CardSpacing.beforeControls)
+            } else if detection != .none {
+                AskStatusLine(notification: notification, detection: detection)
+                    .padding(.top, CardSpacing.beforeControls)
+                if let schema = detection.schema, waiting.contains(notification) {
+                    if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
+                    AskAnswerView(notification: notification, schema: schema, place: .card, disabled: editing,
+                                  sending: state.sending, openPage: { open(false) }) { body, summary, written in
+                        AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
+                    }
+                }
+                let links = items.filter { if case .answer = $0 { return detection.schema == nil } else { return true } }
+                if !links.isEmpty {
+                    ActionBar(items: links, sendingId: state.sendingActionId, run: run).disabled(editing)
+                }
             } else if !items.isEmpty {
                 if state.failed {
                     AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
@@ -1154,7 +1187,8 @@ struct WaitingRow: View {
 
     var body: some View {
         let state = AnswerState(notification: notification, log: log)
-        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .waiting)
+        let detection = notification.askDetection
+        let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .waiting)
         let display = notification.display
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             HStack(spacing: 8) {
@@ -1182,6 +1216,14 @@ struct WaitingRow: View {
                 AnswerReceiptView(entry: state.entry).padding(.top, CardSpacing.beforeControls)
             } else if receipt.showsClosed {
                 ReceiptClosedLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
+            } else if !receipt.resolved, let schema = detection.schema {
+                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
+                AskStatusLine(notification: notification, detection: detection, now: now)
+                AskAnswerView(notification: notification, schema: schema, place: .card, sending: state.sending,
+                              openPage: { open(false) }) { body, summary, written in
+                    AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
+                }
+                .environment(\.actionBarMissedTap) { open(false) }
             } else if !receipt.resolved {
                 if state.failed {
                     AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)

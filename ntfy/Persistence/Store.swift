@@ -87,6 +87,11 @@ class Store: ObservableObject {
     var notificationRemover: (SequenceRemoval) -> Void = { $0.removeDelivered() }
     /// Where agent acks are kept (ACK-SPEC). Tests give each store its own.
     var ackLog: AckLog = .shared
+    /// Agent protocol v2 (SPEC 7): which reminders alerted, and where the "Agent reminders" setting
+    /// and the answer log live. Replaced in tests.
+    var reminderLog: ReminderLog = .shared
+    var reminderDefaults: UserDefaults = AgentAck.defaults
+    var reminderClock: () -> Date = Date.init
     /// The pushed message the last save took as an agent ack: it confirms a question, never alerts.
     private(set) var acknowledgedPush: (id: String, questionTitle: String?)?
     /// Whether a missing cached key may be re-derived from the password (PBKDF2). Off in the
@@ -759,7 +764,8 @@ class Store: ObservableObject {
                 refreshFromStore(row)
                 guard row.id == message.id, !row.alerted, !row.read else { continue }
                 var candidate = ingest([message], for: subscription).first?.message ?? message
-                candidate.isUpdate = row.presented
+                candidate.isUpdate = row.presented && !reminderLog.isAlerting(id: message.id, key: AckLog.key(
+                    baseUrl: baseUrl, topic: message.topic, sequence: message.sequence))
                 candidates.append(candidate)
             }
         }
@@ -1052,7 +1058,8 @@ class Store: ObservableObject {
                     request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, message.id)
                     if let row = try context.fetch(request).first {
                         var presentation = item.message
-                        presentation.isUpdate = row.read || row.presented
+                        presentation.isUpdate = (row.read || row.presented) && !reminderLog.isAlerting(id: message.id, key: AckLog.key(
+                            baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: message.sequence))
                         stored = .stored(presentation)
                     } else {
                         stored = .handled
@@ -2056,7 +2063,13 @@ class Store: ObservableObject {
             if message.isControl {
                 if let row {
                     if message.event == "message_clear" { row.read = true }
-                    else {
+                    else if let version = row.id, AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: row.actionsList()) {
+                        // `ntf withdraw`: the question stays in the topic's history, marked
+                        // "Withdrawn by the agent", and leaves Waiting (SPEC 7). Its banner goes.
+                        ackLog.save(AgentAck.Record(id: message.id, time: message.time, version: version, withdrawn: true),
+                                    forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: sequence))
+                        row.read = true
+                    } else {
                         detachAttachmentLocalFile(for: row, pendingFileCleanup: &pendingFileCleanup)
                         context.delete(row)
                     }
@@ -2077,6 +2090,11 @@ class Store: ObservableObject {
             } else {
                 let notification = row ?? Notification(context: context)
                 message.isUpdate = row != nil
+                if let row, reminderAlerts(message, replacing: row, subscription: subscription) {
+                    // The agent's reminder on a question still waiting: it alerts again (SPEC 7).
+                    message.isUpdate = false
+                    row.read = false
+                }
                 if row == nil { notification.read = false }
                 else {
                     detachAttachmentLocalFile(for: notification, pendingFileCleanup: &pendingFileCleanup)
@@ -2119,6 +2137,28 @@ class Store: ObservableObject {
             rows.contains { !$0.isDeleted && $0.id == message.id && (!$0.read || message.isUpdate) }
                 && states[message.sequence]?.value(forKey: "event") as? String == "message"
         }
+    }
+
+    /// Whether `message`, an update of the stored question `row`, is a reminder that may alert, and
+    /// if so records the alert. A version already approved (the same push and poll) stays approved.
+    private func reminderAlerts(_ message: Message, replacing row: Notification, subscription: Subscription) -> Bool {
+        let key = AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: message.sequence)
+        if reminderLog.isAlerting(id: message.id, key: key) { return true }
+        let now = reminderClock()
+        let tags = message.tags ?? []
+        guard let next = AskSchema.detect(in: message.actions ?? []).schema,
+              AgentQuestion.isAgentQuestion(tags: tags, actions: message.actions ?? []) else { return false }
+        let previousActions = row.actionsList()
+        let version = row.id
+        let waiting = !row.isDeleted && AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: previousActions)
+            && ackLog.record(forKey: key, version: version) == nil
+            && !AnswerLogReader.answered(key: key, version: version, defaults: reminderDefaults)
+            && now.timeIntervalSince(row.date()) < 7 * 24 * 3600 // WaitingRule.maxAge, app-only
+        guard AgentReminder.alerts(next: next, previous: AskSchema.detect(in: previousActions).schema, waiting: waiting,
+                                   priorAlerts: reminderLog.record(forKey: key)?.alerts ?? [],
+                                   enabled: AgentReminder.isOn(reminderDefaults), now: now) else { return false }
+        reminderLog.recordAlert(id: message.id, key: key, at: now)
+        return true
     }
 
     private func populate(_ notification: Notification, from item: IngestedMessage) {

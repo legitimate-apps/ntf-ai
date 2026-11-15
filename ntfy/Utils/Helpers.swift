@@ -129,7 +129,18 @@ enum ProtocolTag {
 
     static func isNoReply(_ tag: String) -> Bool { tag.lowercased() == noReply }
 
-    static func isHidden(_ tag: String) -> Bool { isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) }
+    /// On a written answer from 1.27 on: the body is a structured answer to a typed question
+    /// (agent protocol v2, SPEC 2), sent with `re-<sequence>`.
+    static let answer = "ans"
+
+    static func isAnswer(_ tag: String) -> Bool { tag.lowercased() == answer }
+
+    /// `@name` on an agent's message names the agent (SPEC 6); shown as the sender, not a tag.
+    static func isIdentity(_ tag: String) -> Bool { tag.hasPrefix("@") && tag.count > 1 }
+
+    static func isHidden(_ tag: String) -> Bool {
+        isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) || isAnswer(tag) || isIdentity(tag)
+    }
 }
 
 /// The agent's confirmation that it got the person's answer (ACK-SPEC, build 48): a message on the
@@ -191,6 +202,9 @@ enum AgentAck {
         var answer: String?
         /// The id of the question version it confirms: a new question on the sequence waits again.
         var version: String
+        /// `ntf withdraw` took the question back (a `message_delete` on its sequence, SPEC 7) rather
+        /// than confirm it: kept with the acks so the app and the extension share it.
+        var withdrawn: Bool? = nil
     }
 
     enum Outcome: Equatable {

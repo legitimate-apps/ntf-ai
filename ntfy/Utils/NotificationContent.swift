@@ -197,8 +197,9 @@ extension UNMutableNotificationContent {
             self.sound = nil
             self.interruptionLevel = .passive
         }
-        // An agent's ack never alerts, whatever priority it was sent at (ACK-SPEC).
-        if AgentAck.isAck(tags: message.tags) {
+        // An agent's ack never alerts, whatever priority it was sent at (ACK-SPEC), and neither does
+        // the person's own answer (`re-<seq>`) arriving on another device (SPEC 7).
+        if AgentAck.isAck(tags: message.tags) || message.tags?.contains(where: ProtocolTag.isReply) == true {
             self.sound = nil
             self.interruptionLevel = .passive
             self.relevanceScore = 0
@@ -343,7 +344,7 @@ extension UNMutableNotificationContent {
     }
 
     private func configureNotificationActions(message: Message, timeout: TimeInterval) {
-        let userActions = message.actions ?? []
+        let userActions = Self.bannerActions(message.actions ?? [])
         let actions = Self.notificationActions(for: userActions)
 
         let categoryId = UNMutableNotificationContent.actionCategoryIdentifier(for: userActions)
@@ -372,6 +373,14 @@ extension UNMutableNotificationContent {
     /// Namespace for the categories this app registers, so pruning can tell ours apart
     /// from any category registered elsewhere.
     static let categoryPrefix = "ntfyActions."
+
+    /// A typed question's `ask-v2` link is for the app's question page, not a banner button: the
+    /// banner keeps the question's other buttons and reply link, which still answer (SPEC 4). A link
+    /// this build can't render stays, as older builds show it.
+    static func bannerActions(_ actions: [Action]) -> [Action] {
+        guard case .native(_, let carrier) = AskSchema.detect(in: actions) else { return actions }
+        return actions.filter { $0.id != carrier }
+    }
 
     static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> [UNNotificationAction] {
         actions.prefix(4).map {

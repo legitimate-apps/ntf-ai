@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     @AppStorage(InAppBrowser.preferenceKey) private var openWebLinksInApp = false
     @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
+    @AppStorage(AgentReminder.settingKey, store: AgentAck.defaults) private var agentReminders = true
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -35,6 +36,10 @@ struct SettingsView: View {
                 Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {
                     Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
                         .accessibilityIdentifier("settings-agent-confirmations")
+                }
+                Section(footer: Text(String(localized: "An agent can remind you of a question you haven't answered: up to three times, at least five minutes apart. Off, reminders arrive silently."))) {
+                    Toggle(String(localized: "Agent reminders"), isOn: $agentReminders)
+                        .accessibilityIdentifier("settings-agent-reminders")
                 }
                 NotificationStatusView()
                 RetentionSettingsView(store: store)

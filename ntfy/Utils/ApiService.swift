@@ -248,6 +248,10 @@ class ApiService {
                 return .failure(.tooLargeToEncrypt(bytes: body.utf8.count))
             }
             request.setValue(TopicEncryption.encodingHeaderValue, forHTTPHeaderField: TopicEncryption.encodingHeaderName)
+            // An answer's protocol tags (`re-<seq>`, `ans`) also go outside, so an agent that
+            // filters on them server-side still sees its answer (agent protocol v2, SPEC 2).
+            let outer = tags.filter { ProtocolTag.isReply($0) || ProtocolTag.isAnswer($0) }
+            if !outer.isEmpty { request.setValue(PublishOptions.header(outer.joined(separator: ",")), forHTTPHeaderField: "Tags") }
             request.httpBody = Data(body.utf8)
             return .success(request)
         }
