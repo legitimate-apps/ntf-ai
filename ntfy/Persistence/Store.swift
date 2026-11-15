@@ -1406,7 +1406,7 @@ class Store: ObservableObject {
                     notification.title = message.title ?? ""
                     notification.priority = Store.clampPriority(message.priority)
                     notification.tags = message.tags?.joined(separator: ",") ?? ""
-                    notification.actions = Actions.shared.encode(message.actions)
+                    notification.actions = message.rawActions ?? Actions.shared.encode(message.actions)
                     notification.click = message.click ?? ""
                     notification.icon = message.icon
                     notification.contentType = message.contentType
@@ -2136,7 +2136,7 @@ class Store: ObservableObject {
         notification.title = message.title ?? ""
         notification.priority = Store.clampPriority(message.priority)
         notification.tags = message.tags?.joined(separator: ",") ?? ""
-        notification.actions = Actions.shared.encode(message.actions)
+        notification.actions = message.rawActions ?? Actions.shared.encode(message.actions)
         notification.click = message.click ?? ""
         notification.attachmentName = message.attachment?.name
         notification.attachmentType = message.attachment?.type

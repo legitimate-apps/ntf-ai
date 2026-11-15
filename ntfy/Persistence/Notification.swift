@@ -462,6 +462,12 @@ struct Message: Decodable {
     var contentType: String?
     var icon: String?
     var sequenceID: String?
+    /// ntfy's cache horizon (unix seconds), computed by the server. Kept in memory and userInfo only:
+    /// it is not the agent's deadline (that is the schema's `exp`, SPEC 7).
+    var expires: Int64?
+    /// The `actions` JSON exactly as received, unknown types and keys included. Stored in place of
+    /// a re-encoding of `actions`, which only holds what this build can show (SPEC 4).
+    var rawActions: String?
     /// Local presentation decision; never trusted from the wire.
     var isUpdate = false
 
@@ -477,6 +483,7 @@ struct Message: Decodable {
         case contentType = "content_type"
         case icon
         case sequenceID = "sequence_id"
+        case expires
     }
 
     init(
@@ -495,7 +502,9 @@ struct Message: Decodable {
         contentType: String? = nil,
         icon: String? = nil,
         sequenceID: String? = nil,
-        encoding: String? = nil
+        encoding: String? = nil,
+        expires: Int64? = nil,
+        rawActions: String? = nil
     ) {
         self.id = id
         self.time = time
@@ -513,6 +522,8 @@ struct Message: Decodable {
         self.contentType = normalized.isDiagnostic ? Self.diagnosticContentType : contentType
         self.icon = icon
         self.sequenceID = sequenceID
+        self.expires = expires
+        self.rawActions = rawActions
     }
 
     init(from decoder: Decoder) throws {
@@ -527,7 +538,10 @@ struct Message: Decodable {
         title = try container.decodeIfPresent(String.self, forKey: .title)
         priority = try container.decodeIfPresent(Int16.self, forKey: .priority)
         tags = try container.decodeIfPresent([String].self, forKey: .tags)
-        actions = try container.decodeIfPresent([Action].self, forKey: .actions)
+        if let raw = try? container.decodeIfPresent([JSONValue].self, forKey: .actions) {
+            rawActions = JSONValue.compact(raw)
+            actions = Actions.shared.known(raw)
+        }
         click = try container.decodeIfPresent(String.self, forKey: .click)
         pollId = try container.decodeIfPresent(String.self, forKey: .pollId)
         attachment = try container.decodeIfPresent(MessageAttachment.self, forKey: .attachment)
@@ -535,6 +549,7 @@ struct Message: Decodable {
         contentType = normalized.isDiagnostic ? Self.diagnosticContentType : declaredContentType
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         sequenceID = try container.decodeIfPresent(String.self, forKey: .sequenceID)
+        expires = try? container.decodeIfPresent(Int64.self, forKey: .expires)
     }
     
     // Stored in the existing contentType field, so diagnostics need no schema migration and a
@@ -585,7 +600,7 @@ struct Message: Decodable {
             "title": title ?? "",
             "priority": String(priority ?? 3),
             "tags": tags?.joined(separator: ",") ?? "",
-            "actions": Actions.shared.encode(actions),
+            "actions": rawActions ?? Actions.shared.encode(actions),
             "click": click ?? "",
             "poll_id": pollId ?? "",
             "content_type": contentType ?? "",
@@ -599,6 +614,7 @@ struct Message: Decodable {
             userInfo["attachment_expires"] = String(attachment.expires ?? 0)
             userInfo["attachment_url"] = attachment.url
         }
+        if let expires { userInfo["expires"] = String(expires) }
         return userInfo
     }
     
@@ -649,7 +665,9 @@ struct Message: Decodable {
             contentType: contentType,
             icon: icon,
             sequenceID: userInfo["sequence_id"] as? String,
-            encoding: userInfo["encoding"] as? String
+            encoding: userInfo["encoding"] as? String,
+            expires: Int64(userInfo["expires"] as? String ?? ""),
+            rawActions: actions.flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 }

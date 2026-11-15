@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EB219A86833F93373EAE7682 /* ActionsPassthroughTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */; };
 		10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 557DE638A451FB775522B9EA /* InboxTests.swift */; };
 		858C5BC7EB1A4A5092D8CF79 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F108AFD59072B706FA5EBC /* SearchView.swift */; };
 		0522C9CE8030CC70DF85A5E6 /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC50D82C4857D122D28E0A2 /* InboxView.swift */; };
@@ -262,6 +263,7 @@
 
 /* Begin PBXFileReference section */
 		557DE638A451FB775522B9EA /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
+		5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsPassthroughTests.swift; sourceTree = "<group>"; };
 		85F108AFD59072B706FA5EBC /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		CAC50D82C4857D122D28E0A2 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		52B10557119319C2D4DBB85D /* ConnectAgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentView.swift; sourceTree = "<group>"; };
@@ -723,6 +725,7 @@
 				DE1190000000000000000013 /* LocalizationTests.swift */,
 				FFB072E4CE7885C446A0546C /* ntfyTests.swift */,
 				557DE638A451FB775522B9EA /* InboxTests.swift */,
+				5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */,
 				CE0D7AE636FF4807D4E3659F,
 				D55080135EC8D994F3DC44DB,
 				A12940000000000000000002,
@@ -1130,6 +1133,7 @@
 				DE1190000000000000000004 /* LocalizationTests.swift in Sources */,
 				9B84D8DCA80BE0722286AFD4 /* ntfyTests.swift in Sources */,
 				10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */,
+				EB219A86833F93373EAE7682 /* ActionsPassthroughTests.swift in Sources */,
 				A12300000000000000000001 /* BackgroundHTTPActionTests.swift in Sources */,
 				DDDFAC17B65143878A1319E9 /* FcmTeardownLedgerTests.swift in Sources */,
 				BA1180000000000000000012 /* ServerContractTests.swift in Sources */,

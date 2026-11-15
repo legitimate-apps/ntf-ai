@@ -130,6 +130,16 @@ extension TopicEncryption {
         message.click = payload.click
         message.icon = payload.icon
         message.contentType = payload.markdown == true ? "text/markdown" : nil
+        if let raw = payload.rawActions {
+            // Stored as sent, with the same derived ids, so types and keys this build doesn't know
+            // survive into storage; only known types are shown (SPEC 4).
+            let stored: [JSONValue] = raw.enumerated().map { index, value in
+                guard case .object(var object) = value else { return value }
+                object["id"] = .string("\(outer.id)-e2e\(index)")
+                return .object(object)
+            }
+            message.rawActions = JSONValue.compact(stored)
+        }
         if let actions = payload.actions {
             // The server mints action ids, but it never saw these. Derive them from the message id so
             // the app and the extension (separate processes that may both ingest the same message)
