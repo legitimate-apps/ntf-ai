@@ -10870,12 +10870,14 @@ final class ThemeColorTests: XCTestCase {
 
     func testThemeTokensAreEmeraldInBothAppearances() {
         let expected: [String: (light: String, dark: String)] = [
-            "AccentColor": ("047857", "34D399"),
+            // Whole app in the Forest family (1.26 answer buttons, variant 2): Forest fills with white
+            // content; in dark mode accent text is the light mint, readable on black.
+            "AccentColor": ("047857", "6EE7B7"),
             "BrandControlFill": ("047857", "047857"),
-            "BrandFill": ("34D399", "34D399"),
-            "Ink": ("08231A", "08231A"),
-            "UnreadBadgeTop": ("3EE0A0", "3EE0A0"),
-            "UnreadBadgeBottom": ("34D399", "34D399"),
+            "BrandFill": ("047857", "047857"),
+            "Ink": ("FFFFFF", "FFFFFF"),
+            "UnreadBadgeTop": ("068462", "068462"),
+            "UnreadBadgeBottom": ("047857", "047857"),
         ]
         for (name, value) in expected {
             XCTAssertEqual(hex(name, .light), value.light, "\(name) light")
@@ -10891,7 +10893,7 @@ final class ThemeColorTests: XCTestCase {
         for surface in ["000000", "1C1C1E", "2C2C2E"] {
             XCTAssertGreaterThanOrEqual(contrast(hex("AccentColor", .dark), surface), 4.5, "accent on \(surface)")
         }
-        // Labels on emerald fills (prominent buttons, unread badge) are Ink.
+        // Labels on Forest fills (toast, unread badge) are Ink, which is white.
         for fill in ["BrandFill", "UnreadBadgeTop", "UnreadBadgeBottom"] {
             for style in [UIUserInterfaceStyle.light, .dark] {
                 XCTAssertGreaterThanOrEqual(contrast(hex("Ink", style), hex(fill, style)), 4.5, "Ink on \(fill)")

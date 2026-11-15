@@ -443,7 +443,7 @@ private struct SeparatorUnderText: ViewModifier {
 struct UnreadBadge: View {
     let count: Int
 
-    // Ink count text is 9.78:1 on the top and 8.63:1 on the bottom stop, in either appearance.
+    // White (Ink) count text is 4.68:1 on the top and 5.48:1 on the bottom stop, in either appearance.
     private static let top = Color("UnreadBadgeTop")
     private static let bottom = Color("UnreadBadgeBottom")
 
