@@ -186,7 +186,7 @@ struct MessagePageView: View {
 
     /// Answered here, or the agent confirmed (or settled) the question: the receipt replaces the answers.
     private var isSettled: Bool {
-        AnswerState(notification: notification, log: log).answered || receipt.resolved
+        AnswerState(notification: notification, log: log).showsReceipt() || receipt.resolved
     }
 
     private var hasAnswerArea: Bool {
@@ -208,16 +208,18 @@ struct MessagePageView: View {
                     AgentReceiptTimeline(receipt: receipt)
                 }
                 if !links.isEmpty {
-                    ActionBar(items: links, size: .large, run: run)
+                    ActionBar(items: links, run: run)
                 }
             } else {
                 if state.failed { AnswerReceiptView(failed: true) }
                 if !items.isEmpty {
-                    ActionBar(items: items, prominentId: prominentId, size: .large,
-                              sendingId: state.sendingActionId, run: run)
+                    ActionBar(items: items, prominentId: prominentId, sendingId: state.sendingActionId,
+                              sentLabel: state.sentLabel(), failedLabel: state.failedLabel, recipient: topicName, run: run)
                 }
-                if replyAction != nil || offersAgentReply {
+                // Once a tapped answer shows its check, the reply field folds away with the other choices.
+                if (replyAction != nil || offersAgentReply) && state.sentLabel() == nil {
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
+                               phase: state.replyPhase(replyActionId: replyAction?.id),
                                disabled: state.sending, focusOnAppear: focusReply,
                                onFocus: { if answersInline { scrollToReply = UUID() } }) { text in
                         if let replyAction {
@@ -282,10 +284,12 @@ struct PinnedAnswerBar<Bar: View>: ViewModifier {
     }
 }
 
-/// A typed answer for the agent: one line that grows to five, and a round send button that
-/// lights up in the brand fill once there is something to send (DIRECTIONS 1.5).
+/// A typed answer for the agent: one line that grows to five, and a Send button that lights up in
+/// the answer fill once there is something to send (DIRECTIONS 1.5). Send spins while the reply
+/// is on its way, shows a check when the agent has it, and shakes if it didn't get there.
 struct ReplyField: View {
     let placeholder: String
+    var phase: AnswerPhase = .idle
     var disabled = false
     var focusOnAppear = false
     /// Called when the field gains focus, so an inline answer area can scroll it above the keyboard.
@@ -293,10 +297,10 @@ struct ReplyField: View {
     let send: (String) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
-    /// The send circle grows with the text so the arrow always fits inside it.
-    @ScaledMetric(relativeTo: .body) private var sendSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .body) private var height = AnswerMetrics.height
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var busy: Bool { phase == .sending || phase == .sent }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -304,8 +308,12 @@ struct ReplyField: View {
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(.secondarySystemBackground)))
+                .padding(.vertical, 8)
+                .frame(minHeight: height)
+                .background(RoundedRectangle(cornerRadius: AnswerMetrics.cornerRadius, style: .continuous)
+                    .fill(Color(.tertiarySystemFill)))
+                .disabled(disabled || busy)
+                .opacity(disabled && !busy ? 0.5 : 1)
                 .accessibilityIdentifier("reply-field")
             Button {
                 let value = trimmed
@@ -315,20 +323,15 @@ struct ReplyField: View {
                 send(value)
                 focused = false
             } label: {
-                Image(systemName: "arrow.up")
-                    .font(.body.weight(.semibold))
-                    .foregroundColor(trimmed.isEmpty ? .secondary : InboxColor.onFill)
-                    .frame(width: sendSize, height: sendSize)
-                    .background(Circle().fill(trimmed.isEmpty ? AnyShapeStyle(.quaternary) : AnyShapeStyle(InboxColor.fill)))
+                Text(phase == .sent ? String(localized: "Sent") : String(localized: "Send"))
+                    .frame(minWidth: 52)
             }
-            .buttonStyle(.plain)
-            .disabled(trimmed.isEmpty)
+            .answerButtonStyle(.primary, phase: phase, expands: false)
+            .disabled(trimmed.isEmpty || disabled)
             .accessibilityLabel(String(localized: "Send"))
+            .accessibilityValue(phase == .sending ? String(localized: "Sending") : phase == .sent ? String(localized: "Sent") : "")
             .accessibilityIdentifier("reply-send")
-            .padding(.bottom, 3)
         }
-        .disabled(disabled)
-        .opacity(disabled ? 0.4 : 1)
         .onAppear {
             if focusOnAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { focused = true } }
         }

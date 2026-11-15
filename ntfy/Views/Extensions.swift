@@ -726,20 +726,11 @@ struct SheetCloseButton: View {
     }
 }
 
-/// The in-content primary button (empty states, What's new, permission): system prominent button
-/// in the brand fill with ink text, so every such button is drawn the same way.
+/// The in-content primary button (empty states, What's new, permission): the answer button's
+/// primary look, so every solid button in the app presses and reads the same way.
 struct BrandProminentButton: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 15.0, *) {
-            content
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(Color("BrandFill"))
-                .foregroundColor(Color("Ink"))
-        } else {
-            content
-                .foregroundColor(Color("Ink"))
-        }
+        content.answerButtonStyle(.primary, expands: false)
     }
 }
 

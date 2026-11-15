@@ -10927,3 +10927,168 @@ final class ThemeColorTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Answer buttons (1.26, Forest, lit)
+
+final class AnswerButtonTests: XCTestCase {
+    private func hex(_ name: String, _ style: UIUserInterfaceStyle) -> (hex: String, alpha: Double) {
+        let color = UIColor(named: name)!.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a), name)
+        return (String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded())), Double(a))
+    }
+
+    private func channels(_ hex: String) -> [Double] {
+        let v = Int(hex, radix: 16)!
+        return [Double(v >> 16 & 0xFF), Double(v >> 8 & 0xFF), Double(v & 0xFF)]
+    }
+
+    private func mix(_ top: String, _ bottom: String, _ t: Double) -> String {
+        let (a, b) = (channels(top), channels(bottom))
+        return zip(a, b).map { String(format: "%02X", Int(($0 * (1 - t) + $1 * t).rounded())) }.joined()
+    }
+
+    /// A translucent colour composited over a surface.
+    private func over(_ name: String, _ style: UIUserInterfaceStyle, on surface: String) -> String {
+        let (fg, alpha) = hex(name, style)
+        let (a, b) = (channels(fg), channels(surface))
+        return zip(a, b).map { String(format: "%02X", Int(($0 * alpha + $1 * (1 - alpha)).rounded())) }.joined()
+    }
+
+    private func contrast(_ a: String, _ b: String) -> Double {
+        func lum(_ hex: String) -> Double {
+            let c = channels(hex).map { s -> Double in let s = s / 255; return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4) }
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        }
+        let (x, y) = (lum(a), lum(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    func testAnswerTokens() {
+        let expected: [String: (light: String, dark: String)] = [
+            "AnswerFillTop": ("078A64", "078A64"),
+            "AnswerFill": ("047857", "047857"),
+            "AnswerTintLabel": ("06704F", "6EE7B7"),
+            "DestructiveInk": ("C4161C", "FF8178"),
+            "AnswerDisabledLabel": ("5C5C61", "AEAEB2"),
+        ]
+        for (name, value) in expected {
+            XCTAssertEqual(hex(name, .light).hex, value.light, "\(name) light")
+            XCTAssertEqual(hex(name, .dark).hex, value.dark, "\(name) dark")
+        }
+    }
+
+    /// The operator's bar: "dark enough so the text is comfortably white on it". The white label sits
+    /// in the middle half of the button, so the gradient must pass 4.5:1 from a quarter of the way down.
+    func testWhiteLabelPassesOnTheWholeLabelBandOfTheFill() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let top = hex("AnswerFillTop", style).hex, bottom = hex("AnswerFill", style).hex
+            for t in stride(from: 0.25, through: 1.0, by: 0.05) {
+                XCTAssertGreaterThanOrEqual(contrast("FFFFFF", mix(top, bottom, t)), 4.5, "white on the fill at \(t)")
+            }
+        }
+    }
+
+    func testTintedAnswerLabelsPassOnTheirWashOnEverySurface() {
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AnswerTintLabel", .light).hex, over("AnswerTint", .light, on: surface)), 4.5, "tint \(surface)")
+            XCTAssertGreaterThanOrEqual(contrast(hex("DestructiveInk", .light).hex, over("DestructiveTint", .light, on: surface)), 4.5, "red \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AnswerTintLabel", .dark).hex, over("AnswerTint", .dark, on: surface)), 4.5, "tint \(surface)")
+            XCTAssertGreaterThanOrEqual(contrast(hex("DestructiveInk", .dark).hex, over("DestructiveTint", .dark, on: surface)), 4.5, "red \(surface)")
+        }
+    }
+
+    /// The disabled look is drawn by the component (DESIGN-REVIEW-v2 F2: the system's was 1.08:1 in dark).
+    func testDisabledLookIsReadableInBothModes() {
+        for (style, surface) in [(UIUserInterfaceStyle.light, "FFFFFF"), (.light, "F2F2F7"), (.dark, "000000"), (.dark, "1C1C1E")] {
+            let trait = UITraitCollection(userInterfaceStyle: style)
+            func flat(_ c: UIColor) -> (String, Double) {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                c.resolvedColor(with: trait).getRed(&r, green: &g, blue: &b, alpha: &a)
+                return (String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded())), Double(a))
+            }
+            func comp(_ c: UIColor, _ under: String) -> String {
+                let (fg, a) = flat(c)
+                return zip(channels(fg), channels(under)).map { String(format: "%02X", Int(($0 * a + $1 * (1 - a)).rounded())) }.joined()
+            }
+            let fill = comp(.tertiarySystemFill, surface)
+            XCTAssertGreaterThanOrEqual(contrast(flat(UIColor(named: "AnswerDisabledLabel")!).0, fill), 4.5, "disabled label \(style.rawValue) on \(surface)")
+        }
+    }
+
+    func testPhaseOfEachButton() {
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: nil, failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: "a", sentLabel: nil, failedLabel: nil), .sending)
+        XCTAssertEqual(AnswerPhase.of(id: "b", label: "Reject", sendingId: "a", sentLabel: nil, failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: "Approve", failedLabel: nil), .sent)
+        XCTAssertEqual(AnswerPhase.of(id: "b", label: "Reject", sendingId: nil, sentLabel: "Approve", failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: nil, failedLabel: "Approve"), .failed)
+        // A send in flight wins over an earlier failure: the retry spins.
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: "a", sentLabel: nil, failedLabel: "Approve"), .sending)
+    }
+
+    /// Haptics: success only when this button's send lands, error only when it fails, nothing for an
+    /// answer that arrived from elsewhere.
+    func testFeedbackFiresOnTheRightTransitions() {
+        var played: [AnswerFeedback] = []
+        let haptics = AnswerHaptics { played.append($0) }
+        func run(_ steps: [AnswerPhase], fired: Bool = true) -> [AnswerFeedback] {
+            played = []
+            var tracker = AnswerFeedbackTracker()
+            if fired { tracker.fired() }
+            for step in steps { if let f = tracker.move(to: step) { haptics.play(f) } }
+            return played
+        }
+        XCTAssertEqual(run([.sending, .sent]), [.success])
+        XCTAssertEqual(run([.sending, .failed]), [.failure])
+        XCTAssertEqual(run([.sending, .failed, .sending, .sent]), [.failure, .success], "a retry confirms too")
+        // SwiftUI can coalesce sending into sent; the press already armed it.
+        XCTAssertEqual(run([.sent]), [.success])
+        // Not pressed here: the banner or another device answered.
+        XCTAssertEqual(run([.sending, .sent], fired: false), [.success], "a send seen in flight here still confirms")
+        XCTAssertEqual(run([.sent], fired: false), [])
+        XCTAssertEqual(run([.failed], fired: false), [])
+        XCTAssertEqual(run([.sent, .idle]), [.success])
+    }
+
+    func testReduceMotionDropsMovementButKeepsThePressLook() {
+        XCTAssertEqual(AnswerMetrics.scale(pressed: true, reduceMotion: false), 0.96)
+        XCTAssertEqual(AnswerMetrics.scale(pressed: true, reduceMotion: true), 1)
+        XCTAssertEqual(AnswerMetrics.scale(pressed: false, reduceMotion: false), 1)
+        XCTAssertTrue(AnswerMetrics.shakes(reduceMotion: false))
+        XCTAssertFalse(AnswerMetrics.shakes(reduceMotion: true))
+        XCTAssertLessThan(AnswerMetrics.pressedDarken, 0, "pressed still darkens with Reduce Motion")
+        XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44)
+    }
+
+    private func entry(_ kind: AnswerEntry.Kind, _ label: String, ok: Bool, ago: TimeInterval, now: Date) -> AnswerEntry {
+        AnswerEntry(kind: kind, label: label, text: kind == .reply ? "ok" : nil, at: now.addingTimeInterval(-ago), ok: ok, messageId: nil)
+    }
+
+    /// The check shows for a moment, then the receipt takes its place.
+    func testSentHoldThenReceipt() {
+        let now = Date()
+        var state = AnswerState(entry: entry(.tap, "Approve", ok: true, ago: 0.3, now: now), sendingActionId: nil)
+        XCTAssertTrue(state.showsSent(now: now))
+        XCTAssertFalse(state.showsReceipt(now: now))
+        XCTAssertEqual(state.sentLabel(now: now), "Approve")
+        XCTAssertFalse(state.showsSent(now: now.addingTimeInterval(AnswerState.sentHold)))
+        XCTAssertTrue(state.showsReceipt(now: now.addingTimeInterval(AnswerState.sentHold)))
+        // A failure never shows a check.
+        state = AnswerState(entry: entry(.tap, "Approve", ok: false, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertFalse(state.showsSent(now: now))
+        XCTAssertEqual(state.failedLabel, "Approve")
+        // A typed reply's Send.
+        state = AnswerState(entry: entry(.reply, "", ok: true, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .sent)
+        XCTAssertNil(state.sentLabel(now: now))
+        state = AnswerState(entry: nil, sendingActionId: AgentReply.sendingId)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .sending)
+        state = AnswerState(entry: nil, sendingActionId: "approve-1")
+        XCTAssertEqual(state.replyPhase(replyActionId: "reply-1", now: now), .idle)
+        state = AnswerState(entry: entry(.reply, "", ok: false, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .failed)
+    }
+}

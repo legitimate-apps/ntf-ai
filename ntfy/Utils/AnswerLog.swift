@@ -67,6 +67,10 @@ final class AnswerLog: ObservableObject {
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
+        #if DEBUG
+        // Screenshot runs start every question unanswered (`-ntfyDebugResetAnswers YES`).
+        if UserDefaults.standard.bool(forKey: "ntfyDebugResetAnswers") { defaults.removeObject(forKey: Self.defaultsKey) }
+        #endif
         reload()
     }
 
@@ -103,6 +107,12 @@ final class AnswerLog: ObservableObject {
             if let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
             self.entries[key.id] = entry
             self.save()
+            // The button shows its check for a moment; then the views redraw to the receipt.
+            if entry.ok && entry.kind != .dismissed {
+                DispatchQueue.main.asyncAfter(deadline: .now() + AnswerState.sentHold + 0.05) { [weak self] in
+                    self?.objectWillChange.send()
+                }
+            }
         }
     }
 
@@ -173,6 +183,8 @@ enum WaitingRule {
 /// reply field too, unless it is tagged `no-reply`.
 enum AgentReply {
     static let agentTag = "agent"
+    /// The answer log's in-flight id for a typed reply sent this way.
+    static let sendingId = "typed-reply"
 
     /// The page offers the field: an `agent` question with answers, not marked `no-reply`, and no
     /// view-action reply (that one posts to its own target).
@@ -192,7 +204,7 @@ enum AgentReply {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let subscription = notification.subscription,
               let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
-        log.begin(key, actionId: "typed-reply")
+        log.begin(key, actionId: sendingId)
         // One tag, `re-<sequence>`, so the agent can tell which open question this answers. Never
         // `agent`: that would read as the agent's own message.
         TopicPublisher.send(subscription: subscription, store: store, message: trimmed, title: "",
@@ -267,7 +279,8 @@ final class WaitingObservable: ObservableObject {
         ) { [weak self] _ in self?.scheduleRefresh() })
         // An answered row shows its receipt for two seconds before it leaves the queue (C1).
         // "Not needed" refreshes at once through `dismiss`.
-        log.$entries.dropFirst().debounce(for: .seconds(2), scheduler: DispatchQueue.main)
+        // The check shows first (`AnswerState.sentHold`), then the receipt for the rest.
+        log.$entries.dropFirst().debounce(for: .seconds(max(2, AnswerState.sentHold + 0.7)), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
         // Questions age out after seven days even when nothing else changes, and the minutes
         // waited move on: redraw every minute even when the queue is the same.

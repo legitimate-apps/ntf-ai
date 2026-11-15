@@ -318,9 +318,7 @@ struct TopicQRScannerView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if let action {
                     Button(action.0, action: action.1)
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color("BrandFill"))
-                        .foregroundColor(Color("Ink"))
+                        .brandProminentButton()
                 }
                 if let rejected {
                     Text(Self.rejectionText(rejected))

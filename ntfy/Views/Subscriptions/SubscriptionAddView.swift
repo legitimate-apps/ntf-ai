@@ -408,10 +408,7 @@ struct SubscriptionAddView: View {
                     Text(String(localized: "Continue"))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color("BrandFill"))
-                .foregroundColor(Color("Ink"))
-                .controlSize(.large)
+                .brandProminentButton()
                 .accessibilityHint(String(localized: "Shows the system notification permission prompt"))
                 Button(String(localized: "Not now")) {
                     proceed(to: pendingConnect, else: url)

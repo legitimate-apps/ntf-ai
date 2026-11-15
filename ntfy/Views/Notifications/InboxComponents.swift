@@ -6,10 +6,8 @@ import UniformTypeIdentifiers
 // The parts every message surface shares (DIRECTIONS 1.5): Inbox rows, topic cards, the message
 // page and search results. One family, so the same question reads the same wherever it shows.
 
-/// Emerald is a fill, never text on a light surface (DIRECTIONS 1.1). Text and symbols on it are ink.
+/// Answer buttons and Send draw from `AnswerColor` (AnswerButton.swift).
 enum InboxColor {
-    static let fill = Color("BrandFill")
-    static let onFill = Color("Ink")
     /// Links, the unread dot, "Show more", the waiting mark: the app tint.
     static let ink = Color("AccentColor")
     /// "Agent got it": blue, the iOS colour for delivered and read, so it never looks like the person's own
@@ -267,6 +265,11 @@ struct AnswerState: Equatable {
     var entry: AnswerEntry?
     var sendingActionId: String?
 
+    init(entry: AnswerEntry?, sendingActionId: String?) {
+        self.entry = entry
+        self.sendingActionId = sendingActionId
+    }
+
     init(notification: Notification, log: AnswerLog) {
         let key = AnswerKey(notification: notification)
         entry = log.entry(for: key)
@@ -277,6 +280,44 @@ struct AnswerState: Equatable {
     /// Only a request that reached the agent shows a check. "Not needed" isn't an answer.
     var answered: Bool { !sending && entry?.ok == true && entry?.kind != .dismissed }
     var failed: Bool { !sending && entry?.ok == false }
+
+    /// How long a button that just sent its answer shows its check before the receipt takes its place.
+    /// A Debug launch argument (`-ntfyDebugSentHold <seconds>`) holds it longer for screenshots.
+    static var sentHold: TimeInterval {
+        #if DEBUG
+        let debug = UserDefaults.standard.double(forKey: "ntfyDebugSentHold")
+        if debug > 0 { return debug }
+        #endif
+        return 1.3
+    }
+
+    /// The answer just landed: its button still shows the check, and the receipt waits.
+    func showsSent(now: Date = Date()) -> Bool {
+        guard answered, let entry else { return false }
+        return now.timeIntervalSince(entry.at) < Self.sentHold
+    }
+
+    /// Answered, and past the moment of the check: show the receipt.
+    func showsReceipt(now: Date = Date()) -> Bool { answered && !showsSent(now: now) }
+
+    /// The tapped answer showing its check, by label.
+    func sentLabel(now: Date = Date()) -> String? {
+        showsSent(now: now) && entry?.kind == .tap ? entry?.label : nil
+    }
+
+    /// The tapped answer that didn't reach the agent, by label.
+    var failedLabel: String? { failed && entry?.kind == .tap ? entry?.label : nil }
+
+    /// The typed reply's phase, for its Send button. `replyActionId` is the question's own reply
+    /// action, when it has one; a reply without one goes out as `AgentReply`.
+    func replyPhase(replyActionId: String?, now: Date = Date()) -> AnswerPhase {
+        if let sendingActionId {
+            return sendingActionId == AgentReply.sendingId || sendingActionId == replyActionId ? .sending : .idle
+        }
+        if showsSent(now: now) && entry?.kind == .reply { return .sent }
+        if failed && entry?.kind == .reply { return .failed }
+        return .idle
+    }
 }
 
 /// After answering: what you told the agent, or that it didn't get it (DECISION change 8: a
@@ -568,27 +609,60 @@ struct ActionBar: View {
     let items: [ActionBarItem]
     /// The first answer of a waiting question is the one prominent button (DIRECTIONS 1.5).
     var prominentId: String? = nil
-    var size: ControlSize = .regular
+    /// Answers the agent marked as doing damage: red, never the green fill.
+    var destructiveIds: Set<String> = []
     var sendingId: String? = nil
+    /// The answer that just reached the agent (`AnswerState.sentLabel`): it shows its check.
+    var sentLabel: String? = nil
+    /// The answer that didn't reach the agent (`AnswerState.failedLabel`): it shakes once.
+    var failedLabel: String? = nil
+    /// Who gets the answer, for VoiceOver's hint: "Sends Approve to Coding agent".
+    var recipient: String? = nil
     let run: (ActionBarItem) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private func phase(_ item: ActionBarItem) -> AnswerPhase {
+        AnswerPhase.of(id: item.id, label: item.label, sendingId: sendingId, sentLabel: item.isAnswer ? sentLabel : nil,
+                       failedLabel: item.isAnswer ? failedLabel : nil)
+    }
+
+    /// While an answer is on its way or just landed, the other choices fold away.
+    private var shown: [ActionBarItem] {
+        let active = items.filter { [.sending, .sent].contains(phase($0)) }
+        return active.isEmpty ? items : active
+    }
+
     var body: some View {
-        if #available(iOS 16.0, *) {
-            ViewThatFits(in: .horizontal) {
-                EqualWidthHStack(spacing: 8) { buttons }
-                VStack(spacing: 8) { buttons }
+        Group {
+            if #available(iOS 16.0, *) {
+                ViewThatFits(in: .horizontal) {
+                    EqualWidthHStack(spacing: 10) { buttons }
+                    VStack(spacing: 10) { buttons }
+                }
+            } else {
+                VStack(spacing: 10) { buttons }
             }
-        } else {
-            VStack(spacing: 8) { buttons }
         }
+        .animation(AnswerMetrics.phaseAnimation(reduceMotion: reduceMotion), value: shown.map(\.id))
     }
 
     @ViewBuilder private var buttons: some View {
-        ForEach(items) { item in
-            let spinning = item.id == sendingId
-            ActionBarButton(item: item, prominent: item.id == prominentId, size: size, spinning: spinning) { run(item) }
-                .disabled(sendingId != nil && !spinning)
-                .opacity(sendingId != nil && !spinning ? 0.4 : 1)
+        ForEach(shown) { item in
+            let phase = phase(item)
+            ActionBarButton(item: item, role: role(item), phase: phase, recipient: recipient) { run(item) }
+                .disabled(sendingId != nil && phase != .sending)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.85)))
+        }
+    }
+
+    private func role(_ item: ActionBarItem) -> AnswerRole {
+        switch item {
+        case .answer(let action):
+            if destructiveIds.contains(action.id) { return .destructive }
+            return item.id == prominentId ? .primary : .secondary
+        case .reply: return .secondary
+        case .link, .copy, .click: return .link
         }
     }
 }
@@ -607,52 +681,53 @@ extension EnvironmentValues {
 
 private struct ActionBarButton: View {
     let item: ActionBarItem
-    let prominent: Bool
-    let size: ControlSize
-    let spinning: Bool
+    let role: AnswerRole
+    let phase: AnswerPhase
+    var recipient: String?
     let action: () -> Void
 
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.actionBarMissedTap) private var missedTap
+    @Environment(\.answerHaptics) private var haptics
+    @GestureState private var touching = false
+    @State private var tracker = AnswerFeedbackTracker()
+    @State private var shakes = 0
+
     private var label: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             if case .reply = item {
                 Image(systemName: "arrowshape.turn.up.left").accessibilityHidden(true)
             }
             Text(item.label).lineLimit(1)
             switch item {
             case .link, .click:
-                Image(systemName: "arrow.up.right").font(.footnote).accessibilityHidden(true)
+                Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold)).accessibilityHidden(true)
             default:
                 EmptyView()
             }
         }
-        .opacity(spinning ? 0 : 1)
-        .overlay {
-            if spinning { ProgressView().tint(prominent ? InboxColor.onFill : .secondary) }
-        }
-        .frame(maxWidth: .infinity)
     }
 
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.actionBarMissedTap) private var missedTap
-    @State private var pressed = false
+    private var interactive: Bool { isEnabled && phase != .sending && phase != .sent }
 
     /// iOS 26 delivers a tap to the nearest small tap target even when the finger lands well
     /// outside it: on iPad a tap on the message text 16 pt above the bar reached the answer button
     /// and answered the agent (build 45; the same with a plain tap gesture in place of the Button).
-    /// So the styled Button is only the picture, the tap reports where it landed, and only a tap
-    /// inside the capsule answers. One that lands outside does what the row does there: it opens
-    /// the message, which can't send anything.
+    /// So the face is only the picture, the tap reports where it landed, and only a tap inside the
+    /// button answers. One that lands outside does what the row does there: it opens the message,
+    /// which can't send anything. A long press that never completes tracks the finger for the press
+    /// look and its tick; it fails as soon as the finger moves, so the list still scrolls.
     var body: some View {
-        styled
+        AnswerButtonFace(role: role, phase: phase, pressed: touching && interactive, shakes: shakes) { label }
             .allowsHitTesting(false)
-            .opacity(pressed ? 0.6 : 1)
             .overlay {
                 GeometryReader { geometry in
+                    let shape = RoundedRectangle(cornerRadius: AnswerMetrics.cornerRadius, style: .continuous)
                     if #available(iOS 16.0, *) {
                         Color.clear
                             .contentShape(Rectangle())
                             .gesture(SpatialTapGesture().onEnded { tap in
-                                if Capsule().path(in: CGRect(origin: .zero, size: geometry.size)).contains(tap.location) {
+                                if shape.path(in: CGRect(origin: .zero, size: geometry.size)).contains(tap.location) {
                                     fire()
                                 } else {
                                     #if DEBUG
@@ -662,43 +737,47 @@ private struct ActionBarButton: View {
                                     missedTap?()
                                 }
                             })
+                            .simultaneousGesture(LongPressGesture(minimumDuration: 30, maximumDistance: 10)
+                                .updating($touching) { current, state, _ in state = current })
                     } else {
-                        Color.clear.contentShape(Capsule()).onTapGesture(perform: fire)
+                        Color.clear.contentShape(shape).onTapGesture(perform: fire)
                     }
+                }
+            }
+            .onChange(of: touching) { down in
+                if down && interactive { haptics.play(.press) }
+            }
+            .onChange(of: phase) { next in
+                if let feedback = tracker.move(to: next) {
+                    haptics.play(feedback)
+                    if feedback == .failure { shakes += 1 }
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(item.label)
             .accessibilityAddTraits(.isButton)
-            .accessibilityValue(spinning ? String(localized: "Sending") : "")
+            .accessibilityHint(hint)
+            .accessibilityValue(phase == .sending ? String(localized: "Sending") : phase == .sent ? String(localized: "Sent") : "")
             .accessibilityAction(.default, fire)
     }
 
-    private func fire() {
-        guard isEnabled, !spinning else { return }
-        pressed = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.easeOut(duration: 0.2)) { pressed = false }
-        }
-        action()
+    private var hint: String {
+        guard item.isAnswer, let recipient, !recipient.isEmpty else { return "" }
+        return String(localized: "Sends \(item.label) to \(recipient)")
     }
 
-    @ViewBuilder private var styled: some View {
-        if prominent {
-            Button(action: action) { label }
-                .buttonStyle(.borderedProminent)
-                .tint(InboxColor.fill)
-                .foregroundColor(InboxColor.onFill)
-                .buttonBorderShape(.capsule)
-                .controlSize(size)
-        } else {
-            Button(action: action) { label }
-                .buttonStyle(.bordered)
-                .tint(.secondary)
-                .foregroundColor(.primary)
-                .buttonBorderShape(.capsule)
-                .controlSize(size)
-        }
+    private func fire() {
+        guard interactive else { return }
+        if item.isAnswer { tracker.fired() }
+        action()
+    }
+}
+
+extension ActionBarItem {
+    /// An answer to the agent (an `http` button), as opposed to a link, a copy or the reply opener.
+    var isAnswer: Bool {
+        if case .answer = self { return true }
+        return false
     }
 }
 
@@ -971,7 +1050,7 @@ struct MessageCard: View {
             MessageAttachmentBlock(notification: notification, maxHeight: 300, onCopy: onCopy)
             if receipt.agent != nil {
                 AgentReceiptLine(receipt: receipt)
-            } else if state.answered {
+            } else if state.showsReceipt() {
                 AnswerReceiptView(entry: state.entry)
             } else if receipt.showsClosed {
                 // Confirmations are off: the agent got it, so the question takes no more answers.
@@ -983,8 +1062,9 @@ struct MessageCard: View {
                     .accessibilityIdentifier("card-waiting-line")
             } else if !items.isEmpty {
                 if state.failed { AnswerReceiptView(failed: true) }
-                ActionBar(items: items, prominentId: prominentId(items), size: .regular,
-                          sendingId: state.sendingActionId, run: run)
+                ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
+                          sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
+                          recipient: notification.subscription?.shortDisplayName(), run: run)
                     // While selecting, a tap picks the row; it must not answer the agent.
                     .disabled(editing)
                     .environment(\.actionBarMissedTap) { if !editing { open(false) } }
@@ -1062,14 +1142,15 @@ struct WaitingRow: View {
             let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
             if receipt.agent != nil {
                 AgentReceiptLine(receipt: receipt)
-            } else if state.answered {
+            } else if state.showsReceipt() {
                 AnswerReceiptView(entry: state.entry)
             } else if receipt.showsClosed {
                 ReceiptClosedLine(receipt: receipt)
             } else if !receipt.resolved {
                 if state.failed { AnswerReceiptView(failed: true) }
-                ActionBar(items: items, prominentId: items.first { if case .answer = $0 { return true } else { return false } }?.id,
-                          size: .regular, sendingId: state.sendingActionId) { item in
+                ActionBar(items: items, prominentId: items.first(where: \.isAnswer)?.id, sendingId: state.sendingActionId,
+                          sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
+                          recipient: notification.subscription?.shortDisplayName()) { item in
                     switch item {
                     case .answer(let action):
                         MessageActionRunner(notification: notification,

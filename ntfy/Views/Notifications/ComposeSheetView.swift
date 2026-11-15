@@ -11,6 +11,7 @@ struct ComposeSheetView: View {
     @State private var showFiles = false
     @State private var showPhotos = false
     @State private var confirmDiscard = false
+    @Environment(\.answerHaptics) private var haptics
 
     init(subscription: Subscription, model: ComposeModel? = nil) {
         self.subscription = subscription
@@ -99,11 +100,14 @@ struct ComposeSheetView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Send")) {
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        haptics.play(.press)
                         model.send(subscription: subscription, store: store) {
+                            haptics.play(.success)
                             SubscriptionManager(store: store).pollWithOutcome(subscription, manual: true) { _ in }
                             close()
                         }
                     }
+                        .modifier(ComposeSendLook())
                         .disabled(!model.canSend).accessibilityIdentifier("compose-send")
                 }
             }
@@ -114,6 +118,9 @@ struct ComposeSheetView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .interactiveDismissDisabled(model.busy || model.dirty)
+        .onChange(of: model.error) { error in
+            if !error.isEmpty { haptics.play(.failure) }
+        }
         .onAppear(perform: loadLimits)
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item]) { model.selectFile($0) }
         .sheet(isPresented: $showPhotos) {
@@ -281,6 +288,18 @@ private struct ComposeTitle: ViewModifier {
                     .accessibilityElement(children: .combine)
                 }
             }
+        }
+    }
+}
+
+/// Compose's Send in the toolbar: on iOS 26 a prominent glass button in the answer fill with a white
+/// label, the same green as every other Send; earlier, the answer fill as the text colour.
+private struct ComposeSendLook: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.buttonStyle(.glassProminent).tint(AnswerColor.fill)
+        } else {
+            content.tint(AnswerColor.fill)
         }
     }
 }
