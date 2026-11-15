@@ -515,15 +515,16 @@ class Store: ObservableObject {
             // can fail to fulfil a deleted fault (leaking the file) and writing it back to nil is an
             // unsaved mutation of a deleted object. Strings survive the delete; managed objects
             // don't. Filesystem cleanup is not transactional either way, so it follows the commit.
-            var pendingFileCleanup: [String] = []
-            if let notifications = subscription.notifications {
-                notifications.forEach { notification in
-                    guard let notification = notification as? Notification,
-                          let localPath = notification.attachmentLocalPath,
-                          !localPath.isEmpty else { return }
-                    pendingFileCleanup.append(localPath)
-                }
-            }
+            //
+            // The rows to delete come from the store, not from `subscription.notifications`. This
+            // context's copy of that to-many can predate rows the extension saved since (merging its
+            // history doesn't refault the topic), and the cascade only follows the copy: a pushed
+            // question then outlived its topic, pointing at the deleted row, and came back in
+            // Waiting on you with no receipts and live answer buttons (iPad check 49, B1).
+            let rows = (try? context.fetch(Self.rowsRequest(entityName: "Notification", of: subscription))) ?? []
+            let states = (try? context.fetch(Self.rowsRequest(entityName: "SequenceState", of: subscription))) ?? []
+            let pendingFileCleanup = rows.compactMap { ($0 as? Notification)?.attachmentLocalPath }.filter { !$0.isEmpty }
+            (rows + states).forEach(context.delete)
             let subscriptionTopicUrl = subscription.baseUrl.flatMap { baseUrl in
                 subscription.topic.map { topicUrl(baseUrl: baseUrl, topic: $0) }
             }
@@ -550,6 +551,41 @@ class Store: ObservableObject {
             }
         }
         return deleted
+    }
+
+    /// Every row of `entityName` the store holds for this topic, whatever this context has loaded.
+    private static func rowsRequest(entityName: String, of subscription: Subscription) -> NSFetchRequest<NSManagedObject> {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        request.predicate = NSPredicate(format: "subscription == %@", subscription)
+        request.includesPropertyValues = entityName == "Notification"
+        return request
+    }
+
+    /// Deletes rows whose topic is gone: no subscription, or one that no longer exists. Unsubscribes
+    /// before 1.26 could leave pushed rows behind (see `delete(subscription:)`); they showed as
+    /// nameless cards. Idempotent; one batch delete per entity, merged into this context.
+    @discardableResult
+    func removeOrphanedRows() -> Int {
+        var removed = 0
+        context.performAndWait {
+            let topics = NSFetchRequest<NSManagedObjectID>(entityName: "Subscription")
+            topics.resultType = .managedObjectIDResultType
+            guard let live = try? context.fetch(topics) else { return }
+            for entity in ["Notification", "SequenceState"] {
+                let request = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
+                request.predicate = NSPredicate(format: "subscription == nil OR NOT (subscription IN %@)", live)
+                let delete = NSBatchDeleteRequest(fetchRequest: request)
+                delete.resultType = .resultTypeObjectIDs
+                do {
+                    let ids = (try context.execute(delete) as? NSBatchDeleteResult)?.result as? [NSManagedObjectID] ?? []
+                    guard !ids.isEmpty else { continue }
+                    removed += ids.count
+                    NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
+                } catch { Log.w(Store.tag, "Cannot remove orphaned \(entity) rows", error) }
+            }
+        }
+        if removed > 0 { Log.i(Store.tag, "Removed \(removed) rows whose topic no longer exists") }
+        return removed
     }
 
     func updateSubscription(subscription: Subscription, displayName: String?) {

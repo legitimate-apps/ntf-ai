@@ -157,17 +157,17 @@ struct MessagePageView: View {
     // MARK: Answers
 
     private var items: [ActionBarItem] {
-        ActionBarItem.items(actions: notification.actionsList(), click: clickURL, context: .page)
+        ActionBarItem.items(actions: notification.answerableActions(), click: clickURL, context: .page)
     }
 
     private var replyAction: Action? {
-        notification.actionsList().first { BannerReply.destination(for: $0) != nil }
+        notification.answerableActions().first { BannerReply.destination(for: $0) != nil }
     }
 
     /// An agent's question with buttons only: a written reply goes to its topic (AgentReply).
     private var offersAgentReply: Bool {
         replyAction == nil && waiting.contains(notification)
-            && AgentReply.offersField(tags: parseAllTags(notification.tags), actions: notification.actionsList())
+            && AgentReply.offersField(tags: parseAllTags(notification.tags), actions: notification.answerableActions())
     }
 
     private var clickURL: URL? {

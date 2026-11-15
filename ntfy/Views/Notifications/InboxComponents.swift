@@ -924,7 +924,7 @@ struct MessageCard: View {
     var body: some View {
         let state = AnswerState(notification: notification, log: log)
         let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
-        let items = ActionBarItem.items(actions: notification.actionsList(), click: nil, context: .card)
+        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .card)
         VStack(alignment: .leading, spacing: 8) {
             if showsTopic, let subscription = notification.subscription {
                 HStack(spacing: 8) {
@@ -1035,7 +1035,7 @@ struct WaitingRow: View {
 
     var body: some View {
         let state = AnswerState(notification: notification, log: log)
-        let items = ActionBarItem.items(actions: notification.actionsList(), click: nil, context: .waiting)
+        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .waiting)
         let display = notification.display
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {

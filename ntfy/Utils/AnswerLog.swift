@@ -30,6 +30,12 @@ struct AnswerKey: Hashable {
     }
 }
 
+extension Notification {
+    /// The buttons to offer. None when the row's topic can't be named (its subscription is gone): such
+    /// an orphan must never send an answer to an agent, nor wait on the person.
+    func answerableActions() -> [Action] { AnswerKey(notification: self) == nil ? [] : actionsList() }
+}
+
 /// What the person did with a question (DIRECTIONS 1.6): tapped an `http` answer, sent a typed
 /// reply, or swiped it away as not needed. `ok` is false when the request didn't reach the agent.
 struct AnswerEntry: Codable, Equatable {
@@ -227,7 +233,7 @@ extension Store {
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
             let key = AnswerKey(notification: row)
-            return WaitingRule.isWaiting(actions: row.actionsList(), time: row.date(), entry: log.entry(for: key),
+            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key),
                                          tags: parseAllTags(row.tags),
                                          acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false, now: now)
         }
