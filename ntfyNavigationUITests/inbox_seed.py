@@ -136,6 +136,29 @@ with sqlite3.connect(store) as db:
              "Rain is forecast at 4 pm.\n\nNo answer in 10 min; the agent moved on", None, "agent", None, None),
             (45, 4, "q-lights", "q-lights", 45 * 60, 1, 1, "Porch lights are still on",
              "It's daylight. Turn them off?\n\n\u2713 Agent got: Turn off", None, "agent", None, None),
+            # 48b: a long note (past lineLimit 4), a failed answer the agent got anyway, a long page with a link.
+            (46, 4, "q-backup", "q-backup", 6 * 60, 3, 1, "Delete the old backups?",
+             "The backup disk is 94% full. Snapshots older than 90 days take 410 GB.",
+             [http("Delete", "/ok", "reply:r11:delete"), http("Keep them", "/ok", "reply:r11:keep")], "agent", None, None),
+            (47, 4, "q-deploy", "q-deploy", 7 * 60, 3, 1, "Deploy the hotfix now?",
+             "The fix for the login loop passed CI. Deploying takes about 3 minutes.",
+             [http("Deploy", "http://127.0.0.1:9/answers", "reply:r12:deploy"), http("Wait", "http://127.0.0.1:9/answers", "reply:r12:wait")],
+             "agent", None, None),
+            (48, 4, "q-release", "q-release", 11 * 60, 3, 1, "Publish the 2.4 release notes?",
+             "\n\n".join(["Release 2.4 is ready. Here is what changed since 2.3, in the order users will notice it."] +
+                         [f"{i}. " + t for i, t in enumerate([
+                             "Search now matches partial words and ignores accents.",
+                             "Exports finish in the background and notify you when ready.",
+                             "The sync conflict dialog shows both versions side by side.",
+                             "Offline edits survive an app restart.",
+                             "Large attachments upload in chunks and resume after a drop.",
+                             "Dark mode fixes on the settings and billing pages.",
+                             "Keyboard shortcuts for archive, snooze and move.",
+                             "Fewer battery wakeups while idle."], 1)] +
+                         ["Publishing posts the notes to the blog and the in-app changelog."]),
+             [http("Publish", "/ok", "reply:r13:publish"), http("Not yet", "/ok", "reply:r13:later"),
+              {"id": "view-changelog", "action": "view", "label": "Open changelog", "url": HOOK + "/changelog"}],
+             "agent", None, None),
         ]
     for pk, sub, mid, seq, age, prio, read, title, body, actions, tags, ctype, att in msgs:
         topic = [t for t in topics if t[0] == sub][0][1]
@@ -177,9 +200,19 @@ if acks and not empty:
            k("q-wifi"): entry("reply", "Reply", 13 * 60, "q-wifi", "Call it HomeGuest-5G"),
            k("q-door"): entry("tap", "Lock", 54 * 60, "q-door"),
            k("q-thermo"): entry("reply", "Reply", 19 * 60, "q-thermo", "Lower it to 18, not 17"),
-           k("q-lights"): entry("tap", "Turn off", 46 * 60, "q-lights-0")}
+           k("q-lights"): entry("tap", "Turn off", 46 * 60, "q-lights-0"),
+           k("q-backup"): entry("tap", "Delete", 5 * 60, "q-backup"),
+           k("q-deploy"): dict(entry("tap", "Deploy", 6 * 60 + 30, "q-deploy"), ok=False),
+           k("q-release"): entry("tap", "Publish", 10 * 60, "q-release")}
     acklog = {k("q-door"): {"id": "a-door", "time": now - 53 * 60, "note": "Locked. I'll check the back door too.", "version": "q-door"},
-              k("q-thermo"): {"id": "a-thermo", "time": now - 18 * 60, "version": "q-thermo"}}
+              k("q-thermo"): {"id": "a-thermo", "time": now - 18 * 60, "version": "q-thermo"},
+              k("q-backup"): {"id": "a-backup", "time": now - 4 * 60, "version": "q-backup",
+                              "note": "Deleted 212 snapshots from before August and freed 410 GB. The disk is at 61% now. "
+                                      "I kept the monthly snapshots for the last year, plus the two you pinned in March, "
+                                      "and turned on weekly pruning so this won't fill up again. I'll check the disk again on Sunday."},
+              k("q-deploy"): {"id": "a-deploy", "time": now - 5 * 60, "version": "q-deploy", "answer": "Deploy"},
+              k("q-release"): {"id": "a-release", "time": now - 9 * 60, "version": "q-release",
+                               "note": "Published. The blog post is live and the changelog updates within an hour."}}
     for key, value in (("answerLog.v1", log), ("agentAcks.v1", acklog)):
         hexdata = json.dumps(value).encode().hex()
         r = subprocess.run(["xcrun", "simctl", "spawn", udid, "defaults", "write", str(prefs), key, "-data", hexdata],

@@ -1379,11 +1379,14 @@ extension NavigationPilotUITests {
         app.swipeUp(); pause(0.6); shot("ack-home-list-2")
         XCTAssertFalse(app.staticTexts.matching(hidden).firstMatch.exists, "no ack tag or default body shows")
         let pages: [(String, String)] = [
-            ("Front door is unlocked", "ack-page-button-note"),
-            ("Turn the heating down?", "ack-page-reply-no-note"),
-            ("Restart the media server?", "ack-page-live-no-answer"),
-            ("Garage door is open", "ack-page-button"),
-            ("Which Wi-Fi name", "ack-page-reply"),
+            ("Front door is unlocked", "ack-page-button-acked-note"),
+            ("Turn the heating down?", "ack-page-reply-acked-no-note"),
+            ("Restart the media server?", "ack-page-acked-answered-elsewhere"),
+            ("Garage door is open", "ack-page-button-not-acked"),
+            ("Which Wi-Fi name", "ack-page-reply-not-acked"),
+            ("Delete the old backups?", "ack-page-long-note"),
+            ("Deploy the hotfix now?", "ack-page-failed-then-acked"),
+            ("Publish the 2.4 release notes?", "ack-page-long-links"),
             ("Skip today's watering?", "ack-page-moved-on"),
             ("Porch lights are still on", "ack-page-old-settle"),
         ]
@@ -1394,7 +1397,9 @@ extension NavigationPilotUITests {
             let receipt = any.matching(NSPredicate(format: "identifier BEGINSWITH 'receipt-'")).firstMatch
             // At accessibility sizes the receipt follows the text, under the tab bar: scroll to it.
             if receipt.exists && (!receipt.isHittable || receipt.frame.maxY > app.frame.height * 0.8) {
-                app.swipeUp(); pause(0.8)
+                for _ in 0..<4 where !receipt.isHittable || receipt.frame.maxY > app.frame.height * 0.8 {
+                    app.swipeUp(); pause(0.8)
+                }
                 shot(name + "-end")
             }
             back()
@@ -1421,7 +1426,11 @@ extension NavigationPilotUITests {
         back()
         openText("Restart the media server?"); pause(1)
         XCTAssertFalse(app.buttons["Restart"].firstMatch.exists, "an acked question shows no buttons even unanswered here")
-        shot("ack-page-live-off")
+        XCTAssertTrue(any["receipt-closed"].firstMatch.exists, "with confirmations off it says Closed, not nothing")
+        shot("ack-page-answered-elsewhere-off")
+        back()
+        openText("Deploy the hotfix now?"); pause(1)
+        shot("ack-page-failed-then-acked-off")
         back()
         tab("Inbox"); pause(1)
         shot("ack-inbox-off")
