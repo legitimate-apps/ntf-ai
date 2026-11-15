@@ -326,6 +326,48 @@ final class MessageDisplayTests: XCTestCase {
     }
 }
 
+/// The title line shows each emoji tag once: the title it draws already carries them.
+final class MessageTitleLineTests: XCTestCase {
+    private func line(title: String?, message: String, tags: String?) throws -> String {
+        let n = ntfy.Notification(context: Store.shared.context)
+        // Unsaved and incomplete: left in the shared context, it fails the next test's save.
+        defer { Store.shared.context.delete(n) }
+        n.title = title
+        n.message = message
+        n.tags = tags
+        return String(try XCTUnwrap(MessageTitleLine.text(for: n)).characters)
+    }
+
+    private func count(_ needle: String, in text: String) -> Int {
+        text.components(separatedBy: needle).count - 1
+    }
+
+    func testATitledMessageShowsItsEmojiOnce() throws {
+        let text = try line(title: "Task finished", message: "All green", tags: "white_check_mark")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Task finished")
+    }
+
+    func testAShortBodyWithoutATitleShowsItsEmojiOnce() throws {
+        let text = try line(title: nil, message: "Task finished", tags: "white_check_mark,ci")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Task finished")
+    }
+
+    func testNoEmojiTagsAddNothing() throws {
+        XCTAssertEqual(try line(title: "Nightly backup", message: "Done", tags: "backup,ci"), "Nightly backup")
+        XCTAssertEqual(try line(title: nil, message: "Done", tags: nil), "Done")
+    }
+
+    func testAnOldSettleShowsItsEmojiOnceInFrontOfTheQuestion() throws {
+        // ntf 0.1/0.2 re-sent the question without a title and appended the outcome line.
+        let text = try line(title: nil, message: "Front door is unlocked\n\n\u{2713} Agent got: Lock",
+                            tags: "agent,white_check_mark")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Front door is unlocked")
+    }
+}
+
 final class AgentInstructionsTests: XCTestCase {
     func testEveryLineTheAgentNeeds() {
         let text = AgentInstructions.text(baseUrl: "https://ntfy.sh", topic: "my-agent")

@@ -165,20 +165,24 @@ struct PriorityMark: View {
     }
 }
 
-/// Priority, emoji tags right against the title, and the title (DIRECTIONS 1.5).
+/// Priority, then the title with its emoji tags in front (DIRECTIONS 1.5).
 struct MessageTitleLine: View {
     @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var notification: Notification
     var font: Font = .headline
     var lineLimit: Int? = 2
 
+    /// The text after the priority mark. The emoji tags are already at its front: the title comes from
+    /// formatTitle(), or from formatMessage() when there is none, and both put them there. Drawing them
+    /// again here showed every tagged message as, for example, two check marks.
+    static func text(for notification: Notification) -> AttributedString? {
+        notification.display.titleText
+    }
+
     var body: some View {
-        let display = notification.display
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             PriorityMark(priority: notification.priority)
-            let emoji = notification.emojiTags().joined()
-            if !emoji.isEmpty { Text(emoji).accessibilityHidden(true) }
-            if let title = display.titleText {
+            if let title = Self.text(for: notification) {
                 // At accessibility sizes a title wraps in full instead of truncating.
                 Text(title).lineLimit(sizeCategory.isAccessibilityCategory ? nil : lineLimit)
                     .fixedSize(horizontal: false, vertical: true)
