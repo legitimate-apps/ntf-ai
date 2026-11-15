@@ -2066,8 +2066,12 @@ class Store: ObservableObject {
                     else if let version = row.id, AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: row.actionsList()) {
                         // `ntf withdraw`: the question stays in the topic's history, marked
                         // "Withdrawn by the agent", and leaves Waiting (SPEC 7). Its banner goes.
-                        ackLog.save(AgentAck.Record(id: message.id, time: message.time, version: version, withdrawn: true),
-                                    forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: sequence))
+                        // An agent that confirmed the answer and then cleaned up keeps its ack.
+                        let ackKey = AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: sequence)
+                        if ackLog.record(forKey: ackKey, version: version) == nil {
+                            ackLog.save(AgentAck.Record(id: message.id, time: message.time, version: version, withdrawn: true),
+                                        forKey: ackKey)
+                        }
                         row.read = true
                     } else {
                         detachAttachmentLocalFile(for: row, pendingFileCleanup: &pendingFileCleanup)

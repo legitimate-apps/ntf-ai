@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UIKit
 
@@ -24,6 +25,9 @@ extension Notification {
 
 /// "Expires in 1h 20m", and whether it has.
 enum AskDeadline {
+    /// Redraws "Expires in" and turns the controls off at the deadline while a card or page stays open.
+    static let ticks = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
+
     static func remaining(until date: Date, now: Date = Date(), locale: Locale = .current) -> String {
         let formatter = DateComponentsFormatter()
         var calendar = Calendar.current
@@ -42,9 +46,13 @@ enum AskDeadline {
 struct AskStatusLine: View {
     let notification: Notification
     let detection: AskSchema.Detection
-    var now = Date()
+    @State var now = Date()
 
     var body: some View {
+        line.onReceive(AskDeadline.ticks) { now = $0 }
+    }
+
+    @ViewBuilder private var line: some View {
         if case .unsupported = detection {
             Label(String(localized: "Update NTF-AI to answer this here"), systemImage: "arrow.down.app")
                 .font(.footnote).foregroundColor(.secondary)
@@ -119,13 +127,16 @@ struct AskAnswerView: View {
     var onAnswer: (_ body: String, _ summary: String, _ written: Bool) -> Void
 
     @State private var confirming: AskSchema.Option?
+    @State private var now = Date()
 
     private var size: ControlSize { place == .page ? .large : .regular }
+    private var off: Bool { disabled || schema.isExpired(now: now) }
 
     var body: some View {
         content
-            .disabled(disabled || sending)
-            .opacity(disabled ? 0.4 : 1)
+            .disabled(off || sending)
+            .opacity(off ? 0.4 : 1)
+            .onReceive(AskDeadline.ticks) { now = $0 }
             .confirmationDialog(confirmTitle, isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
                                 titleVisibility: .visible) {
                 if let option = confirming {
@@ -264,7 +275,7 @@ struct AskNumberField: View {
                 stepButton("minus", by: -1).accessibilityLabel(String(localized: "Decrease"))
                 HStack(spacing: 4) {
                     TextField(String(localized: "Number"), text: $text)
-                        .keyboardType(.decimalPad)
+                        .keyboardType(AskNumbers.keyboard(for: spec))
                         .focused($focused)
                         .multilineTextAlignment(.center)
                         .font(.title3.monospacedDigit())
@@ -321,8 +332,8 @@ struct AskDateField: View {
     let spec: AskSchema.DateSpec
     let size: ControlSize
     let send: (String) -> Void
-    @State private var date = Date()
-    @State private var ready = false
+    /// Nil until the person taps Choose: nothing is sent that nobody picked.
+    @State private var date: Date?
 
     private var lower: Date? { spec.min.flatMap { AskDates.pickerDate($0, mode: spec.mode) } }
     private var upper: Date? { spec.max.flatMap { AskDates.pickerDate($0, mode: spec.mode) } }
@@ -336,32 +347,41 @@ struct AskDateField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            picker
-                .accessibilityIdentifier("ask-date")
-            AskSendButton(title: String(localized: "Send"), size: size, enabled: true) {
-                send(AskDates.wire(date, mode: spec.mode))
+            if date == nil {
+                Button(String(localized: "Choose")) { date = AskDates.initial(spec) }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .accessibilityIdentifier("ask-date-choose")
+            } else {
+                picker
+                    .accessibilityIdentifier("ask-date")
+            }
+            AskSendButton(title: String(localized: "Send"), size: size, enabled: date != nil) {
+                if let date { send(AskDates.wire(date, mode: spec.mode)) }
             }
             .accessibilityIdentifier("ask-send")
-        }
-        .onAppear {
-            guard !ready else { return }
-            ready = true
-            if let lower, date < lower { date = lower }
-            if let upper, date > upper { date = upper }
         }
     }
 
     @ViewBuilder private var picker: some View {
         let label = Text(String(localized: "Date"))
+        let date = Binding(get: { self.date ?? AskDates.initial(spec) }, set: { self.date = $0 })
         if let lower, let upper {
-            DatePicker(selection: $date, in: lower...upper, displayedComponents: components) { label }
+            DatePicker(selection: date, in: lower...upper, displayedComponents: components) { label }
         } else if let lower {
-            DatePicker(selection: $date, in: lower..., displayedComponents: components) { label }
+            DatePicker(selection: date, in: lower..., displayedComponents: components) { label }
         } else if let upper {
-            DatePicker(selection: $date, in: ...upper, displayedComponents: components) { label }
+            DatePicker(selection: date, in: ...upper, displayedComponents: components) { label }
         } else {
-            DatePicker(selection: $date, displayedComponents: components) { label }
+            DatePicker(selection: date, displayedComponents: components) { label }
         }
+    }
+}
+
+extension AskNumbers {
+    /// The decimal pad has no minus key, so a range that allows negatives gets one that does.
+    static func keyboard(for spec: AskSchema.NumberSpec) -> UIKeyboardType {
+        (spec.min.map { $0 < 0 } ?? true) ? .numbersAndPunctuation : .decimalPad
     }
 }
 
@@ -371,11 +391,16 @@ struct AskForm: View {
     let size: ControlSize
     let send: ([String: AskAnswer]) -> Void
     @State private var texts: [String: String] = [:]
+    /// Only the dates the person picked: a date row starts empty, required or not.
     @State private var dates: [String: Date] = [:]
-    @State private var setDates: Set<String> = []
     @State private var picks: [String: String] = [:]
 
-    private var answer: [String: AskAnswer] {
+    private var answer: [String: AskAnswer] { Self.answer(fields: fields, texts: texts, dates: dates, picks: picks) }
+
+    /// The form's answer from what was entered; a field left empty is absent, so a required one
+    /// fails validation and Send stays off.
+    static func answer(fields: [AskSchema.Field], texts: [String: String], dates: [String: Date], picks: [String: String],
+                       locale: Locale = .current, timeZone: TimeZone = .current) -> [String: AskAnswer] {
         var values: [String: AskAnswer] = [:]
         for field in fields {
             switch field.input {
@@ -383,11 +408,9 @@ struct AskForm: View {
                 let text = (texts[field.key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if !text.isEmpty { values[field.key] = .text(text) }
             case .number:
-                if let n = AskNumbers.parseTyped(texts[field.key] ?? "", locale: .current) { values[field.key] = .number(n) }
+                if let n = AskNumbers.parseTyped(texts[field.key] ?? "", locale: locale) { values[field.key] = .number(n) }
             case .date(let spec):
-                if setDates.contains(field.key) || !field.optional {
-                    values[field.key] = .date(AskDates.wire(dates[field.key] ?? Date(), mode: spec.mode))
-                }
+                if let date = dates[field.key] { values[field.key] = .date(AskDates.wire(date, mode: spec.mode, timeZone: timeZone)) }
             case .choice:
                 if let key = picks[field.key] { values[field.key] = .choice([key]) }
             case .form:
@@ -421,25 +444,25 @@ struct AskForm: View {
             boxed(TextField(spec.placeholder ?? field.label, text: binding(field.key)))
         case .number(let spec):
             boxed(HStack {
-                TextField(String(localized: "Number"), text: binding(field.key)).keyboardType(.decimalPad)
+                TextField(String(localized: "Number"), text: binding(field.key)).keyboardType(AskNumbers.keyboard(for: spec))
                 if let unit = spec.unit { Text(unit).foregroundColor(.secondary) }
             })
         case .date(let spec):
-            // An optional date nobody picked is not sent, so it shows no date until one is chosen.
-            if field.optional && !setDates.contains(field.key) {
-                Button(String(localized: "Choose")) { setDates.insert(field.key) }
+            // A date nobody picked is not sent, so it shows no date until one is chosen.
+            if dates[field.key] == nil {
+                Button(String(localized: "Choose")) { dates[field.key] = AskDates.initial(spec) }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
             } else {
                 HStack {
-                    DatePicker(selection: Binding(get: { dates[field.key] ?? Date() },
-                                                  set: { dates[field.key] = $0; setDates.insert(field.key) }),
+                    DatePicker(selection: Binding(get: { dates[field.key] ?? AskDates.initial(spec) },
+                                                  set: { dates[field.key] = $0 }),
                                displayedComponents: spec.mode == .date ? [.date] : spec.mode == .time ? [.hourAndMinute] : [.date, .hourAndMinute]) {
                         Text(field.label)
                     }
                     .labelsHidden()
                     if field.optional {
-                        Button { setDates.remove(field.key); dates[field.key] = nil } label: {
+                        Button { dates[field.key] = nil } label: {
                             Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                         }
                         .buttonStyle(.borderless)

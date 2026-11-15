@@ -496,8 +496,19 @@ enum AskDates {
         switch mode {
         case .date: return formatter("yyyy-MM-dd", timeZone: timeZone).string(from: date)
         case .time: return formatter("HH:mm", timeZone: timeZone).string(from: date)
-        case .datetime: return formatter("yyyy-MM-dd'T'HH:mm:ssXXXXX", timeZone: timeZone).string(from: date)
+        case .datetime:
+            // Minutes are what a person picks; the seconds are always :00 so agents can compare slots.
+            let minute = Date(timeIntervalSince1970: (date.timeIntervalSince1970 / 60).rounded(.down) * 60)
+            return formatter("yyyy-MM-dd'T'HH:mm:ssXXXXX", timeZone: timeZone).string(from: minute)
         }
+    }
+
+    /// Where a picker opens once the person taps Choose: now, moved inside the schema's range.
+    static func initial(_ spec: AskSchema.DateSpec, now: Date = Date(), timeZone: TimeZone = .current) -> Date {
+        var date = now
+        if let lower = spec.min.flatMap({ pickerDate($0, mode: spec.mode, timeZone: timeZone) }), date < lower { date = lower }
+        if let upper = spec.max.flatMap({ pickerDate($0, mode: spec.mode, timeZone: timeZone) }), date > upper { date = upper }
+        return date
     }
 
     /// A wire value as a picker date, in the person's time zone (a bare date or time has no zone).

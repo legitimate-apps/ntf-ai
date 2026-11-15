@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import ImageIO
 import Intents
 import UIKit
 import UserNotifications
@@ -40,6 +41,9 @@ enum AgentIdentity {
     /// The picture is fetched only when the topic is end-to-end encrypted (only the password holder
     /// wrote it) or the icon is on the topic's own server. Any other host would learn the phone's IP
     /// address from a URL anyone who can write to the topic picks; the monogram shows instead.
+    /// An attachment on the topic's server (`/file/...`) counts as that server: whoever uploaded it
+    /// learns nothing from the download, and the server already sees the phone. What the file holds
+    /// is untrusted either way, which `AgentAvatarStore.scaled` handles.
     static func avatarAllowed(iconURL: String?, topicBaseURL: String, encrypted: Bool) -> Bool {
         guard let iconURL, let icon = URLComponents(string: iconURL), icon.scheme?.lowercased() == "https",
               let iconHost = icon.host?.lowercased(), !iconHost.isEmpty, icon.user == nil, icon.password == nil else { return false }
@@ -50,41 +54,61 @@ enum AgentIdentity {
     }
 }
 
-/// Fetches and keeps agent pictures: an ephemeral session with no cookies or credentials, three
-/// seconds, at most 256 KB, PNG, JPEG or HEIC only, scaled down to 128 px and cached in the app group
-/// by URL (the newest 50).
+/// Fetches and keeps agent pictures: an ephemeral session with no cookies, credentials or redirects,
+/// three seconds, at most 256 KB, PNG, JPEG or HEIC only, at most 1024 px a side, thumbnailed to
+/// 128 px without decoding the full image, and cached in the app group by URL (the newest 50). A
+/// failed URL is not asked again for 15 minutes.
 final class AgentAvatarStore {
     static let shared = AgentAvatarStore(directory: FileManager.default
         .containerURL(forSecurityApplicationGroupIdentifier: Config.appGroupId)?
         .appendingPathComponent("agent-avatars", isDirectory: true))
 
     static let maxBytes = 256 * 1024
-    static let timeout: TimeInterval = 3
+    static let timeout = NotificationServiceTiming.avatarTimeout
     static let side: CGFloat = 128
+    /// Larger sources are refused before decoding: a small file can declare a huge bitmap.
+    static let maxSourceSide = 1024
     static let keep = 50
+    static let failureRetry: TimeInterval = 15 * 60
 
     private let directory: URL?
     private let session: URLSession
 
-    init(directory: URL?, session: URLSession? = nil) {
+    /// `configuration` is for tests (a stub protocol); its timeouts, cookies and redirects are set here.
+    init(directory: URL?, configuration: URLSessionConfiguration = .ephemeral) {
         self.directory = directory
-        if let session {
-            self.session = session
-        } else {
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.httpCookieStorage = nil
-            configuration.httpShouldSetCookies = false
-            configuration.urlCredentialStorage = nil
-            configuration.urlCache = nil
-            configuration.timeoutIntervalForRequest = Self.timeout
-            configuration.timeoutIntervalForResource = Self.timeout
-            self.session = URLSession(configuration: configuration)
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCredentialStorage = nil
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForRequest = Self.timeout
+        configuration.timeoutIntervalForResource = Self.timeout
+        session = URLSession(configuration: configuration, delegate: NoRedirects(), delegateQueue: nil)
+    }
+
+    /// A redirect could send the request, and the phone's address, to a host the policy refused.
+    private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+        func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+            completionHandler(nil)
         }
     }
 
-    private func file(for url: String) -> URL? {
+    private func file(for url: String, suffix: String = ".png") -> URL? {
         let digest = SHA256.hash(data: Data(url.utf8)).map { String(format: "%02x", $0) }.joined()
-        return directory?.appendingPathComponent(digest + ".png")
+        return directory?.appendingPathComponent(digest + suffix)
+    }
+
+    private func failedRecently(_ url: String) -> Bool {
+        guard let marker = file(for: url, suffix: ".fail"),
+              let date = (try? marker.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else { return false }
+        return Date().timeIntervalSince(date) < Self.failureRetry
+    }
+
+    private func recordFailure(_ url: String) {
+        guard let directory, let marker = file(for: url, suffix: ".fail") else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? Data().write(to: marker, options: .atomic)
     }
 
     func cached(_ url: String) -> Data? {
@@ -93,29 +117,35 @@ final class AgentAvatarStore {
     }
 
     /// The agent picture for `message`, or nil (monogram) without any request when policy refuses it.
-    func avatar(for message: Message, baseUrl: String, completion: @escaping (Data?) -> Void) {
+    /// `network: false` answers from the cache only (a reconciled delivery, `NotificationServiceTiming`).
+    func avatar(for message: Message, baseUrl: String, network: Bool = true, completion: @escaping (Data?) -> Void) {
         guard AgentIdentity.name(tags: message.tags) != nil else { completion(nil); return }
-        avatar(icon: message.icon, baseUrl: baseUrl, encrypted: message.encryption == .decrypted, completion: completion)
+        avatar(icon: message.icon, baseUrl: baseUrl, encrypted: message.encryption == .decrypted, network: network,
+               completion: completion)
     }
 
-    func avatar(icon: String?, baseUrl: String, encrypted: Bool, completion: @escaping (Data?) -> Void) {
+    func avatar(icon: String?, baseUrl: String, encrypted: Bool, network: Bool = true, completion: @escaping (Data?) -> Void) {
         guard let icon, AgentIdentity.avatarAllowed(iconURL: icon, topicBaseURL: baseUrl, encrypted: encrypted) else {
             completion(nil); return
         }
-        load(icon, completion: completion)
+        load(icon, network: network, completion: completion)
     }
 
     /// The picture as PNG, from the cache or the network; nil on any failure. Never called for a
     /// URL that `AgentIdentity.avatarAllowed` refused.
-    func load(_ url: String, completion: @escaping (Data?) -> Void) {
+    func load(_ url: String, network: Bool = true, completion: @escaping (Data?) -> Void) {
         if let data = cached(url) { completion(data); return }
-        guard let remote = URL(string: url) else { completion(nil); return }
+        guard network, !failedRecently(url), let remote = URL(string: url) else { completion(nil); return }
         var request = URLRequest(url: remote, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: Self.timeout)
         request.httpShouldHandleCookies = false
         session.dataTask(with: request) { data, response, _ in
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200, let data,
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.url?.host == remote.host, let data,
                   data.count <= Self.maxBytes, Self.isAllowedImage(data, mimeType: http.mimeType),
-                  let png = Self.scaled(data) else { completion(nil); return }
+                  let png = Self.scaled(data) else {
+                self.recordFailure(url)
+                completion(nil)
+                return
+            }
             self.store(png, for: url)
             completion(png)
         }.resume()
@@ -130,15 +160,22 @@ final class AgentAvatarStore {
         return png || jpeg || heic
     }
 
+    /// A 128 px PNG thumbnail, made by ImageIO without decoding the full bitmap (the extension's
+    /// memory is tight), or nil when the source declares more than `maxSourceSide` on a side.
     static func scaled(_ data: Data) -> Data? {
-        guard let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else { return nil }
-        let scale = min(1, side / max(image.size.width, image.size.height))
-        let size = CGSize(width: max(1, image.size.width * scale), height: max(1, image.size.height * scale))
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }.pngData()
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              (1...maxSourceSide).contains(width), (1...maxSourceSide).contains(height) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(side),
+        ]
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: thumbnail).pngData()
     }
 
     private func store(_ png: Data, for url: String) {
@@ -164,8 +201,9 @@ extension UNMutableNotificationContent {
 extension AgentIdentity {
     /// The incoming message the banner is drawn from: the agent as sender, one conversation per
     /// agent per topic, its picture when there is one.
+    /// `body` nil is the copy that is donated: the system keeps who wrote, never what was written.
     @available(iOS 15.0, *)
-    static func messageIntent(body: String, name: String, avatar: Data?, conversation: String) -> INSendMessageIntent {
+    static func messageIntent(body: String?, name: String, avatar: Data?, conversation: String) -> INSendMessageIntent {
         let image = avatar.map { INImage(imageData: $0) }
         let sender = INPerson(personHandle: INPersonHandle(value: conversation, type: .unknown),
                               nameComponents: nil, displayName: name, image: image, contactIdentifier: nil,
@@ -179,13 +217,15 @@ extension AgentIdentity {
 
     /// The banner as a message from the agent, with its name and picture, when iOS accepts it. That
     /// takes the Communication Notifications capability (`entitlement.diff`); without it iOS throws
-    /// and the content comes back unchanged, so the banner is today's.
+    /// and the content comes back unchanged, so the banner is today's. The donated interaction never
+    /// carries the message text; an encrypted topic's message is not donated at all (`donate`).
     @available(iOS 15.0, *)
     static func communicationContent(_ content: UNMutableNotificationContent, name: String, avatar: Data?,
                                      conversation: String, donate: Bool = true) -> UNNotificationContent {
         let intent = messageIntent(body: content.body, name: name, avatar: avatar, conversation: conversation)
         if donate {
-            let interaction = INInteraction(intent: intent, response: nil)
+            let interaction = INInteraction(intent: messageIntent(body: nil, name: name, avatar: avatar,
+                                                                  conversation: conversation), response: nil)
             interaction.direction = .incoming
             interaction.donate(completion: nil)
         }
@@ -194,9 +234,13 @@ extension AgentIdentity {
     }
 
     /// What the app decided (alerting, sound, actions, thread, payload, badge, picture attachment)
-    /// survives whatever the intent changed.
+    /// survives whatever the intent changed. When iOS puts the agent's name in the title, the
+    /// question's own title moves to the subtitle rather than vanish.
     static func keepingDecisions(of content: UNNotificationContent, in updated: UNNotificationContent) -> UNNotificationContent {
         guard let result = updated.mutableCopy() as? UNMutableNotificationContent else { return content }
+        if !content.title.isEmpty, updated.title != content.title, updated.subtitle.isEmpty {
+            result.subtitle = content.title
+        }
         if #available(iOS 15.0, *) {
             result.interruptionLevel = content.interruptionLevel
             result.relevanceScore = content.relevanceScore

@@ -318,22 +318,23 @@ class NotificationService: UNNotificationServiceExtension {
             user: user,
             timeout: reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout
         ) {
-            self.presentAsAgent(content, baseUrl: baseUrl, message: message)
+            self.presentAsAgent(content, baseUrl: baseUrl, message: message, reconciled: reconciled)
         }
     }
 
     /// An agent's message with an `@name` tag shows as a message from that agent (SPEC 6). Its
     /// picture is fetched only where `AgentIdentity.avatarAllowed` says so; any failure, including a
     /// build without the Communication Notifications capability, delivers today's banner.
-    private func presentAsAgent(_ content: UNMutableNotificationContent, baseUrl: String, message: Message) {
+    private func presentAsAgent(_ content: UNMutableNotificationContent, baseUrl: String, message: Message, reconciled: Bool) {
         guard let name = AgentIdentity.name(tags: message.tags) else { deliver(content); return }
         let conversation = AgentIdentity.conversationIdentifier(topicURL: topicUrl(baseUrl: baseUrl, topic: message.topic), name: name)
         let finish = { (avatar: Data?) in
-            let shown = AgentIdentity.communicationContent(content, name: name, avatar: avatar, conversation: conversation)
+            let shown = AgentIdentity.communicationContent(content, name: name, avatar: avatar, conversation: conversation,
+                                                           donate: message.encryption != .decrypted)
             self.bestAttemptContent = (shown.mutableCopy() as? UNMutableNotificationContent) ?? content
             self.deliver(shown)
         }
-        AgentAvatarStore.shared.avatar(for: message, baseUrl: baseUrl) { finish($0) }
+        AgentAvatarStore.shared.avatar(for: message, baseUrl: baseUrl, network: !reconciled) { finish($0) }
     }
     
     private func handlePollRequest(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ pollRequest: Message) {

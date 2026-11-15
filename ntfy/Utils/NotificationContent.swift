@@ -8,13 +8,16 @@ enum NotificationServiceTiming {
     static let categoryRegistrationTimeout: TimeInterval = 2
     static let attachmentTimeout: TimeInterval = 8
     static let reconciliationAttachmentTimeout: TimeInterval = 6
+    /// An agent's picture (SPEC 6), after the attachment. A reconciled delivery has already spent a
+    /// second poll, so it uses a cached picture or the monogram and makes no request.
+    static let avatarTimeout: TimeInterval = 3
     /// The NSE is publisher-triggered and cannot expose progress or cancellation. Five MiB needs
     /// roughly 5.25 Mbps to complete inside the eight-second attachment window, while larger files
     /// remain available for an explicit in-app download.
     static let attachmentSizeCeiling: Int64 = 5 * 1024 * 1024
 
     static var worstCaseDuration: TimeInterval {
-        max(pollTimeout + categoryRegistrationTimeout + attachmentTimeout,
+        max(pollTimeout + categoryRegistrationTimeout + attachmentTimeout + avatarTimeout,
             2 * pollTimeout + categoryRegistrationTimeout + reconciliationAttachmentTimeout)
     }
 }

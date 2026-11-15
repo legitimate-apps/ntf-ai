@@ -207,7 +207,9 @@ enum AgentReply {
     static func sendAnswer(_ body: String, summary: String, written: Bool = false, to notification: Notification,
                            store: Store = .shared, log: AnswerLog = .shared) {
         guard !body.isEmpty, let subscription = notification.subscription,
-              let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
+              let key = AnswerKey(notification: notification), !log.isSending(key),
+              // A page left open past the deadline still shows its controls until it redraws.
+              AskSchema.detect(in: notification.actionsList()).schema?.isExpired() != true else { return }
         log.begin(key, actionId: "typed-answer")
         TopicPublisher.send(subscription: subscription, store: store, message: body, title: "", priority: 3,
                             tags: answerTags(for: key)) { result in

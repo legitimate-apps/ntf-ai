@@ -201,7 +201,8 @@ struct EncryptedPayload: Codable, Equatable {
     var actions: [ActionPayload]?
     /// The `actions` array exactly as the sender wrote it, every type and key included, so a type or
     /// key this build doesn't know (an `ask-v2` link's future keys, `broadcast`) survives decryption
-    /// into storage (agent protocol v2, SPEC 4). Decoded only; the app never publishes actions.
+    /// into storage (agent protocol v2, SPEC 4). Encoding writes these when present, so a payload
+    /// decrypted and sealed again loses nothing.
     var rawActions: [JSONValue]? = nil
 
     static func == (lhs: EncryptedPayload, rhs: EncryptedPayload) -> Bool {
@@ -254,6 +255,18 @@ struct EncryptedPayload: Codable, Equatable {
         markdown = try? c.decodeIfPresent(Bool.self, forKey: .markdown)
         actions = try? c.decodeIfPresent([ActionPayload].self, forKey: .actions)
         rawActions = try? c.decodeIfPresent([JSONValue].self, forKey: .actions)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encodeIfPresent(priority, forKey: .priority)
+        try c.encodeIfPresent(click, forKey: .click)
+        try c.encodeIfPresent(icon, forKey: .icon)
+        try c.encodeIfPresent(markdown, forKey: .markdown)
+        if let rawActions { try c.encode(rawActions, forKey: .actions) } else { try c.encodeIfPresent(actions, forKey: .actions) }
     }
 }
 

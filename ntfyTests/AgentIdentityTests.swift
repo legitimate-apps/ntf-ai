@@ -91,7 +91,7 @@ final class AgentIdentityTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [CountingProtocol.self]
         let avatars = AgentAvatarStore(directory: FileManager.default.temporaryDirectory
-            .appendingPathComponent("avatars-\(UUID().uuidString)"), session: URLSession(configuration: configuration))
+            .appendingPathComponent("avatars-\(UUID().uuidString)"), configuration: configuration)
         let message = Message(id: "m1", time: 1, event: "message", topic: "deploys", tags: ["agent", "@Claude"],
                               icon: "https://tracker.example/a.png")
         let done = expectation(description: "refused")
@@ -109,6 +109,120 @@ final class AgentIdentityTests: XCTestCase {
         wait(for: [allowed], timeout: 5)
         XCTAssertEqual(CountingProtocol.count, 1, "control: the topic's own host is asked")
     }
+
+    // MARK: fix round (REVIEW-app-independent M1-M3, MINOR 5)
+
+    private func image(_ width: Int, _ height: Int) -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
+            .image { context in UIColor.systemGreen.setFill(); context.fill(CGRect(x: 0, y: 0, width: width, height: height)) }
+            .pngData()!
+    }
+
+    private func store(_ protocolClass: AnyClass) -> AgentAvatarStore {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [protocolClass]
+        return AgentAvatarStore(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("avatars-\(UUID().uuidString)"), configuration: configuration)
+    }
+
+    /// M1: a small file can declare a huge bitmap; it is refused before decoding, and an allowed one
+    /// is thumbnailed to 128 px.
+    func testAnOversizedSourceImageIsRefusedAndOthersAreThumbnailed() throws {
+        XCTAssertNil(AgentAvatarStore.scaled(image(1100, 8)), "wider than 1024")
+        XCTAssertNil(AgentAvatarStore.scaled(image(8, 1100)), "taller than 1024")
+        let thumbnail = try XCTUnwrap(AgentAvatarStore.scaled(image(1024, 512)))
+        let decoded = try XCTUnwrap(UIImage(data: thumbnail)?.cgImage)
+        XCTAssertEqual(decoded.width, 128)
+        XCTAssertEqual(decoded.height, 64)
+    }
+
+    /// M2: an allowed host that redirects never sends the phone to the redirect's host.
+    func testARedirectOffTheTopicsHostIsNotFollowed() {
+        RedirectingProtocol.hosts = []
+        let done = expectation(description: "loaded")
+        store(RedirectingProtocol.self).load("https://ntfy.sh/file/a.png") { data in
+            XCTAssertNil(data)
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+        XCTAssertEqual(RedirectingProtocol.hosts, ["ntfy.sh"], "tracker.example never asked")
+    }
+
+    /// M2: a failed picture is not fetched again on the next delivery or row draw.
+    func testAFailedAvatarIsNotAskedForAgainSoon() {
+        CountingProtocol.count = 0
+        let avatars = store(CountingProtocol.self)
+        for _ in 0..<2 {
+            let done = expectation(description: "loaded")
+            avatars.load("https://ntfy.sh/file/broken.png") { _ in done.fulfill() }
+            wait(for: [done], timeout: 5)
+        }
+        XCTAssertEqual(CountingProtocol.count, 1)
+    }
+
+    /// M2: the avatar's time is inside the extension's budget; a reconciled delivery, which has
+    /// spent a second poll, makes no request.
+    func testTheAvatarFitsTheExtensionBudget() {
+        XCTAssertEqual(AgentAvatarStore.timeout, NotificationServiceTiming.avatarTimeout)
+        XCTAssertGreaterThanOrEqual(NotificationServiceTiming.worstCaseDuration,
+                                    NotificationServiceTiming.pollTimeout + NotificationServiceTiming.categoryRegistrationTimeout
+                                    + NotificationServiceTiming.attachmentTimeout + NotificationServiceTiming.avatarTimeout)
+        XCTAssertLessThanOrEqual(NotificationServiceTiming.worstCaseDuration, NotificationServiceTiming.processingBudget)
+        CountingProtocol.count = 0
+        let done = expectation(description: "cache only")
+        let message = Message(id: "m1", time: 1, event: "message", topic: "deploys", tags: ["agent", "@Claude"],
+                              icon: "https://ntfy.sh/file/a.png")
+        store(CountingProtocol.self).avatar(for: message, baseUrl: "https://ntfy.sh", network: false) { data in
+            XCTAssertNil(data)
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 2)
+        XCTAssertEqual(CountingProtocol.count, 0)
+    }
+
+    /// M3: the donated interaction never holds the message text, and a title iOS replaces with the
+    /// agent's name moves to the subtitle.
+    func testTheDonationHasNoTextAndTheQuestionTitleSurvives() {
+        XCTAssertNil(AgentIdentity.messageIntent(body: nil, name: "Claude", avatar: nil, conversation: "c").content)
+        let mine = UNMutableNotificationContent()
+        mine.title = "Deploy PR #482?"
+        mine.body = "CI passed."
+        let renamed = UNMutableNotificationContent()
+        renamed.title = "Claude"
+        renamed.body = "CI passed."
+        XCTAssertEqual(AgentIdentity.keepingDecisions(of: mine, in: renamed).subtitle, "Deploy PR #482?")
+        XCTAssertEqual(AgentIdentity.keepingDecisions(of: mine, in: mine).subtitle, "", "control: title kept, nothing moved")
+    }
+
+    /// MINOR 5: only a tag that names an agent is hidden; other `@` tags stay visible as before.
+    func testOnlyANamingTagIsHidden() {
+        XCTAssertTrue(ProtocolTag.isHidden("@Claude"))
+        XCTAssertFalse(ProtocolTag.isHidden("@Büro"))
+        XCTAssertFalse(ProtocolTag.isHidden("@" + String(repeating: "a", count: 33)))
+    }
+}
+
+private final class RedirectingProtocol: URLProtocol {
+    static var hosts: [String] = []
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let url = request.url!
+        Self.hosts.append(url.host ?? "")
+        if url.host == "ntfy.sh" {
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
+                                           headerFields: ["Location": "https://tracker.example/a.png"])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: URL(string: "https://tracker.example/a.png")!),
+                                redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        } else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+        }
+    }
+    override func stopLoading() {}
 }
 
 private final class CountingProtocol: URLProtocol {

@@ -270,6 +270,50 @@ final class AgentProtocolV2Tests: XCTestCase {
         XCTAssertFalse(WaitingRule.isWaiting(actions: actions, time: asked, entry: nil, tags: ["agent"],
                                              now: Date(timeIntervalSince1970: TimeInterval(exp))))
     }
+
+    // MARK: fix round (REVIEW-app-independent MINOR 1, 2, 4; interop)
+
+    /// MINOR 2: a picked date and time goes out on the minute.
+    func testDatetimeAnswersAreWholeMinutes() {
+        let la = TimeZone(identifier: "America/Los_Angeles")!
+        let picked = Date(timeIntervalSince1970: 1_794_816_047) // 2026-11-16T00:00:47-08:00
+        XCTAssertEqual(AskDates.wire(picked, mode: .datetime, timeZone: la), "2026-11-16T00:00:00-08:00")
+    }
+
+    /// MINOR 1: a date row nobody picked sends nothing, so a required one keeps Send off; Choose
+    /// opens on now, inside the schema's range.
+    func testADateNobodyPickedIsNotSent() {
+        let utc = TimeZone(identifier: "UTC")!
+        let spec = AskSchema.DateSpec(mode: .date, min: "2026-12-01", max: nil)
+        let fields = [AskSchema.Field(key: "when", label: "When", optional: false, input: .date(spec))]
+        let empty = AskForm.answer(fields: fields, texts: [:], dates: [:], picks: [:], timeZone: utc)
+        XCTAssertTrue(empty.isEmpty)
+        XCTAssertNil(AskSchema.validated(.form(empty), input: .form(fields)), "Send stays off")
+        let start = AskDates.initial(spec, now: Date(timeIntervalSince1970: 1_794_816_047), timeZone: utc)
+        let picked = AskForm.answer(fields: fields, texts: [:], dates: ["when": start], picks: [:], timeZone: utc)
+        XCTAssertEqual(picked["when"], .date("2026-12-01"), "now moved up to the minimum")
+        XCTAssertNotNil(AskSchema.validated(.form(picked), input: .form(fields)))
+    }
+
+    /// MINOR 4: a range that allows negatives gets a keyboard with a minus key.
+    func testNegativeRangesGetAMinusKey() {
+        XCTAssertEqual(AskNumbers.keyboard(for: .init(min: 0, max: 10, step: 1, unit: nil)), .decimalPad)
+        XCTAssertEqual(AskNumbers.keyboard(for: .init(min: -5, max: 10, step: 1, unit: nil)), .numbersAndPunctuation)
+        XCTAssertEqual(AskNumbers.keyboard(for: .init(min: nil, max: 10, step: 1, unit: nil)), .numbersAndPunctuation)
+    }
+
+    /// Interop: an encrypted payload sealed again keeps the action keys and types this build
+    /// doesn't know (`scripts/e2e-interop`, "swift raw actions survive").
+    func testAResealedPayloadKeepsActionsItDoesNotKnow() throws {
+        let sent = #"{"message":"schema","actions":[{"action":"view","label":"Answer","url":"https://ntf-ai.app/docs/agents#ask-v2=e30","future":true},{"action":"broadcast","label":"Future","extras":{"x":"y"}}]}"#
+        let payload = try JSONDecoder().decode(EncryptedPayload.self, from: Data(sent.utf8))
+        let again = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
+        let expected = try JSONSerialization.jsonObject(with: Data(sent.utf8)) as? [String: Any]
+        XCTAssertEqual(again as NSDictionary?, expected as NSDictionary?)
+        let typed = try JSONSerialization.jsonObject(with: JSONEncoder().encode(EncryptedPayload(message: "m", actions: [
+            .init(action: "view", label: "Open", url: "https://example.com")]))) as? [String: Any]
+        XCTAssertEqual((typed?["actions"] as? [[String: Any]])?.first?["label"] as? String, "Open", "control: typed actions still encode")
+    }
 }
 
 /// Reminders, withdraw and the interruption table (SPEC 7), through the store as the app and the
@@ -418,5 +462,33 @@ final class AgentReminderTests: XCTestCase {
         save(note)
         save(Message(id: "d2", time: Int64(clock.timeIntervalSince1970 + 60), event: "message_delete", topic: "home", sequenceID: "note"))
         XCTAssertEqual(rows.compactMap(\.id), ["q1"])
+    }
+
+    /// MINOR 8: an agent that acked the answer and then deleted the question keeps its ack.
+    func testADeleteAfterAnAckKeepsTheAck() {
+        save(question("q1"))
+        let key = AckLog.key(baseUrl: "https://agents.example", topic: "home", sequence: "door")
+        store.ackLog.save(AgentAck.Record(id: "a1", time: Int64(clock.timeIntervalSince1970 + 30), note: "Deploying",
+                                          version: "q1"), forKey: key)
+        save(Message(id: "d1", time: Int64(clock.timeIntervalSince1970 + 60), event: "message_delete", topic: "home",
+                     sequenceID: "door"))
+        let record = store.ackLog.record(forKey: key, version: "q1")
+        XCTAssertEqual(record?.note, "Deploying")
+        XCTAssertNil(record?.withdrawn)
+    }
+
+    /// MINOR 3: a card or page left open past the deadline sends nothing when tapped.
+    @MainActor
+    func testAnAnswerPastTheDeadlineIsNotSent() throws {
+        let past = Message(id: "q9", time: Int64(clock.timeIntervalSince1970), event: "message", topic: "home",
+                           message: "Lock the door?", priority: 4, tags: ["agent"], actions: [ask(exp: 1_700_000_000)],
+                           sequenceID: "late")
+        save(past)
+        let row = try XCTUnwrap(rows.first { $0.id == "q9" })
+        XCTAssertNotNil(row.subscription)
+        let key = try XCTUnwrap(AnswerKey(notification: row))
+        let log = AnswerLog(defaults: defaults())
+        AgentReply.sendAnswer("y", summary: "Yes", to: row, store: store, log: log)
+        XCTAssertFalse(log.isSending(key), "expired: nothing published")
     }
 }

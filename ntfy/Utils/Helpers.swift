@@ -136,7 +136,8 @@ enum ProtocolTag {
     static func isAnswer(_ tag: String) -> Bool { tag.lowercased() == answer }
 
     /// `@name` on an agent's message names the agent (SPEC 6); shown as the sender, not a tag.
-    static func isIdentity(_ tag: String) -> Bool { tag.hasPrefix("@") && tag.count > 1 }
+    /// Only a tag that names an agent is hidden; any other `@` tag stays a chip, as before 1.27.
+    static func isIdentity(_ tag: String) -> Bool { AgentIdentity.name(tags: [tag]) != nil }
 
     static func isHidden(_ tag: String) -> Bool {
         isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) || isAnswer(tag) || isIdentity(tag)
