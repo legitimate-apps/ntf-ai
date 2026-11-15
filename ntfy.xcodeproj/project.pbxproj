@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C9AF09BEA63A58020F979AD7 /* AgentIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */; };
+		69C272C9F3348DE82915AA76 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
+		9837B0C6F985C87BF862DDF0 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
+		ABE6FD82D7DF616D0C7B0BB7 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
 		0483670A7522FE027A59AB14 /* ask-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = 31A9C5CC7E5E274E066736A1 /* ask-v2.json */; };
 		82980DC8217B157C34E5F32B /* AgentProtocolV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */; };
 		8D6E0DA1F5876552C57951A2 /* AskAnswerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481E07258AA9960F8391F034 /* AskAnswerView.swift */; };
@@ -271,6 +275,7 @@
 		557DE638A451FB775522B9EA /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
 		5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsPassthroughTests.swift; sourceTree = "<group>"; };
 		0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProtocolV2Tests.swift; sourceTree = "<group>"; };
+		D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIdentityTests.swift; sourceTree = "<group>"; };
 		85F108AFD59072B706FA5EBC /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		CAC50D82C4857D122D28E0A2 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		52B10557119319C2D4DBB85D /* ConnectAgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentView.swift; sourceTree = "<group>"; };
@@ -373,6 +378,7 @@
 		9474F20E283326C500CDE4DD /* ApiService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ApiService.swift; sourceTree = "<group>"; };
 		9474F211283327C200CDE4DD /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
 		936CF9D4D5AD3E4270198572 /* AskSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskSchema.swift; sourceTree = "<group>"; };
+		84B75536984D56EED18624C9 /* AgentIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIdentity.swift; sourceTree = "<group>"; };
 		9474F216283531A200CDE4DD /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		94867142283EC9950093C7A4 /* Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions.swift; sourceTree = "<group>"; };
 		948671462841B0B20093C7A4 /* NotificationContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContent.swift; sourceTree = "<group>"; };
@@ -675,6 +681,7 @@
 				94CD1969283E666900973B93 /* EmojiManager.swift */,
 				9474F211283327C200CDE4DD /* Helpers.swift */,
 				936CF9D4D5AD3E4270198572 /* AskSchema.swift */,
+				84B75536984D56EED18624C9 /* AgentIdentity.swift */,
 				29EE00032FD0000100F927E4 /* TopicEncryptionSnippets.swift */,
 				29EE00022FD0000100F927E4 /* TopicEncryption+Message.swift */,
 				29EE00012FD0000100F927E4 /* TopicEncryption.swift */,
@@ -739,6 +746,7 @@
 				557DE638A451FB775522B9EA /* InboxTests.swift */,
 				5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */,
 				0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */,
+				D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */,
 				CE0D7AE636FF4807D4E3659F,
 				D55080135EC8D994F3DC44DB,
 				A12940000000000000000002,
@@ -991,6 +999,7 @@
 				9474F1F92830835400CDE4DD /* Store.swift in Sources */,
 				9474F212283327C200CDE4DD /* Helpers.swift in Sources */,
 				A4096AA444479F6F9B5C5135 /* AskSchema.swift in Sources */,
+				9837B0C6F985C87BF862DDF0 /* AgentIdentity.swift in Sources */,
 				9474F217283531A300CDE4DD /* Log.swift in Sources */,
 				94A3F7C8283734D900C48E79 /* SubscriptionManager.swift in Sources */,
 				123B00000000000000000001 /* ManagedConfiguration.swift in Sources */,
@@ -1067,6 +1076,7 @@
 				94E9196C28353E0100F30170 /* Log.swift in Sources */,
 				9474F2152834758700CDE4DD /* Helpers.swift in Sources */,
 				615784B5D7FDA3506375F1EC /* AskSchema.swift in Sources */,
+				ABE6FD82D7DF616D0C7B0BB7 /* AgentIdentity.swift in Sources */,
 				9474F1E7282F3FFD00CDE4DD /* NotificationService.swift in Sources */,
 				94CD196B283E666900973B93 /* EmojiManager.swift in Sources */,
 				94867144283ECD370093C7A4 /* Actions.swift in Sources */,
@@ -1104,6 +1114,7 @@
 				A97BAE12493648922B0CD2EF /* Log.swift in Sources */,
 				611C360F3F57F1FDC1879E72 /* Helpers.swift in Sources */,
 				43173337E5C7F4D96B87A4D4 /* AskSchema.swift in Sources */,
+				69C272C9F3348DE82915AA76 /* AgentIdentity.swift in Sources */,
 				940A93BDA7518E4B711C491E /* EmojiManager.swift in Sources */,
 				C2DFD2E2D88A2838501DCB4E /* Actions.swift in Sources */,
 				7FDD7790B022A662AF22C15B /* ServerCapabilities.swift in Sources */,
@@ -1154,6 +1165,7 @@
 				10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */,
 				EB219A86833F93373EAE7682 /* ActionsPassthroughTests.swift in Sources */,
 				82980DC8217B157C34E5F32B /* AgentProtocolV2Tests.swift in Sources */,
+				C9AF09BEA63A58020F979AD7 /* AgentIdentityTests.swift in Sources */,
 				A12300000000000000000001 /* BackgroundHTTPActionTests.swift in Sources */,
 				DDDFAC17B65143878A1319E9 /* FcmTeardownLedgerTests.swift in Sources */,
 				BA1180000000000000000012 /* ServerContractTests.swift in Sources */,

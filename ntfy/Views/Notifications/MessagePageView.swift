@@ -124,6 +124,14 @@ struct MessagePageView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if let name = notification.agentName {
+                HStack(spacing: 8) {
+                    AgentAvatar(notification: notification, name: name, size: 28)
+                    Text(name).font(.subheadline.weight(.semibold)).foregroundColor(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("agent-name")
+            }
             MessageTitleLine(notification: notification, font: .title3.weight(.semibold), lineLimit: nil)
                 .accessibilityAddTraits(.isHeader)
             let tags = notification.nonEmojiTags()

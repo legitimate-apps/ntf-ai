@@ -140,6 +140,7 @@ extension UNMutableNotificationContent {
         // Group by topic, and only elevate priority 5 alerts to critical when the user opted in
         // and iOS has granted critical alert permission.
         self.threadIdentifier = topicUrl(baseUrl: baseUrl, topic: message.topic)
+        applyAgentThread(message: message, baseUrl: baseUrl)
         
         configureInterruption(message: message, soundName: soundName)
 

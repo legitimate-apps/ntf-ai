@@ -1060,8 +1060,12 @@ struct MessageCard: View {
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             if showsTopic, let subscription = notification.subscription {
                 HStack(spacing: 8) {
-                    TopicAvatar(name: subscription.shortDisplayName(), iconUrl: notification.iconUrl(), size: 24)
-                    Text(subscription.shortDisplayName())
+                    if let agent = notification.agentName {
+                        AgentAvatar(notification: notification, name: agent, size: 24)
+                    } else {
+                        TopicAvatar(name: subscription.shortDisplayName(), iconUrl: notification.iconUrl(), size: 24)
+                    }
+                    Text(notification.agentName.map { "\($0) · \(subscription.shortDisplayName())" } ?? subscription.shortDisplayName())
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -1192,8 +1196,12 @@ struct WaitingRow: View {
         let display = notification.display
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             HStack(spacing: 8) {
-                let name = notification.subscription?.shortDisplayName() ?? ""
-                TopicAvatar(name: name, iconUrl: notification.iconUrl(), size: 24)
+                let name = notification.agentName ?? notification.subscription?.shortDisplayName() ?? ""
+                if let agent = notification.agentName {
+                    AgentAvatar(notification: notification, name: agent, size: 24)
+                } else {
+                    TopicAvatar(name: name, iconUrl: notification.iconUrl(), size: 24)
+                }
                 Text(name).font(.subheadline.weight(.semibold)).foregroundColor(.secondary).lineLimit(1)
                 Spacer(minLength: 8)
                 Text(WaitedTime.text(since: notification.date(), now: now))

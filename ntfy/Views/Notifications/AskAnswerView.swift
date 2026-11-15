@@ -17,6 +17,9 @@ extension Notification {
         return AskSchema.visibleActions(actions, carrier: carrier, sequence: key.sequence,
                                         topicURL: topicUrl(baseUrl: subscription.baseUrl ?? "", topic: subscription.topic ?? ""))
     }
+
+    /// The agent named by an `@name` tag (SPEC 6).
+    var agentName: String? { AgentIdentity.name(tags: parseAllTags(tags)) }
 }
 
 /// "Expires in 1h 20m", and whether it has.
@@ -57,6 +60,47 @@ struct AskStatusLine: View {
                     .accessibilityIdentifier("ask-expires")
             }
         }
+    }
+}
+
+/// The agent's picture where policy allows it, else its initial on emerald (SPEC 6).
+struct AgentAvatar: View {
+    let name: String
+    let icon: String?
+    let baseUrl: String
+    let encrypted: Bool
+    var size: CGFloat = 24
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            Circle().fill(InboxColor.fill)
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Text(AgentIdentity.monogram(name))
+                    .font(size <= 28 ? .caption.weight(.bold) : .title3.weight(.bold))
+                    .foregroundColor(InboxColor.onFill)
+                    .minimumScaleFactor(0.5)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .accessibilityHidden(true)
+        .onAppear {
+            guard image == nil else { return }
+            AgentAvatarStore.shared.avatar(icon: icon, baseUrl: baseUrl, encrypted: encrypted) { data in
+                guard let data, let loaded = UIImage(data: data) else { return }
+                DispatchQueue.main.async { image = loaded }
+            }
+        }
+    }
+}
+
+extension AgentAvatar {
+    init(notification: Notification, name: String, size: CGFloat = 24) {
+        self.init(name: name, icon: notification.icon, baseUrl: notification.subscription?.baseUrl ?? "",
+                  encrypted: notification.encryptionState == .decrypted, size: size)
     }
 }
 
