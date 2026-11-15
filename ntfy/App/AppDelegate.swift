@@ -71,6 +71,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         if NSClassFromString("XCTestCase") != nil {
             return true
         }
+        // Rows an earlier unsubscribe left behind would show as nameless cards; once gone, a no-op.
+        Store.shared.removeOrphanedRows()
 
         QuietTopicAlerts.shared.beginExecution = { cancel, start in
             DispatchQueue.main.async {

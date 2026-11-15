@@ -1,5 +1,6 @@
 import XCTest
 import CoreData
+import SQLite3
 import Combine
 import UserNotifications
 @testable import ntfy
@@ -1001,4 +1002,136 @@ final class RetentionTests: XCTestCase {
         XCTAssertEqual(clears, 0, "remote reconcile controls never echo a server clear")
     }
 
+}
+
+// MARK: Unsubscribe after the extension saved a message (iPad check 49, orphan B1)
+extension RetentionTests {
+    /// The iPad sequence: the app has the topic loaded, the extension saves a question by push, the
+    /// person answers it, the agent acks, and the topic is unsubscribed. The app's copy of the
+    /// topic's to-many relationship predates the push, so a cascade that trusts it misses the row:
+    /// it stays in SQLite pointing at the deleted topic and comes back in Waiting on you with no
+    /// receipts and live Approve/Reject buttons. The app sees the pushed rows through fetches (the
+    /// topic page, the Inbox) before any history merge reaches its copy of the topic; once merged,
+    /// the cascade finds them, so this pins the window between the two.
+    func testUnsubscribeRemovesAQuestionTheExtensionSavedAfterTheAppLoadedTheTopic() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var diskStores: [Store] = []
+        defer { closeDiskStores(diskStores); try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("unsubscribe.sqlite")
+        let base = "https://orphan.example", topic = "ipad49"
+        let now = Int64(Date().timeIntervalSince1970)
+        let app = Store(inMemory: true, storeURL: url)
+        diskStores.append(app)
+        app.saveNotificationRetention(.forever)
+        let sub = app.saveSubscription(baseUrl: base, topic: topic)
+        // An earlier exchange the app saved itself, and the topic's rows read through the
+        // relationship (the summary, unread count or page did this on the device).
+        _ = app.save(notificationsFromMessages: [Message(id: "t3", time: now - 120, event: "message", topic: topic,
+                                                         message: "Typed reply 49 OK")], withSubscription: sub)
+        XCTAssertEqual(sub.notifications?.count, 1)
+
+        // The extension saves the question from its push, then the agent's ack on the same sequence.
+        let nse = Store(inMemory: true, storeURL: url)
+        diskStores.append(nse)
+        nse.context.transactionAuthor = "ntfy.appex"
+        let approve = Action(id: "a1", action: "http", label: "Approve", url: "\(base)/\(topic)-answers",
+                             method: "POST", headers: nil, body: "reply:b1:approve", clear: true)
+        var question = Message(id: "vmHZuWJTMgcx", time: now - 60, event: "message", topic: topic,
+                               message: "Check 49 B1: approve, receipt?", actions: [approve], sequenceID: "b1")
+        question.title = "Your agent needs an answer"
+        question.tags = ["agent"]
+        XCTAssertNotNil(nse.ingest(pushedMessage: question, baseUrl: base, topic: topic))
+        var ack = Message(id: "aEMS2hFcz7k1", time: now - 50, event: "message", topic: topic,
+                          message: "✓ Got: Approve", sequenceID: "b1")
+        ack.tags = ["agent", "ack"]
+        _ = nse.ingest(pushedMessage: ack, baseUrl: base, topic: topic)
+        let log = AnswerLog(defaults: UserDefaults(suiteName: "orphan-\(UUID().uuidString)")!)
+        let row = try XCTUnwrap(app.context.fetch(ntfy.Notification.fetchRequest()).first { $0.id == question.id })
+        log.record(try XCTUnwrap(AnswerKey(notification: row)),
+                   AnswerEntry(kind: .tap, label: "Approve", text: nil, at: Date(), ok: true))
+        XCTAssertTrue(app.waitingNotifications(log: log).isEmpty, "answered, so not waiting before the unsubscribe")
+
+        XCTAssertTrue(app.delete(subscription: sub))
+
+        let left = try app.context.fetch(ntfy.Notification.fetchRequest()).compactMap(\.id)
+        XCTAssertEqual(left, [], "every row of the unsubscribed topic is gone, including the one the extension saved")
+        XCTAssertEqual(app.waitingNotifications(log: log).compactMap(\.id), [],
+                       "an unsubscribed topic's question never comes back asking for an answer")
+        // A fresh process (the app relaunched) reads the same file.
+        let relaunched = Store(inMemory: true, storeURL: url)
+        diskStores.append(relaunched)
+        XCTAssertEqual(try relaunched.context.fetch(ntfy.Notification.fetchRequest()).compactMap(\.id), [])
+        XCTAssertEqual(relaunched.waitingNotifications(log: log).compactMap(\.id), [],
+                       "nor after a relaunch")
+    }
+
+    /// Rows an unsubscribe before the fix left behind: their subscription row is gone, so their
+    /// foreign key points at nothing. Deleting the topic's row in SQLite makes the same state.
+    private func orphanFixture(_ url: URL, stores: inout [Store]) throws -> Message {
+        let base = "https://orphan.example"
+        let now = Int64(Date().timeIntervalSince1970)
+        let app = Store(inMemory: true, storeURL: url)
+        stores.append(app)
+        app.saveNotificationRetention(.forever)
+        let keep = app.saveSubscription(baseUrl: base, topic: "keep")
+        let gone = app.saveSubscription(baseUrl: base, topic: "gone")
+        _ = app.save(notificationsFromMessages: [Message(id: "k1", time: now - 30, event: "message", topic: "keep", message: "kept")],
+                     withSubscription: keep)
+        let approve = Action(id: "a1", action: "http", label: "Approve", url: "\(base)/gone-answers",
+                             method: "POST", headers: nil, body: "reply:b1:approve", clear: true)
+        var question = Message(id: "q1", time: now - 60, event: "message", topic: "gone",
+                               message: "Check 49 B1: approve, receipt?", actions: [approve], sequenceID: "b1")
+        question.tags = ["agent"]
+        _ = app.save(notificationsFromMessages: [question], withSubscription: gone)
+        let stray = ntfy.Notification(context: app.context)
+        stray.id = "no-topic"; stray.time = now; stray.message = "no subscription at all"
+        try app.context.save()
+        // Below Core Data, so no delete rule runs: a batch delete would cascade.
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(db, "DELETE FROM ZSUBSCRIPTION WHERE ZTOPIC = 'gone'", nil, nil, nil), SQLITE_OK)
+        XCTAssertEqual(sqlite3_changes(db), 1, "premise: the topic's row is gone")
+        sqlite3_close(db)
+        return question
+    }
+
+    func testLaunchRepairRemovesRowsWhoseTopicNoLongerExists() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var diskStores: [Store] = []
+        defer { closeDiskStores(diskStores); try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("repair.sqlite")
+        _ = try orphanFixture(url, stores: &diskStores)
+        let launched = Store(inMemory: true, storeURL: url)
+        diskStores.append(launched)
+        XCTAssertEqual(Set(try launched.context.fetch(ntfy.Notification.fetchRequest()).compactMap(\.id)), ["k1", "q1", "no-topic"], "premise")
+
+        XCTAssertEqual(launched.removeOrphanedRows(), 3, "the question, the row with no topic, and the question's sequence state")
+        XCTAssertEqual(try launched.context.fetch(ntfy.Notification.fetchRequest()).compactMap(\.id), ["k1"])
+        XCTAssertEqual(try launched.context.count(for: NSFetchRequest<NSManagedObject>(entityName: "SequenceState")), 1, "the live topic keeps its state")
+        XCTAssertEqual(launched.removeOrphanedRows(), 0, "a second launch finds nothing")
+        let next = Store(inMemory: true, storeURL: url)
+        diskStores.append(next)
+        XCTAssertEqual(try next.context.fetch(ntfy.Notification.fetchRequest()).compactMap(\.id), ["k1"])
+    }
+
+    /// Defence in depth: should an orphan exist again, it never waits and never offers its buttons.
+    func testAnOrphanedQuestionNeverWaitsNorOffersAnswers() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var diskStores: [Store] = []
+        defer { closeDiskStores(diskStores); try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("defence.sqlite")
+        let question = try orphanFixture(url, stores: &diskStores)
+        let launched = Store(inMemory: true, storeURL: url)
+        diskStores.append(launched)
+        let row = try XCTUnwrap(launched.context.fetch(ntfy.Notification.fetchRequest()).first { $0.id == question.id })
+        XCTAssertEqual(row.actionsList().map(\.label), ["Approve"], "premise: the orphan still holds its buttons")
+        XCTAssertNil(AnswerKey(notification: row), "premise: its topic can't be named")
+
+        XCTAssertEqual(row.answerableActions().count, 0, "the page, card and Waiting row offer no Approve/Reject")
+        let log = AnswerLog(defaults: UserDefaults(suiteName: "orphan-\(UUID().uuidString)")!)
+        XCTAssertEqual(launched.waitingNotifications(log: log).compactMap(\.id), [], "an orphan never waits on the person")
+    }
 }
