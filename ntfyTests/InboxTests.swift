@@ -621,6 +621,36 @@ final class AgentAckTests: XCTestCase {
         XCTAssertNotNil(try receipt(shows: true).agent)
     }
 
+    // VERDICT-ack-48 M1: green means the agent got it; your own answer wears the up-arrow.
+    func testYourAnswerNeverWearsTheAgentsCheck() {
+        XCTAssertEqual(AnswerReceiptView.answeredIcon, "arrow.up.circle.fill")
+        XCTAssertNotEqual(AnswerReceiptView.answeredIcon, "checkmark.circle.fill")
+    }
+
+    // M2: answered on another device or by a compose reply, the page still names the answer.
+    func testAnAckNamingTheAnswerGivesThePageAFirstStep() throws {
+        save(question())
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        XCTAssertEqual(try receipt().namedStep, "Lock")
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-90), ok: true)
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        XCTAssertNil(try receipt().namedStep, "the answer here is the first step")
+    }
+
+    // M3: with confirmations off, a question done elsewhere says Closed, never nothing.
+    func testWithConfirmationsOffAQuestionDoneElsewhereSaysClosed() throws {
+        save(question())
+        XCTAssertFalse(try receipt(shows: false).showsClosed, "an open question isn't closed")
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        let off = try receipt(shows: false)
+        XCTAssertTrue(off.showsClosed)
+        XCTAssertEqual(off.namedAnswer, "Lock", "Closed names the answer")
+        XCTAssertFalse(try receipt(shows: true).showsClosed, "with confirmations on, the timeline says it")
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-90), ok: true)
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        XCTAssertFalse(try receipt(shows: false).showsClosed, "answered here: your own receipt shows instead")
+    }
+
     func testConfirmationsShowByDefault() {
         let defaults = defaults()
         XCTAssertTrue(AgentAck.showsConfirmations(defaults))

@@ -32,7 +32,7 @@ struct SettingsView: View {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
                 }
-                Section(footer: Text(String(localized: "When an agent confirms it got your answer, the question shows a receipt and the agent's note. Confirmations never make a sound. When this is off, they still close the question and show nothing."))) {
+                Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {
                     Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
                         .accessibilityIdentifier("settings-agent-confirmations")
                 }

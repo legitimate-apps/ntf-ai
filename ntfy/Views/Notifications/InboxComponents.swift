@@ -278,6 +278,9 @@ struct AnswerState: Equatable {
 /// After answering: what you told the agent, or that it didn't get it (DECISION change 8: a
 /// failure never shows a check).
 struct AnswerReceiptView: View {
+    /// "You" answered: the page's up-arrow, never the agent's green check (VERDICT-ack-48 M1).
+    static let answeredIcon = "arrow.up.circle.fill"
+
     var entry: AnswerEntry? = nil
     var failed = false
 
@@ -294,17 +297,19 @@ struct AnswerReceiptView: View {
             } else if let entry, entry.ok, entry.kind != .dismissed {
                 let time = Notification.shortTime(for: entry.at)
                 Label {
-                    Text(entry.kind == .tap ? String(localized: "You answered \(entry.label) · \(time)")
-                                            : String(localized: "You replied · \(time)"))
-                        .foregroundColor(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        (entry.kind == .tap ? Text("You answered \(Text(entry.label).fontWeight(.semibold)) · \(time)")
+                                            : Text("You replied · \(time)"))
+                            .foregroundColor(.primary)
+                        if let text = entry.text, !text.isEmpty {
+                            Text(text).foregroundColor(.secondary).lineLimit(2)
+                        }
+                    }
                 } icon: {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    Image(systemName: Self.answeredIcon).foregroundColor(InboxColor.ink)
                 }
                 .font(.footnote)
                 .accessibilityIdentifier("answer-receipt")
-                if let text = entry.text, !text.isEmpty {
-                    Text(text).font(.subheadline).foregroundColor(.secondary).lineLimit(2)
-                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -360,31 +365,73 @@ struct AgentReceipt: Equatable {
         }
         return namedAnswer
     }
+
+    /// The page's first step when this device has no answer but the ack names one (M2): it may
+    /// have come from another device or a compose reply, so it never says where.
+    var namedStep: String? { answer == nil ? namedAnswer : nil }
+
+    /// Resolved with nothing else to show (confirmations off, no answer here): the question's own
+    /// state as one quiet "Closed" line, never a dead end (M3).
+    var showsClosed: Bool { resolved && answer == nil && agent == nil }
+}
+
+/// "Closed", or "Closed · <answer>" when the ack named one (M3).
+struct ReceiptClosedLine: View {
+    let receipt: AgentReceipt
+    var font: Font = .footnote
+
+    var body: some View {
+        Label {
+            if let named = receipt.namedAnswer {
+                Text("Closed · \(named)")
+            } else {
+                Text("Closed")
+            }
+        } icon: {
+            Image(systemName: "checkmark")
+        }
+        .font(font)
+        .foregroundColor(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("receipt-closed")
+    }
 }
 
 /// The message page's receipt (ACK-SPEC): a two-step timeline under the question. First what you
 /// answered, then that the agent got it, with its note.
 struct AgentReceiptTimeline: View {
+    @Environment(\.sizeCategory) private var sizeCategory
     let receipt: AgentReceipt
+
+    /// At accessibility sizes the time takes its own line, so "·" never wraps alone (S4).
+    private var stacksTime: Bool { sizeCategory.isAccessibilityCategory }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let answer = receipt.answer {
                 let time = Notification.shortTime(for: answer.at)
-                step(icon: "arrow.up.circle.fill", tint: InboxColor.ink,
-                     title: answer.kind == .tap ? String(localized: "You answered \(answer.label) · \(time)")
-                                                : String(localized: "You replied · \(time)"),
+                let label = Text(answer.label).fontWeight(.semibold)
+                let title: Text = answer.kind == .tap
+                    ? (stacksTime ? Text("You answered \(label)") : Text("You answered \(label) · \(time)"))
+                    : (stacksTime ? Text("You replied") : Text("You replied · \(time)"))
+                step(icon: AnswerReceiptView.answeredIcon, tint: InboxColor.ink, title: title, time: stacksTime ? time : nil,
                      detail: answer.kind == .reply ? answer.text : nil, connects: receipt.agent != nil, id: "receipt-you")
+            } else if let named = receipt.namedStep {
+                step(icon: AnswerReceiptView.answeredIcon, tint: InboxColor.ink,
+                     title: Text("Answered \(Text(named).fontWeight(.semibold))"), time: nil,
+                     detail: nil, connects: receipt.agent != nil, id: "receipt-named")
             }
             switch receipt.agent {
             case .got(let at, let note):
+                let time = Notification.shortTime(for: at)
                 step(icon: "checkmark.circle.fill", tint: .green,
-                     title: String(localized: "Agent got it · \(Notification.shortTime(for: at))"),
+                     title: stacksTime ? Text("Agent got it") : Text("Agent got it · \(time)"), time: stacksTime ? time : nil,
                      detail: note, connects: false, id: "receipt-agent")
             case .movedOn(let at):
+                let time = Notification.shortTime(for: at)
                 step(icon: "clock", tint: .secondary,
-                     title: String(localized: "Agent stopped waiting · \(Notification.shortTime(for: at))"),
-                     detail: nil, connects: false, id: "receipt-moved-on", quiet: true)
+                     title: stacksTime ? Text("Agent stopped waiting") : Text("Agent stopped waiting · \(time)"),
+                     time: stacksTime ? time : nil, detail: nil, connects: false, id: "receipt-moved-on", quiet: true)
             case nil:
                 EmptyView()
             }
@@ -392,7 +439,8 @@ struct AgentReceiptTimeline: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func step(icon: String, tint: Color, title: String, detail: String?, connects: Bool, id: String, quiet: Bool = false) -> some View {
+    private func step(icon: String, tint: Color, title: Text, time: String?, detail: String?, connects: Bool, id: String,
+                      quiet: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -404,11 +452,16 @@ struct AgentReceiptTimeline: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                title
                     .font(.subheadline.weight(quiet ? .regular : .medium))
                     .foregroundColor(quiet ? .secondary : .primary)
+                if let time {
+                    Text(time).font(.subheadline).foregroundColor(.secondary)
+                }
                 if let detail, !detail.isEmpty {
-                    Text(detail).font(.subheadline).foregroundColor(.secondary).lineLimit(4)
+                    // The agent's note is its only content, so it reads as primary text (S2); the
+                    // person's own typed reply stays secondary.
+                    Text(detail).font(.subheadline).foregroundColor(id == "receipt-agent" ? .primary : .secondary).lineLimit(4)
                         .accessibilityIdentifier(id == "receipt-agent" ? "receipt-note" : "receipt-text")
                 }
             }
@@ -911,9 +964,9 @@ struct MessageCard: View {
                 AgentReceiptLine(receipt: receipt)
             } else if state.answered {
                 AnswerReceiptView(entry: state.entry)
-            } else if receipt.resolved {
+            } else if receipt.showsClosed {
                 // Confirmations are off: the agent got it, so the question takes no more answers.
-                EmptyView()
+                ReceiptClosedLine(receipt: receipt)
             } else if defersToWaiting && waiting.contains(notification) {
                 Label(String(localized: "Waiting on you"), systemImage: "hand.raised.fill")
                     .font(.footnote.weight(.semibold))
@@ -1002,6 +1055,8 @@ struct WaitingRow: View {
                 AgentReceiptLine(receipt: receipt)
             } else if state.answered {
                 AnswerReceiptView(entry: state.entry)
+            } else if receipt.showsClosed {
+                ReceiptClosedLine(receipt: receipt)
             } else if !receipt.resolved {
                 if state.failed { AnswerReceiptView(failed: true) }
                 ActionBar(items: items, prominentId: items.first { if case .answer = $0 { return true } else { return false } }?.id,

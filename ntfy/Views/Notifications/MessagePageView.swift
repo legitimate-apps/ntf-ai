@@ -22,7 +22,9 @@ struct MessagePageView: View {
     private var display: MessageDisplay { notification.display }
     /// At accessibility sizes a pinned bar would take most of the screen, so the answers follow
     /// the text instead.
-    private var answersInline: Bool { sizeCategory.isAccessibilityCategory }
+    /// Answers pin to the bottom so they stay reachable; a receipt is status, so once the question
+    /// is settled it sits in the flow under the question (VERDICT-ack-48 S1).
+    private var answersInline: Bool { sizeCategory.isAccessibilityCategory || isSettled }
     private var topicName: String { notification.subscription?.shortDisplayName() ?? "" }
 
     var body: some View {
@@ -190,7 +192,7 @@ struct MessagePageView: View {
     private var hasAnswerArea: Bool {
         if isSettled {
             let receipt = receipt
-            return receipt.answer != nil || receipt.agent != nil || !links.isEmpty
+            return receipt.answer != nil || receipt.agent != nil || receipt.showsClosed || !links.isEmpty
         }
         return !items.isEmpty || replyAction != nil || offersAgentReply
     }
@@ -200,7 +202,9 @@ struct MessagePageView: View {
         VStack(spacing: 10) {
             if isSettled {
                 let receipt = receipt
-                if receipt.answer != nil || receipt.agent != nil {
+                if receipt.showsClosed {
+                    ReceiptClosedLine(receipt: receipt, font: .subheadline)
+                } else if receipt.answer != nil || receipt.agent != nil {
                     AgentReceiptTimeline(receipt: receipt)
                 }
                 if !links.isEmpty {
