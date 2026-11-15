@@ -6,14 +6,10 @@ import UniformTypeIdentifiers
 // The parts every message surface shares (DIRECTIONS 1.5): Inbox rows, topic cards, the message
 // page and search results. One family, so the same question reads the same wherever it shows.
 
-/// Yellow is a fill, never text on a light surface (DIRECTIONS 1.1). Text and symbols on it are ink.
+/// Emerald is a fill, never text on a light surface (DIRECTIONS 1.1). Text and symbols on it are ink.
 enum InboxColor {
-    static let fill = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 1, green: 214.0 / 255, blue: 10.0 / 255, alpha: 1)
-            : UIColor(red: 1, green: 204.0 / 255, blue: 0, alpha: 1)
-    })
-    static let onFill = Color.black.opacity(0.88)
+    static let fill = Color("BrandFill")
+    static let onFill = Color("Ink")
     /// Links, the unread dot, "Show more", the waiting mark: the app tint.
     static let ink = Color("AccentColor")
 }

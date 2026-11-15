@@ -10843,3 +10843,62 @@ final class SmallElementsTests: XCTestCase {
         XCTAssertEqual(LicenseTextInsets.insets(width: 440).right, 20)
     }
 }
+
+/// Pins the emerald theme (notes INTERFACE "Look", 2026-11-14) so a revert to the yellow tokens, or
+/// a token that breaks contrast, fails here rather than on a screen nobody captured.
+final class ThemeColorTests: XCTestCase {
+    private func hex(_ name: String, _ style: UIUserInterfaceStyle) -> String {
+        let color = UIColor(named: name)!.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a), name)
+        return String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+    }
+
+    private func luminance(_ hex: String) -> Double {
+        let v = Int(hex, radix: 16)!
+        func lin(_ c: Int) -> Double {
+            let s = Double(c) / 255
+            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * lin(v >> 16 & 0xFF) + 0.7152 * lin(v >> 8 & 0xFF) + 0.0722 * lin(v & 0xFF)
+    }
+
+    private func contrast(_ a: String, _ b: String) -> Double {
+        let (x, y) = (luminance(a), luminance(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    func testThemeTokensAreEmeraldInBothAppearances() {
+        let expected: [String: (light: String, dark: String)] = [
+            "AccentColor": ("047857", "34D399"),
+            "BrandControlFill": ("047857", "047857"),
+            "BrandFill": ("34D399", "34D399"),
+            "Ink": ("08231A", "08231A"),
+            "UnreadBadgeTop": ("3EE0A0", "3EE0A0"),
+            "UnreadBadgeBottom": ("34D399", "34D399"),
+        ]
+        for (name, value) in expected {
+            XCTAssertEqual(hex(name, .light), value.light, "\(name) light")
+            XCTAssertEqual(hex(name, .dark), value.dark, "\(name) dark")
+        }
+    }
+
+    func testThemeTokensMeetContrastOnTheSurfacesTheyUse() {
+        // Accent text and links: on white and the grouped background in light, on the dark surfaces in dark.
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AccentColor", .light), surface), 4.5, "accent on \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AccentColor", .dark), surface), 4.5, "accent on \(surface)")
+        }
+        // Labels on emerald fills (prominent buttons, unread badge) are Ink.
+        for fill in ["BrandFill", "UnreadBadgeTop", "UnreadBadgeBottom"] {
+            for style in [UIUserInterfaceStyle.light, .dark] {
+                XCTAssertGreaterThanOrEqual(contrast(hex("Ink", style), hex(fill, style)), 4.5, "Ink on \(fill)")
+            }
+        }
+        // Swipe actions put a white label on BrandControlFill; toggles need 3:1 against the dark list.
+        XCTAssertGreaterThanOrEqual(contrast("FFFFFF", hex("BrandControlFill", .light)), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(hex("BrandControlFill", .dark), "1C1C1E"), 3.0)
+    }
+}

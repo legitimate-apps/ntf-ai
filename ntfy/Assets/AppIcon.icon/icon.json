@@ -3,8 +3,8 @@
     {
       "value": {
         "linear-gradient": [
-          "srgb:1.00000,0.88235,0.10196,1.00000",
-          "srgb:1.00000,0.70196,0.00000,1.00000"
+          "srgb:0.24314,0.87843,0.62745,1.00000",
+          "srgb:0.05490,0.62353,0.43137,1.00000"
         ],
         "orientation": {
           "start": {
@@ -22,8 +22,8 @@
       "appearance": "dark",
       "value": {
         "linear-gradient": [
-          "srgb:0.16863,0.14902,0.06275,1.00000",
-          "srgb:0.06275,0.05490,0.02353,1.00000"
+          "srgb:0.05882,0.16471,0.12549,1.00000",
+          "srgb:0.02353,0.07059,0.05098,1.00000"
         ],
         "orientation": {
           "start": {
@@ -53,6 +53,12 @@
               "value": {
                 "solid": "srgb:1.00000,0.23137,0.18824,1.00000"
               }
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
             }
           ],
           "glass": true,
@@ -75,38 +81,26 @@
           "fill-specializations": [
             {
               "value": {
-                "solid": "srgb:0.09020,0.07843,0.03922,1.00000"
+                "solid": "srgb:0.05490,0.62353,0.43137,0.70000"
               }
             },
             {
               "appearance": "dark",
               "value": {
-                "solid": "srgb:0.07843,0.07059,0.03922,1.00000"
+                "solid": "srgb:0.02353,0.07059,0.05098,0.80000"
               }
             },
             {
               "appearance": "tinted",
               "value": {
-                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+                "solid": "srgb:0.00000,0.00000,0.00000,0.45000"
               }
             }
           ],
           "glass": true,
-          "image-name": "mark.svg",
-          "name": "mark"
-        }
-      ],
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.5
-      },
-      "translucency": {
-        "enabled": false,
-        "value": 0.5
-      }
-    },
-    {
-      "layers": [
+          "image-name": "ink.svg",
+          "name": "ink"
+        },
         {
           "fill-specializations": [
             {
@@ -117,7 +111,7 @@
             {
               "appearance": "dark",
               "value": {
-                "solid": "srgb:1.00000,0.83922,0.03922,0.92000"
+                "solid": "srgb:0.20392,0.82745,0.60000,0.92000"
               }
             },
             {
@@ -128,8 +122,8 @@
             }
           ],
           "glass": true,
-          "image-name": "bubble.svg",
-          "name": "bubble"
+          "image-name": "glass.svg",
+          "name": "glass"
         }
       ],
       "shadow": {

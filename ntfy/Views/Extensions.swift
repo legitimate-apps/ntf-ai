@@ -1,13 +1,13 @@
 import SwiftUI
 import UIKit
 
-// The same adaptive accent used by SwiftUI links: Amber on light surfaces, Sun on dark.
-// Keep a matching dynamic fallback for contexts that do not load the asset catalog.
+// The same adaptive accent used by SwiftUI links: Forest (#047857) on light surfaces, Emerald
+// (#34D399) on dark. Keep a matching dynamic fallback for contexts that do not load the asset catalog.
 private let messageLinkColor = UIColor(named: "AccentColor") ?? UIColor { traits in
     if traits.userInterfaceStyle == .dark {
-        return UIColor(red: 1, green: 214.0 / 255, blue: 10.0 / 255, alpha: 1)
+        return UIColor(red: 0x34 / 255.0, green: 0xD3 / 255.0, blue: 0x99 / 255.0, alpha: 1)
     }
-    return UIColor(red: 138.0 / 255, green: 106.0 / 255, blue: 0, alpha: 1)
+    return UIColor(red: 0x04 / 255.0, green: 0x78 / 255.0, blue: 0x57 / 255.0, alpha: 1)
 }
 
 // MARK: Extensions

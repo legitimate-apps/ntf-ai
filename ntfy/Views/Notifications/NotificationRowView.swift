@@ -964,8 +964,8 @@ struct MessageActionButtons: View {
                 .controlSize(.small)
                 .buttonBorderShape(.capsule)
                 .tint(Color("BrandFill"))
-                // Ink on the pale tinted fill in light mode, the brand yellow in dark: both
-                // pass contrast, where yellow text on white would not.
+                // Ink on the pale tinted fill in light mode, the brand emerald in dark: both
+                // pass contrast, where emerald text on white would not.
                 .foregroundColor(colorScheme == .dark ? Color("BrandFill") : Color("Ink"))
                 .lineLimit(1)
         }

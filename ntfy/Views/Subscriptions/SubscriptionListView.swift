@@ -443,7 +443,7 @@ private struct SeparatorUnderText: ViewModifier {
 struct UnreadBadge: View {
     let count: Int
 
-    // Ink count text exceeds 10:1 at both yellow gradient endpoints in either appearance.
+    // Ink count text is 9.78:1 on the top and 8.63:1 on the bottom stop, in either appearance.
     private static let top = Color("UnreadBadgeTop")
     private static let bottom = Color("UnreadBadgeBottom")
 
@@ -470,7 +470,7 @@ struct UnreadBadge: View {
 }
 
 /// Marks a pinned topic ahead of its name: a tilted pin in a warm gradient, the colour iOS uses for
-/// pins in Messages and Mail, so it reads as "pinned" at a glance alongside the yellow
+/// pins in Messages and Mail, so it reads as "pinned" at a glance alongside the emerald
 /// unread badge. Sized from the headline font so it scales with Dynamic Type alongside the name.
 struct PinBadge: View {
     static let tint = Color(red: 0.96, green: 0.55, blue: 0.13)
