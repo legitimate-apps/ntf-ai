@@ -11,6 +11,13 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.26.0", bullets: [
+            String(localized: "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity."),
+            String(localized: "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it."),
+            String(localized: "Connect an agent shows how to link an agent or a script to a topic."),
+            String(localized: "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu."),
+            String(localized: "A new emerald look and app icon.")
+        ]),
         ReleaseNotes(version: "1.25.0", bullets: [
             String(localized: "NTF-AI. Same app, same topics, same settings.")
         ]),

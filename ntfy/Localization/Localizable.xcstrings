@@ -29690,7 +29690,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Thema hinzufügen"
+            "value": "Neues Thema"
           }
         },
         "es": {
@@ -29714,7 +29714,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onderwerp toevoegen"
+            "value": "Nieuw onderwerp"
           }
         },
         "fr": {
@@ -32302,6 +32302,241 @@
           "stringUnit": {
             "state": "translated",
             "value": "Affiche un accusé de réception et la note de l'agent quand un agent confirme votre réponse. Les confirmations sont toujours silencieuses."
+          }
+        }
+      }
+    },
+    "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Eingang zeigt die Fragen deiner Agenten unter „Wartet auf dich“ und alles andere unter „Aktivität“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibidos muestra las preguntas de tus agentes en «Esperando tu respuesta» y todo lo demás en «Actividad»."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In arrivo mostra le domande dei tuoi agenti in «In attesa di una tua risposta» e tutto il resto in «Attività»."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrane pokazuje pytania od agentów w sekcji „Czeka na twoją odpowiedź”, a resztę w sekcji „Aktywność”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox toont de vragen van je agents onder ‘Wacht op jou’ en al het andere onder ‘Activiteit’."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réception affiche les questions de vos agents sous « En attente de votre réponse » et tout le reste sous « Activité »."
+          }
+        }
+      }
+    },
+    "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antworte einem Agenten direkt in der Mitteilung, per Taste oder getippter Antwort. Ein blauer Haken zeigt, dass er sie erhalten hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responde a un agente desde la notificación con un botón o escribiendo. Una marca azul indica que el agente la recibió."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rispondi a un agente dalla notifica con un pulsante o scrivendo. Una spunta blu indica che l'agente l'ha ricevuta."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiadaj agentowi prosto z powiadomienia, przyciskiem lub wpisanym tekstem. Niebieski znacznik oznacza, że agent ją otrzymał."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beantwoord een agent vanuit de melding met een knop of een getypt antwoord. Een blauw vinkje laat zien dat de agent het heeft ontvangen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez à un agent depuis la notification, avec un bouton ou une réponse saisie. Une coche bleue indique que l’agent l’a reçue."
+          }
+        }
+      }
+    },
+    "Connect an agent shows how to link an agent or a script to a topic.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect an agent shows how to link an agent or a script to a topic."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Agenten verbinden“ zeigt, wie du einen Agenten oder ein Skript mit einem Thema verbindest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Conectar un agente» explica cómo conectar un agente o un script a un tópico."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Collega un agente» spiega come collegare un agente o uno script a un argomento."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Połącz agenta” pokazuje, jak połączyć agenta lub skrypt z tematem."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘Agent koppelen’ laat zien hoe je een agent of script aan een onderwerp koppelt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Connecter un agent » explique comment relier un agent ou un script à un sujet."
+          }
+        }
+      }
+    },
+    "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kompaktere Nachrichtenlisten: Lange Nachrichten werden auf sechs Zeilen gekürzt, Aktionen findest du im Kontextmenü."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listas de mensajes más compactas: los mensajes largos se pliegan a seis líneas y las acciones están en el menú al mantener pulsado."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elenchi di messaggi più compatti: i messaggi lunghi si riducono a sei righe e le azioni sono nel menu a pressione prolungata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gęstsze listy wiadomości: długie wiadomości zwijają się do sześciu wierszy, a akcje są w menu po przytrzymaniu."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compactere berichtenlijsten: lange berichten worden ingekort tot zes regels en acties staan in het menu bij lang drukken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listes de messages plus denses : les longs messages se replient sur six lignes et les actions sont dans le menu par appui long."
+          }
+        }
+      }
+    },
+    "A new emerald look and app icon.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new emerald look and app icon."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein neuer smaragdgrüner Look und ein neues App-Symbol."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nuevo aspecto esmeralda y un nuevo icono."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nuovo aspetto smeraldo e una nuova icona."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowy szmaragdowy wygląd i nowa ikona."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een nieuwe smaragdgroene stijl en een nieuw app-icoon."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nouveau look émeraude et une nouvelle icône."
           }
         }
       }

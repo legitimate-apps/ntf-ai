@@ -456,6 +456,27 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testVersion126ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.26.0" })
+        XCTAssertEqual(release.bullets.count, 5)
+        let expected: [String: [String]] = [
+            "en": ["Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity.", "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it.", "Connect an agent shows how to link an agent or a script to a topic.", "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu.", "A new emerald look and app icon."],
+            "de": ["Der Eingang zeigt die Fragen deiner Agenten unter „Wartet auf dich“ und alles andere unter „Aktivität“.", "Antworte einem Agenten direkt in der Mitteilung, per Taste oder getippter Antwort. Ein blauer Haken zeigt, dass er sie erhalten hat.", "„Agenten verbinden“ zeigt, wie du einen Agenten oder ein Skript mit einem Thema verbindest.", "Kompaktere Nachrichtenlisten: Lange Nachrichten werden auf sechs Zeilen gekürzt, Aktionen findest du im Kontextmenü.", "Ein neuer smaragdgrüner Look und ein neues App-Symbol."],
+            "es": ["Recibidos muestra las preguntas de tus agentes en «Esperando tu respuesta» y todo lo demás en «Actividad».", "Responde a un agente desde la notificación con un botón o escribiendo. Una marca azul indica que el agente la recibió.", "«Conectar un agente» explica cómo conectar un agente o un script a un tópico.", "Listas de mensajes más compactas: los mensajes largos se pliegan a seis líneas y las acciones están en el menú al mantener pulsado.", "Un nuevo aspecto esmeralda y un nuevo icono."],
+            "it": ["In arrivo mostra le domande dei tuoi agenti in «In attesa di una tua risposta» e tutto il resto in «Attività».", "Rispondi a un agente dalla notifica con un pulsante o scrivendo. Una spunta blu indica che l'agente l'ha ricevuta.", "«Collega un agente» spiega come collegare un agente o uno script a un argomento.", "Elenchi di messaggi più compatti: i messaggi lunghi si riducono a sei righe e le azioni sono nel menu a pressione prolungata.", "Un nuovo aspetto smeraldo e una nuova icona."],
+            "pl": ["Odebrane pokazuje pytania od agentów w sekcji „Czeka na twoją odpowiedź”, a resztę w sekcji „Aktywność”.", "Odpowiadaj agentowi prosto z powiadomienia, przyciskiem lub wpisanym tekstem. Niebieski znacznik oznacza, że agent ją otrzymał.", "„Połącz agenta” pokazuje, jak połączyć agenta lub skrypt z tematem.", "Gęstsze listy wiadomości: długie wiadomości zwijają się do sześciu wierszy, a akcje są w menu po przytrzymaniu.", "Nowy szmaragdowy wygląd i nowa ikona."],
+            "nl": ["Inbox toont de vragen van je agents onder ‘Wacht op jou’ en al het andere onder ‘Activiteit’.", "Beantwoord een agent vanuit de melding met een knop of een getypt antwoord. Een blauw vinkje laat zien dat de agent het heeft ontvangen.", "‘Agent koppelen’ laat zien hoe je een agent of script aan een onderwerp koppelt.", "Compactere berichtenlijsten: lange berichten worden ingekort tot zes regels en acties staan in het menu bij lang drukken.", "Een nieuwe smaragdgroene stijl en een nieuw app-icoon."],
+            "fr": ["Réception affiche les questions de vos agents sous « En attente de votre réponse » et tout le reste sous « Activité ».", "Répondez à un agent depuis la notification, avec un bouton ou une réponse saisie. Une coche bleue indique que l’agent l’a reçue.", "« Connecter un agent » explique comment relier un agent ou un script à un sujet.", "Listes de messages plus denses : les longs messages se replient sur six lignes et les actions sont dans le menu par appui long.", "Un nouveau look émeraude et une nouvelle icône."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion124ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.24.0" })
         XCTAssertEqual(release.bullets.count, 6)
