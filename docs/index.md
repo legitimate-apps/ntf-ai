@@ -8,7 +8,7 @@ description: "NTF-AI is a free, actively maintained iOS app for ntfy. Get a push
 Get a push notification on your iPhone or iPad from any computer, script, server or cron job with one
 HTTP request. NTF-AI is an actively maintained iOS app for [ntfy](https://ntfy.sh), the open-source
 push-notification service, forked from
-[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios) under the MIT License and published by Legitimate LLC. It's free on the App Store as
+[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios) and published by Legitimate LLC. It's free on the App Store as
 [NTF-AI: Agent Notifications](https://apps.apple.com/us/app/id6787782178). It is not affiliated with or endorsed
 by ntfy.sh or the ntfy project.
 
@@ -57,5 +57,5 @@ Setup guides, support and the privacy policy live at **[ntf-ai.app](https://ntf-
 - [Feature parity with upstream](FEATURE_PARITY.md)
 - [Technical limitations](TECHNICAL_LIMITATIONS.md)
 
-Licensed under the MIT License. Original credit to
+Licensed under the GPL-3.0 (see `LICENSE` in the repository). Based on ntfy-ios, MIT License; original credit to
 [@Copephobia](https://github.com/Copephobia) and [Philipp C. Heckel](https://heckel.io).

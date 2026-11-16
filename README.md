@@ -16,7 +16,7 @@ No account or API key: the topic name is the password, so pick a long random one
 
 More recipes (Windows PowerShell, Python, GitHub Actions, Home Assistant, SSH login alerts) are on [ntf-ai.app](https://ntf-ai.app).
 
-NTF-AI is an independent, MIT-licensed fork of [ntfy-ios](https://github.com/binwiederhier/ntfy-ios), published by Legitimate LLC. It is not affiliated with ntfy.sh or the ntfy project. It works through upstream's backlog of iOS issues: reliability and security fixes, end-to-end encrypted topics, display names, pinned topics, a simpler first-run setup, and general UX work. See [CHANGELOG.md](CHANGELOG.md) for each release.
+NTF-AI is an independent fork of [ntfy-ios](https://github.com/binwiederhier/ntfy-ios), published by Legitimate LLC. It is not affiliated with ntfy.sh or the ntfy project. It works through upstream's backlog of iOS issues: reliability and security fixes, end-to-end encrypted topics, display names, pinned topics, a simpler first-run setup, and general UX work. See [CHANGELOG.md](CHANGELOG.md) for each release.
 
 ## How it relates to ntfy
 
@@ -76,4 +76,6 @@ If this fork is useful to you: [Ko-fi](https://ko-fi.com/ntfyiosnextgen).
 
 ## License
 
-[MIT](LICENSE), same as upstream.
+Copyright © 2026 Legitimate LLC. Licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
+
+This app is based on [ntfy-ios](https://github.com/binwiederhier/ntfy-ios) by Copephobia and Philipp C. Heckel. That code is under the MIT License, kept in [LICENSES/ntfy-ios-MIT.txt](LICENSES/ntfy-ios-MIT.txt).
