@@ -1,7 +1,7 @@
 # Changes vs upstream (binwiederhier/ntfy-ios)
 
 Fork-original changes and backports that diverge from the `binwiederhier/ntfy-ios`
-base, so we can track what to (eventually) upstream and what shipped when.
+base, so we can track where we diverge and what shipped when.
 
 Rows dated before 2026-10-07 refer to the earlier private development repository; their PR numbers and
 SHAs are not in this history. Rows from 2026-10-07 to 2026-10-31 give PR numbers from this repository's

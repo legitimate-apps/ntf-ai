@@ -70,4 +70,6 @@ If this fork is useful to you: [Ko-fi](https://ko-fi.com/ntfyiosnextgen).
 
 ## License
 
-[MIT](LICENSE), same as upstream.
+Copyright © 2026 Legitimate LLC. Licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
+
+This app is based on [ntfy-ios](https://github.com/binwiederhier/ntfy-ios) by Copephobia and Philipp C. Heckel. That code is under the MIT License, kept in [LICENSES/ntfy-ios-MIT.txt](LICENSES/ntfy-ios-MIT.txt).

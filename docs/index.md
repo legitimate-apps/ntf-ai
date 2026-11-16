@@ -8,7 +8,7 @@ description: "NTFY me is a free, actively maintained iOS app for ntfy. Get a pus
 Get a push notification on your iPhone or iPad from any computer, script, server or cron job with one
 HTTP request. NTFY me is an actively maintained iOS app for [ntfy](https://ntfy.sh), the open-source
 push-notification service, forked from
-[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios) (MIT). It's free on the App Store as
+[binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios). It's free on the App Store as
 [NTFY me - Next Gen](https://apps.apple.com/us/app/id6787782178). It is not affiliated with or endorsed
 by the ntfy project.
 
@@ -57,5 +57,5 @@ Setup guides, support and the privacy policy live at **[ntfy-me.com](https://ntf
 - [Feature parity with upstream](FEATURE_PARITY.md)
 - [Technical limitations](TECHNICAL_LIMITATIONS.md)
 
-Licensed under the MIT License. Original credit to
+Licensed under the GPL-3.0 (see `LICENSE` in the repository). Based on ntfy-ios, MIT License; original credit to
 [@Copephobia](https://github.com/Copephobia) and [Philipp C. Heckel](https://heckel.io).
