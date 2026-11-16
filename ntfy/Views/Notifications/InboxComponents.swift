@@ -328,16 +328,25 @@ struct AnswerReceiptView: View {
 
     var entry: AnswerEntry? = nil
     var failed = false
+    /// The answer that didn't get through, so the error names it: the buttons themselves look idle again.
+    var failedLabel: String? = nil
+
+    static func failedText(_ label: String?) -> String {
+        if let label, !label.isEmpty { return String(localized: "\(label) didn't reach the agent. Try again.") }
+        return String(localized: "Didn't reach the agent. Try again.")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             if failed {
-                Label {
-                    Text(String(localized: "Didn't reach the agent. Try again."))
-                } icon: {
+                // The same line as the answered receipt: icon on the text edge, 6 pt from the words.
+                // A Label here took the list's icon column (21.7 pt gap, DESIGN-REVIEW F3).
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red)
+                    Text(Self.failedText(failedLabel)).foregroundColor(.primary)
                 }
                 .font(.footnote)
+                .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("answer-failed")
             } else if let entry, entry.ok, entry.kind != .dismissed {
                 let time = Notification.shortTime(for: entry.at)
@@ -1061,7 +1070,7 @@ struct MessageCard: View {
                     .foregroundColor(InboxColor.ink)
                     .accessibilityIdentifier("card-waiting-line")
             } else if !items.isEmpty {
-                if state.failed { AnswerReceiptView(failed: true) }
+                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
                 ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
                           sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
                           recipient: notification.subscription?.shortDisplayName(), run: run)
@@ -1147,7 +1156,7 @@ struct WaitingRow: View {
             } else if receipt.showsClosed {
                 ReceiptClosedLine(receipt: receipt)
             } else if !receipt.resolved {
-                if state.failed { AnswerReceiptView(failed: true) }
+                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
                 ActionBar(items: items, prominentId: items.first(where: \.isAnswer)?.id, sendingId: state.sendingActionId,
                           sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
                           recipient: notification.subscription?.shortDisplayName()) { item in

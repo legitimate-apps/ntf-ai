@@ -39,6 +39,46 @@ enum AnswerPhase: Equatable {
     }
 }
 
+extension AnswerPhase {
+    /// The glyph that leads the label: a spinner while the answer is on its way, a check once the
+    /// agent has it. The label itself always stays, so the person sees which answer is going
+    /// (DESIGN-REVIEW S3) and sending and sent share one layout.
+    enum Glyph: Equatable { case spinner, check }
+
+    var glyph: Glyph? {
+        switch self {
+        case .sending: return .spinner
+        case .sent: return .check
+        case .idle, .failed: return nil
+        }
+    }
+}
+
+/// What sits behind an answer control's label.
+enum AnswerSurface: Equatable {
+    /// The lit Forest gradient (primary).
+    case forest
+    /// A Forest wash (secondary).
+    case tint
+    /// A red wash (destructive).
+    case destructiveTint
+    /// A grey fill (links, copy).
+    case grey
+    /// Disabled: no fill, a hairline outline. Never the grey slab a link wears, so "nothing to send"
+    /// doesn't look like a grey action (DESIGN-REVIEW S2).
+    case outline
+
+    static func of(role: AnswerRole, enabledLook: Bool) -> AnswerSurface {
+        guard enabledLook else { return .outline }
+        switch role {
+        case .primary: return .forest
+        case .secondary: return .tint
+        case .destructive: return .destructiveTint
+        case .link: return .grey
+        }
+    }
+}
+
 /// The haptics an answer plays.
 enum AnswerFeedback: Equatable {
     /// Finger down on a button: a light tick.
@@ -155,7 +195,8 @@ struct AnswerButtonFace<Label: View>: View {
     }
 
     /// Disabled is drawn here, not left to the system: on iOS 26 the system's dimming made a
-    /// disabled Send unreadable in dark mode (DESIGN-REVIEW-v2 F2, 1.08:1).
+    /// disabled Send unreadable in dark mode (DESIGN-REVIEW-v2 F2, 1.08:1). It is an outline with a
+    /// readable grey label, so it reads as "not yet", not as a grey button.
     private var enabledLook: Bool { isEnabled || phase != .idle }
 
     private var foreground: Color {
@@ -185,32 +226,31 @@ struct AnswerButtonFace<Label: View>: View {
     }
 
     @ViewBuilder private var content: some View {
-        ZStack {
-            HStack(spacing: 6) {
-                if phase == .sent {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.bold))
-                        .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
-                        .accessibilityHidden(true)
-                }
-                label()
-            }
-            .opacity(phase == .sending ? 0 : 1)
-            if phase == .sending {
+        HStack(spacing: 8) {
+            switch phase.glyph {
+            case .spinner:
                 ProgressView()
                     .progressViewStyle(.circular)
                     .tint(foreground)
                     .transition(.opacity)
+                    .accessibilityHidden(true)
+            case .check:
+                Image(systemName: "checkmark")
+                    .font(.body.weight(.bold))
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
+                    .accessibilityHidden(true)
+            case nil:
+                EmptyView()
             }
+            label()
         }
     }
 
     @ViewBuilder private var background: some View {
-        if !enabledLook {
-            shape.fill(Color(.tertiarySystemFill))
-        } else {
-            switch role {
-            case .primary:
+        switch AnswerSurface.of(role: role, enabledLook: enabledLook) {
+            case .outline:
+                shape.strokeBorder(Color(.separator), lineWidth: 1)
+            case .forest:
                 shape
                     .fill(LinearGradient(colors: [AnswerColor.fillTop, AnswerColor.fill], startPoint: .top, endPoint: .bottom))
                     // The lit edge: a faint white line along the top that fades out by the middle.
@@ -218,13 +258,12 @@ struct AnswerButtonFace<Label: View>: View {
                                                                startPoint: .top, endPoint: .center), lineWidth: 1))
                     .brightness(pressed ? AnswerMetrics.pressedDarken : 0)
                     .shadow(color: AnswerColor.fill.opacity(pressed ? 0.22 : 0.42), radius: pressed ? 2 : 7, x: 0, y: pressed ? 1 : 4)
-            case .secondary:
+            case .tint:
                 shape.fill(AnswerColor.tint).overlay(shape.fill(Color.black.opacity(pressed ? 0.06 : 0)))
-            case .destructive:
+            case .destructiveTint:
                 shape.fill(AnswerColor.destructiveTint).overlay(shape.fill(Color.black.opacity(pressed ? 0.06 : 0)))
-            case .link:
+            case .grey:
                 shape.fill(Color(.tertiarySystemFill)).overlay(shape.fill(Color.primary.opacity(pressed ? 0.08 : 0)))
-            }
         }
     }
 }

@@ -11004,7 +11004,7 @@ final class AnswerButtonTests: XCTestCase {
 
     /// The disabled look is drawn by the component (DESIGN-REVIEW-v2 F2: the system's was 1.08:1 in dark).
     func testDisabledLookIsReadableInBothModes() {
-        for (style, surface) in [(UIUserInterfaceStyle.light, "FFFFFF"), (.light, "F2F2F7"), (.dark, "000000"), (.dark, "1C1C1E")] {
+        for (style, surface) in [(UIUserInterfaceStyle.light, "FFFFFF"), (.light, "F2F2F7"), (.dark, "000000"), (.dark, "1C1C1E"), (.dark, "2C2C2E")] {
             let trait = UITraitCollection(userInterfaceStyle: style)
             func flat(_ c: UIColor) -> (String, Double) {
                 var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -11015,8 +11015,9 @@ final class AnswerButtonTests: XCTestCase {
                 let (fg, a) = flat(c)
                 return zip(channels(fg), channels(under)).map { String(format: "%02X", Int(($0 * a + $1 * (1 - a)).rounded())) }.joined()
             }
-            let fill = comp(.tertiarySystemFill, surface)
-            XCTAssertGreaterThanOrEqual(contrast(flat(UIColor(named: "AnswerDisabledLabel")!).0, fill), 4.5, "disabled label \(style.rawValue) on \(surface)")
+            // Disabled has no fill (DESIGN-REVIEW S2): the label sits on the surface itself.
+            _ = comp
+            XCTAssertGreaterThanOrEqual(contrast(flat(UIColor(named: "AnswerDisabledLabel")!).0, surface), 4.5, "disabled label \(style.rawValue) on \(surface)")
         }
     }
 
@@ -11092,5 +11093,53 @@ final class AnswerButtonTests: XCTestCase {
         XCTAssertEqual(state.replyPhase(replyActionId: "reply-1", now: now), .idle)
         state = AnswerState(entry: entry(.reply, "", ok: false, ago: 0.1, now: now), sendingActionId: nil)
         XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .failed)
+    }
+}
+
+/// Design review fixes on the answer buttons (DESIGN-REVIEW.md, 2026-11-15).
+final class AnswerButtonReviewTests: XCTestCase {
+    /// S3: sending keeps the answer's label and leads it with a spinner; sent swaps the spinner for a check.
+    func testSendingKeepsTheLabelBehindASpinner() {
+        XCTAssertEqual(AnswerPhase.sending.glyph, .spinner)
+        XCTAssertEqual(AnswerPhase.sent.glyph, .check)
+        XCTAssertNil(AnswerPhase.idle.glyph)
+        XCTAssertNil(AnswerPhase.failed.glyph)
+    }
+
+    /// S2: a disabled control is an outline, never the grey slab a link wears.
+    func testDisabledIsAnOutlineNotALinkSlab() {
+        for role in [AnswerRole.primary, .secondary, .destructive, .link] {
+            XCTAssertEqual(AnswerSurface.of(role: role, enabledLook: false), .outline)
+        }
+        XCTAssertEqual(AnswerSurface.of(role: .link, enabledLook: true), .grey)
+        XCTAssertNotEqual(AnswerSurface.of(role: .primary, enabledLook: false), AnswerSurface.of(role: .link, enabledLook: true))
+        XCTAssertEqual(AnswerSurface.of(role: .primary, enabledLook: true), .forest)
+        XCTAssertEqual(AnswerSurface.of(role: .destructive, enabledLook: true), .destructiveTint)
+    }
+
+    /// F1: compose Send's label is set to white on the Forest glass, not left to iOS (black in dark).
+    func testComposeSendLabelIsWhite() {
+        XCTAssertEqual(ComposeSendLook.label(enabled: true), Color.white)
+        XCTAssertNil(ComposeSendLook.label(enabled: false))
+    }
+
+    /// F2: once an answer shows its check, the reply row stays in the layout (invisible) so the
+    /// confirmed button doesn't drop into its slot.
+    func testConfirmedAnswerHoldsTheReplyRow() {
+        XCTAssertEqual(MessagePageView.replyRow(answerSent: false), .shown)
+        XCTAssertEqual(MessagePageView.replyRow(answerSent: true), .held)
+    }
+
+    /// S1: while a reply is typed, Send is the only solid button.
+    func testTypingAReplyLeavesSendTheOnlySolid() {
+        XCTAssertEqual(MessagePageView.prominentAnswer(firstAnswerId: "approve", replyTyped: false), "approve")
+        XCTAssertNil(MessagePageView.prominentAnswer(firstAnswerId: "approve", replyTyped: true))
+    }
+
+    /// F3: the failed line names the answer that didn't get through.
+    func testFailedLineNamesTheAnswer() {
+        XCTAssertEqual(AnswerReceiptView.failedText("Approve"), "Approve didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerReceiptView.failedText(nil), "Didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerReceiptView.failedText(""), "Didn't reach the agent. Try again.")
     }
 }

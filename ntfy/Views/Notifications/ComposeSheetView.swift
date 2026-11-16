@@ -98,13 +98,20 @@ struct ComposeSheetView: View {
                     }.disabled(model.busy)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Send")) {
+                    Button {
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                         haptics.play(.press)
                         model.send(subscription: subscription, store: store) {
                             haptics.play(.success)
                             SubscriptionManager(store: store).pollWithOutcome(subscription, manual: true) { _ in }
                             close()
+                        }
+                    } label: {
+                        // The colour sits on the Text: glassProminent ignores a foregroundStyle on the button.
+                        if let label = ComposeSendLook.label(enabled: model.canSend) {
+                            Text(String(localized: "Send")).foregroundColor(label)
+                        } else {
+                            Text(String(localized: "Send"))
                         }
                     }
                         .modifier(ComposeSendLook())
@@ -294,7 +301,11 @@ private struct ComposeTitle: ViewModifier {
 
 /// Compose's Send in the toolbar: on iOS 26 a prominent glass button in the answer fill with a white
 /// label, the same green as every other Send; earlier, the answer fill as the text colour.
-private struct ComposeSendLook: ViewModifier {
+struct ComposeSendLook: ViewModifier {
+    /// The label on the Forest glass. Set, never left to the system: iOS 26 picks black for this green
+    /// in dark mode (3.74:1, DESIGN-REVIEW F1). Disabled keeps the system's dimmed look.
+    static func label(enabled: Bool) -> Color? { enabled ? AnswerColor.label : nil }
+
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
             content.buttonStyle(.glassProminent).tint(AnswerColor.fill)

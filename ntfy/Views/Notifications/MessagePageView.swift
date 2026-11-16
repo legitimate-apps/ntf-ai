@@ -18,6 +18,7 @@ struct MessagePageView: View {
     @State private var browserURL: URL?
     @State private var showCopied = false
     @State private var scrollToReply = UUID()
+    @State private var replyTyped = false
 
     private var display: MessageDisplay { notification.display }
     /// At accessibility sizes a pinned bar would take most of the screen, so the answers follow
@@ -211,17 +212,20 @@ struct MessagePageView: View {
                     ActionBar(items: links, run: run)
                 }
             } else {
-                if state.failed { AnswerReceiptView(failed: true) }
+                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
                 if !items.isEmpty {
-                    ActionBar(items: items, prominentId: prominentId, sendingId: state.sendingActionId,
+                    ActionBar(items: items, prominentId: Self.prominentAnswer(firstAnswerId: prominentId,
+                                                                         replyTyped: replyTyped && state.sendingActionId == nil && state.sentLabel() == nil),
+                              sendingId: state.sendingActionId,
                               sentLabel: state.sentLabel(), failedLabel: state.failedLabel, recipient: topicName, run: run)
                 }
-                // Once a tapped answer shows its check, the reply field folds away with the other choices.
-                if (replyAction != nil || offersAgentReply) && state.sentLabel() == nil {
+                if replyAction != nil || offersAgentReply {
+                    let row = Self.replyRow(answerSent: state.sentLabel() != nil)
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
                                phase: state.replyPhase(replyActionId: replyAction?.id),
-                               disabled: state.sending, focusOnAppear: focusReply,
-                               onFocus: { if answersInline { scrollToReply = UUID() } }) { text in
+                               disabled: state.sending, held: row == .held, focusOnAppear: focusReply,
+                               onFocus: { if answersInline { scrollToReply = UUID() } },
+                               onTyped: { replyTyped = $0 }) { text in
                         if let replyAction {
                             runner.run(replyAction, replyText: text)
                         } else {
@@ -231,6 +235,23 @@ struct MessagePageView: View {
                 }
             }
         }
+    }
+
+    /// How the reply row sits once a tapped answer shows its check.
+    enum ReplyRow: Equatable {
+        case shown
+        /// Invisible but still in the layout through the sent hold, so the answer row above it confirms
+        /// in place instead of dropping into its slot (DESIGN-REVIEW F2). It goes when the receipt
+        /// replaces both.
+        case held
+    }
+
+    static func replyRow(answerSent: Bool) -> ReplyRow { answerSent ? .held : .shown }
+
+    /// While a reply is being typed, Send is the one solid button: the agent's lead answer steps down
+    /// to the tint until the field is empty again (DESIGN-REVIEW S1).
+    static func prominentAnswer(firstAnswerId: String?, replyTyped: Bool) -> String? {
+        replyTyped ? nil : firstAnswerId
     }
 
     private var prominentId: String? {
@@ -291,9 +312,13 @@ struct ReplyField: View {
     let placeholder: String
     var phase: AnswerPhase = .idle
     var disabled = false
+    /// Kept in the layout but out of sight, reach and VoiceOver while an answer shows its check.
+    var held = false
     var focusOnAppear = false
     /// Called when the field gains focus, so an inline answer area can scroll it above the keyboard.
     var onFocus: () -> Void = {}
+    /// Whether the field holds something to send, as it changes.
+    var onTyped: (Bool) -> Void = { _ in }
     let send: (String) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
@@ -332,12 +357,14 @@ struct ReplyField: View {
             .accessibilityValue(phase == .sending ? String(localized: "Sending") : phase == .sent ? String(localized: "Sent") : "")
             .accessibilityIdentifier("reply-send")
         }
+        .modifier(HeldOut(held: held))
         .onAppear {
             if focusOnAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { focused = true } }
         }
         .onChange(of: focused) { isFocused in
             if isFocused { onFocus() }
         }
+        .onChange(of: trimmed.isEmpty) { empty in onTyped(!empty) }
     }
 
     @ViewBuilder private var field: some View {
@@ -346,6 +373,15 @@ struct ReplyField: View {
         } else {
             TextField(placeholder, text: $text)
         }
+    }
+}
+
+/// Keeps a view's space while taking it out of sight, touch and VoiceOver. `.hidden()` does all three;
+/// opacity 0 with `accessibilityHidden` left the field and Send in the accessibility tree.
+private struct HeldOut: ViewModifier {
+    let held: Bool
+    func body(content: Content) -> some View {
+        if held { content.hidden() } else { content }
     }
 }
 

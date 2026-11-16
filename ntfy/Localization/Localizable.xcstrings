@@ -30737,6 +30737,54 @@
         }
       }
     },
+    "%@ didn't reach the agent. Try again.": {
+      "comment": "An answer that failed to send: the answer button's label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ didn't reach the agent. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ hat den Agenten nicht erreicht. Versuch es noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no llegó al agente. Inténtalo de nuevo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» non è arrivato all’agente. Riprova."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@” nie dotarło do agenta. Spróbuj ponownie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘%@’ kwam niet aan bij de agent. Probeer het opnieuw."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » n’a pas atteint l’agent. Réessayez."
+          }
+        }
+      }
+    },
     "You tapped %@ · %@": {
       "extractionState": "manual",
       "comment": "Receipt: the answer button's label, then the time",
