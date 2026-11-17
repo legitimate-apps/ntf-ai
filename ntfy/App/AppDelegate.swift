@@ -629,7 +629,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 return
             }
             ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl)
-        } else if let click = message.click, click != "", let url = URL(string: click) {
+        } else if let url = ClickURL.url(from: message.click) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     
