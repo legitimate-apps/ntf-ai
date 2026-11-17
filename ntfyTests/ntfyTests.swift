@@ -11070,7 +11070,7 @@ final class AnswerButtonTests: XCTestCase {
     /// sections breathe: each gap between sections larger than the lines inside one, the body
     /// clear of the answers, and cards further apart than anything inside them.
     func testAnswerHeightAndCardRhythm() {
-        XCTAssertTrue((46...48).contains(AnswerMetrics.height), "4-6 pt shorter than 52")
+        XCTAssertEqual(AnswerMetrics.height, 44, "52, then 4-6 pt shorter twice, floored at the 44 pt hit target")
         XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44, "hit target")
         for gap in [CardSpacing.line, CardSpacing.sourceToTitle, CardSpacing.wordsToControls, CardSpacing.rowEdge] {
             XCTAssertEqual(gap.truncatingRemainder(dividingBy: 2), 0, "on the grid: \(gap)")

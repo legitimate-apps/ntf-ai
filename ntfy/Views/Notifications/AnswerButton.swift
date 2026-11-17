@@ -136,9 +136,9 @@ struct AnswerFeedbackTracker: Equatable {
 /// Sizes and motion, in one place so every answer control matches (DESIGN-REVIEW-v2: one height).
 enum AnswerMetrics {
     /// Every answer control is this tall at the default text size, and grows with Dynamic Type.
-    /// 48, not 52: 52 read a little tall in a card (operator, 2026-11-16: "4-6pt shorter"). Still
-    /// above the 44 pt hit target.
-    static let height: CGFloat = 48
+    /// 44: the operator asked twice for "4-6pt shorter" (52, then 48, 2026-11-16/17). 44 is Apple's
+    /// minimum hit target, so this is the floor; Dynamic Type still grows it.
+    static let height: CGFloat = 44
     static let cornerRadius: CGFloat = 14
     static let pressedScale: CGFloat = 0.96
     /// Pressed fills darken by this much (brightness), with or without Reduce Motion.
