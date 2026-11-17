@@ -749,7 +749,9 @@ final class AnswerRowTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        // Topic passwords in memory, not the Keychain: an unsigned test host has no Keychain access
+        // (-34018), so a stored password read back as nothing and the encrypted cases failed.
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore(), topicSecrets: InMemoryTopicSecretStore())
         store.saveNotificationRetention(.forever)
         log = AnswerLog(defaults: defaults())
         acks = AckLog(defaults: defaults())
