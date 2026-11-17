@@ -17,7 +17,8 @@ final class BackgroundHTTPActionTests: XCTestCase {
     }
 
     func testRegisteredIOSOptionsAndLegacyCategoryMigration() throws {
-        let actions = [action(), action("view"), action("copy")]
+        // A view action needs an openable URL to be offered on the banner (ClickURL.allows).
+        let actions = [action(), action("view", url: "https://example.com/pr/1"), action("copy")]
         let message = try XCTUnwrap(Message.from(userInfo: userInfo(actions)))
         let content = UNMutableNotificationContent()
         let oldCanonical = actions.map { "\($0.id)\u{1f}\($0.label)" }.joined(separator: "\u{1e}")
