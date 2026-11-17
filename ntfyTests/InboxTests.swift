@@ -813,17 +813,18 @@ final class AnswerRowTests: XCTestCase {
 
     func testAChoiceAnswerIsNoRowAndNeverUnread() throws {
         save(question())
+        XCTAssertEqual(store.totalUnreadCount(), 1, "the question")
         let presented = save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
         XCTAssertEqual(presented.map(\.id), [], "the person's own answer never alerts")
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "the answer is not its own row")
-        XCTAssertEqual(store.totalUnreadCount(), 0, "badge and Inbox")
-        XCTAssertEqual(store.unreadCount(baseUrl: "https://agents.example", topic: "ops"), 0, "the topic's count")
+        XCTAssertEqual(store.totalUnreadCount(), 1, "badge and Inbox: the answer adds nothing")
+        XCTAssertEqual(store.unreadCount(baseUrl: "https://agents.example", topic: "ops"), 1, "the topic's count")
     }
 
     func testAnAnswerInTheSameBatchAsItsQuestionIsNoRow() {
         save(question(), reply("a-1", "prod", tags: ["ans", "re-deploy"]))
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
-        XCTAssertEqual(store.totalUnreadCount(), 0)
+        XCTAssertEqual(store.totalUnreadCount(), 1, "only the question")
     }
 
     func testAPushedAnswerIsNotStoredOrPresented() {
@@ -833,7 +834,7 @@ final class AnswerRowTests: XCTestCase {
         XCTAssertNotNil(result)
         XCTAssertNil(result?.message, "nothing to present: \(String(describing: result))")
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
-        XCTAssertEqual(store.totalUnreadCount(), 0)
+        XCTAssertEqual(store.totalUnreadCount(), 1, "only the question")
     }
 
     func testAnEncryptedAnswerIsNoRow() throws {
@@ -843,8 +844,9 @@ final class AnswerRowTests: XCTestCase {
         let cipher = try TopicEncryption.encrypt(EncryptedPayload(message: "prod", tags: ["re-deploy", "ans"]), key: key)
         save(reply("a-1", cipher, tags: ["re-deploy", "ans"]))
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "decrypted, then folded into its question")
-        XCTAssertEqual(store.totalUnreadCount(), 0)
+        XCTAssertEqual(store.totalUnreadCount(), 0, "an answer from someone with the password settles the question")
         XCTAssertEqual(try receipt().answerText, "Production")
+        XCTAssertTrue(removals.contains { $0.sequence == "deploy" && $0.keepingID == "a-1" }, "its banner goes")
     }
 
     // MARK: the question shows the answer
@@ -853,10 +855,13 @@ final class AnswerRowTests: XCTestCase {
         save(question())
         save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
         var receipt = try receipt()
-        XCTAssertEqual(receipt.answer?.kind, .tap)
-        XCTAssertEqual(receipt.answer?.label, "Production", "the label, never the key")
+        XCTAssertNil(receipt.answer, "not recorded here: never \"You answered\"")
+        XCTAssertEqual(receipt.namedAnswer, "Production", "\"Answered Production\": the label, never the key")
         XCTAssertEqual(receipt.answerText, "Production")
-        XCTAssertNil(receipt.agent, "no ack yet: \"You answered Production\"")
+        XCTAssertNil(receipt.agent, "no ack yet")
+        let state = AnswerState(notification: try row("q-1"), log: log, acks: acks)
+        XCTAssertTrue(state.answered, "the controls give way to the receipt")
+        XCTAssertEqual(state.entry?.seen, true, "the card says \"Answered\", not \"You answered\"")
         XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [], "out of Waiting on you")
         // ntf 0.4's ack names no answer.
         save(Message(id: "k-1", time: Int64(now.addingTimeInterval(-30).timeIntervalSince1970), event: "message", topic: "ops",
@@ -872,8 +877,7 @@ final class AnswerRowTests: XCTestCase {
         save(reply("a-1", #"{"branch":"main","replicas":2}"#, tags: ["re-deploy", "ans"]))
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
         let receipt = try receipt()
-        XCTAssertEqual(receipt.answer?.kind, .reply, "a form reads \"You replied\"")
-        XCTAssertEqual(receipt.answer?.text, "Branch: main · Replicas: 2")
+        XCTAssertEqual(receipt.namedAnswer, "Branch: main · Replicas: 2")
         XCTAssertFalse(receipt.answerText?.contains("{") ?? true, "never raw JSON")
     }
 
@@ -882,7 +886,8 @@ final class AnswerRowTests: XCTestCase {
         let key = try XCTUnwrap(AnswerKey(notification: try row("q-1")))
         log.record(key, AnswerEntry(kind: .tap, label: "Production", text: nil, at: now.addingTimeInterval(-61), ok: true))
         save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
-        XCTAssertEqual(try receipt().answer?.at, now.addingTimeInterval(-61), "this device's entry wins")
+        XCTAssertEqual(try receipt().answer?.at, now.addingTimeInterval(-61), "recorded here: \"You answered Production\"")
+        XCTAssertNil(try receipt().answer?.seen)
         XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
     }
 
@@ -914,5 +919,54 @@ final class AnswerRowTests: XCTestCase {
         XCTAssertEqual(rows.compactMap(\.id), ["q-1", "r-1"], "the person's reply stays")
         XCTAssertEqual(try row("r-1").read, true, "never unread")
         XCTAssertEqual(try row("r-1").display.title, "Teal please")
+    }
+
+    // MARK: what an answer can't claim (security review, 2026-11-17)
+
+    func testAnAnswerOlderThanTheQuestionIsAnOrdinaryRow() throws {
+        save(question(age: 60))
+        let presented = save(reply("f-1", "prod", tags: ["re-deploy", "ans"], age: 600))
+        XCTAssertEqual(Set(rows.compactMap(\.id)), ["q-1", "f-1"], "sent before the question: no answer to it")
+        XCTAssertEqual(presented.map(\.id), ["f-1"], "an ordinary message")
+        XCTAssertEqual(try row("f-1").read, false)
+        XCTAssertEqual(try row("q-1").read, false)
+        XCTAssertNil(try receipt().namedAnswer, "the question stays unanswered")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-1"])
+    }
+
+    func testAnUnverifiedAnswerKeepsTheQuestionsBannerAndUnread() throws {
+        save(question())
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(try row("q-1").read, false, "a plain topic's answer could be anyone's")
+        XCTAssertFalse(removals.contains { $0.sequence == "deploy" }, "the question's banner stays")
+    }
+
+    private func remind(_ verifiedAnswer: Bool) throws -> [Message] {
+        var clock = now
+        store.reminderClock = { clock }
+        store.reminderLog = ReminderLog(defaults: defaults())
+        let reminded: [String: Any] = Self.choice.merging(["rem": 1]) { $1 }
+        if verifiedAnswer {
+            _ = store.setEncryptionPassword("correct horse", for: subscription)
+        }
+        save(question(age: 0))
+        clock += 60
+        if verifiedAnswer {
+            let key = try XCTUnwrap(store.encryptionKey(baseUrl: "https://agents.example", topic: "ops"))
+            let cipher = try TopicEncryption.encrypt(EncryptedPayload(message: "prod", tags: ["re-deploy", "ans"]), key: key)
+            save(reply("a-1", cipher, tags: ["re-deploy", "ans"], age: -60))
+        } else {
+            save(reply("a-1", "prod", tags: ["re-deploy", "ans"], age: -60))
+        }
+        clock += 600
+        return save(question(reminded, id: "q-2", age: -660))
+    }
+
+    func testAnUnverifiedAnswerDoesNotSilenceAReminder() throws {
+        XCTAssertEqual(try remind(false).map(\.isUpdate), [false], "the reminder alerts")
+    }
+
+    func testAnEncryptedAnswerSilencesAReminder() throws {
+        XCTAssertEqual(try remind(true).map(\.isUpdate), [true], "answered by someone with the password: stays quiet")
     }
 }

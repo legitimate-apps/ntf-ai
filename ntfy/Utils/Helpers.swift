@@ -238,6 +238,10 @@ enum AgentAck {
         var written: Bool
         /// The id of the question version it answers.
         var version: String
+        /// Read from an end-to-end encrypted message, so it came from someone with the topic's
+        /// password. Only such an answer silences the question's banner and reminders: on a plain
+        /// topic any writer could have sent it.
+        var verified: Bool? = nil
     }
 
     enum Outcome: Equatable {

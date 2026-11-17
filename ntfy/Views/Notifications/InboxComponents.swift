@@ -361,10 +361,19 @@ struct AnswerReceiptView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: Self.answeredIcon).foregroundColor(InboxColor.ink)
                     VStack(alignment: .leading, spacing: 2) {
-                        (entry.kind == .tap ? Text("You answered \(Text(entry.label).fontWeight(.semibold)) · \(time)")
-                                            : Text("You replied · \(time)"))
-                            .foregroundColor(.primary)
-                        if let text = entry.text, !text.isEmpty {
+                        Group {
+                            if entry.seen == true {
+                                // Seen on the topic, not made here (it may not have been you).
+                                let named = entry.kind == .tap ? entry.label : (entry.text ?? "")
+                                Text("Answered \(Text(named).fontWeight(.semibold))") + Text(verbatim: " · \(time)")
+                            } else if entry.kind == .tap {
+                                Text("You answered \(Text(entry.label).fontWeight(.semibold)) · \(time)")
+                            } else {
+                                Text("You replied · \(time)")
+                            }
+                        }
+                        .foregroundColor(.primary)
+                        if entry.seen != true, let text = entry.text, !text.isEmpty {
                             Text(text).foregroundColor(.secondary).lineLimit(2)
                         }
                     }
@@ -414,6 +423,11 @@ struct AgentReceipt: Equatable {
             case .got(let label): agent = .got(notification.date(), note: nil); named = label
             case .movedOn: agent = .movedOn(notification.date())
             }
+        }
+        if let seen = entry, seen.seen == true {
+            // Seen on the topic, not made here: the page names it, it doesn't claim it was you.
+            named = named ?? (seen.kind == .tap ? seen.label : seen.text)
+            entry = nil
         }
         answer = entry.flatMap { $0.ok && $0.kind != .dismissed ? $0 : nil }
         namedAnswer = named

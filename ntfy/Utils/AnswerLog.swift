@@ -47,6 +47,9 @@ struct AnswerEntry: Codable, Equatable {
     var ok: Bool
     /// The message id answered. Nil in entries from before 1.26's fix round, which apply to any version.
     var messageId: String?
+    /// Not made here: an answer seen on the question's topic, which this install can't attribute to
+    /// the person. Shown as "Answered", never "You answered".
+    var seen: Bool? = nil
 
     func applies(to key: AnswerKey) -> Bool {
         messageId == nil || key.version == nil || messageId == key.version
@@ -152,7 +155,7 @@ extension AnswerLog {
         guard let key, let seen = acks.answer(forKey: key.id, version: key.version) else { return local }
         return AnswerEntry(kind: seen.written ? .reply : .tap, label: seen.written ? "" : seen.label,
                            text: seen.written ? seen.label : nil, at: Date(timeIntervalSince1970: TimeInterval(seen.time)),
-                           ok: true, messageId: seen.version)
+                           ok: true, messageId: seen.version, seen: true)
     }
 }
 

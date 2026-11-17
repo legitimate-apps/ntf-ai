@@ -2100,16 +2100,23 @@ class Store: ObservableObject {
                                                 sequence: sequence, throughTime: message.time, keepingID: message.id))
                 if isPush { acknowledgedPush = (message.id, row.title) }
             } else if row == nil, let target = AnswerMessage.answeredSequence(tags: message.tags),
-                      let question = questionRow(answeredBy: target, in: rows), let version = question.id {
-                // The person's answer (`ans`, `re-<sequence>`), from this device or another: the
-                // question shows it in words; it gets no row of its own and never counts as unread.
+                      let question = questionRow(answeredBy: target, in: rows), let version = question.id,
+                      message.time >= question.time {
+                // An answer (`ans`, `re-<sequence>`) to the question as it is now, from this device
+                // or another: the question shows it in words; it gets no row of its own and never
+                // counts as unread. One sent before the question's current version is no answer to
+                // it and stays an ordinary row. On a plain topic any writer could have sent it, so
+                // the question says "Answered", not "You answered", and keeps its banner and reminders.
+                let verified = item.encryption == .decrypted
                 let words = AnswerMessage.words(body: message.message ?? "", questionActions: question.actionsList())
                 ackLog.saveAnswer(AgentAck.SeenAnswer(id: message.id, time: message.time, label: words.label,
-                                                      written: words.written, version: version),
+                                                      written: words.written, version: version, verified: verified),
                                   forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: target))
-                question.read = true
-                removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
-                                                sequence: target, throughTime: message.time, keepingID: message.id))
+                if verified {
+                    question.read = true
+                    removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
+                                                    sequence: target, throughTime: message.time, keepingID: message.id))
+                }
                 if isPush { answeredPush = message.id }
             } else {
                 let notification = row ?? Notification(context: context)
@@ -2134,10 +2141,11 @@ class Store: ObservableObject {
                     // An ack with no question here (pruned, or never received): kept as a quiet row.
                     notification.read = true
                     if isPush { acknowledgedPush = (message.id, nil) }
-                } else if row == nil, AnswerMessage.answeredSequence(tags: message.tags) != nil
-                            || AnswerMessage.replySequence(tags: message.tags).map({ questionRow(answeredBy: $0, in: rows) != nil }) == true {
+                } else if row == nil, let target = AnswerMessage.replySequence(tags: message.tags),
+                          (questionRow(answeredBy: target, in: rows) == nil) == (AnswerMessage.answeredSequence(tags: message.tags) != nil) {
                     // The person's own words: an answer whose question isn't here (expired or
                     // cleared; shown readably), or a written reply under its question. Never unread.
+                    // An answer older than the question that is here falls through: an ordinary row.
                     notification.read = true
                     if isPush { answeredPush = message.id }
                 } else {
@@ -2193,7 +2201,7 @@ class Store: ObservableObject {
         let waiting = !row.isDeleted && AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: previousActions)
             && ackLog.record(forKey: key, version: version) == nil
             && !AnswerLogReader.answered(key: key, version: version, defaults: reminderDefaults)
-            && ackLog.answer(forKey: key, version: version) == nil
+            && ackLog.answer(forKey: key, version: version)?.verified != true
             && now.timeIntervalSince(row.date()) < 7 * 24 * 3600 // WaitingRule.maxAge, app-only
         guard AgentReminder.alerts(next: next, previous: AskSchema.detect(in: previousActions).schema, waiting: waiting,
                                    priorAlerts: reminderLog.record(forKey: key)?.alerts ?? [],
