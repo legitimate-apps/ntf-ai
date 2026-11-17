@@ -31,7 +31,7 @@ and your own Firebase `GoogleService-Info.plist`.
 
 ## Code style
 SwiftUI + Swift concurrency; match the surrounding upstream style — this is a fork, keep
-diffs clean and upstreamable. Don't reformat files you aren't changing.
+diffs clean and focused. Don't reformat files you aren't changing.
 
 ## Contributing
 See `CONTRIBUTING.md`. Report bugs via GitHub issues (see README).

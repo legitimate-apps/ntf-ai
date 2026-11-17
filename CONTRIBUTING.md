@@ -82,7 +82,7 @@ release notes live in `CHANGELOG.md`.
 
 ## Code style
 
-Match the surrounding upstream SwiftUI style. This is a fork we intend to stay upstreamable, so keep diffs focused and don't reformat files you aren't otherwise changing.
+Match the surrounding SwiftUI style. Keep diffs focused and don't reformat files you aren't otherwise changing.
 
 ## Submitting a PR
 
@@ -100,6 +100,10 @@ maintainer's own branches.)
 ## Auto-merge
 
 PRs labeled `safe-tier-1` (docs/markdown-only changes) auto-merge once CI is green. Everything else waits for review. See `.github/workflows/auto-merge-tier1.yml` for the exact gate.
+
+## License of contributions
+
+The repository is under GPL-3.0 ([LICENSE](LICENSE)). By submitting a contribution, you license it to Legitimate LLC under the MIT License, so it can ship in the App Store build with the rest of the app.
 
 ## Credit
 

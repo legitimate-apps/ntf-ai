@@ -40,7 +40,7 @@ def main() -> None:
 
     components = [
         ("ntfy for iOS", "The app's source code, forked from binwiederhier/ntfy-ios", "MIT License",
-         (ROOT / "LICENSE").read_text().strip("\n"), False),
+         (ROOT / "LICENSES" / "ntfy-ios-MIT.txt").read_text().strip("\n"), False),
         ("Firebase", f"firebase-ios-sdk {versions['firebase-ios-sdk']}: FirebaseCore, FirebaseCoreInternal, "
          "FirebaseCoreDiagnostics, FirebaseInstallations, FirebaseMessaging", "Apache License 2.0",
          apache_notice("Copyright 2017-2021 Google LLC"), True),
