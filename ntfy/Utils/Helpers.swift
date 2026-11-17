@@ -397,7 +397,12 @@ final class AckLog: ObservableObject {
     func saveAnswer(_ answer: AgentAck.SeenAnswer, forKey key: String) -> Bool {
         lock.lock()
         var entries = answers()
-        if let current = entries[key], current.version == answer.version, current.time > answer.time || current.id == answer.id {
+        // For one question version an answer read from an encrypted message outranks a plain one,
+        // which any topic writer can publish: a plain answer never replaces it, it always replaces a
+        // plain one. Between answers of the same standing the newest wins.
+        if let current = entries[key], current.version == answer.version, current.id == answer.id
+            || ((current.verified == true) == (answer.verified == true) ? current.time > answer.time
+                                                                          : current.verified == true) {
             lock.unlock()
             return false
         }

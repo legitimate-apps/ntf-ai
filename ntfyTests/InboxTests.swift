@@ -969,4 +969,25 @@ final class AnswerRowTests: XCTestCase {
     func testAnEncryptedAnswerSilencesAReminder() throws {
         XCTAssertEqual(try remind(true).map(\.isUpdate), [true], "answered by someone with the password: stays quiet")
     }
+
+    private func seen(_ id: String, at time: Int64, _ label: String, verified: Bool) -> AgentAck.SeenAnswer {
+        AgentAck.SeenAnswer(id: id, time: time, label: label, written: false, version: "q-1", verified: verified ? true : nil)
+    }
+
+    func testALaterPlainAnswerDoesNotReplaceAnEncryptedOne() {
+        XCTAssertTrue(acks.saveAnswer(seen("a1", at: 100, "Production", verified: true), forKey: "k"))
+        XCTAssertFalse(acks.saveAnswer(seen("a2", at: 200, "Staging", verified: false), forKey: "k"))
+        let kept = acks.answer(forKey: "k", version: "q-1")
+        XCTAssertEqual(kept?.label, "Production")
+        XCTAssertEqual(kept?.verified, true, "the reminder stays silenced")
+    }
+
+    func testAnEncryptedAnswerReplacesAPlainOneEvenIfOlder() {
+        XCTAssertTrue(acks.saveAnswer(seen("a1", at: 200, "Staging", verified: false), forKey: "k"))
+        XCTAssertTrue(acks.saveAnswer(seen("a2", at: 100, "Production", verified: true), forKey: "k"))
+        XCTAssertEqual(acks.answer(forKey: "k", version: "q-1")?.label, "Production")
+        XCTAssertTrue(acks.saveAnswer(seen("a3", at: 300, "Canary", verified: true), forKey: "k"), "a newer encrypted one still wins")
+        XCTAssertFalse(acks.saveAnswer(seen("a4", at: 250, "Dev", verified: true), forKey: "k"), "an older encrypted one does not")
+        XCTAssertEqual(acks.answer(forKey: "k", version: "q-1")?.label, "Canary")
+    }
 }
