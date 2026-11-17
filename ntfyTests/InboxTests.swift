@@ -991,3 +991,72 @@ final class AnswerRowTests: XCTestCase {
         XCTAssertEqual(acks.answer(forKey: "k", version: "q-1")?.label, "Canary")
     }
 }
+
+/// Folding Inbox and topic sections (operator, 2026-11-17: "it should be a dropdown tappable to
+/// close hide, by the header"): each section's state is its own and outlives the app.
+final class SectionFoldTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let suite = "SectionFoldTests"
+
+    override func setUp() {
+        super.setUp()
+        UserDefaults().removePersistentDomain(forName: suite)
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    func testFoldedSectionStaysFoldedAfterRelaunchAndOnlyThatSection() {
+        let first = SectionFold(defaults: defaults)
+        XCTAssertFalse(first.isCollapsed(SectionFold.activity), "sections start open")
+        first.toggle(SectionFold.activity)
+        XCTAssertTrue(first.isCollapsed(SectionFold.activity))
+
+        let relaunched = SectionFold(defaults: defaults)
+        XCTAssertTrue(relaunched.isCollapsed(SectionFold.activity), "a folded section is still folded on the next launch")
+        XCTAssertFalse(relaunched.isCollapsed(SectionFold.waiting), "folding Activity leaves Waiting on you open")
+
+        relaunched.toggle(SectionFold.activity)
+        XCTAssertFalse(SectionFold(defaults: defaults).isCollapsed(SectionFold.activity), "opening it again is kept too")
+    }
+
+    func testDaysFoldPerListAndOldDaysAreForgotten() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 17, hour: 9)))
+        let inboxDay = SectionFold.day(day, in: "inbox", calendar: calendar)
+        let topicDay = SectionFold.day(day, in: "topic.https://ntfy-me.com/deploys", calendar: calendar)
+        XCTAssertEqual(inboxDay, "inbox.day.2026-11-17")
+        XCTAssertNotEqual(inboxDay, topicDay, "the same day folds separately in the Inbox and on a topic")
+
+        let fold = SectionFold(defaults: defaults, now: day)
+        fold.setCollapsed(inboxDay, true)
+        fold.setCollapsed(SectionFold.waiting, true)
+        XCTAssertFalse(fold.isCollapsed(topicDay))
+
+        let later = day.addingTimeInterval(SectionFold.dayMemory + 2 * 24 * 60 * 60)
+        let reloaded = SectionFold(defaults: defaults, now: later)
+        XCTAssertFalse(reloaded.isCollapsed(inboxDay), "a folded day long past is forgotten")
+        XCTAssertTrue(reloaded.isCollapsed(SectionFold.waiting), "a named section is never forgotten")
+    }
+
+    func testFoldedWaitingHeaderStillSaysHowManyAreWaiting() {
+        let folded = FoldHeaderAccessibility(title: "Waiting on you", count: 3, collapsed: true)
+        XCTAssertEqual(folded.label, "Waiting on you, 3")
+        XCTAssertEqual(folded.value, String(localized: "Collapsed"))
+        let open = FoldHeaderAccessibility(title: "Waiting on you", count: 3, collapsed: false)
+        XCTAssertEqual(open.label, folded.label, "the count is said whether the section is open or folded")
+        XCTAssertEqual(open.value, String(localized: "Expanded"))
+        XCTAssertEqual(FoldHeaderAccessibility(title: "Activity", count: nil, collapsed: true).label, "Activity")
+    }
+
+    func testFoldHeaderIsAHeaderButtonWithAFullSizeTarget() {
+        let a11y = FoldHeaderAccessibility(title: "Activity", count: nil, collapsed: false)
+        XCTAssertTrue(a11y.traits.contains(.isHeader), "VoiceOver's headings rotor still finds it")
+        XCTAssertTrue(a11y.traits.contains(.isButton), "VoiceOver says it can be activated")
+        XCTAssertGreaterThanOrEqual(FoldHeaderAccessibility.minimumHitHeight, 44)
+    }
+}

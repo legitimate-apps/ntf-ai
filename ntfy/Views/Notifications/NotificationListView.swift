@@ -17,6 +17,7 @@ struct NotificationListView: View {
     @Environment(\.scenePhase) private var scenePhase
     
     @ObservedObject private var deliveryHealth = DeliveryHealthMonitor.shared
+    @ObservedObject private var fold = SectionFold.shared
     @ObservedObject var subscription: Subscription
     // @StateObject, not @ObservedObject: this view constructs the observable in its own
     // initializer, and @ObservedObject does not own what it is handed. Every rebuild of the view
@@ -222,8 +223,9 @@ struct NotificationListView: View {
                               isShowing: $showConnectSheet)
                 .environmentObject(store)
         }
-        // Cards on the grouped background (C2): each message its own rounded surface.
-        .listStyle(.insetGrouped)
+        // One level of inset, as in the Inbox (operator, 2026-11-17): rows edge to edge with
+        // hairlines between them, not cards inside the screen's margins.
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .modifier(CompactDayBreaks())
         .navigationTitle(subscription.shortDisplayName())
@@ -340,14 +342,17 @@ struct NotificationListView: View {
         }
         // One header per day, so each row shows only its time.
         ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
-            Section(header: DayHeader(title: Notification.daySectionTitle(for: group.day))
-                .modifier(CompactDayHeaderInsets())) {
+            let dayId = SectionFold.day(group.day, in: "topic.\(subscription.urlString())")
+            // The day is a row, not a pinned section header, so scrolled rows never show through it.
+            FoldHeader(fold: fold, id: dayId, title: Notification.daySectionTitle(for: group.day), style: .day)
+                .modifier(FoldHeaderRow())
+            if !fold.isCollapsed(dayId) {
                 ForEach(group.items, id: \.self) { notification in
                     let held = heldUnread.ids.contains(notification.objectID)
                     MessageCard(notification: notification, heldUnread: held,
                                 open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
                                 onCopy: showCopyConfirmation)
-                        .listRowInsets(CardSpacing.rowInsets)
+                        .modifier(CardRowInsets())
                         .modifier(MessageRowActions(notification: notification, heldUnread: held,
                                                     onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
                                                     onCopy: showCopyConfirmation))
@@ -771,21 +776,6 @@ private struct CompactDayBreaks: ViewModifier {
             content
                 .listSectionSpacing(.compact)
                 .environment(\.defaultMinListHeaderHeight, 0)
-        } else {
-            content
-        }
-    }
-}
-
-/// A plain List pads each section header by about 12 pt above and below; at a day break that
-/// added to the rows' own insets and opened an 80 pt gap. Keep the header's horizontal margin.
-private struct CompactDayHeaderInsets: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-                .listRowInsets(.vertical, 0)
         } else {
             content
         }

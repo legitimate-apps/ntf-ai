@@ -1422,3 +1422,180 @@ private struct ListWidthKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
+
+// MARK: - Plain lists
+
+/// A message row in a plain list: the card's own vertical breathing room, and the system's
+/// horizontal margin, so the words line up with the large title and the section headers on one
+/// leading edge (16 pt on most phones, 20 pt on the widest). Before iOS 26 a row can't set only
+/// its vertical insets, so the margin is spelled out as UIKit picks it.
+struct CardRowInsets: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .listRowInsets(.vertical, CardSpacing.rowEdge)
+                .modifier(SeparatorAtTextEdge())
+        } else {
+            content
+                .listRowInsets(CardSpacing.rowInsets)
+                .modifier(SeparatorAtTextEdge())
+        }
+    }
+}
+
+/// The hairline between two rows starts where the words start, as in Mail. SwiftUI would otherwise
+/// start it at the first SwiftUI `Text` it finds, which in a card is the agent's name after its avatar.
+private struct SeparatorAtTextEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - Folding sections
+
+/// A folding header as a row of the list rather than a section header: a plain list pins its
+/// headers while scrolling, and on iOS 26 a pinned header has no fill, so the rows scrolled through
+/// its words. As a row it scrolls away with its section, as Mail's rows do. No hairline above or
+/// below it; `topSpace` opens the break between sections.
+struct FoldHeaderRow: ViewModifier {
+    var topSpace: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        let row = content.padding(.top, topSpace).listRowSeparator(.hidden)
+        if #available(iOS 26.0, *) {
+            row.listRowInsets(.vertical, 0)
+        } else {
+            row.listRowInsets(EdgeInsets(top: 0, leading: CardSpacing.rowInsets.leading, bottom: 0,
+                                         trailing: CardSpacing.rowInsets.trailing))
+        }
+    }
+}
+
+/// The list sections the person folded away, kept per section across launches. A section is named
+/// by a stable id: `inbox.waiting`, `inbox.activity`, or a day such as `inbox.day.2026-11-17`.
+final class SectionFold: ObservableObject {
+    static let shared = SectionFold()
+    static let storageKey = "sectionFold.collapsed"
+    /// Folded days older than this are forgotten, so the stored list doesn't grow without end.
+    static let dayMemory: TimeInterval = 60 * 24 * 60 * 60
+
+    static let waiting = "inbox.waiting"
+    static let activity = "inbox.activity"
+
+    /// One calendar day in one list, e.g. `inbox.day.2026-11-17` or `topic.<address>.day.2026-11-17`.
+    static func day(_ date: Date, in scope: String, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%@.day.%04d-%02d-%02d", scope, parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+
+    @Published private(set) var collapsed: Set<String>
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard, now: Date = Date()) {
+        self.defaults = defaults
+        let stored = Set(defaults.stringArray(forKey: Self.storageKey) ?? [])
+        let kept = stored.filter { !Self.isForgotten($0, now: now) }
+        collapsed = kept
+        if kept != stored { defaults.set(kept.sorted(), forKey: Self.storageKey) }
+    }
+
+    func isCollapsed(_ id: String) -> Bool { collapsed.contains(id) }
+
+    func toggle(_ id: String) { setCollapsed(id, !isCollapsed(id)) }
+
+    func setCollapsed(_ id: String, _ value: Bool) {
+        if value { collapsed.insert(id) } else { collapsed.remove(id) }
+        defaults.set(collapsed.sorted(), forKey: Self.storageKey)
+    }
+
+    private static func isForgotten(_ id: String, now: Date) -> Bool {
+        guard let range = id.range(of: ".day.", options: .backwards) else { return false }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let day = formatter.date(from: String(id[range.upperBound...])) else { return true }
+        return now.timeIntervalSince(day) > dayMemory
+    }
+}
+
+/// What VoiceOver hears for a folding header: its title (with the count, when it has one) as a
+/// header button whose value says whether the section is open.
+struct FoldHeaderAccessibility: Equatable {
+    let label: String
+    let value: String
+    let traits: AccessibilityTraits
+    /// The smallest height of the header's tap target, from the HIG.
+    static let minimumHitHeight: CGFloat = 44
+
+    init(title: String, count: Int?, collapsed: Bool) {
+        label = count.map { "\(title), \($0.formatted())" } ?? title
+        value = collapsed ? String(localized: "Collapsed") : String(localized: "Expanded")
+        traits = [.isHeader, .isButton]
+    }
+}
+
+/// A section header that folds its section: tap it to hide or show the rows under it. The chevron
+/// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
+/// section is folded.
+struct FoldHeader: View {
+    enum Style { case section, day }
+
+    @ObservedObject var fold: SectionFold = .shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let id: String
+    let title: String
+    var style: Style = .section
+    var symbol: String? = nil
+    var count: Int? = nil
+    var identifier: String? = nil
+
+    var body: some View {
+        let collapsed = fold.isCollapsed(id)
+        let a11y = FoldHeaderAccessibility(title: title, count: count, collapsed: collapsed)
+        Button {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.9)) { fold.toggle(id) }
+        } label: {
+            HStack(spacing: 8) {
+                if let symbol {
+                    Image(systemName: symbol).foregroundColor(InboxColor.ink)
+                }
+                Text(title).foregroundColor(style == .section ? .primary : .secondary)
+                Spacer(minLength: 8)
+                if let count {
+                    Text(count.formatted()).foregroundColor(.secondary)
+                }
+                chevron(collapsed: collapsed)
+            }
+            .font(style == .section ? .headline : .subheadline.weight(.semibold))
+            .textCase(nil)
+            .frame(maxWidth: .infinity, minHeight: FoldHeaderAccessibility.minimumHitHeight, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11y.label)
+        .accessibilityValue(a11y.value)
+        .accessibilityAddTraits(a11y.traits)
+        .accessibilityIdentifier(identifier ?? id)
+    }
+
+    @ViewBuilder private func chevron(collapsed: Bool) -> some View {
+        let font = Font.footnote.weight(.semibold)
+        if reduceMotion {
+            Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                .font(font).foregroundColor(.secondary)
+                .frame(width: 16)
+                .id(collapsed)
+                .transition(.opacity)
+        } else {
+            Image(systemName: "chevron.down")
+                .font(font).foregroundColor(.secondary)
+                .frame(width: 16)
+                .rotationEffect(.degrees(collapsed ? -90 : 0))
+        }
+    }
+}

@@ -13,6 +13,7 @@ struct InboxView: View {
     @State private var showAllWaiting = false
     @State private var showingAdd = false
     @State private var showCopied = false
+    @ObservedObject private var fold = SectionFold.shared
 
     /// Three questions on iPhone keep Activity in reach; iPad has room for five (DECISION change 3).
     private var waitingCap: Int { sizeClass == .regular ? 5 : 3 }
@@ -56,12 +57,15 @@ struct InboxView: View {
     private var list: some View {
         List {
             if !waiting.notifications.isEmpty {
-                Section(header: WaitingHeader(count: waiting.notifications.count)) {
+                FoldHeader(fold: fold, id: SectionFold.waiting, title: String(localized: "Waiting on you"),
+                           symbol: "hand.raised.fill", count: waiting.notifications.count, identifier: "waiting-header")
+                    .modifier(FoldHeaderRow())
+                if !fold.isCollapsed(SectionFold.waiting) {
                     ForEach(waiting.notifications.prefix(waitingCap), id: \.objectID) { notification in
                         WaitingRow(notification: notification) { focus in
                             opened = OpenedMessage(notification: notification, focusReply: focus)
                         }
-                        .listRowInsets(CardSpacing.rowInsets)
+                        .modifier(CardRowInsets())
                         .modifier(NotNeededSwipe(notification: notification))
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -80,24 +84,37 @@ struct InboxView: View {
                     }
                 }
             }
-            let days = Notification.groupedByDay(activity.notifications, date: { $0.date() })
-            ForEach(Array(days.enumerated()), id: \.element.day) { index, group in
-                Section(header: activityHeader(first: index == 0, day: group.day)) {
-                    ForEach(group.items, id: \.objectID) { notification in
-                        MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
-                                    open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
-                                    onCopy: copied)
-                            .listRowInsets(CardSpacing.rowInsets)
-                            .modifier(MessageRowActions(notification: notification, onCopy: copied))
+            if !activity.notifications.isEmpty {
+                // Activity heads the days; folding it folds every day under it.
+                FoldHeader(fold: fold, id: SectionFold.activity, title: String(localized: "Activity"),
+                           identifier: "activity-header")
+                    .modifier(FoldHeaderRow(topSpace: waiting.notifications.isEmpty ? 0 : 16))
+                if !fold.isCollapsed(SectionFold.activity) {
+                    let days = Notification.groupedByDay(activity.notifications, date: { $0.date() })
+                    ForEach(days, id: \.day) { group in
+                        let dayId = SectionFold.day(group.day, in: "inbox")
+                        FoldHeader(fold: fold, id: dayId, title: Notification.daySectionTitle(for: group.day), style: .day)
+                            .modifier(FoldHeaderRow())
+                        if !fold.isCollapsed(dayId) {
+                            ForEach(group.items, id: \.objectID) { notification in
+                                MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
+                                            open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                                            onCopy: copied)
+                                    .modifier(CardRowInsets())
+                                    .modifier(MessageRowActions(notification: notification, onCopy: copied))
+                            }
+                        }
+                    }
+                    if activity.hasOlder {
+                        Button(NotificationHistoryStrings.loadOlder) { activity.loadOlder() }
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
-            if activity.hasOlder {
-                Button(NotificationHistoryStrings.loadOlder) { activity.loadOlder() }
-                    .frame(maxWidth: .infinity)
-            }
         }
-        .listStyle(.insetGrouped)
+        // One level of inset (operator, 2026-11-17): rows run edge to edge with hairlines between
+        // them, as in Mail, instead of cards inside the screen's margins.
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .refreshable {
@@ -111,22 +128,6 @@ struct InboxView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         })
-    }
-
-    @ViewBuilder private func activityHeader(first: Bool, day: Date) -> some View {
-        if first {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "Activity"))
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                    .textCase(nil)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("activity-header")
-                DayHeader(title: Notification.daySectionTitle(for: day))
-            }
-        } else {
-            DayHeader(title: Notification.daySectionTitle(for: day))
-        }
     }
 
     private func copied() {
@@ -164,12 +165,12 @@ struct WaitingAllView: View {
                     WaitingRow(notification: notification) { focus in
                         opened = OpenedMessage(notification: notification, focusReply: focus)
                     }
-                    .listRowInsets(CardSpacing.rowInsets)
+                    .modifier(CardRowInsets())
                     .modifier(NotNeededSwipe(notification: notification))
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .navigationTitle(String(localized: "Waiting on you"))
