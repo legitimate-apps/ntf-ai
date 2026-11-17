@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D8FA928E38C098A6C4758208 /* AnswerFinishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EA2B924B869108A6988DC6 /* AnswerFinishTests.swift */; };
 		C9AF09BEA63A58020F979AD7 /* AgentIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */; };
 		69C272C9F3348DE82915AA76 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
 		9837B0C6F985C87BF862DDF0 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
@@ -275,6 +276,7 @@
 		557DE638A451FB775522B9EA /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
 		5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsPassthroughTests.swift; sourceTree = "<group>"; };
 		0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProtocolV2Tests.swift; sourceTree = "<group>"; };
+		E8EA2B924B869108A6988DC6 /* AnswerFinishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerFinishTests.swift; sourceTree = "<group>"; };
 		D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIdentityTests.swift; sourceTree = "<group>"; };
 		85F108AFD59072B706FA5EBC /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		CAC50D82C4857D122D28E0A2 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
@@ -746,6 +748,7 @@
 				557DE638A451FB775522B9EA /* InboxTests.swift */,
 				5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */,
 				0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */,
+				E8EA2B924B869108A6988DC6 /* AnswerFinishTests.swift */,
 				D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */,
 				CE0D7AE636FF4807D4E3659F,
 				D55080135EC8D994F3DC44DB,
@@ -1165,6 +1168,7 @@
 				10D1B7DA409F390611280E9E /* InboxTests.swift in Sources */,
 				EB219A86833F93373EAE7682 /* ActionsPassthroughTests.swift in Sources */,
 				82980DC8217B157C34E5F32B /* AgentProtocolV2Tests.swift in Sources */,
+				D8FA928E38C098A6C4758208 /* AnswerFinishTests.swift in Sources */,
 				C9AF09BEA63A58020F979AD7 /* AgentIdentityTests.swift in Sources */,
 				A12300000000000000000001 /* BackgroundHTTPActionTests.swift in Sources */,
 				DDDFAC17B65143878A1319E9 /* FcmTeardownLedgerTests.swift in Sources */,
@@ -1242,7 +1246,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyShare";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1270,7 +1274,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyShare";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1425,7 +1429,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1459,7 +1463,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1484,7 +1488,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyNSE";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1510,7 +1514,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.26.0;
+				MARKETING_VERSION = 1.27.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).ntfyNSE";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

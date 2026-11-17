@@ -456,6 +456,29 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testVersion127ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.27.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.27.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 5)
+        let expected: [String: [String]] = [
+            "en": ["Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app.", "See which agent is asking, with its name and picture in the app and in notifications.", "Questions with a deadline show the time left, and an agent can withdraw a question it no longer needs.", "Agent reminders: an unanswered question can alert you again, or remind you silently.", "Answer buttons are easier to read in light and dark mode."],
+            "de": ["Agenten können nach einer Auswahl, einer Zahl, einem Datum, einem Text oder einem kurzen Formular fragen, und du antwortest direkt in der App.", "Sieh, welcher Agent fragt: mit Name und Bild in der App und in Mitteilungen.", "Fragen mit Frist zeigen die verbleibende Zeit, und ein Agent kann eine Frage zurückziehen, die er nicht mehr braucht.", "Erinnerungen von Agenten: Eine unbeantwortete Frage kann dich erneut benachrichtigen oder lautlos erinnern.", "Antworttasten sind im hellen und dunklen Modus besser lesbar."],
+            "es": ["Los agentes pueden pedirte una opción, un número, una fecha, un texto o un formulario breve, y respondes directamente en la app.", "Ve qué agente pregunta, con su nombre y su imagen en la app y en las notificaciones.", "Las preguntas con plazo muestran el tiempo restante, y un agente puede retirar una pregunta que ya no necesita.", "Recordatorios de agentes: una pregunta sin responder puede volver a avisarte o recordártelo sin sonido.", "Los botones de respuesta se leen mejor en modo claro y oscuro."],
+            "it": ["Gli agenti possono chiederti una scelta, un numero, una data, un testo o un breve modulo, e rispondi direttamente nell'app.", "Vedi quale agente fa la domanda, con nome e immagine nell'app e nelle notifiche.", "Le domande con una scadenza mostrano il tempo rimasto, e un agente può ritirare una domanda che non gli serve più.", "Promemoria degli agenti: una domanda senza risposta può avvisarti di nuovo o ricordartelo senza suono.", "I pulsanti di risposta si leggono meglio in modalità chiara e scura."],
+            "pl": ["Agenci mogą prosić o wybór, liczbę, datę, tekst lub krótki formularz, a ty odpowiadasz bezpośrednio w aplikacji.", "Zobacz, który agent pyta: z nazwą i obrazem w aplikacji i w powiadomieniach.", "Pytania z terminem pokazują pozostały czas, a agent może wycofać pytanie, którego już nie potrzebuje.", "Przypomnienia agentów: pytanie bez odpowiedzi może ponownie cię powiadomić lub przypomnieć bez dźwięku.", "Przyciski odpowiedzi są czytelniejsze w trybie jasnym i ciemnym."],
+            "nl": ["Agents kunnen vragen om een keuze, een getal, een datum, een tekst of een kort formulier, en je antwoordt direct in de app.", "Zie welke agent iets vraagt, met naam en afbeelding in de app en in meldingen.", "Vragen met een deadline tonen de resterende tijd, en een agent kan een vraag intrekken die hij niet meer nodig heeft.", "Herinneringen van agents: een onbeantwoorde vraag kan je opnieuw waarschuwen, of je zonder geluid herinneren.", "Antwoordknoppen zijn beter leesbaar in lichte en donkere modus."],
+            "fr": ["Les agents peuvent demander un choix, un nombre, une date, un texte ou un court formulaire, et vous répondez directement dans l’app.", "Voyez quel agent pose la question, avec son nom et son image dans l’app et dans les notifications.", "Les questions avec une échéance affichent le temps restant, et un agent peut retirer une question dont il n’a plus besoin.", "Rappels des agents : une question sans réponse peut vous alerter à nouveau, ou vous le rappeler sans son.", "Les boutons de réponse sont plus lisibles en mode clair et sombre."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion126ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.26.0" })
         XCTAssertEqual(release.bullets.count, 5)
@@ -527,7 +550,8 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(value("%lld notifications", 0), "0 Benachrichtigungen")
         XCTAssertEqual(value("%lld notifications", 23), "23 Benachrichtigungen")
         XCTAssertEqual(bundle.localizedString(forKey: "Notification state synchronized", value: nil, table: nil), "Benachrichtigungsstatus synchronisiert")
-        let canonicalMIT = OpenSourceLicenses.components[0].notice
+        // The upstream MIT entry, by name: NTF-AI's own GPL-3.0 entry leads the list since 1.27.
+        let canonicalMIT = try XCTUnwrap(OpenSourceLicenses.components.first { $0.name == "ntfy for iOS" }).notice
         XCTAssertTrue(canonicalMIT.contains("Permission is hereby granted"))
         let plugIns = try XCTUnwrap(Bundle.main.builtInPlugInsURL)
         let extensionURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: plugIns, includingPropertiesForKeys: nil).first { $0.pathExtension == "appex" })
