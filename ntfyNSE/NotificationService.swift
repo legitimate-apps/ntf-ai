@@ -230,6 +230,18 @@ class NotificationService: UNNotificationServiceExtension {
             deliverAcknowledgement(request, content, baseUrl, ack, questionTitle: questionTitle)
             return
         }
+        if case .answered = result {
+            // The person's own answer, perhaps from their other device: its question already shows
+            // it. Dropping the push needs the filtering entitlement, so it is a passive receipt
+            // removed right after delivery, and again when the app next runs.
+            content.relevanceScore = 0
+            deliverSynchronizationReceipt(content, baseUrl, received)
+            let identifier = request.identifier
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+            }
+            return
+        }
         guard case .stored(let message) = result else {
             // A re-posted copy of an encrypted message this topic already has: it is not stored again.
             // Empty content would NOT hide the banner (that needs the filtering entitlement, which this

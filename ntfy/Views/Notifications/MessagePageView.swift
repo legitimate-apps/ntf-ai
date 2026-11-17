@@ -209,7 +209,7 @@ struct MessagePageView: View {
 
     /// Answered here, or the agent confirmed (or settled) the question: the receipt replaces the answers.
     private var isSettled: Bool {
-        AnswerState(notification: notification, log: log).showsReceipt() || receipt.resolved
+        AnswerState(notification: notification, log: log, acks: acks).showsReceipt() || receipt.resolved
     }
 
     private var hasAnswerArea: Bool {
@@ -221,7 +221,7 @@ struct MessagePageView: View {
     }
 
     @ViewBuilder private var answerArea: some View {
-        let state = AnswerState(notification: notification, log: log)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
         VStack(spacing: 10) {
             if isSettled {
                 let receipt = receipt

@@ -59,6 +59,8 @@ enum PushedMessageResult {
     case reconcile(PollRequest)
     /// An agent ack (ACK-SPEC): recorded on its question, shown only as a silent receipt.
     case acknowledged(Message, questionTitle: String?)
+    /// The person's own answer or reply to a question (`re-<sequence>`): recorded, never alerted.
+    case answered
 
     var message: Message? {
         if case .stored(let message) = self { return message }

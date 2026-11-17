@@ -728,3 +728,191 @@ final class AgentAckTests: XCTestCase {
         XCTAssertEqual(parseNonEmojiTags("acknowledged,backup"), ["acknowledged", "backup"], "only the exact tag")
     }
 }
+
+/// The person's answer to a typed question (`ans` plus `re-<sequence>`, agent protocol v2) is no
+/// row of its own and never unread: its question shows it in words, whichever device sent it. Red
+/// on 9da561b, where "prod" or form JSON showed as its own unread row.
+final class AnswerRowTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+    private var subscription: Subscription!
+    private var removals: [SequenceRemoval] = []
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func defaults() -> UserDefaults {
+        let name = "answer-row-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+        store.ackLog = acks
+        store.reminderDefaults = defaults()
+        removals = []
+        store.notificationRemover = { [weak self] in self?.removals.append($0) }
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "ops")
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private static let choice: [String: Any] = ["v": 2, "kind": "choice", "options": [
+        ["k": "staging", "l": "Staging"], ["k": "prod", "l": "Production"], ["k": "both", "l": "Both"]]]
+    private static let form: [String: Any] = ["v": 2, "kind": "form", "fields": [
+        ["k": "branch", "l": "Branch", "kind": "text"], ["k": "replicas", "l": "Replicas", "kind": "number"]]]
+
+    private func carrier(_ schema: [String: Any]) -> Action {
+        let data = try! JSONSerialization.data(withJSONObject: schema, options: [.sortedKeys])
+        return Action(id: "ask", action: "view", label: "Answer in NTF-AI",
+                      url: "https://ntf-ai.app/docs/agents#ask-v2=" + TopicEncryption.base64urlEncode(data),
+                      method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    private func question(_ schema: [String: Any] = AnswerRowTests.choice, id: String = "q-1", sequence: String = "deploy",
+                          age: TimeInterval = 600) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "ops",
+                message: "Where should this go?", title: "Deploy", priority: 4, tags: ["agent"], actions: [carrier(schema)],
+                sequenceID: sequence)
+    }
+
+    private func reply(_ id: String, _ body: String, tags: [String], age: TimeInterval = 60) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "ops",
+                message: body, priority: 3, tags: tags)
+    }
+
+    @discardableResult
+    private func save(_ messages: Message...) -> [Message] {
+        let presented = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+        return presented
+    }
+
+    private var rows: [ntfy.Notification] {
+        let request = ntfy.Notification.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: true)]
+        return (try? store.context.fetch(request)) ?? []
+    }
+
+    private func row(_ id: String) throws -> ntfy.Notification { try XCTUnwrap(rows.first { $0.id == id }, id) }
+
+    private func receipt(_ id: String = "q-1") throws -> AgentReceipt {
+        AgentReceipt(notification: try row(id), log: log, acks: acks, shows: true)
+    }
+
+    // MARK: rows and unread counts
+
+    func testAChoiceAnswerIsNoRowAndNeverUnread() throws {
+        save(question())
+        let presented = save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(presented.map(\.id), [], "the person's own answer never alerts")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "the answer is not its own row")
+        XCTAssertEqual(store.totalUnreadCount(), 0, "badge and Inbox")
+        XCTAssertEqual(store.unreadCount(baseUrl: "https://agents.example", topic: "ops"), 0, "the topic's count")
+    }
+
+    func testAnAnswerInTheSameBatchAsItsQuestionIsNoRow() {
+        save(question(), reply("a-1", "prod", tags: ["ans", "re-deploy"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        XCTAssertEqual(store.totalUnreadCount(), 0)
+    }
+
+    func testAPushedAnswerIsNotStoredOrPresented() {
+        save(question())
+        let result = store.ingest(pushedMessage: reply("a-1", "prod", tags: ["re-deploy", "ans"]),
+                                  baseUrl: "https://agents.example", topic: "ops")
+        XCTAssertNotNil(result)
+        XCTAssertNil(result?.message, "nothing to present: \(String(describing: result))")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        XCTAssertEqual(store.totalUnreadCount(), 0)
+    }
+
+    func testAnEncryptedAnswerIsNoRow() throws {
+        _ = store.setEncryptionPassword("correct horse", for: subscription)
+        let key = try XCTUnwrap(store.encryptionKey(baseUrl: "https://agents.example", topic: "ops"))
+        save(question())
+        let cipher = try TopicEncryption.encrypt(EncryptedPayload(message: "prod", tags: ["re-deploy", "ans"]), key: key)
+        save(reply("a-1", cipher, tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "decrypted, then folded into its question")
+        XCTAssertEqual(store.totalUnreadCount(), 0)
+        XCTAssertEqual(try receipt().answerText, "Production")
+    }
+
+    // MARK: the question shows the answer
+
+    func testTheQuestionShowsTheChoiceLabelBeforeAndAfterTheAck() throws {
+        save(question())
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        var receipt = try receipt()
+        XCTAssertEqual(receipt.answer?.kind, .tap)
+        XCTAssertEqual(receipt.answer?.label, "Production", "the label, never the key")
+        XCTAssertEqual(receipt.answerText, "Production")
+        XCTAssertNil(receipt.agent, "no ack yet: \"You answered Production\"")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [], "out of Waiting on you")
+        // ntf 0.4's ack names no answer.
+        save(Message(id: "k-1", time: Int64(now.addingTimeInterval(-30).timeIntervalSince1970), event: "message", topic: "ops",
+                     message: "\u{2713} Got your reply", priority: 1, tags: ["agent", "ack"], sequenceID: "deploy"))
+        receipt = try self.receipt()
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-30), note: nil))
+        XCTAssertEqual(receipt.answerText, "Production", "\"Agent got it · Production\"")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    func testAFormAnswerReadsWithItsFieldLabels() throws {
+        save(question(Self.form))
+        save(reply("a-1", #"{"branch":"main","replicas":2}"#, tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        let receipt = try receipt()
+        XCTAssertEqual(receipt.answer?.kind, .reply, "a form reads \"You replied\"")
+        XCTAssertEqual(receipt.answer?.text, "Branch: main · Replicas: 2")
+        XCTAssertFalse(receipt.answerText?.contains("{") ?? true, "never raw JSON")
+    }
+
+    func testAnAnswerMadeHereKeepsItsOwnReceipt() throws {
+        save(question())
+        let key = try XCTUnwrap(AnswerKey(notification: try row("q-1")))
+        log.record(key, AnswerEntry(kind: .tap, label: "Production", text: nil, at: now.addingTimeInterval(-61), ok: true))
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(try receipt().answer?.at, now.addingTimeInterval(-61), "this device's entry wins")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    // MARK: what stays
+
+    func testMessagesThatOnlyLookLikeAnswersStay() throws {
+        save(question())
+        save(reply("x-1", "ans is a word", tags: ["ans"]),
+             reply("x-2", "prod", tags: ["re-deploy", "answer"]),
+             reply("x-3", "prod", tags: ["ans", "re-other"]))
+        XCTAssertEqual(Set(rows.compactMap(\.id)), ["q-1", "x-1", "x-2", "x-3"], "no `ans` with a `re-` naming a question here")
+        XCTAssertEqual(try row("x-1").read, false, "`ans` without `re-` is an ordinary message")
+        XCTAssertNil(try receipt().answer, "neither one answered the question")
+    }
+
+    func testAnAnswerWhoseQuestionIsGoneStaysReadable() throws {
+        save(reply("a-1", #"{"branch":"main","replicas":2}"#, tags: ["re-expired", "ans"]))
+        let orphan = try row("a-1")
+        XCTAssertEqual(orphan.display.title, "branch: main · replicas: 2", "readable, never raw JSON")
+        XCTAssertEqual(orphan.read, true, "the person's own answer is never unread")
+        save(reply("a-2", "prod", tags: ["re-gone", "ans"]))
+        XCTAssertEqual(try row("a-2").display.title, "prod")
+    }
+
+    func testAFreeReplyStaysVisibleAndRead() throws {
+        save(question())
+        let presented = save(reply("r-1", "Teal please", tags: ["re-deploy"]))
+        XCTAssertEqual(presented.map(\.id), [])
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1", "r-1"], "the person's reply stays")
+        XCTAssertEqual(try row("r-1").read, true, "never unread")
+        XCTAssertEqual(try row("r-1").display.title, "Teal please")
+    }
+}

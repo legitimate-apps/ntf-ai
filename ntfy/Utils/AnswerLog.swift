@@ -142,6 +142,20 @@ final class AnswerLog: ObservableObject {
     }
 }
 
+extension AnswerLog {
+    /// The answer to this version of the question: one made here, else one seen on its topic, which
+    /// may have come from the person's other device. A failed or dismissed entry here gives way to
+    /// an answer seen since.
+    func entry(for key: AnswerKey?, seen acks: AckLog) -> AnswerEntry? {
+        let local = entry(for: key)
+        if let local, local.ok, local.kind != .dismissed { return local }
+        guard let key, let seen = acks.answer(forKey: key.id, version: key.version) else { return local }
+        return AnswerEntry(kind: seen.written ? .reply : .tap, label: seen.written ? "" : seen.label,
+                           text: seen.written ? seen.label : nil, at: Date(timeIntervalSince1970: TimeInterval(seen.time)),
+                           ok: true, messageId: seen.version)
+    }
+}
+
 /// "Waiting on you" (DIRECTIONS 1.6): a question an agent is blocked on.
 enum WaitingRule {
     static let maxAge: TimeInterval = 7 * 24 * 60 * 60
@@ -273,7 +287,7 @@ extension Store {
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
             let key = AnswerKey(notification: row)
-            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key),
+            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key, seen: acks),
                                          tags: parseAllTags(row.tags),
                                          acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false,
                                          now: now)
@@ -352,12 +366,13 @@ final class WaitingObservable: ObservableObject {
 
 extension AgentAck {
     /// With "Show agent confirmations" off, an ack the extension had to deliver (it can't drop a
-    /// push without Apple's filtering entitlement) leaves Notification Center once the app runs.
+    /// push without Apple's filtering entitlement) leaves Notification Center once the app runs. So
+    /// does the receipt for the person's own answer, whatever the setting.
     static func removeDeliveredReceiptsIfHidden(center: UNUserNotificationCenter = .current(),
                                                 shows: Bool = AgentAck.showsConfirmations()) {
-        guard !shows else { return }
         center.getDeliveredNotifications { delivered in
-            let ids = delivered.filter { isReceipt($0.request.content.userInfo) }.map(\.request.identifier)
+            let ids = delivered.filter { (!shows && isReceipt($0.request.content.userInfo))
+                || isAnswerReceipt($0.request.content.userInfo) }.map(\.request.identifier)
             if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
         }
     }
@@ -370,5 +385,10 @@ extension AgentAck {
 
     static func isReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
         isAck(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ","))
+    }
+
+    /// The passive receipt the extension delivers for the person's own answer (`ans`, `re-<sequence>`).
+    static func isAnswerReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
+        AnswerMessage.answeredSequence(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ",")) != nil
     }
 }

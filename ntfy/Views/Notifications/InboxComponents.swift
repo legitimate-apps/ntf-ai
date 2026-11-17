@@ -78,9 +78,13 @@ extension Notification {
     var display: MessageDisplay {
         // An old full settle shows the question as it was; its appended line becomes the receipt.
         // A typed question drops the plain-text hint `ntf` added for older apps (SPEC 2).
-        MessageDisplay.of(title: formatTitle(),
-                          body: agentSettle?.question ?? AskSchema.strippingHint(formatMessage(), hint: askDetection.schema?.hint),
-                          contentType: contentType)
+        // An answer whose question is gone (expired, cleared) keeps its row, in words, never raw JSON.
+        if AnswerMessage.answeredSequence(tags: parseAllTags(tags)) != nil {
+            return MessageDisplay.of(title: formatTitle(), body: AnswerMessage.readable(formatMessage()), contentType: nil)
+        }
+        return MessageDisplay.of(title: formatTitle(),
+                                 body: agentSettle?.question ?? AskSchema.strippingHint(formatMessage(), hint: askDetection.schema?.hint),
+                                 contentType: contentType)
     }
 
     /// The question re-sent by ntf 0.1/0.2 to settle it: no buttons, the outcome line appended.
@@ -273,9 +277,9 @@ struct AnswerState: Equatable {
         self.sendingActionId = sendingActionId
     }
 
-    init(notification: Notification, log: AnswerLog) {
+    init(notification: Notification, log: AnswerLog, acks: AckLog = .shared) {
         let key = AnswerKey(notification: notification)
-        entry = log.entry(for: key)
+        entry = log.entry(for: key, seen: acks)
         sendingActionId = log.sendingActionId(key)
     }
 
@@ -396,7 +400,7 @@ struct AgentReceipt: Equatable {
 
     init(notification: Notification, log: AnswerLog, acks: AckLog = .shared, shows: Bool) {
         let key = AnswerKey(notification: notification)
-        var entry = log.entry(for: key)
+        var entry = log.entry(for: key, seen: acks)
         var agent: Agent?
         var named: String?
         if let key, let record = acks.record(forKey: key.id, version: key.version) {
@@ -1053,7 +1057,7 @@ struct MessageCard: View {
     private var showsUnread: Bool { !notification.read || heldUnread }
 
     var body: some View {
-        let state = AnswerState(notification: notification, log: log)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
         let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
         let detection = notification.askDetection
         let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .card)
@@ -1196,7 +1200,7 @@ struct WaitingRow: View {
     @State private var browserURL: URL?
 
     var body: some View {
-        let state = AnswerState(notification: notification, log: log)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
         let detection = notification.askDetection
         let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .waiting)
         let display = notification.display

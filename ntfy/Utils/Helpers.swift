@@ -226,6 +226,20 @@ enum AgentAck {
         var withdrawn: Bool? = nil
     }
 
+    /// A person's answer to a question, seen on its topic (a message tagged `ans` and `re-<sequence>`):
+    /// the answer in words, never the raw body, so a form reads "Branch: main · Replicas: 2".
+    struct SeenAnswer: Codable, Equatable {
+        /// The answer message's own id and time.
+        var id: String
+        var time: Int64
+        /// The answer in words.
+        var label: String
+        /// Written text or a form: the page says "You replied" and shows `label` under it.
+        var written: Bool
+        /// The id of the question version it answers.
+        var version: String
+    }
+
     enum Outcome: Equatable {
         /// The agent got the answer; the label when the line names it.
         case got(String?)
@@ -348,6 +362,48 @@ final class AckLog: ObservableObject {
             }
         }
         if let data = try? JSONEncoder().encode(records) { defaults.set(data, forKey: Self.defaultsKey) }
+        lock.unlock()
+        changed()
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(Self.darwinName as CFString), nil, nil, true)
+        return true
+    }
+
+    /// Answers to a question seen on its topic (agent protocol v2, SPEC 2): a message tagged `ans`
+    /// and `re-<sequence>`, sent from this device or another one. The store keeps no row for it;
+    /// the question shows it instead. Kept beside the acks, so the app and the extension share it
+    /// and the same redraw covers both.
+    static let answersKey = "agentAnswers.v1"
+
+    private func answers() -> [String: AgentAck.SeenAnswer] {
+        guard let data = defaults.data(forKey: Self.answersKey),
+              let decoded = try? JSONDecoder().decode([String: AgentAck.SeenAnswer].self, from: data) else { return [:] }
+        return decoded
+    }
+
+    /// The answer seen for this version of the question, if any.
+    func answer(forKey key: String, version: String?) -> AgentAck.SeenAnswer? {
+        lock.lock(); defer { lock.unlock() }
+        guard let answer = answers()[key], version == nil || answer.version == version else { return nil }
+        return answer
+    }
+
+    /// Keeps the newest answer per question version. False when one as new or newer is already there.
+    @discardableResult
+    func saveAnswer(_ answer: AgentAck.SeenAnswer, forKey key: String) -> Bool {
+        lock.lock()
+        var entries = answers()
+        if let current = entries[key], current.version == answer.version, current.time > answer.time || current.id == answer.id {
+            lock.unlock()
+            return false
+        }
+        entries[key] = answer
+        if entries.count > Self.limit {
+            for old in entries.sorted(by: { $0.value.time < $1.value.time }).prefix(entries.count - Self.limit) {
+                entries.removeValue(forKey: old.key)
+            }
+        }
+        if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: Self.answersKey) }
         lock.unlock()
         changed()
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),

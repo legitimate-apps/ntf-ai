@@ -633,6 +633,67 @@ enum AgentQuestion {
     }
 }
 
+/// A person's answer on a question's topic, as the app shows it (agent protocol v2, SPEC 2). The
+/// message carries both `ans` and `re-<sequence>`; its body is the structured answer (choice keys,
+/// a number, a date, text or form JSON) and is never shown as it is.
+enum AnswerMessage {
+    /// The question's sequence a message answers: its `re-<sequence>` tag, only when `ans` is there too.
+    static func answeredSequence(tags: [String]?) -> String? {
+        guard let tags, tags.contains(where: ProtocolTag.isAnswer) else { return nil }
+        return replySequence(tags: tags)
+    }
+
+    /// The sequence a `re-<sequence>` tag names, with or without `ans`.
+    static func replySequence(tags: [String]?) -> String? {
+        guard let tag = tags?.first(where: ProtocolTag.isReply) else { return nil }
+        return String(tag.dropFirst(ProtocolTag.replyPrefix.count))
+    }
+
+    /// The answer in words, with the question's labels: "Production", "Branch: main · Replicas: 2".
+    /// `written` for text and forms, which the page shows as "You replied". A body the question's
+    /// schema can't read is shown as `readable(_:)`, also as a reply: never as a picked label.
+    static func words(body: String, questionActions: [Action]) -> (label: String, written: Bool) {
+        if let schema = AskSchema.detect(in: questionActions).schema, let answer = schema.answer(fromBody: body) {
+            let label = schema.summary(answer)
+            if !label.isEmpty {
+                switch schema.input {
+                case .text, .form: return (label, true)
+                default: return (label, false)
+                }
+            }
+        }
+        return (readable(body), true)
+    }
+
+    /// A body with no question to label it: a JSON object reads "branch: main · replicas: 2", a
+    /// JSON list "a, b"; anything else is shown as it is. Never raw JSON.
+    static func readable(_ body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first, first == "{" || first == "[",
+              let data = trimmed.data(using: .utf8),
+              let value = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else { return trimmed }
+        return words(of: value)
+    }
+
+    private static func words(of value: Any) -> String {
+        switch value {
+        case let object as [String: Any]:
+            return object.keys.sorted().map { "\($0): \(words(of: object[$0]!))" }.joined(separator: " · ")
+        case let list as [Any]:
+            return list.map(words(of:)).joined(separator: ", ")
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() { return number.boolValue ? "yes" : "no" }
+            return number.stringValue
+        case let text as String:
+            return text
+        case is NSNull:
+            return ""
+        default:
+            return "\(value)"
+        }
+    }
+}
+
 /// Reads the answer log the app keeps (`AnswerLog`, app group defaults) without the app's types, so
 /// the extension can tell whether a question was answered before letting a reminder alert.
 enum AnswerLogReader {

@@ -94,6 +94,9 @@ class Store: ObservableObject {
     var reminderClock: () -> Date = Date.init
     /// The pushed message the last save took as an agent ack: it confirms a question, never alerts.
     private(set) var acknowledgedPush: (id: String, questionTitle: String?)?
+    /// The pushed message the last save took as the person's own answer or reply to a question: it
+    /// never alerts, here or on another of their devices.
+    private(set) var answeredPush: String?
     /// Whether a missing cached key may be re-derived from the password (PBKDF2). Off in the
     /// notification service extension, which has a tight time and memory budget; the app derives it
     /// the next time it reads the topic, and `retryLockedMessages` then opens what arrived meanwhile.
@@ -1045,6 +1048,8 @@ class Store: ObservableObject {
                 let changed = try saveNotifications(ingested, withSubscription: subscription, isPush: true)
                 if let ack = acknowledgedPush, ack.id == message.id {
                     stored = .acknowledged(ingested.first?.message ?? message, questionTitle: ack.questionTitle)
+                } else if answeredPush == message.id {
+                    stored = .answered
                 } else if let updated = changed.first {
                     stored = .stored(updated)
                 } else if deferredPushID == message.id, let request = pollRequest(for: subscription) {
@@ -1073,7 +1078,7 @@ class Store: ObservableObject {
             }
         }
         switch stored {
-        case .stored, .handled, .acknowledged: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
+        case .stored, .handled, .acknowledged, .answered: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
         default: break // A deferred reconciliation has not demonstrated recovery yet.
         }
         return stored
@@ -1986,11 +1991,14 @@ class Store: ObservableObject {
     /// asking from the current cursor orders an answer only after states from an earlier second.
     @discardableResult
     private func saveNotifications(_ ingested: [IngestedMessage], withSubscription subscription: Subscription, polledSince: String? = nil, isPush: Bool = false, applyingRetention: Bool = false) throws -> [Message] {
-        if isPush { deferredPushID = nil; acknowledgedPush = nil }
+        if isPush { deferredPushID = nil; acknowledgedPush = nil; answeredPush = nil }
         let request = Notification.fetchRequest()
         let sequences = ingested.map { $0.message.sequence }
         let ids = ingested.map { $0.message.id }
-        request.predicate = NSPredicate(format: "subscription == %@ AND (sequenceID IN %@ OR id IN %@ OR id IN %@)", subscription, sequences, sequences, ids)
+        // The questions that answers and replies in this batch name (`re-<sequence>`).
+        let replied = ingested.compactMap { AnswerMessage.replySequence(tags: $0.message.tags) }
+        request.predicate = NSPredicate(format: "subscription == %@ AND (sequenceID IN %@ OR id IN %@ OR id IN %@ OR sequenceID IN %@ OR id IN %@)",
+                                        subscription, sequences, sequences, ids, replied, replied)
         var rows = try context.fetch(request)
         let stateRequest = NSFetchRequest<NSManagedObject>(entityName: "SequenceState")
         stateRequest.predicate = NSPredicate(format: "subscription == %@ AND sequenceID IN %@", subscription, sequences)
@@ -2091,6 +2099,18 @@ class Store: ObservableObject {
                 removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
                                                 sequence: sequence, throughTime: message.time, keepingID: message.id))
                 if isPush { acknowledgedPush = (message.id, row.title) }
+            } else if row == nil, let target = AnswerMessage.answeredSequence(tags: message.tags),
+                      let question = questionRow(answeredBy: target, in: rows), let version = question.id {
+                // The person's answer (`ans`, `re-<sequence>`), from this device or another: the
+                // question shows it in words; it gets no row of its own and never counts as unread.
+                let words = AnswerMessage.words(body: message.message ?? "", questionActions: question.actionsList())
+                ackLog.saveAnswer(AgentAck.SeenAnswer(id: message.id, time: message.time, label: words.label,
+                                                      written: words.written, version: version),
+                                  forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: target))
+                question.read = true
+                removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
+                                                sequence: target, throughTime: message.time, keepingID: message.id))
+                if isPush { answeredPush = message.id }
             } else {
                 let notification = row ?? Notification(context: context)
                 message.isUpdate = row != nil
@@ -2114,6 +2134,12 @@ class Store: ObservableObject {
                     // An ack with no question here (pruned, or never received): kept as a quiet row.
                     notification.read = true
                     if isPush { acknowledgedPush = (message.id, nil) }
+                } else if row == nil, AnswerMessage.answeredSequence(tags: message.tags) != nil
+                            || AnswerMessage.replySequence(tags: message.tags).map({ questionRow(answeredBy: $0, in: rows) != nil }) == true {
+                    // The person's own words: an answer whose question isn't here (expired or
+                    // cleared; shown readably), or a written reply under its question. Never unread.
+                    notification.read = true
+                    if isPush { answeredPush = message.id }
                 } else {
                     presentations.append(message)
                 }
@@ -2143,6 +2169,16 @@ class Store: ObservableObject {
         }
     }
 
+    /// The question an answer or reply names by `re-<sequence>`: a row of the same topic on that
+    /// sequence that is not itself an answer, reply or ack.
+    private func questionRow(answeredBy sequence: String, in rows: [Notification]) -> Notification? {
+        rows.first { row in
+            guard !row.isDeleted, (row.sequenceID.flatMap { $0.isEmpty ? nil : $0 } ?? row.id) == sequence else { return false }
+            let tags = parseAllTags(row.tags)
+            return !tags.contains(where: ProtocolTag.isReply) && !AgentAck.isAck(tags: tags)
+        }
+    }
+
     /// Whether `message`, an update of the stored question `row`, is a reminder that may alert, and
     /// if so records the alert. A version already approved (the same push and poll) stays approved.
     private func reminderAlerts(_ message: Message, replacing row: Notification, subscription: Subscription) -> Bool {
@@ -2157,6 +2193,7 @@ class Store: ObservableObject {
         let waiting = !row.isDeleted && AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: previousActions)
             && ackLog.record(forKey: key, version: version) == nil
             && !AnswerLogReader.answered(key: key, version: version, defaults: reminderDefaults)
+            && ackLog.answer(forKey: key, version: version) == nil
             && now.timeIntervalSince(row.date()) < 7 * 24 * 3600 // WaitingRule.maxAge, app-only
         guard AgentReminder.alerts(next: next, previous: AskSchema.detect(in: previousActions).schema, waiting: waiting,
                                    priorAlerts: reminderLog.record(forKey: key)?.alerts ?? [],

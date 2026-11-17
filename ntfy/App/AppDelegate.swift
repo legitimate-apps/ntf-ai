@@ -526,6 +526,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     completionHandler(AgentAck.foregroundPresentation(shows: AgentAck.showsConfirmations()))
                     return
                 }
+                // The person's own answer or reply that the store kept no unread row for: no banner.
+                if AnswerMessage.replySequence(tags: message.tags) != nil, result?.message == nil {
+                    completionHandler([])
+                    return
+                }
             }
         }
         let muted = Store.shared.isNotificationMuted(userInfo: userInfo)
