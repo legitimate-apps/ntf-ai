@@ -1,5 +1,6 @@
 import XCTest
 import UserNotifications
+import SwiftUI
 @testable import ntfy
 
 /// NTF-AI 1.27 finish round: click URLs, the fallback for a question this build can't render, the
@@ -85,5 +86,50 @@ final class ThisAppLicenseTests: XCTestCase {
         XCTAssertEqual(OpenSourceLicenses.components.filter(\.isThisApp).count, 1)
         // The upstream MIT notice stays, as a project the app builds on.
         XCTAssertFalse(try XCTUnwrap(OpenSourceLicenses.components.first { $0.name == "ntfy for iOS" }).isThisApp)
+    }
+}
+
+/// Found by the 1.27 integration run on ntfy-me.com: a form's Branch field typed as "main" reached
+/// the agent as "Main", because the keyboard capitalised it. Typed answers are values the agent acts
+/// on, so their fields keep text as typed; the free reply keeps sentence capitals.
+@MainActor
+final class TypedAnswerKeyboardTests: XCTestCase {
+    private struct Traits: Equatable { let caps: UITextAutocapitalizationType; let correction: UITextAutocorrectionType }
+
+    private func traits<V: View>(of view: V) async throws -> [Traits] {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: { $0.isKeyWindow })
+        let window = UIWindow(windowScene: scene)
+        window.frame = UIScreen.main.bounds
+        window.rootViewController = UIHostingController(rootView: view.padding())
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; previous?.makeKey() }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        window.layoutIfNeeded()
+        var found: [Traits] = []
+        func walk(_ v: UIView) {
+            if let f = v as? UITextField { found.append(Traits(caps: f.autocapitalizationType, correction: f.autocorrectionType)) }
+            if let t = v as? UITextView, t.isEditable { found.append(Traits(caps: t.autocapitalizationType, correction: t.autocorrectionType)) }
+            v.subviews.forEach(walk)
+        }
+        walk(window)
+        return found
+    }
+
+    private func schema(_ json: String) throws -> AskSchema { try XCTUnwrap(AskSchema.decode(json: Data(json.utf8))) }
+    private let verbatim = Traits(caps: .none, correction: .no)
+
+    func testATextQuestionAndAFormKeepTheTextAsTyped() async throws {
+        guard case .form(let fields) = try schema(#"{"v":2,"kind":"form","fields":[{"k":"branch","kind":"text","l":"Branch","max":60},{"k":"replicas","kind":"number","l":"Replicas","min":1,"max":5}]}"#).input
+        else { return XCTFail("A6 form did not decode") }
+        let form = try await traits(of: AskForm(fields: fields) { _ in })
+        XCTAssertEqual(form.first, verbatim, "Branch field: \(form)")
+
+        let text = try await traits(of: ReplyField(placeholder: "Branch name", maxLength: 60, verbatim: true) { _ in })
+        XCTAssertEqual(text, [verbatim])
+        // The free reply is prose: it keeps the keyboard's sentence capitals.
+        let reply = try await traits(of: ReplyField(placeholder: "Reply") { _ in })
+        XCTAssertEqual(reply.count, 1)
+        XCTAssertNotEqual(reply.first?.caps, UITextAutocapitalizationType.none)
     }
 }

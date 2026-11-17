@@ -363,6 +363,9 @@ struct ReplyField: View {
     var focusOnAppear = false
     /// A typed question's text limit (SPEC 2); nil for a free reply.
     var maxLength: Int? = nil
+    /// A typed question's answer is a value the agent acts on (a branch, a host), so the keyboard
+    /// leaves it as typed: no capital first letter, no autocorrection. A free reply keeps both.
+    var verbatim = false
     /// Called when the field gains focus, so an inline answer area can scroll it above the keyboard.
     var onFocus: () -> Void = {}
     /// Whether the field holds something to send, as it changes.
@@ -427,6 +430,10 @@ struct ReplyField: View {
     }
 
     @ViewBuilder private var field: some View {
+        if verbatim { input.disableAutocapitalization().disableAutocorrection(true) } else { input }
+    }
+
+    @ViewBuilder private var input: some View {
         if #available(iOS 16.0, *) {
             TextField(placeholder, text: $text, axis: .vertical).lineLimit(1...5)
         } else {

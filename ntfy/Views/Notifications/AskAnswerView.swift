@@ -193,7 +193,7 @@ struct AskAnswerView: View {
         case .date(let spec):
             AskDateField(spec: spec, phase: phase) { send(.date($0)) }
         case .text(let spec):
-            ReplyField(placeholder: spec.placeholder ?? String(localized: "Answer"), phase: phase, maxLength: spec.max) { send(.text($0)) }
+            ReplyField(placeholder: spec.placeholder ?? String(localized: "Answer"), phase: phase, maxLength: spec.max, verbatim: true) { send(.text($0)) }
         case .form(let fields):
             if place == .page {
                 AskForm(fields: fields, phase: phase) { send(.form($0)) }
@@ -554,7 +554,9 @@ struct AskForm: View {
     @ViewBuilder private func control(_ field: AskSchema.Field) -> some View {
         switch field.input {
         case .text(let spec):
-            TextField(spec.placeholder ?? field.label, text: binding(field.key)).askFieldBox()
+            // Like a typed text answer, a form's text is kept exactly as typed (ReplyField.verbatim).
+            TextField(spec.placeholder ?? field.label, text: binding(field.key))
+                .disableAutocapitalization().disableAutocorrection(true).askFieldBox()
         case .number(let spec):
             HStack {
                 TextField(String(localized: "Number"), text: binding(field.key)).keyboardType(AskNumbers.keyboard(for: spec))
