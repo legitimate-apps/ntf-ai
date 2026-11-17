@@ -196,10 +196,7 @@ struct MessagePageView: View {
             && AgentReply.offersField(tags: parseAllTags(notification.tags), actions: notification.answerableActions())
     }
 
-    private var clickURL: URL? {
-        guard let click = notification.click, !click.isEmpty else { return nil }
-        return URL(string: click)
-    }
+    private var clickURL: URL? { ClickURL.url(from: notification.click) }
 
     private var receipt: AgentReceipt {
         AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
@@ -242,6 +239,10 @@ struct MessagePageView: View {
                     AskStatusLine(notification: notification, detection: detection)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // A typed question's links read as links, above its answer (DESIGN-REVIEW-v2 F5).
+                if detection.schema != nil, !links.isEmpty {
+                    AskLinks(items: links, run: run)
+                }
                 if let schema = openSchema {
                     AskAnswerView(notification: notification, schema: schema, place: .page, sending: state.sending) { body, summary, written in
                         AgentReply.sendAnswer(body, summary: summary, written: written, to: notification, store: store)
@@ -250,8 +251,9 @@ struct MessagePageView: View {
                     // Past its deadline the control stays visible but can't send.
                     AskAnswerView(notification: notification, schema: detection.schema!, place: .page, disabled: true) { _, _, _ in }
                 }
-                if !items.isEmpty {
-                    ActionBar(items: items,
+                let bar = detection.schema == nil ? items : items.filter(\.isAnswer)
+                if !bar.isEmpty {
+                    ActionBar(items: bar,
                               prominentId: detection.schema == nil
                                   ? Self.prominentAnswer(firstAnswerId: prominentId,
                                                          replyTyped: replyTyped && state.sendingActionId == nil && state.sentLabel() == nil)
@@ -262,6 +264,8 @@ struct MessagePageView: View {
                 if (replyAction != nil || offersAgentReply) && (detection.schema == nil || (openSchema != nil && detection.schema?.kind != .text)) {
                     let row = Self.replyRow(answerSent: state.sentLabel() != nil)
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
+                               // Beside a typed answer's Send, this one is "Reply" (DESIGN-REVIEW-v2 F6).
+                               sendTitle: detection.schema == nil ? nil : String(localized: "Reply"),
                                phase: state.replyPhase(replyActionId: replyAction?.id),
                                disabled: state.sending, held: row == .held, focusOnAppear: focusReply,
                                onFocus: { if answersInline { scrollToReply = UUID() } },
@@ -350,6 +354,8 @@ struct PinnedAnswerBar<Bar: View>: ViewModifier {
 /// is on its way, shows a check when the agent has it, and shakes if it didn't get there.
 struct ReplyField: View {
     let placeholder: String
+    /// Send's title when another Send shares the screen; nil for "Send".
+    var sendTitle: String? = nil
     var phase: AnswerPhase = .idle
     var disabled = false
     /// Kept in the layout but out of sight, reach and VoiceOver while an answer shows its check.
@@ -392,12 +398,11 @@ struct ReplyField: View {
                 send(value)
                 focused = false
             } label: {
-                Text(phase == .sent ? String(localized: "Sent") : String(localized: "Send"))
-                    .frame(minWidth: 52)
+                Text(phase == .sent ? String(localized: "Sent") : sendTitle ?? String(localized: "Send"))
             }
             .answerButtonStyle(.primary, phase: phase, expands: false)
             .disabled(!sendable || disabled)
-            .accessibilityLabel(String(localized: "Send"))
+            .accessibilityLabel(sendTitle == nil ? String(localized: "Send") : String(localized: "Send reply"))
             .accessibilityValue(phase == .sending ? String(localized: "Sending") : phase == .sent ? String(localized: "Sent") : "")
             .accessibilityIdentifier("reply-send")
         }

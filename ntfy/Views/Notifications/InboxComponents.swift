@@ -1115,31 +1115,37 @@ struct MessageCard: View {
                     .foregroundColor(InboxColor.ink)
                     .accessibilityIdentifier("card-waiting-line")
                     .padding(.top, CardSpacing.beforeControls)
-            } else if detection != .none {
+            } else if let schema = detection.schema {
                 AskStatusLine(notification: notification, detection: detection)
                     .padding(.top, CardSpacing.beforeControls)
-                if let schema = detection.schema, waiting.contains(notification) {
+                let links = items.filter { !$0.isAnswer }
+                if !links.isEmpty { AskLinks(items: links, run: run).disabled(editing) }
+                if waiting.contains(notification) {
                     if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
                     AskAnswerView(notification: notification, schema: schema, place: .card, disabled: editing,
                                   sending: state.sending, openPage: { open(false) }) { body, summary, written in
                         AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
                     }
                 }
-                let links = items.filter { if case .answer = $0 { return detection.schema == nil } else { return true } }
-                if !links.isEmpty {
-                    ActionBar(items: links, sendingId: state.sendingActionId, run: run).disabled(editing)
+            } else if !items.isEmpty || detection != .none {
+                if detection != .none {
+                    // A typed question this build can't render: the update line, then its old answers
+                    // exactly as a 1.26 question shows them (REVIEW MINOR 11, DESIGN-REVIEW-v2 S8).
+                    AskStatusLine(notification: notification, detection: detection)
+                        .padding(.top, CardSpacing.beforeControls)
                 }
-            } else if !items.isEmpty {
                 if state.failed {
                     AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
                 }
-                ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
-                          sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
-                          recipient: notification.subscription?.shortDisplayName(), run: run)
-                    // While selecting, a tap picks the row; it must not answer the agent.
-                    .disabled(editing)
-                    .environment(\.actionBarMissedTap) { if !editing { open(false) } }
-                    .padding(.top, state.failed ? 0 : CardSpacing.beforeControls)
+                if !items.isEmpty {
+                    ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
+                              sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
+                              recipient: notification.subscription?.shortDisplayName(), run: run)
+                        // While selecting, a tap picks the row; it must not answer the agent.
+                        .disabled(editing)
+                        .environment(\.actionBarMissedTap) { if !editing { open(false) } }
+                        .padding(.top, state.failed || detection != .none ? 0 : CardSpacing.beforeControls)
+                }
             }
         }
         .contentShape(Rectangle())
@@ -1233,6 +1239,10 @@ struct WaitingRow: View {
                 }
                 .environment(\.actionBarMissedTap) { open(false) }
             } else if !receipt.resolved {
+                if detection != .none {
+                    // Needs a newer app: say so above the old answers (DESIGN-REVIEW-v2 S8).
+                    AskStatusLine(notification: notification, detection: detection, now: now)
+                }
                 if state.failed {
                     AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
                 }

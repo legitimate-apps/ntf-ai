@@ -112,6 +112,11 @@ enum Config {
         appStoreId.map { "https://apps.apple.com/app/id\($0)?action=write-review" }
     }
 
+    /// This app's App Store listing; nil without an App Store id.
+    static var appStoreListingUrl: String? {
+        appStoreId.map { "https://apps.apple.com/app/id\($0)" }
+    }
+
     /// Moving a topic from the official app or keeping it on ntfy.sh.
     static let migrateUrl = "https://ntf-ai.app/docs/migrate"
 

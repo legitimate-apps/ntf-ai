@@ -574,6 +574,21 @@ extension AskSchema {
     /// The actions a 1.27 question page still shows: everything except the `ask-v2` link, the
     /// question's own `-answers` buttons (`reply:<seq>:` on `<topic>-answers`) and a reply link to its
     /// own topic. Other links ("Open PR") stay (SPEC 4, version rules).
+    /// What a surface shows of a question's actions: a typed question hides its carrier and the old
+    /// answer paths (`visibleActions`); one this build can't render hides only its carrier, whose
+    /// "Answer in NTF-AI" means nothing inside NTF-AI, and keeps the old answers it can still send.
+    static func shownActions(_ actions: [Action], detection: Detection, sequence: String?, topicURL: String?) -> [Action] {
+        switch detection {
+        case .none:
+            return actions
+        case .unsupported(let carrier):
+            return actions.filter { $0.id != carrier }
+        case .native(_, let carrier):
+            guard let sequence, let topicURL else { return actions.filter { $0.id != carrier } }
+            return visibleActions(actions, carrier: carrier, sequence: sequence, topicURL: topicURL)
+        }
+    }
+
     static func visibleActions(_ actions: [Action], carrier: String, sequence: String, topicURL: String) -> [Action] {
         actions.filter { action in
             if action.id == carrier { return false }
