@@ -59,7 +59,7 @@ struct InboxView: View {
             if !waiting.notifications.isEmpty {
                 FoldHeader(fold: fold, id: SectionFold.waiting, title: String(localized: "Waiting on you"),
                            symbol: "hand.raised.fill", count: waiting.notifications.count, identifier: "waiting-header")
-                    .modifier(FoldHeaderRow())
+                    .modifier(ListHeaderRow())
                 if !fold.isCollapsed(SectionFold.waiting) {
                     ForEach(waiting.notifications.prefix(waitingCap), id: \.objectID) { notification in
                         WaitingRow(notification: notification) { focus in
@@ -88,21 +88,17 @@ struct InboxView: View {
                 // Activity heads the days; folding it folds every day under it.
                 FoldHeader(fold: fold, id: SectionFold.activity, title: String(localized: "Activity"),
                            identifier: "activity-header")
-                    .modifier(FoldHeaderRow(topSpace: waiting.notifications.isEmpty ? 0 : 16))
+                    .modifier(ListHeaderRow(topSpace: waiting.notifications.isEmpty ? 0 : 16))
                 if !fold.isCollapsed(SectionFold.activity) {
                     let days = Notification.groupedByDay(activity.notifications, date: { $0.date() })
                     ForEach(days, id: \.day) { group in
-                        let dayId = SectionFold.day(group.day, in: "inbox")
-                        FoldHeader(fold: fold, id: dayId, title: Notification.daySectionTitle(for: group.day), style: .day)
-                            .modifier(FoldHeaderRow())
-                        if !fold.isCollapsed(dayId) {
-                            ForEach(group.items, id: \.objectID) { notification in
-                                MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
-                                            open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
-                                            onCopy: copied)
-                                    .modifier(CardRowInsets())
-                                    .modifier(MessageRowActions(notification: notification, onCopy: copied))
-                            }
+                        DayHeaderRow(day: group.day)
+                        ForEach(group.items, id: \.objectID) { notification in
+                            MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
+                                        open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                                        onCopy: copied)
+                                .modifier(CardRowInsets())
+                                .modifier(MessageRowActions(notification: notification, onCopy: copied))
                         }
                     }
                     if activity.hasOlder {

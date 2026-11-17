@@ -17,7 +17,6 @@ struct NotificationListView: View {
     @Environment(\.scenePhase) private var scenePhase
     
     @ObservedObject private var deliveryHealth = DeliveryHealthMonitor.shared
-    @ObservedObject private var fold = SectionFold.shared
     @ObservedObject var subscription: Subscription
     // @StateObject, not @ObservedObject: this view constructs the observable in its own
     // initializer, and @ObservedObject does not own what it is handed. Every rebuild of the view
@@ -342,21 +341,17 @@ struct NotificationListView: View {
         }
         // One header per day, so each row shows only its time.
         ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
-            let dayId = SectionFold.day(group.day, in: "topic.\(subscription.urlString())")
             // The day is a row, not a pinned section header, so scrolled rows never show through it.
-            FoldHeader(fold: fold, id: dayId, title: Notification.daySectionTitle(for: group.day), style: .day)
-                .modifier(FoldHeaderRow())
-            if !fold.isCollapsed(dayId) {
-                ForEach(group.items, id: \.self) { notification in
-                    let held = heldUnread.ids.contains(notification.objectID)
-                    MessageCard(notification: notification, heldUnread: held,
-                                open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
-                                onCopy: showCopyConfirmation)
-                        .modifier(CardRowInsets())
-                        .modifier(MessageRowActions(notification: notification, heldUnread: held,
-                                                    onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
-                                                    onCopy: showCopyConfirmation))
-                }
+            DayHeaderRow(day: group.day)
+            ForEach(group.items, id: \.self) { notification in
+                let held = heldUnread.ids.contains(notification.objectID)
+                MessageCard(notification: notification, heldUnread: held,
+                            open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                            onCopy: showCopyConfirmation)
+                    .modifier(CardRowInsets())
+                    .modifier(MessageRowActions(notification: notification, heldUnread: held,
+                                                onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
+                                                onCopy: showCopyConfirmation))
             }
         }
         if notificationsModel.hasOlder {

@@ -994,7 +994,7 @@ final class AnswerRowTests: XCTestCase {
     }
 }
 
-/// Folding Inbox and topic sections (operator, 2026-11-17: "it should be a dropdown tappable to
+/// Folding the Inbox's two sections (operator, 2026-11-17: "it should be a dropdown tappable to
 /// close hide, by the header"): each section's state is its own and outlives the app.
 final class SectionFoldTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -1025,24 +1025,16 @@ final class SectionFoldTests: XCTestCase {
         XCTAssertFalse(SectionFold(defaults: defaults).isCollapsed(SectionFold.activity), "opening it again is kept too")
     }
 
-    func testDaysFoldPerListAndOldDaysAreForgotten() throws {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
-        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 17, hour: 9)))
-        let inboxDay = SectionFold.day(day, in: "inbox", calendar: calendar)
-        let topicDay = SectionFold.day(day, in: "topic.https://ntfy-me.com/deploys", calendar: calendar)
-        XCTAssertEqual(inboxDay, "inbox.day.2026-11-17")
-        XCTAssertNotEqual(inboxDay, topicDay, "the same day folds separately in the Inbox and on a topic")
-
-        let fold = SectionFold(defaults: defaults, now: day)
-        fold.setCollapsed(inboxDay, true)
+    func testWaitingAndActivityFoldIndependently() {
+        let fold = SectionFold(defaults: defaults)
         fold.setCollapsed(SectionFold.waiting, true)
-        XCTAssertFalse(fold.isCollapsed(topicDay))
-
-        let later = day.addingTimeInterval(SectionFold.dayMemory + 2 * 24 * 60 * 60)
-        let reloaded = SectionFold(defaults: defaults, now: later)
-        XCTAssertFalse(reloaded.isCollapsed(inboxDay), "a folded day long past is forgotten")
-        XCTAssertTrue(reloaded.isCollapsed(SectionFold.waiting), "a named section is never forgotten")
+        XCTAssertNotEqual(SectionFold.waiting, SectionFold.activity)
+        XCTAssertFalse(fold.isCollapsed(SectionFold.activity), "folding Waiting on you leaves Activity open")
+        fold.setCollapsed(SectionFold.activity, true)
+        fold.setCollapsed(SectionFold.waiting, false)
+        let relaunched = SectionFold(defaults: defaults)
+        XCTAssertFalse(relaunched.isCollapsed(SectionFold.waiting))
+        XCTAssertTrue(relaunched.isCollapsed(SectionFold.activity))
     }
 
     func testFoldedWaitingHeaderStillSaysHowManyAreWaiting() {

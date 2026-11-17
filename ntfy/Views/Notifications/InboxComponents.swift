@@ -223,6 +223,17 @@ struct DayHeader: View {
     }
 }
 
+/// A day label as a list row: plain words, no fold. It scrolls away with its rows (see `ListHeaderRow`).
+struct DayHeaderRow: View {
+    let day: Date
+
+    var body: some View {
+        DayHeader(title: Notification.daySectionTitle(for: day))
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            .modifier(ListHeaderRow())
+    }
+}
+
 struct UnreadDot: View {
     var size: CGFloat = 8
 
@@ -1457,11 +1468,11 @@ private struct SeparatorAtTextEdge: ViewModifier {
 
 // MARK: - Folding sections
 
-/// A folding header as a row of the list rather than a section header: a plain list pins its
+/// A list header (a folding section header or a day label) as a row rather than a section header: a plain list pins its
 /// headers while scrolling, and on iOS 26 a pinned header has no fill, so the rows scrolled through
 /// its words. As a row it scrolls away with its section, as Mail's rows do. No hairline above or
 /// below it; `topSpace` opens the break between sections.
-struct FoldHeaderRow: ViewModifier {
+struct ListHeaderRow: ViewModifier {
     var topSpace: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -1475,32 +1486,22 @@ struct FoldHeaderRow: ViewModifier {
     }
 }
 
-/// The list sections the person folded away, kept per section across launches. A section is named
-/// by a stable id: `inbox.waiting`, `inbox.activity`, or a day such as `inbox.day.2026-11-17`.
+/// The list sections the person folded away, kept per section across launches. Only the two Inbox
+/// sections fold; day labels are plain words (lead review, 2026-11-17: two chevrons in a row were
+/// the extra UI the operator asked to remove).
 final class SectionFold: ObservableObject {
     static let shared = SectionFold()
     static let storageKey = "sectionFold.collapsed"
-    /// Folded days older than this are forgotten, so the stored list doesn't grow without end.
-    static let dayMemory: TimeInterval = 60 * 24 * 60 * 60
 
     static let waiting = "inbox.waiting"
     static let activity = "inbox.activity"
 
-    /// One calendar day in one list, e.g. `inbox.day.2026-11-17` or `topic.<address>.day.2026-11-17`.
-    static func day(_ date: Date, in scope: String, calendar: Calendar = .current) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%@.day.%04d-%02d-%02d", scope, parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
-    }
-
     @Published private(set) var collapsed: Set<String>
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard, now: Date = Date()) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let stored = Set(defaults.stringArray(forKey: Self.storageKey) ?? [])
-        let kept = stored.filter { !Self.isForgotten($0, now: now) }
-        collapsed = kept
-        if kept != stored { defaults.set(kept.sorted(), forKey: Self.storageKey) }
+        collapsed = Set(defaults.stringArray(forKey: Self.storageKey) ?? [])
     }
 
     func isCollapsed(_ id: String) -> Bool { collapsed.contains(id) }
@@ -1510,15 +1511,6 @@ final class SectionFold: ObservableObject {
     func setCollapsed(_ id: String, _ value: Bool) {
         if value { collapsed.insert(id) } else { collapsed.remove(id) }
         defaults.set(collapsed.sorted(), forKey: Self.storageKey)
-    }
-
-    private static func isForgotten(_ id: String, now: Date) -> Bool {
-        guard let range = id.range(of: ".day.", options: .backwards) else { return false }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let day = formatter.date(from: String(id[range.upperBound...])) else { return true }
-        return now.timeIntervalSince(day) > dayMemory
     }
 }
 
@@ -1542,13 +1534,10 @@ struct FoldHeaderAccessibility: Equatable {
 /// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
 /// section is folded.
 struct FoldHeader: View {
-    enum Style { case section, day }
-
     @ObservedObject var fold: SectionFold = .shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let id: String
     let title: String
-    var style: Style = .section
     var symbol: String? = nil
     var count: Int? = nil
     var identifier: String? = nil
@@ -1563,14 +1552,14 @@ struct FoldHeader: View {
                 if let symbol {
                     Image(systemName: symbol).foregroundColor(InboxColor.ink)
                 }
-                Text(title).foregroundColor(style == .section ? .primary : .secondary)
+                Text(title).foregroundColor(.primary)
                 Spacer(minLength: 8)
                 if let count {
                     Text(count.formatted()).foregroundColor(.secondary)
                 }
                 chevron(collapsed: collapsed)
             }
-            .font(style == .section ? .headline : .subheadline.weight(.semibold))
+            .font(.headline)
             .textCase(nil)
             .frame(maxWidth: .infinity, minHeight: FoldHeaderAccessibility.minimumHitHeight, alignment: .leading)
             .contentShape(Rectangle())
