@@ -112,10 +112,8 @@ func parseNonEmojiTags(_ tags: String?) -> [String] {
         .filter { !ProtocolTag.isHidden($0) && EmojiManager.shared.getEmojiByAlias(alias: $0) == nil }
 }
 
-/// Tags the agent protocol passes between `ntf` and the app. They steer behaviour and are never
-/// shown, as chips or emoji. `agent` is not one of them: it says who wrote the message, so it shows.
-/// A message's click URL, if it is one the app opens. A tap on a notification opens it with no
-/// further question, so only the web and the system's mail, phone and message composers qualify;
+/// A link the app opens for a message: its click URL or a `view` action's URL. A tap opens it with
+/// no further question, so only the web and the system's mail, phone and message composers qualify;
 /// any other scheme (`shortcuts://`, `file:`, another app's deep link) is refused, so a message
 /// can't launch an arbitrary app or action by being tapped.
 enum ClickURL {
@@ -127,8 +125,13 @@ enum ClickURL {
         if scheme == "http" || scheme == "https" { return url.host?.isEmpty == false ? url : nil }
         return url
     }
+
+    /// A `view` action whose URL the app would open; any other kind of action passes.
+    static func allows(_ action: Action) -> Bool { action.action != "view" || url(from: action.url) != nil }
 }
 
+/// Tags the agent protocol passes between `ntf` and the app. They steer behaviour and are never
+/// shown, as chips or emoji. `agent` is not one of them: it says who wrote the message, so it shows.
 enum ProtocolTag {
     /// On a question: the agent takes no written answer, so the page offers no reply field.
     static let noReply = "no-reply"

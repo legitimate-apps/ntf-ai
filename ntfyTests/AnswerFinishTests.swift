@@ -1,4 +1,5 @@
 import XCTest
+import UserNotifications
 @testable import ntfy
 
 /// NTF-AI 1.27 finish round: click URLs, the fallback for a question this build can't render, the
@@ -16,6 +17,27 @@ final class AnswerFinishTests: XCTestCase {
             XCTAssertNil(ClickURL.url(from: refused), refused)
         }
         XCTAssertNil(ClickURL.url(from: nil))
+    }
+
+    /// A `view` button opens with one tap too, so it gets the click URL's allowlist: the executor
+    /// refuses the rest, and neither the action bar nor the banner offers a button that won't open.
+    func testAViewActionOpensOnlyWhatATappedNotificationWould() {
+        func view(_ url: String) -> Action {
+            Action(id: "view-\(UUID().uuidString)", action: "view", label: "Open", url: url,
+                   method: nil, headers: nil, body: nil, clear: nil)
+        }
+        let open = ["https://example.com/pr/1", "mailto:ops@example.com", "tel:+15551234567", "sms:+15551234567"]
+        let refused = ["shortcuts://run-shortcut?name=Wipe", "file:///etc/hosts", "javascript:alert(1)",
+                       "prefs:root=General", "https://", ""]
+        for url in open + refused {
+            var opened: [URL] = []
+            ActionExecutor.execute(view(url), openURL: { opened.append($0) })
+            XCTAssertEqual(opened.count, open.contains(url) ? 1 : 0, url)
+        }
+        let copy = Action(id: "c1", action: "copy", label: "Copy", url: nil, method: nil, headers: nil, body: nil, clear: nil, value: "x")
+        let actions = [view("https://example.com"), view("shortcuts://run-shortcut?name=Wipe"), copy, view("file:///etc/hosts")]
+        XCTAssertEqual(ActionBarItem.items(actions: actions, click: nil, context: .card).map(\.label), ["Open", "Copy"])
+        XCTAssertEqual(UNMutableNotificationContent.bannerActions(actions).map(\.id), [actions[0].id, "c1"])
     }
 
     // MARK: a question this build can't render

@@ -61,10 +61,10 @@ struct ActionExecutor {
         }
         switch action.action {
         case "view":
-            if let url = URL(string: action.url ?? "") {
+            if let url = ClickURL.url(from: action.url) {
                 if let openURL { openURL(url) } else { open(url: url) }
             } else {
-                Log.w(tag, "Unable to parse action URL", action)
+                Log.w(tag, "Refusing a view action URL that isn't http(s), mailto, tel or sms", action)
             }
         case "http":
             // An answer to a question (a tapped `http` button or a typed reply) is logged, so the

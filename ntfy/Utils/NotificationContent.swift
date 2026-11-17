@@ -380,10 +380,12 @@ extension UNMutableNotificationContent {
 
     /// A typed question's `ask-v2` link is for the app's question page, not a banner button: the
     /// banner keeps the question's other buttons and reply link, which still answer (SPEC 4). A link
-    /// this build can't render stays, as older builds show it.
+    /// this build can't render stays, as older builds show it. A `view` link the app won't open
+    /// (`ClickURL`) gets no button.
     static func bannerActions(_ actions: [Action]) -> [Action] {
-        guard case .native(_, let carrier) = AskSchema.detect(in: actions) else { return actions }
-        return actions.filter { $0.id != carrier }
+        let openable = actions.filter(ClickURL.allows)
+        guard case .native(_, let carrier) = AskSchema.detect(in: openable) else { return openable }
+        return openable.filter { $0.id != carrier }
     }
 
     static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> [UNNotificationAction] {

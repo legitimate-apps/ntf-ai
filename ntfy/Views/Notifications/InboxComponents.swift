@@ -622,7 +622,7 @@ enum ActionBarItem: Identifiable {
             } else if context == .waiting {
                 continue
             } else if action.action == "view" {
-                items.append(.link(action))
+                if ClickURL.allows(action) { items.append(.link(action)) }
             } else if action.action == "copy" {
                 items.append(.copy(action))
             }
