@@ -1,0 +1,730 @@
+import XCTest
+import CoreData
+import UserNotifications
+@testable import ntfy
+
+/// The Waiting on you rule (DIRECTIONS 1.6) on its own.
+final class WaitingRuleTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func act(_ type: String, url: String? = "https://agent.example/answers") -> Action {
+        Action(id: UUID().uuidString, action: type, label: "Approve", url: url, method: "POST", headers: nil, body: nil, clear: nil)
+    }
+
+    private var replyLink: Action {
+        Action(id: UUID().uuidString, action: "view", label: "Reply",
+               url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
+               method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil) -> Bool {
+        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, now: now)
+    }
+
+    func testHTTPAndReplyActionsWaitButLinksAndCopyDoNot() {
+        XCTAssertTrue(waits([act("http")]))
+        XCTAssertTrue(waits([replyLink]), "a reply action asks for an answer")
+        XCTAssertTrue(waits([act("view"), act("http")]))
+        XCTAssertFalse(waits([act("view")]), "a link is not a question")
+        XCTAssertFalse(waits([act("copy", url: nil)]))
+        XCTAssertFalse(waits([]), "a message without actions never waits")
+    }
+
+    func testAnsweredLeavesButAFailedAnswerStays() {
+        let ok = AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true)
+        let failed = AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: false)
+        let replied = AnswerEntry(kind: .reply, label: "Reply", text: "Ship it", at: now, ok: true)
+        XCTAssertFalse(waits([act("http")], entry: ok))
+        XCTAssertFalse(waits([replyLink], entry: replied))
+        XCTAssertTrue(waits([act("http")], entry: failed), "the agent never got it, so it still waits")
+    }
+
+    func testDismissedLeaves() {
+        XCTAssertFalse(waits([act("http")], entry: AnswerEntry(kind: .dismissed, label: "", text: nil, at: now, ok: true)))
+    }
+
+    func testSevenDaysIsTheLimit() {
+        XCTAssertTrue(waits([act("http")], age: WaitingRule.maxAge - 1))
+        XCTAssertFalse(waits([act("http")], age: WaitingRule.maxAge))
+        XCTAssertEqual(WaitingRule.maxAge, 7 * 24 * 3600)
+    }
+
+
+    func testUrgentThenHighThenNewest() {
+        let old = now.addingTimeInterval(-3600)
+        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 3, now), "urgent leads even when older")
+        XCTAssertTrue(WaitingRule.precedes(priority: 4, time: old, 3, now))
+        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 4, now))
+        XCTAssertTrue(WaitingRule.precedes(priority: 3, time: now, 1, old), "default and low share a rank")
+        XCTAssertFalse(WaitingRule.precedes(priority: 3, time: old, 3, now))
+    }
+}
+
+/// The rule against the real store: what the CLI does to a question takes it out of Waiting.
+final class WaitingStoreTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var suite: String!
+    private var subscription: Subscription!
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        suite = "inbox-tests-\(UUID().uuidString)"
+        log = AnswerLog(defaults: UserDefaults(suiteName: suite)!)
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "deploys")
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        store = nil
+        log = nil
+        super.tearDown()
+    }
+
+    private func http() -> Action {
+        Action(id: UUID().uuidString, action: "http", label: "Approve", url: "https://agents.example/deploys-answers",
+               method: "POST", headers: nil, body: "reply:r1:approve", clear: nil)
+    }
+
+    private func message(_ id: String, sequence: String, age: TimeInterval = 600, event: String = "message",
+                         text: String? = "Deploy v2?", actions: [Action]? = nil) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: event, topic: "deploys",
+                message: text, actions: actions, sequenceID: sequence)
+    }
+
+    private func save(_ messages: Message...) {
+        _ = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+    }
+
+    private var waitingIDs: [String] {
+        store.waitingNotifications(log: log, now: now).compactMap(\.id)
+    }
+
+    /// `re-<sequence>` marks the person's own written answer: never a question, even with buttons.
+    func testAReplyTaggedMessageIsNeverWaiting() {
+        var reply = message("r-1", sequence: "r-1", age: 60, text: "Use main", actions: [http()])
+        reply.tags = ["re-deploy-1"]
+        save(reply)
+        XCTAssertEqual(waitingIDs, [], "a re- message is the person's reply, not a question")
+        var question = message("q-9", sequence: "q-9", age: 60, actions: [http()])
+        question.tags = ["agent", "no-reply"]
+        save(question)
+        XCTAssertEqual(waitingIDs, ["q-9"], "no-reply still waits on its buttons")
+    }
+
+    /// The reply names the question by its sequence_id, or by its message id when it has none.
+    func testTheReplyTagNamesTheQuestionsSequence() throws {
+        save(message("q-a", sequence: "deploy-7", age: 60, actions: [http()]))
+        var plain = message("q-b", sequence: "", age: 30, actions: [http()])
+        plain.sequenceID = nil
+        save(plain)
+        let rows = store.waitingNotifications(log: log, now: now)
+        let a = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first { $0.id == "q-a" })))
+        let b = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first { $0.id == "q-b" })))
+        XCTAssertEqual(AgentReply.replyTags(for: a), "re-deploy-7")
+        XCTAssertEqual(AgentReply.replyTags(for: b), "re-q-b")
+    }
+
+    func testAQuestionWaitsUntilItsSequenceIsUpdatedWithoutActions() {
+        save(message("q1", sequence: "deploy-1", age: 600, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["q1"])
+        // What `ntf ask` does once it has its answer from elsewhere: the same sequence, no buttons.
+        save(message("q1-done", sequence: "deploy-1", age: 300, text: "Deploy v2? Approved in the terminal."))
+        XCTAssertEqual(waitingIDs, [], "a sequence update without actions settles the question")
+    }
+
+    /// In ntfy a clear means "read and dismissed", and this app sends one when the person opens the
+    /// question (here or on another device). Reading a question is not answering it.
+    func testAClearKeepsTheQuestionWaiting() {
+        save(message("q2", sequence: "deploy-2", age: 600, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["q2"])
+        save(message("c2", sequence: "deploy-2", age: 300, event: "message_clear", text: nil))
+        XCTAssertEqual(waitingIDs, ["q2"], "a read question still waits for its answer")
+    }
+
+    func testReadingTheQuestionHereThenItsClearEchoKeepsItWaiting() throws {
+        save(message("q4", sequence: "deploy-4", age: 600, actions: [http()]))
+        let row = try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)
+        store.setRead(true, forNotification: row)
+        store.context.processPendingChanges()
+        save(message("c4", sequence: "deploy-4", age: 1, event: "message_clear", text: nil))
+        XCTAssertEqual(waitingIDs, ["q4"], "the server's echo of our own mark-read is not a withdrawal")
+    }
+
+    func testADeleteTakesTheQuestionOut() {
+        save(message("q5", sequence: "deploy-5", age: 600, actions: [http()]))
+        save(message("d5", sequence: "deploy-5", age: 300, event: "message_delete", text: nil))
+        XCTAssertEqual(waitingIDs, [], "a deleted question is withdrawn")
+    }
+
+    /// An answer belongs to the version it was made on: a new question under the same sequence waits again.
+    func testANewQuestionReusingAnAnsweredSequenceWaitsAgain() throws {
+        save(message("r1", sequence: "approval", age: 900, actions: [http()]))
+        let first = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        log.record(first, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true))
+        XCTAssertEqual(waitingIDs, [])
+        save(message("r2", sequence: "approval", age: 60, text: "Deploy v3?", actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["r2"], "the new question waits")
+        let row = try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)
+        XCTAssertFalse(AnswerState(notification: row, log: log).answered, "its buttons show, not the old receipt")
+    }
+
+    func testANewQuestionReusingADismissedSequenceWaitsAgain() throws {
+        save(message("n1", sequence: "nightly", age: 900, actions: [http()]))
+        log.dismiss(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first))), now: now)
+        XCTAssertEqual(waitingIDs, [])
+        save(message("n2", sequence: "nightly", age: 60, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["n2"])
+    }
+
+    func testAnAnswerLoggedBeforeVersionsStillCounts() throws {
+        save(message("l1", sequence: "legacy", age: 600, actions: [http()]))
+        let key = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        log.record(AnswerKey(baseUrl: key.baseUrl, topic: key.topic, sequence: key.sequence),
+                   AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true))
+        XCTAssertEqual(waitingIDs, [], "an entry without a message id applies to any version")
+    }
+
+    func testABusyBotDoesNotPushQuestionsOutOfWaiting() throws {
+        let bot = (0..<520).map { message("b\($0)", sequence: "b\($0)", age: 60 + Double($0), actions: [http()]) }
+        _ = store.save(notificationsFromMessages: bot, withSubscription: subscription)
+        save(message("old-q", sequence: "old-q", age: 3600, actions: [http()]))
+        for row in store.waitingNotifications(log: log, now: now) where row.id != "old-q" {
+            log.dismiss(try XCTUnwrap(AnswerKey(notification: row)), now: now)
+        }
+        XCTAssertEqual(waitingIDs, ["old-q"], "the older question is still listed after 520 newer ones")
+    }
+
+    func testAnsweredAndDismissedLeaveAndAFailureStays() throws {
+        save(message("a", sequence: "s-a", age: 900, actions: [http()]),
+             message("b", sequence: "s-b", age: 800, actions: [http()]),
+             message("c", sequence: "s-c", age: 700, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["c", "b", "a"], "newest first")
+        let rows = store.waitingNotifications(log: log, now: now)
+        func key(_ id: String) throws -> AnswerKey { try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first { $0.id == id }))) }
+        log.record(try key("a"), AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: true))
+        log.dismiss(try key("b"), now: now)
+        log.record(try key("c"), AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: false))
+        XCTAssertEqual(waitingIDs, ["c"])
+    }
+
+    func testOlderThanSevenDaysDoesNotWait() {
+        save(message("old", sequence: "s-old", age: WaitingRule.maxAge + 60, actions: [http()]))
+        XCTAssertEqual(waitingIDs, [])
+    }
+
+    func testTheAnswerKeySurvivesAnUpdateThatKeepsTheQuestion() throws {
+        save(message("v1", sequence: "deploy-3", age: 600, actions: [http()]))
+        let first = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        save(message("v2", sequence: "deploy-3", age: 300, text: "Deploy v2 (rebuilt)?", actions: [http()]))
+        let second = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertEqual(waitingIDs, ["v2"], "an update that still asks keeps waiting")
+    }
+}
+
+final class AnswerLogTests: XCTestCase {
+    private var suite: String!
+    private var defaults: UserDefaults!
+    private let key = AnswerKey(baseUrl: "https://agents.example", topic: "deploys", sequence: "s1")
+    private let at = Date(timeIntervalSince1970: 1_800_000_000)
+
+    override func setUp() {
+        super.setUp()
+        suite = "answer-log-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    func testEntriesPersistAcrossInstances() {
+        let log = AnswerLog(defaults: defaults)
+        log.record(key, AnswerEntry(kind: .reply, label: "Reply", text: "Ship it", at: at, ok: true))
+        XCTAssertEqual(AnswerLog(defaults: defaults).entry(for: key)?.text, "Ship it",
+                       "the banner and the app read the same log")
+    }
+
+    func testAFailureNeverReplacesASuccess() {
+        let log = AnswerLog(defaults: defaults)
+        log.record(key, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: at, ok: true))
+        log.record(key, AnswerEntry(kind: .tap, label: "Reject", text: nil, at: at, ok: false))
+        XCTAssertEqual(log.entry(for: key)?.label, "Approve")
+        XCTAssertEqual(log.entry(for: key)?.ok, true)
+    }
+
+    func testSendingClearsWhenRecorded() {
+        let log = AnswerLog(defaults: defaults)
+        log.begin(key, actionId: "a1")
+        XCTAssertEqual(log.sendingActionId(key), "a1")
+        log.record(key, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: at, ok: false))
+        XCTAssertNil(log.sendingActionId(key))
+    }
+
+    func testPruneDropsOnlyOlderEntries() {
+        let log = AnswerLog(defaults: defaults)
+        let other = AnswerKey(baseUrl: "https://agents.example/", topic: "deploys", sequence: "s2")
+        log.record(key, AnswerEntry(kind: .tap, label: "Old", text: nil, at: at.addingTimeInterval(-100), ok: true))
+        log.record(other, AnswerEntry(kind: .tap, label: "New", text: nil, at: at, ok: true))
+        log.prune(before: at.addingTimeInterval(-50))
+        XCTAssertNil(log.entry(for: key))
+        XCTAssertEqual(AnswerLog(defaults: defaults).entry(for: other)?.label, "New")
+    }
+
+    func testKeyIgnoresATrailingSlashOnTheServer() {
+        XCTAssertEqual(AnswerKey(baseUrl: "https://a.example/", topic: "t", sequence: "s").id,
+                       AnswerKey(baseUrl: "https://a.example", topic: "t", sequence: "s").id)
+    }
+}
+
+final class WaitedTimeTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private let en = Locale(identifier: "en_US")
+
+    private func text(_ seconds: TimeInterval) -> String {
+        WaitedTime.text(since: now.addingTimeInterval(-seconds), now: now, locale: en)
+    }
+
+    func testMinutesThenHoursThenDays() {
+        XCTAssertEqual(text(5), "1 min", "under a minute still reads as a minute")
+        XCTAssertEqual(text(12 * 60), "12 min")
+        XCTAssertEqual(text(59 * 60), "59 min")
+        XCTAssertEqual(text(2 * 3600 + 20 * 60), "2 hr")
+        XCTAssertEqual(text(3 * 86_400 + 3600), "3 days")
+    }
+
+    func testOtherLanguagesGetTheirOwnUnits() {
+        let de = WaitedTime.text(since: now.addingTimeInterval(-12 * 60), now: now, locale: Locale(identifier: "de_DE"))
+        XCTAssertTrue(de.contains("12"))
+        XCTAssertNotEqual(WaitedTime.text(since: now.addingTimeInterval(-3 * 86_400), now: now, locale: Locale(identifier: "fr_FR")), "3 days")
+    }
+}
+
+final class MessageDisplayTests: XCTestCase {
+    func testTitleWinsAndAShortBodyBecomesTheHeadline() {
+        XCTAssertEqual(MessageDisplay.of(title: "Build", body: "passed", contentType: nil),
+                       MessageDisplay(title: "Build", body: "passed", markdown: false))
+        XCTAssertEqual(MessageDisplay.of(title: nil, body: "Build passed", contentType: nil),
+                       MessageDisplay(title: "Build passed", body: "", markdown: false))
+    }
+
+    func testFirstLineLeadsAndAMarkdownHeadingLosesItsHashes() {
+        let display = MessageDisplay.of(title: nil, body: "## What I found\nThree flaky tests.", contentType: "text/markdown")
+        XCTAssertEqual(display.title, "What I found")
+        XCTAssertEqual(display.body, "Three flaky tests.")
+    }
+
+    func testALongSingleLineStaysBody() {
+        let long = String(repeating: "word ", count: 40)
+        XCTAssertNil(MessageDisplay.of(title: nil, body: long, contentType: nil).title)
+    }
+}
+
+/// The title line shows each emoji tag once: the title it draws already carries them.
+final class MessageTitleLineTests: XCTestCase {
+    private func line(title: String?, message: String, tags: String?) throws -> String {
+        let n = ntfy.Notification(context: Store.shared.context)
+        // Unsaved and incomplete: left in the shared context, it fails the next test's save.
+        defer { Store.shared.context.delete(n) }
+        n.title = title
+        n.message = message
+        n.tags = tags
+        return String(try XCTUnwrap(MessageTitleLine.text(for: n)).characters)
+    }
+
+    private func count(_ needle: String, in text: String) -> Int {
+        text.components(separatedBy: needle).count - 1
+    }
+
+    func testATitledMessageShowsItsEmojiOnce() throws {
+        let text = try line(title: "Task finished", message: "All green", tags: "white_check_mark")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Task finished")
+    }
+
+    func testAShortBodyWithoutATitleShowsItsEmojiOnce() throws {
+        let text = try line(title: nil, message: "Task finished", tags: "white_check_mark,ci")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Task finished")
+    }
+
+    func testNoEmojiTagsAddNothing() throws {
+        XCTAssertEqual(try line(title: "Nightly backup", message: "Done", tags: "backup,ci"), "Nightly backup")
+        XCTAssertEqual(try line(title: nil, message: "Done", tags: nil), "Done")
+    }
+
+    func testAnOldSettleShowsItsEmojiOnceInFrontOfTheQuestion() throws {
+        // ntf 0.1/0.2 re-sent the question without a title and appended the outcome line.
+        let text = try line(title: nil, message: "Front door is unlocked\n\n\u{2713} Agent got: Lock",
+                            tags: "agent,white_check_mark")
+        XCTAssertEqual(count("\u{2705}", in: text), 1, text)
+        XCTAssertEqual(text, "\u{2705} Front door is unlocked")
+    }
+}
+
+final class AgentInstructionsTests: XCTestCase {
+    func testEveryLineTheAgentNeeds() {
+        let text = AgentInstructions.text(baseUrl: "https://ntfy.sh", topic: "my-agent")
+        XCTAssertTrue(text.contains("Topic URL: https://ntfy.sh/my-agent"))
+        XCTAssertTrue(text.contains("-H 'Tags: agent'"))
+        XCTAssertTrue(text.contains("POST JSON to https://ntfy.sh with \"topic\": \"my-agent\""))
+        XCTAssertTrue(text.contains("to https://ntfy.sh/my-agent-answers"))
+        XCTAssertTrue(text.contains("https://ntfy.sh/my-agent-answers/json?poll=1&since=all"))
+        XCTAssertTrue(text.hasSuffix(AgentInstructions.guideUrl))
+        XCTAssertEqual(AgentInstructions.guideUrl, "https://ntf-ai.app/docs/agents")
+        XCTAssertFalse(text.contains("login"), "no login line without saved credentials")
+        XCTAssertTrue(text.contains("over plain HTTPS"))
+        XCTAssertTrue(text.contains("update it without actions or delete it"), "a clear is a read, not a withdrawal")
+        XCTAssertFalse(text.contains("clear it"))
+    }
+
+    /// Every line must be true, also for a self-hosted server on plain HTTP.
+    func testTheSchemeFollowsTheServer() {
+        let text = AgentInstructions.text(baseUrl: "http://192.168.1.20:8080", topic: "lab")
+        XCTAssertTrue(text.contains("over plain HTTP:"))
+        XCTAssertFalse(text.contains("HTTPS"))
+    }
+}
+
+/// Which agent questions get the written-reply field (build 46): `ntf ask` and the agent guide take
+/// a message on the topic without the `agent` tag as the person's written answer.
+final class AgentReplyTests: XCTestCase {
+    private func action(_ type: String, url: String = "https://agents.example/t-answers") -> Action {
+        Action(id: UUID().uuidString, action: type, label: "Approve", url: url, method: "POST", headers: nil, body: nil, clear: nil)
+    }
+    private var viewReply: Action {
+        Action(id: UUID().uuidString, action: "view", label: "Reply",
+               url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
+               method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    func testAnAgentQuestionWithButtonsGetsTheField() {
+        XCTAssertTrue(AgentReply.offersField(tags: ["agent"], actions: [action("http"), action("http")]))
+        XCTAssertTrue(AgentReply.offersField(tags: ["warning", "agent"], actions: [action("http")]))
+    }
+
+    func testAMessageWithoutTheAgentTagDoesNot() {
+        XCTAssertFalse(AgentReply.offersField(tags: [], actions: [action("http")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agents"], actions: [action("http")]))
+    }
+
+    func testAnAgentNoticeWithoutAnswersDoesNot() {
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: []))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("view", url: "https://example.com")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("copy")]))
+    }
+
+    func testANoReplyQuestionGetsNoField() {
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent", "no-reply"], actions: [action("http")]))
+        XCTAssertFalse(AgentReply.offersField(tags: ["No-Reply", "agent"], actions: [action("http")]))
+    }
+
+    func testTheReplyTagIsExactlyOneTag() {
+        let key = AnswerKey(baseUrl: "https://agents.example", topic: "deploys", sequence: "abc123XYZ")
+        XCTAssertEqual(AgentReply.replyTags(for: key), "re-abc123XYZ")
+        XCTAssertEqual(parseAllTags(AgentReply.replyTags(for: key)), ["re-abc123XYZ"], "one tag, never agent")
+    }
+
+    /// Protocol tags steer behaviour and never show, as chips or as emoji; `agent` still shows.
+    func testProtocolTagsAreNeverShown() {
+        XCTAssertEqual(parseNonEmojiTags("agent,re-abc123,no-reply,deploy,RE-X1,No-Reply"), ["agent", "deploy"])
+        XCTAssertEqual(parseEmojiTags("re-abc123,thumbsup,no-reply"), ["👍"])
+        XCTAssertEqual(parseNonEmojiTags("re-,reply,review"), ["re-", "reply", "review"], "only re-<something> is a reply tag")
+    }
+
+    func testTheViewActionReplyKeepsItsOwnField() {
+        XCTAssertNotNil(BannerReply.destination(for: viewReply), "fixture is a real view-action reply")
+        XCTAssertFalse(AgentReply.offersField(tags: ["agent"], actions: [action("http"), viewReply]),
+                       "the reply action posts to its own target, so the page uses that instead")
+    }
+}
+
+/// Agent confirmations (ACK-SPEC, build 48): an ack on the question's sequence resolves it without
+/// replacing it, never alerts, and hides behind "Show agent confirmations" without losing its effect.
+final class AgentAckTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+    private var subscription: Subscription!
+    private var removals: [SequenceRemoval] = []
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func defaults() -> UserDefaults {
+        let name = "ack-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+        store.ackLog = acks
+        removals = []
+        store.notificationRemover = { [weak self] in self?.removals.append($0) }
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "home")
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private func http() -> Action {
+        Action(id: UUID().uuidString, action: "http", label: "Lock", url: "https://agents.example/ok",
+               method: "POST", headers: nil, body: "lock", clear: nil)
+    }
+
+    private func question(age: TimeInterval = 600) -> Message {
+        Message(id: "q-1", time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "home",
+                message: "Front door is unlocked", title: "Front door", priority: 4, tags: ["agent"], actions: [http()],
+                sequenceID: "door")
+    }
+
+    private func ack(_ id: String, _ body: String, age: TimeInterval, priority: Int16 = 5) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "home",
+                message: body, priority: priority, tags: ["agent", "ack"], sequenceID: "door")
+    }
+
+    @discardableResult
+    private func save(_ messages: Message...) -> [Message] {
+        let presented = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+        return presented
+    }
+
+    private var rows: [ntfy.Notification] {
+        let request = ntfy.Notification.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: true)]
+        return (try? store.context.fetch(request)) ?? []
+    }
+
+    private func receipt(shows: Bool = true) throws -> AgentReceipt {
+        AgentReceipt(notification: try XCTUnwrap(rows.first), log: log, acks: acks, shows: shows)
+    }
+
+    // MARK: parsing
+
+    func testADefaultBodyIsNeverANote() {
+        for body in ["\u{2713} Got it", "Got it", "\u{2713} Got your reply", "\u{2713} Got: Lock", "\u{2713}", "", "  ", nil, "got it."] {
+            XCTAssertNil(AgentAck.note(fromBody: body), "\(String(describing: body)) is a default, not a note")
+        }
+        XCTAssertEqual(AgentAck.note(fromBody: " Restarting now \n"), "Restarting now")
+        XCTAssertEqual(AgentAck.note(fromBody: "Got it, restarting the router"), "Got it, restarting the router")
+        XCTAssertEqual(AgentAck.answer(fromBody: "\u{2713} Got: Lock"), "Lock")
+        XCTAssertNil(AgentAck.answer(fromBody: "\u{2713} Got it"))
+        XCTAssertEqual(AgentAck.defaultBody, "\u{2713} Got it", "the default ntf sends")
+        XCTAssertTrue(AgentAck.isDefaultBody(AgentAck.defaultBody))
+    }
+
+    func testTheOldFullSettleReadsAsResolved() {
+        let agent = ["agent"]
+        XCTAssertEqual(AgentAck.settle(body: "Front door is unlocked\n\n\u{2713} Agent got: Lock", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Front door is unlocked", outcome: .got("Lock")))
+        XCTAssertEqual(AgentAck.settle(body: "Which branch?\n\n\u{2713} Agent got your reply", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Which branch?", outcome: .got(nil)))
+        XCTAssertEqual(AgentAck.settle(body: "Deploy?\n\nNo answer in 10 min; the agent moved on", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Deploy?", outcome: .movedOn))
+        XCTAssertEqual(AgentAck.settle(body: "Deploy?\n\nThe agent stopped waiting; no answer needed", tags: agent, hasActions: false),
+                       AgentAck.Settle(question: "Deploy?", outcome: .movedOn))
+        XCTAssertNil(AgentAck.settle(body: "Deploy?\n\n\u{2713} Agent got: Lock", tags: agent, hasActions: true), "still has buttons")
+        XCTAssertNil(AgentAck.settle(body: "Deploy?\n\n\u{2713} Agent got: Lock", tags: [], hasActions: false), "not from an agent")
+        XCTAssertNil(AgentAck.settle(body: "Build finished\n\nAll green", tags: agent, hasActions: false), "an ordinary message")
+    }
+
+    // MARK: resolution
+
+    func testAnAckResolvesTheQuestionWithoutReplacingIt() throws {
+        save(question())
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-1"])
+        let presented = save(ack("a-1", "Locking it now", age: 60))
+        XCTAssertEqual(presented.map(\.id), [], "an ack is never presented")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "the question keeps its row")
+        XCTAssertEqual(rows.first?.message, "Front door is unlocked")
+        XCTAssertEqual(rows.first?.actionsList().count, 1, "the question keeps its buttons")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [], "out of Waiting on you")
+        let record = try XCTUnwrap(acks.record(forKey: AckLog.key(baseUrl: "https://agents.example", topic: "home", sequence: "door"), version: "q-1"))
+        XCTAssertEqual(record.note, "Locking it now")
+        XCTAssertEqual(record.id, "a-1")
+        XCTAssertTrue(removals.contains { $0.sequence == "door" && $0.keepingID == "a-1" }, "the question's banner goes")
+    }
+
+    func testTheNewestAckWins() throws {
+        save(question())
+        save(ack("a-1", "Restarting now", age: 120))
+        save(ack("a-2", "Restarted, all good", age: 60))
+        XCTAssertEqual(try receipt().agent, .got(now.addingTimeInterval(-60), note: "Restarted, all good"))
+        save(ack("a-0", "An older note", age: 90))
+        XCTAssertEqual(try receipt().agent, .got(now.addingTimeInterval(-60), note: "Restarted, all good"), "an older ack loses")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    func testAnAckBeforeAnyAnswerHereStillShows() throws {
+        save(question())
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        let receipt = try receipt()
+        XCTAssertNil(receipt.answer, "nothing answered on this device")
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-60), note: nil), "a default body is no note")
+        XCTAssertEqual(receipt.answerText, "Lock", "the ack names the answer given elsewhere")
+        XCTAssertTrue(receipt.resolved)
+    }
+
+    func testANewQuestionOnTheSequenceWaitsAgain() {
+        save(question(age: 600))
+        save(ack("a-1", "ok then", age: 300))
+        var next = question(age: 60)
+        next.id = "q-2"
+        save(next)
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-2"], "the ack was for the old version")
+    }
+
+    func testAnOrphanAckIsKeptQuietly() {
+        let presented = save(ack("a-9", "Done", age: 60))
+        XCTAssertEqual(presented.map(\.id), [], "no question here: stored, never presented")
+        XCTAssertEqual(rows.first?.read, true)
+    }
+
+    func testAPushedAckIsAcknowledgedNotStored() throws {
+        save(question())
+        let result = store.ingest(pushedMessage: ack("a-1", "Locking it now", age: 60), baseUrl: "https://agents.example", topic: "home")
+        guard case .acknowledged(let message, let title) = result else { return XCTFail("got \(String(describing: result))") }
+        XCTAssertEqual(message.id, "a-1")
+        XCTAssertEqual(title, "Front door")
+    }
+
+    func testTheOldSettleRowShowsTheQuestionAndAReceipt() throws {
+        save(question(age: 600))
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-300), ok: true, messageId: "q-1")
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        var settle = question(age: 200)
+        settle.id = "s-1"
+        settle.actions = nil
+        settle.priority = 1
+        settle.message = "Front door is unlocked\n\n\u{2713} Agent got: Lock"
+        save(settle)
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(row.display.body, "Front door is unlocked", "the appended line leaves the body")
+        XCTAssertEqual(row.display.title, "Front door")
+        let receipt = try receipt()
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-200), note: nil))
+        XCTAssertEqual(receipt.answer?.label, "Lock", "the answer logged on the question's version")
+        var timeout = question(age: 100)
+        timeout.id = "s-2"
+        timeout.actions = nil
+        timeout.message = "Front door is unlocked\n\nNo answer in 10 min; the agent moved on"
+        save(timeout)
+        XCTAssertEqual(try self.receipt().agent, .movedOn(now.addingTimeInterval(-100)))
+    }
+
+    // MARK: silence
+
+    func testAnAckNeverAlertsAtAnyPriority() {
+        for priority: Int16 in 1...5 {
+            let content = UNMutableNotificationContent()
+            content.configureInterruption(message: ack("a-\(priority)", "note", age: 1, priority: priority), soundName: "custom.wav",
+                                          criticalEnabled: true, criticalAuthorized: true)
+            XCTAssertNil(content.sound, "priority \(priority)")
+            XCTAssertEqual(content.interruptionLevel, .passive, "priority \(priority)")
+            XCTAssertEqual(content.relevanceScore, 0, "priority \(priority)")
+        }
+        let content = UNMutableNotificationContent()
+        content.configureInterruption(message: question(), soundName: nil, criticalEnabled: false, criticalAuthorized: false)
+        XCTAssertNotNil(content.sound, "a question still alerts")
+    }
+
+    func testInTheForegroundAnAckIsNeverABanner() {
+        XCTAssertEqual(AgentAck.foregroundPresentation(shows: true), [.list])
+        XCTAssertEqual(AgentAck.foregroundPresentation(shows: false), [])
+        var info = ack("a-1", "x", age: 1).toUserInfo()
+        XCTAssertTrue(AgentAck.isReceipt(info))
+        info["tags"] = "agent"
+        XCTAssertFalse(AgentAck.isReceipt(info))
+    }
+
+    // MARK: the setting
+
+    func testWithConfirmationsOffTheAckStillResolvesButShowsNothing() throws {
+        save(question())
+        save(ack("a-1", "Locking it now", age: 60))
+        let hidden = try receipt(shows: false)
+        XCTAssertNil(hidden.agent, "no receipt line or note")
+        XCTAssertTrue(hidden.resolved, "the question is still done")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [])
+        XCTAssertNotNil(try receipt(shows: true).agent)
+    }
+
+    // VERDICT-ack-48 M1: green means the agent got it; your own answer wears the up-arrow.
+    func testYourAnswerNeverWearsTheAgentsCheck() {
+        XCTAssertEqual(AnswerReceiptView.answeredIcon, "arrow.up.circle.fill")
+        XCTAssertNotEqual(AnswerReceiptView.answeredIcon, "checkmark.circle.fill")
+    }
+
+    // iPad check 48: an ack the extension records must redraw an open page in the app. Two logs
+    // on one store stand in for the two processes.
+    func testAnAckSavedElsewhereRedrawsTheApp() {
+        let shared = defaults()
+        let app = AckLog(defaults: shared, observesOtherProcesses: true)
+        let extensionLog = AckLog(defaults: shared)
+        let before = app.revision
+        extensionLog.save(AgentAck.Record(id: "a-1", time: 1, note: nil, answer: nil, version: "q-1"), forKey: "k")
+        // Only the cross-process post can reach the app's log; the extension's own redraw is its own.
+        let redrawn = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in app.revision > before }, object: nil)
+        wait(for: [redrawn], timeout: 3)
+        XCTAssertGreaterThan(app.revision, before)
+    }
+
+    // 48b re-check: a long agent note was cut at 4 lines with no other place to read it.
+    func testTheAgentsNoteIsNeverCutButYourReplyIs() {
+        XCTAssertNil(AgentReceiptTimeline.detailLineLimit(id: "receipt-agent"))
+        XCTAssertEqual(AgentReceiptTimeline.detailLineLimit(id: "receipt-you"), 4)
+    }
+
+    // M2: answered on another device or by a compose reply, the page still names the answer.
+    func testAnAckNamingTheAnswerGivesThePageAFirstStep() throws {
+        save(question())
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        XCTAssertEqual(try receipt().namedStep, "Lock")
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-90), ok: true)
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        XCTAssertNil(try receipt().namedStep, "the answer here is the first step")
+    }
+
+    // M3: with confirmations off, a question done elsewhere says Closed, never nothing.
+    func testWithConfirmationsOffAQuestionDoneElsewhereSaysClosed() throws {
+        save(question())
+        XCTAssertFalse(try receipt(shows: false).showsClosed, "an open question isn't closed")
+        save(ack("a-1", "\u{2713} Got: Lock", age: 60))
+        let off = try receipt(shows: false)
+        XCTAssertTrue(off.showsClosed)
+        XCTAssertEqual(off.namedAnswer, "Lock", "Closed names the answer")
+        XCTAssertFalse(try receipt(shows: true).showsClosed, "with confirmations on, the timeline says it")
+        let entry = AnswerEntry(kind: .tap, label: "Lock", text: nil, at: now.addingTimeInterval(-90), ok: true)
+        log.record(try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first))), entry)
+        XCTAssertFalse(try receipt(shows: false).showsClosed, "answered here: your own receipt shows instead")
+    }
+
+    func testConfirmationsShowByDefault() {
+        let defaults = defaults()
+        XCTAssertTrue(AgentAck.showsConfirmations(defaults))
+        defaults.set(false, forKey: AgentAck.showKey)
+        XCTAssertFalse(AgentAck.showsConfirmations(defaults))
+    }
+
+    // MARK: hiding
+
+    func testTheAckTagIsNeverShown() {
+        XCTAssertEqual(parseNonEmojiTags("agent,ack,deploy,ACK"), ["agent", "deploy"])
+        XCTAssertEqual(parseEmojiTags("ack,thumbsup"), ["👍"])
+        XCTAssertEqual(parseNonEmojiTags("acknowledged,backup"), ["acknowledged", "backup"], "only the exact tag")
+    }
+}

@@ -6322,7 +6322,7 @@ final class ntfyTests: XCTestCase {
                 // Authored/parser-created Markdown links use UITextView's native
                 // linkTextAttributes; plain links also carry explicit styling.
                 if type == nil {
-                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor.link)
+                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor(named: "AccentColor"))
                     XCTAssertEqual(attrs[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
                 }
                 if attrs[.link] != nil { linked += run.length }
@@ -6367,13 +6367,13 @@ final class ntfyTests: XCTestCase {
 final class NewcomerSetupTests: XCTestCase {
 
     private var ntfyShHint: String {
-        String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \("ntfy-me.com"). See \("https://ntfy-me.com/docs/migrate").")
+        String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \("ntf-ai.app"). See \("https://ntf-ai.app/docs/migrate").")
     }
     private var ownServerHint: String {
-        String(localized: "For instant delivery from your own server, add \"\("upstream-base-url: https://ntfy-me.com")\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \("ntfy-me.com") stops instant delivery to the official ntfy iOS app on that server. See \("https://ntfy-me.com/docs/self-hosting").")
+        String(localized: "For instant delivery from your own server, add \"\("upstream-base-url: https://ntfy-me.com")\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \("ntfy-me.com") stops instant delivery to the official ntfy iOS app on that server. See \("https://ntf-ai.app/docs/self-hosting").")
     }
     private var builtInFooter: String {
-        String(localized: "New topics use \(Config.appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \("ntfy-me.com"); the same topic name on ntfy.sh is a different topic.")
+        String(localized: "New topics use \(Config.appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \("ntf-ai.app"); the same topic name on ntfy.sh is a different topic.")
     }
 
     // Assert complete localized messages rather than English fragments whose word order varies.
@@ -6416,8 +6416,8 @@ final class NewcomerSetupTests: XCTestCase {
 
     /// Exercise the actual UIKit renderer: link attributes alone are inert if editing/selection is wrong.
     func testBothFootersRenderInteractiveDocumentationLinksAndClearStaleLinks() {
-        for (url, documentation) in [("https://ntfy.sh", "https://ntfy-me.com/docs/migrate"),
-                                      ("https://ntfy.home.io", "https://ntfy-me.com/docs/self-hosting")] {
+        for (url, documentation) in [("https://ntfy.sh", "https://ntf-ai.app/docs/migrate"),
+                                      ("https://ntfy.home.io", "https://ntf-ai.app/docs/self-hosting")] {
             for copy in [Config.subscriptionServerFooter(baseUrl: url, useAnother: true),
                          Config.defaultServerFooter(baseUrl: url)] {
                 let footer = ServerFooterText(text: copy)
@@ -6448,9 +6448,9 @@ final class NewcomerSetupTests: XCTestCase {
 
     func testPublishUrlAlwaysCarriesTheScheme() {
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "https://ntfy-me.com", topic: "alerts"),
-                       "https://ntfy-me.com/alerts")
+                       "https://ntf-ai.app/alerts")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "https://ntfy-me.com/", topic: "alerts"),
-                       "https://ntfy-me.com/alerts", "a trailing slash must not double up")
+                       "https://ntf-ai.app/alerts", "a trailing slash must not double up")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "http://ntfy.home.lan:8080", topic: "t"),
                        "http://ntfy.home.lan:8080/t", "an explicit http server keeps its own scheme")
         XCTAssertEqual(PublishCommand.publishUrl(baseUrl: "ntfy.example.com", topic: "t"),
@@ -6462,9 +6462,9 @@ final class NewcomerSetupTests: XCTestCase {
     func testSimpleCommandPublishesToTheFullUrl() {
         let command = PublishCommand.simple(baseUrl: "https://ntfy-me.com", topic: "alerts-abc")
         XCTAssertTrue(command.hasPrefix("curl "), command)
-        XCTAssertTrue(command.hasSuffix(" 'https://ntfy-me.com/alerts-abc'"), command)
+        XCTAssertTrue(command.hasSuffix(" 'https://ntf-ai.app/alerts-abc'"), command)
         XCTAssertTrue(command.contains("-d '"), command)
-        XCTAssertFalse(command.contains(" ntfy-me.com/"), "no scheme-less URL anywhere: \(command)")
+        XCTAssertFalse(command.contains(" ntf-ai.app/"), "no scheme-less URL anywhere: \(command)")
     }
 
     func testTitledCommandSetsTitleAndPriorityAndPublishesToTheFullUrl() {
@@ -6531,7 +6531,7 @@ final class NewcomerSetupTests: XCTestCase {
 
     func testHelpLinkPointsAtTheQuickStartForTheDefaultServer() {
         // ntfy.sh's examples publish to ntfy.sh, not to the server this app uses.
-        XCTAssertEqual(Config.helpUrl, "https://ntfy-me.com/")
+        XCTAssertEqual(Config.helpUrl, "https://ntf-ai.app/")
     }
 
     func testPermissionPromptWaitsForAFirstTopicOnAFreshInstall() {
@@ -7210,9 +7210,9 @@ extension ntfyTests {
         let topics = RetiredDefaultServerMigration.pendingNoticeTopics(defaults: defaults)
         XCTAssertEqual(topics, ["door", "garage"], "moved and merged topics; the encrypted one did not move")
         let message = RetiredDefaultServerMigration.noticeMessage(topics: topics)
-        XCTAssertTrue(message.contains("https://ntfy-me.com/garage"))
-        XCTAssertTrue(message.contains("https://ntfy-me.com/door"))
-        XCTAssertTrue(message.contains("https://ntfy-me.com/<topic>"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/garage"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/door"))
+        XCTAssertTrue(message.contains("https://ntf-ai.app/<topic>"))
         RetiredDefaultServerMigration.dismissNotice(defaults: defaults)
         XCTAssertTrue(RetiredDefaultServerMigration.pendingNoticeTopics(defaults: defaults).isEmpty)
     }
@@ -7228,8 +7228,8 @@ extension ntfyTests {
 final class FirstTopicTestTests: XCTestCase {
     func testFirstNotificationUsesDefaultPriorityAndPlainAppCopy() {
         XCTAssertEqual(FirstTopicTest.priority, 3)
-        XCTAssertEqual(FirstTopicTest.title, String(localized: "NTFY me test"))
-        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from NTFY me. Your topic is ready."))
+        XCTAssertEqual(FirstTopicTest.title, String(localized: "NTF-AI test"))
+        XCTAssertEqual(FirstTopicTest.body, String(localized: "This is a test notification from NTF-AI. Your topic is ready."))
     }
 }
 
@@ -7312,7 +7312,7 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         let after = Store.shared.presentedDeliveries()
         XCTAssertEqual(after.count - before.count, 3, "test messages don't count")
         XCTAssertEqual(after.days - before.days, 2)
-        XCTAssertTrue("This is a test notification from NTFY me. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
+        XCTAssertTrue("This is a test notification from NTF-AI. It has a priority of 3.".hasPrefix(Store.testMessagePrefix))
     }
 
     func testSessionPersistsFirstLaunchAndWhatsNewTakesTheForeground() {
@@ -10017,7 +10017,8 @@ final class MessageDynamicTypeTests: XCTestCase {
             parent.setOverrideTraitCollection(traits, forChild: child)
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             XCTAssertEqual(textView.traitCollection.preferredContentSizeCategory, category)
-            let expected = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).pointSize
+            // Message bodies use the row's body style (subheadline since the 1.26 dense list).
+            let expected = UIFont.preferredFont(forTextStyle: MessageTextStyle.body.uiTextStyle, compatibleWith: traits).pointSize
             for (token, requiredTrait) in [("Plain", UIFontDescriptor.SymbolicTraits()), ("bold", .traitBold), ("italic", .traitItalic), ("inline", .traitMonoSpace), ("fenced", .traitMonoSpace)] {
                 let index = (original as NSString).range(of: token).location
                 let font = try XCTUnwrap(textView.attributedText.attribute(.font, at: index, effectiveRange: nil) as? UIFont)
@@ -10037,7 +10038,8 @@ final class MessageDynamicTypeTests: XCTestCase {
 @MainActor
 final class UrgentAlertsPresentationTests: XCTestCase {
     private func render(urgent: Bool, banner: Bool = false,
-                        authorization: UNAuthorizationStatus = .notDetermined) throws -> [(String, CGRect)] {
+                        authorization: UNAuthorizationStatus = .notDetermined,
+                        capture: ((UIImage) -> Void)? = nil) throws -> [(String, CGRect)] {
         let method = try XCTUnwrap(class_getInstanceMethod(UNNotificationSettings.self,
             #selector(getter: UNNotificationSettings.authorizationStatus)))
         let original = method_getImplementation(method)
@@ -10072,6 +10074,7 @@ final class UrgentAlertsPresentationTests: XCTestCase {
         let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
+        capture?(image)
         let request = VNRecognizeTextRequest()
         request.recognitionLanguages = ["en-US"]
         request.recognitionLevel = .accurate
@@ -10081,14 +10084,53 @@ final class UrgentAlertsPresentationTests: XCTestCase {
         }
     }
 
+    /// Vision's line rectangles include estimated padding, which varies with surrounding text.
+    /// Use it to locate the same words, then measure their rendered ink instead of that padding.
+    private func inkSize(image: UIImage, textBounds: CGRect) throws -> CGSize {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let width = CGFloat(cgImage.width), height = CGFloat(cgImage.height)
+        let rect = CGRect(x: textBounds.minX * width, y: (1 - textBounds.maxY) * height,
+                          width: textBounds.width * width, height: textBounds.height * height).integral
+        let crop = try XCTUnwrap(cgImage.cropping(to: rect))
+        var pixels = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+        try pixels.withUnsafeMutableBytes { buffer in
+            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        }
+        var left = crop.width, top = crop.height, right = -1, bottom = -1
+        for y in 0..<crop.height {
+            for x in 0..<crop.width {
+                let offset = (y * crop.width + x) * 4
+                // The rendered test is explicitly light mode: both text colours are darker
+                // than this threshold, while the row's white background is excluded.
+                if pixels[offset + 3] > 200 && pixels[offset] < 220 && pixels[offset + 1] < 220 && pixels[offset + 2] < 220 {
+                    left = min(left, x); top = min(top, y); right = max(right, x); bottom = max(bottom, y)
+                }
+            }
+        }
+        XCTAssertGreaterThanOrEqual(right, left, "Expected rendered status text")
+        XCTAssertGreaterThanOrEqual(bottom, top, "Expected rendered status text")
+        return CGSize(width: CGFloat(right - left + 1) / image.scale,
+                      height: CGFloat(bottom - top + 1) / image.scale)
+    }
+
     func testUrgentStatusUsesTheSameSecondaryTypeSizeAsPermission() throws {
-        let permission = try XCTUnwrap(render(urgent: false).first { $0.0.contains("Not requested yet") })
-        let urgent = try XCTUnwrap(render(urgent: true).first {
-            $0.0.contains("Not requested yet") || $0.0.contains("Notifications off")
+        var permissionImage: UIImage?, urgentImage: UIImage?
+        let permission = try XCTUnwrap(render(urgent: false, capture: { permissionImage = $0 }).first {
+            $0.0.contains("Not requested yet")
         })
-        XCTAssertEqual(urgent.1.height * UIScreen.main.bounds.height,
-                       permission.1.height * UIScreen.main.bounds.height, accuracy: 1,
+        let urgent = try XCTUnwrap(render(urgent: true, capture: { urgentImage = $0 }).first {
+            $0.0.contains("Not requested yet")
+        })
+        XCTAssertEqual(urgent.0, permission.0, "Compare the same rendered words")
+        let permissionInk = try inkSize(image: XCTUnwrap(permissionImage), textBounds: permission.1)
+        let urgentInk = try inkSize(image: XCTUnwrap(urgentImage), textBounds: urgent.1)
+        XCTAssertEqual(urgentInk.height, permissionInk.height, accuracy: 1,
                        "Status values on this page must use the same type size")
+        XCTAssertEqual(urgentInk.width, permissionInk.width, accuracy: 1,
+                       "The same status text must have the same glyph size")
     }
 
     func testUnrequestedPermissionOffersAnInAppRequest() throws {
@@ -10273,5 +10315,848 @@ final class AttachmentUnlinkOrderingTests: XCTestCase {
         XCTAssertThrowsError(try AttachmentFileStore.storeTemporaryFile(at: source, to: destination, mimeType: nil))
         XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
         XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["destination", ".attachments.lock"])
+    }
+}
+
+/// 1.26 dense list: the behaviour behind the topic-row preview, the unread weight, day sections,
+/// the image height cap, the inline first line and the wrapping action buttons.
+final class DenseListTests: XCTestCase {
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+    private let english = Locale(identifier: "en_US")
+
+    private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 12, _ minute: Int = 0) -> Date {
+        utc.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    func testTopicSummaryCarriesEachTopicsNewestMessageForItsPreview() throws {
+        let store = Store(inMemory: true)
+        let builds = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "builds")
+        let alerts = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "alerts")
+        let quiet = store.saveSubscription(baseUrl: "https://preview.invalid", topic: "quiet")
+        store.save(notificationsFromMessages: [
+            Message(id: "b1", time: 1_800_000_000, event: "message", topic: "builds", message: "old build"),
+            Message(id: "b2", time: 1_800_000_300, event: "message", topic: "builds",
+                    message: "**Deploy** finished\n\non prod", contentType: "text/markdown"),
+            Message(id: "b0", time: 1_799_999_000, event: "message", topic: "builds", message: "older still")
+        ], withSubscription: builds)
+        // alerts' newest time equals builds' oldest: the shared `time IN` fetch must not cross topics.
+        store.save(notificationsFromMessages: [
+            Message(id: "a1", time: 1_800_000_000, event: "message", topic: "alerts", message: "disk", title: "Disk 91% full"),
+            Message(id: "a0", time: 1_799_000_000, event: "message", topic: "alerts", message: "earlier")
+        ], withSubscription: alerts)
+
+        let summaries = try XCTUnwrap(store.subscriptionSummaries())
+        let buildRow = try XCTUnwrap(summaries[builds.objectID]?.lastNotification)
+        XCTAssertEqual(buildRow.id, "b2")
+        XCTAssertEqual(buildRow.previewText(), "Deploy finished on prod", "Markdown resolved, line breaks folded")
+        let alertRow = try XCTUnwrap(summaries[alerts.objectID]?.lastNotification)
+        XCTAssertEqual(alertRow.id, "a1")
+        XCTAssertEqual(alertRow.previewText(), "Disk 91% full", "A title previews in place of the body")
+        XCTAssertNil(summaries[quiet.objectID]?.lastNotification, "An empty topic has no preview")
+        XCTAssertEqual(summaries[builds.objectID]?.total, 3)
+    }
+
+    func testUnreadTitleIsHeavierThanReadTitle() throws {
+        func weight(_ style: MessageTextStyle) throws -> CGFloat {
+            let rendered = makeMessageNSAttributedString(AttributedString("Backup finished"), style: style)
+            let font = try XCTUnwrap(rendered.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+            let traits = try XCTUnwrap(font.fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any])
+            return try XCTUnwrap(traits[.weight] as? CGFloat)
+        }
+        let unread = try weight(.title(read: false))
+        let read = try weight(.title(read: true))
+        let body = try weight(.body)
+        XCTAssertEqual(unread, UIFont.Weight.semibold.rawValue, accuracy: 0.01)
+        XCTAssertEqual(read, UIFont.Weight.medium.rawValue, accuracy: 0.01)
+        XCTAssertGreaterThan(unread, read)
+        XCTAssertGreaterThan(read, body)
+        let unreadFont = makeMessageNSAttributedString(AttributedString("x"), style: .title(read: false))
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        XCTAssertEqual(unreadFont?.pointSize, UIFont.preferredFont(forTextStyle: .subheadline).pointSize,
+                       "Title and body share one size; weight alone carries the hierarchy")
+    }
+
+    func testDaySectionsNameTodayYesterdayThenDates() {
+        let now = date(2026, 11, 12, 15)
+        let title = { (day: Date) in Notification.daySectionTitle(for: day, now: now, calendar: self.utc, locale: self.english) }
+        XCTAssertEqual(title(date(2026, 11, 12, 0, 5)), "Today")
+        XCTAssertEqual(title(date(2026, 11, 11, 23, 59)), "Yesterday")
+        XCTAssertEqual(title(date(2026, 11, 10, 8)), "Tue, Nov 10")
+        XCTAssertEqual(title(date(2025, 12, 31, 8)), "Wed, Dec 31, 2025", "Another year names the year")
+    }
+
+    func testGroupingKeepsOrderAndSplitsAtMidnight() {
+        let times = [date(2026, 11, 12, 9), date(2026, 11, 12, 0, 1), date(2026, 11, 11, 23, 59), date(2026, 11, 9, 7)]
+        let groups = Notification.groupedByDay(times, calendar: utc) { $0 }
+        XCTAssertEqual(groups.map { $0.items.count }, [2, 1, 1])
+        XCTAssertEqual(groups.map { $0.day }, [date(2026, 11, 12, 0), date(2026, 11, 11, 0), date(2026, 11, 9, 0)])
+        XCTAssertEqual(groups.flatMap { $0.items }, times)
+    }
+
+    func testRowTimeIsTimeOnlyBecauseTheSectionNamesTheDay() {
+        let yesterday = date(2026, 11, 11, 15, 4)
+        let text = Notification.shortTime(for: yesterday, calendar: utc, locale: english)
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+        XCTAssertEqual(text, "3:04 PM")
+    }
+
+    func testAttachmentImagesNeverExceedTheHeightCap() {
+        let cap = AttachmentImageLayout.maxHeight
+        XCTAssertEqual(cap, 180)
+        // A phone screenshot becomes a thumbnail at its own aspect, not a full-width poster.
+        let portrait = AttachmentImageLayout.size(for: CGSize(width: 1179, height: 2556), availableWidth: 330)
+        XCTAssertEqual(portrait.height, cap)
+        XCTAssertEqual(portrait.width, cap * 1179 / 2556, accuracy: 0.5)
+        // 4:3 landscape at full width would be 247 pt tall: capped and cropped to the column.
+        let landscape = AttachmentImageLayout.size(for: CGSize(width: 4032, height: 3024), availableWidth: 330)
+        XCTAssertEqual(landscape, CGSize(width: 330, height: cap))
+        // A wide banner keeps its natural height under the cap.
+        let banner = AttachmentImageLayout.size(for: CGSize(width: 3000, height: 600), availableWidth: 330)
+        XCTAssertEqual(banner.width, 330)
+        XCTAssertEqual(banner.height, 66, accuracy: 0.5)
+        // Never upscaled.
+        XCTAssertEqual(AttachmentImageLayout.size(for: CGSize(width: 40, height: 60), availableWidth: 330), CGSize(width: 40, height: 60))
+        XCTAssertEqual(AttachmentImageLayout.size(for: .zero, availableWidth: 330).height, AttachmentImageLayout.placeholderHeight)
+    }
+
+    func testFirstLineExclusionReservesOnlyTheFirstLine() {
+        let exclusion = FirstLineExclusion(leading: 20, trailing: 64, lineHeight: 18)
+        XCTAssertEqual(exclusion.rects(containerWidth: 300),
+                       [CGRect(x: 0, y: 0, width: 20, height: 18), CGRect(x: 236, y: 0, width: 64, height: 18)])
+        XCTAssertEqual(FirstLineExclusion(trailing: 64, lineHeight: 18).rects(containerWidth: 300),
+                       [CGRect(x: 236, y: 0, width: 64, height: 18)])
+        XCTAssertEqual(FirstLineExclusion().rects(containerWidth: 300), [])
+    }
+
+    @available(iOS 16.0, *)
+    func testFirstLineExclusionWrapsOnlyTheFirstLineAroundTheTime() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 240, height: 400))
+        configureMessageTextView(view, isInteractionEnabled: true)
+        let body = String(repeating: "word ", count: 60)
+        view.setMessageText(makeMessageNSAttributedString(AttributedString(body), style: .body))
+        let lineHeight = MessageTextStyle.body.lineHeight(compatibleWith: nil)
+        view.setFirstLineExclusion(FirstLineExclusion(trailing: 80, lineHeight: lineHeight))
+        view.layoutIfNeeded()
+        var widths: [CGFloat] = []
+        view.textLayoutManager?.enumerateTextLayoutFragments(from: nil, options: [.ensuresLayout]) { fragment in
+            widths += fragment.textLineFragments.map { $0.typographicBounds.width }
+            return true
+        }
+        XCTAssertGreaterThan(widths.count, 3)
+        XCTAssertLessThanOrEqual(widths[0], 160 + 0.5, "The first line stops before the time")
+        XCTAssertGreaterThan(widths[1], 170, "Later lines use the full width")
+    }
+
+    @available(iOS 16.0, *)
+    func testActionButtonsWrapOntoNewLines() {
+        let sizes = [CGSize(width: 120, height: 30), CGSize(width: 140, height: 30), CGSize(width: 90, height: 32)]
+        let frames = WrappingHStack.frames(for: sizes, width: 300, spacing: 8, lineSpacing: 8)
+        XCTAssertEqual(frames, [CGRect(x: 0, y: 0, width: 120, height: 30),
+                                CGRect(x: 128, y: 0, width: 140, height: 30),
+                                CGRect(x: 0, y: 38, width: 90, height: 32)])
+        let wide = WrappingHStack.frames(for: [CGSize(width: 500, height: 30)], width: 300, spacing: 8, lineSpacing: 8)
+        XCTAssertEqual(wide, [CGRect(x: 0, y: 0, width: 300, height: 30)], "One over-wide button is clamped, not overflowing")
+    }
+
+    func testBuiltInServerGetsTheShortFooterAndOthersKeepTheirHints() {
+        let builtIn = normalizeBaseUrl(Config.appBaseUrl)
+        XCTAssertEqual(Config.subscriptionServerShortFooter(baseUrl: builtIn, useAnother: false),
+                       String(localized: "New topics use \(shortUrl(url: builtIn)), a free public server. Any ntfy server works: turn on \"Use another server\"."))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: builtIn, useAnother: true))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntfy.sh", useAnother: false))
+        XCTAssertNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntfy.home.lan", useAnother: false))
+    }
+}
+
+/// Finding 3 and 4 of the 1.26 pass: rows cap at one title line and six body lines, a tap expands a
+/// cut row or opens its click URL and never copies, and the topic-list preview keeps the row's
+/// "Not encrypted" mark.
+final class RowExpansionTests: XCTestCase {
+    private func lines(_ count: Int) -> String {
+        (1...count).map { "Line \($0) of the build log" }.joined(separator: "\n")
+    }
+
+    func testRowTapOpensTheClickURLExpandsACutRowAndNeverCopies() {
+        XCTAssertEqual(messageRowTapAction(hasClickURL: true, exceedsLineCap: false), .openClickURL)
+        XCTAssertEqual(messageRowTapAction(hasClickURL: true, exceedsLineCap: true), .openClickURL,
+                       "A click URL still opens on tap; the row's more button expands it")
+        XCTAssertEqual(messageRowTapAction(hasClickURL: false, exceedsLineCap: true), .toggleExpansion)
+        XCTAssertEqual(messageRowTapAction(hasClickURL: false, exceedsLineCap: false), .none,
+                       "Copy is in the long-press menu, not on a tap")
+        XCTAssertEqual(MessageRowLineCap.title, 1)
+        XCTAssertEqual(MessageRowLineCap.body, 6)
+    }
+
+    func testLineCountCountsEachLineOnceEvenWhenTheFirstIsSplitByTheTime() {
+        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        let text = NSAttributedString(string: lines(9), attributes: [.font: font])
+        XCTAssertEqual(messageLineCount(of: text, width: 320), 9)
+        let exclusion = FirstLineExclusion(leading: 20, trailing: 60, lineHeight: font.lineHeight)
+            .rects(containerWidth: 320).map { UIBezierPath(rect: $0) }
+        let short = NSAttributedString(string: "Deploy done", attributes: [.font: font])
+        XCTAssertEqual(messageLineCount(of: short, width: 320, exclusionPaths: exclusion), 1)
+        XCTAssertEqual(messageLineCount(of: NSAttributedString(), width: 320), 0)
+    }
+
+    func testCollapsedTextStopsAtItsCapAndExpandsToTheWholeMessage() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 320, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        var reported: [Bool] = []
+        view.onExceedsLineCapChange = { reported.append($0) }
+        view.setMessageText(AttributedString(lines(12)), style: .body)
+        view.setLineCap(MessageRowLineCap.body, collapsed: true)
+        // One rendered line, measured the same way (the row's line spacing is taller than the font's lineHeight).
+        let probe = MessageTextView(frame: CGRect(x: 0, y: 0, width: 320, height: 10), textContainer: nil)
+        configureMessageTextView(probe, isInteractionEnabled: true)
+        probe.setMessageText(AttributedString(lines(1)), style: .body)
+        let lineHeight = probe.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        let collapsed = view.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        XCTAssertTrue(view.exceedsLineCap)
+        XCTAssertEqual(reported, [true])
+        XCTAssertEqual(collapsed, lineHeight * 6, accuracy: lineHeight / 2, "Six lines while collapsed")
+
+        view.setLineCap(MessageRowLineCap.body, collapsed: false)
+        let expanded = view.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        XCTAssertEqual(expanded, lineHeight * 12, accuracy: lineHeight / 2, "All twelve once expanded")
+        XCTAssertTrue(view.exceedsLineCap, "Still cut-able, so a second tap collapses it")
+
+        view.setMessageText(AttributedString(lines(3)), style: .body)
+        XCTAssertFalse(view.exceedsLineCap, "A short message shows no more and ignores taps")
+        XCTAssertEqual(reported, [true, false])
+    }
+
+    func testTopicPreviewMarksUnencryptedMessagesAndNeverShowsALockedTitle() {
+        let store = Store(inMemory: true)
+        let unencrypted = Notification(context: store.context)
+        unencrypted.message = "Door opened"
+        unencrypted.encryption = NotificationEncryption.unencrypted.rawValue
+        XCTAssertTrue(unencrypted.previewIsMarkedNotEncrypted)
+        XCTAssertEqual(unencrypted.previewText(), "Door opened")
+
+        for state in [NotificationEncryption.none, .decrypted, .locked] {
+            unencrypted.encryption = state.rawValue
+            XCTAssertFalse(unencrypted.previewIsMarkedNotEncrypted, "\(state)")
+        }
+
+        let locked = Notification(context: store.context)
+        locked.encryption = NotificationEncryption.locked.rawValue
+        locked.title = "Sender's title"
+        locked.message = "ciphertext-ish"
+        XCTAssertEqual(locked.previewText(), TopicEncryption.lockedPlaceholder,
+                       "A locked message previews as the placeholder, never a title")
+    }
+}
+
+/// The row wiring, hosted for real: inside a List the body's text view gets its width, measures
+/// past six lines and hands that to the row (which is what shows "more").
+@MainActor
+final class RowExpansionHostingTests: XCTestCase {
+    private func textViews(in view: UIView) -> [MessageTextView] {
+        ((view as? MessageTextView).map { [$0] } ?? []) + view.subviews.flatMap { textViews(in: $0) }
+    }
+
+    func testLongMessageRowShowsMoreAfterLayout() async throws {
+        let store = Store(inMemory: true)
+        let subscription = store.saveSubscription(baseUrl: "https://hosting.invalid", topic: "long")
+        let body = (1...12).map { "Line \($0) of the build log" }.joined(separator: "\n")
+        _ = store.save(notificationsFromMessages: [
+            Message(id: "long1", time: 1_800_000_000, event: "message", topic: "long", message: body, title: "A title")
+        ], withSubscription: subscription)
+        let notification = try XCTUnwrap(try store.context.fetch(Notification.fetchRequest()).first { $0.id == "long1" })
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        defer { window.isHidden = true; previous?.makeKeyAndVisible() }
+        window.rootViewController = UIHostingController(rootView: List {
+            NotificationRowView(notification: notification, onCopyMessage: {})
+        }.environmentObject(store))
+        window.makeKeyAndVisible()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let views = textViews(in: window)
+        let detail = views.map { view in
+            "cap=\(view.lineCap) collapsed=\(view.isCollapsed) exceeds=\(view.exceedsLineCap) w=\(view.bounds.width) "
+            + "lines=\(messageLineCount(of: view.attributedText, width: view.bounds.width, exclusionPaths: view.textContainer.exclusionPaths)) "
+            + "len=\(view.attributedText.length) paths=\(view.textContainer.exclusionPaths.map(\.bounds))"
+        }
+        XCTAssertTrue(views.contains { $0.exceedsLineCap }, "The body's text view measures more than six lines: \(detail)")
+        let bodyView = try XCTUnwrap(views.first { $0.lineCap == MessageRowLineCap.body })
+        XCTAssertTrue(bodyView.isCollapsed)
+        XCTAssertEqual(views.first { $0.lineCap == MessageRowLineCap.title }?.exceedsLineCap, false)
+    }
+}
+
+/// The 1.26 fix round (VERDICT.md, 2026-11-13): title truncation, AX title cap, self-sizing at the
+/// proposed width, collapse after expand, unread markers held for a visit, topic-list time, margins.
+final class DenseFixRoundTests: XCTestCase {
+    private func lines(_ count: Int) -> String {
+        (1...count).map { "Line \($0) of the build log" }.joined(separator: "\n")
+    }
+
+    /// N1: a title cut at its cap ends in "…". Word wrapping just stopped mid-phrase.
+    func testCollapsedTitleEndsInAnEllipsisAndSurvivesTheNextUpdate() throws {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 200, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setMessageText(AttributedString("Migration plan for orders-db needs a decision before 18:00 today"), style: .title)
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byTruncatingTail)
+        // SwiftUI's next update runs configure (which resets the mode) and then the same cap again.
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byTruncatingTail, "The cap survives a re-configure")
+
+        let layoutManager = view.layoutManager
+        layoutManager.ensureLayout(for: view.textContainer)
+        let glyphs = layoutManager.glyphRange(for: view.textContainer)
+        XCTAssertGreaterThan(glyphs.length, 0)
+        let truncated = layoutManager.truncatedGlyphRange(inLineFragmentForGlyphAt: NSMaxRange(glyphs) - 1)
+        XCTAssertNotEqual(truncated.location, NSNotFound, "The last visible line is drawn with an ellipsis")
+
+        view.setLineCap(MessageRowLineCap.title, collapsed: false)
+        XCTAssertEqual(view.textContainer.lineBreakMode, .byWordWrapping, "Expanded text wraps in full")
+    }
+
+    /// N1: at accessibility sizes one title line holds a word or two, so the title gets three.
+    func testTitleCapIsThreeLinesAtAccessibilitySizes() {
+        XCTAssertEqual(MessageRowLineCap.title(accessibilitySize: false), 1)
+        XCTAssertEqual(MessageRowLineCap.title(accessibilitySize: true), 3)
+    }
+
+    /// N4: the height comes from the width SwiftUI proposes, not whatever `bounds` held then.
+    func testFittingHeightUsesTheProposedWidthNotBounds() {
+        func make(width: CGFloat) -> MessageTextView {
+            let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: width, height: 10), textContainer: nil)
+            configureMessageTextView(view, isInteractionEnabled: true)
+            view.setMessageText(AttributedString(lines(12)), style: .body)
+            view.setFirstLineExclusion(FirstLineExclusion(leading: 0, trailing: 60, lineHeight: 18))
+            view.setLineCap(MessageRowLineCap.body, collapsed: true)
+            return view
+        }
+        let settled = make(width: 320)
+        let reference = settled.sizeThatFits(CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude)).height
+        let fresh = make(width: 0)
+        XCTAssertFalse(fresh.exceedsLineCap, "Nothing measured yet at zero width")
+        XCTAssertEqual(fresh.fittingHeight(forWidth: 320), ceil(reference), accuracy: 0.5)
+        XCTAssertTrue(fresh.exceedsLineCap, "Measured at the proposed width, so more shows on the first pass")
+        let stale = make(width: 120)
+        XCTAssertEqual(stale.fittingHeight(forWidth: 320), ceil(reference), accuracy: 0.5,
+                       "A stale narrow bounds doesn't leak into the answer")
+    }
+
+    /// Builder's gap: an expanded row says "less" in the "more" spot, so a click-URL row collapses.
+    func testExpandedCutRowOffersLessAndAShortRowOffersNothing() {
+        XCTAssertEqual(messageRowExpansionCue(exceedsLineCap: true, isExpanded: false), .more)
+        XCTAssertEqual(messageRowExpansionCue(exceedsLineCap: true, isExpanded: true), .less)
+        XCTAssertNil(messageRowExpansionCue(exceedsLineCap: false, isExpanded: false))
+        XCTAssertNil(messageRowExpansionCue(exceedsLineCap: false, isExpanded: true))
+    }
+
+    /// Unread markers stay for the visit that opened them, as in Mail, and the user's own choice wins.
+    func testHeldUnreadMarkersLastOneVisit() {
+        var held = HeldUnreadMarkers<String>()
+        held.hold(["a", "b"])
+        XCTAssertTrue(held.showsUnread("a", read: true), "Read on open, still marked for this visit")
+        XCTAssertFalse(held.showsUnread("c", read: true))
+        XCTAssertTrue(held.showsUnread("c", read: false), "Arrived while open: really unread")
+        held.release("a")
+        XCTAssertFalse(held.showsUnread("a", read: true), "Marked read by the user")
+        held.clear()
+        XCTAssertFalse(held.showsUnread("b", read: true), "Gone after leaving the topic")
+    }
+
+    /// Opening a topic hands back exactly the rows it marked read, which is what the visit holds.
+    func testMarkingATopicReadReturnsTheRowsItChanged() throws {
+        let store = Store(inMemory: true)
+        store.topicNotificationRemover = { _, _, _, _ in }
+        let subscription = store.saveSubscription(baseUrl: "https://held.invalid", topic: "held")
+        _ = store.save(notificationsFromMessages: [
+            Message(id: "h1", time: 1_800_000_000, event: "message", topic: "held", message: "one"),
+            Message(id: "h2", time: 1_800_000_100, event: "message", topic: "held", message: "two"),
+            Message(id: "h3", time: 1_800_000_200, event: "message", topic: "held", message: "three")
+        ], withSubscription: subscription)
+        let rows = try store.context.fetch(Notification.fetchRequest())
+        let h1 = try XCTUnwrap(rows.first { $0.id == "h1" })
+        store.setRead(true, forNotification: h1)
+        let expected = Set(rows.filter { $0.id != "h1" }.map(\.objectID))
+        XCTAssertEqual(store.setRead(true, forSubscription: subscription), expected)
+        XCTAssertEqual(store.setRead(true, forSubscription: subscription), [], "Nothing left to change")
+    }
+
+    /// N2: the topic list shows the time today, then a day, never a clock time on an older row.
+    func testTopicListTimeDropsTheClockAfterToday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        let locale = Locale(identifier: "en_US")
+        let now = Date()
+        let today = ntfy.Notification.topicListTime(for: now.addingTimeInterval(-60), now: now, calendar: calendar, locale: locale)
+        let yesterday = ntfy.Notification.topicListTime(for: calendar.date(byAdding: .day, value: -1, to: now)!, now: now, calendar: calendar, locale: locale)
+        let older = ntfy.Notification.topicListTime(for: calendar.date(byAdding: .day, value: -5, to: now)!, now: now, calendar: calendar, locale: locale)
+        XCTAssertTrue(today.contains(":"), today)
+        XCTAssertEqual(yesterday, "Yesterday")
+        XCTAssertFalse(older.contains(":"), older)
+        XCTAssertTrue(older.contains("/"), older)
+    }
+
+    /// N5: before iOS 26 the row spells out UIKit's margin: 20 pt from 414 pt wide, 16 below.
+    func testRowMarginMatchesTheSystemMarginByWidth() {
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 375), 16)
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 402), 16)
+        XCTAssertEqual(MessageRowMetrics.horizontalMargin(listWidth: 440), 20)
+        XCTAssertEqual(MessageRowMetrics.insets(listWidth: 440).top, MessageRowMetrics.verticalInset)
+    }
+}
+
+/// Fix round, after the first capture: a one-line title cut with "…" ran under the time, because
+/// truncation ignores exclusion paths. The title reserves the time as a container inset instead.
+final class DenseFixRoundTitleInsetTests: XCTestCase {
+    func testOneLineCapReservesTheTimeAsAnInsetThatSurvivesTheNextUpdate() {
+        let view = MessageTextView(frame: CGRect(x: 0, y: 0, width: 300, height: 10), textContainer: nil)
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setMessageText(AttributedString("Migration plan for orders-db needs a decision before 18:00 today"), style: .title)
+        view.setFirstLineExclusion(FirstLineExclusion(leading: 16, trailing: 70, lineHeight: 18))
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainerInset.right, 70)
+        XCTAssertEqual(view.textContainerInset.left, 16)
+        XCTAssertTrue(view.textContainer.exclusionPaths.isEmpty)
+        // SwiftUI's next update: configure zeroes the inset, then the same exclusion and cap again.
+        configureMessageTextView(view, isInteractionEnabled: true)
+        view.setFirstLineExclusion(FirstLineExclusion(leading: 16, trailing: 70, lineHeight: 18))
+        view.setLineCap(MessageRowLineCap.title, collapsed: true)
+        XCTAssertEqual(view.textContainerInset.right, 70, "The time stays reserved after a re-configure")
+        let layoutManager = view.layoutManager
+        layoutManager.ensureLayout(for: view.textContainer)
+        let used = layoutManager.usedRect(for: view.textContainer)
+        XCTAssertLessThanOrEqual(used.maxX, 300 - 16 - 70 + 0.5, "The cut title ends before the time")
+
+        view.setLineCap(MessageRowLineCap.title, collapsed: false)
+        XCTAssertEqual(view.textContainerInset, .zero, "Expanded: the time is an exclusion on line 1 only")
+        XCTAssertFalse(view.textContainer.exclusionPaths.isEmpty)
+    }
+}
+
+/// 1.26 nav bars and small elements (REVIEW-small.md): the behaviour changes and the shared rules.
+final class SmallElementsTests: XCTestCase {
+    override func tearDown() {
+        Store.shared.saveAttachmentAutoDownloadMaxSize(Store.autoDownloadDefault)
+        super.tearDown()
+    }
+
+    /// Finding 6: Delete in select mode asked to delete nothing when no row was selected.
+    func testSelectModeDeleteIsDisabledUntilARowIsSelected() {
+        XCTAssertFalse(MessageSelectionChrome.deleteEnabled(selectionCount: 0))
+        XCTAssertTrue(MessageSelectionChrome.deleteEnabled(selectionCount: 1))
+        XCTAssertTrue(MessageSelectionChrome.deleteEnabled(selectionCount: 2))
+    }
+
+    /// N4: the title already names the topic, so the subtitle names only its server. A renamed
+    /// topic keeps the full address, since its title no longer says which topic it is.
+    func testTopicSubtitleNamesTheServerUnlessTheTopicIsRenamed() {
+        let context = Store.shared.context
+        let subscription = Subscription(context: context)
+        subscription.baseUrl = "https://ntfy.retired.example/"
+        subscription.topic = "garage-alerts"
+        defer { context.delete(subscription) }
+
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example")
+        subscription.customDisplayName = "   "
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example")
+        subscription.customDisplayName = "Garage"
+        XCTAssertEqual(TopicSubtitle.address(for: subscription), "ntfy.retired.example/garage-alerts")
+    }
+
+    /// The delete-selected confirmation's lone button says how many messages go.
+    func testDeleteSelectedButtonCarriesThePluralCount() {
+        XCTAssertEqual(String(localized: "Delete \(1) messages"), "Delete 1 message")
+        XCTAssertEqual(String(localized: "Delete \(3) messages"), "Delete 3 messages")
+    }
+
+    /// Finding 6: in select mode the bar holds Delete and Done only.
+    func testSelectModeHidesBackButtonAndCompose() {
+        XCTAssertTrue(MessageSelectionChrome.hidesBackButton(editing: true))
+        XCTAssertFalse(MessageSelectionChrome.hidesBackButton(editing: false))
+        XCTAssertFalse(MessageSelectionChrome.showsCompose(editing: true))
+        XCTAssertTrue(MessageSelectionChrome.showsCompose(editing: false))
+    }
+
+    /// Finding 8: the menu picker offers the action sheet's eight choices, in its order, and writes
+    /// each through the same store call, so the stored value is unchanged by the switch.
+    func testDownloadPickerWritesTheSameStoredValueTheActionSheetDid() {
+        XCTAssertEqual(AttachmentAutoDownloadOption.all.map(\.value), [
+            Store.autoDownloadNever, Store.autoDownloadAlways, Store.autoDownload100KB, Store.autoDownload500KB,
+            Store.autoDownloadDefault, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
+        ])
+        XCTAssertEqual(Set(AttachmentAutoDownloadOption.all.map(\.title)).count, 8)
+        let selection = AttachmentAutoDownloadOption.selection(store: Store.shared) {
+            Store.shared.getAttachmentAutoDownloadMaxSize()
+        }
+        for option in AttachmentAutoDownloadOption.all {
+            selection.wrappedValue = option.value
+            XCTAssertEqual(Store.shared.getAttachmentAutoDownloadMaxSize(), option.value, option.title)
+            XCTAssertEqual(selection.wrappedValue, option.value, option.title)
+        }
+    }
+
+    /// Finding 22: the wake-up check contacts the app's own server, so it names it the way the rest
+    /// of the UI does instead of a hard-coded host.
+    func testWakeUpCheckNamesTheAppServerTheWayTheRestOfTheUIDoes() {
+        let shown = shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))
+        XCTAssertEqual(RelayCheck().relayBaseUrlForDisplay, normalizeBaseUrl(Config.appBaseUrl))
+        let message = RelayCheck.State.received(1_700_000_000_000).message ?? ""
+        XCTAssertTrue(message.contains(shown), message)
+        if shown != "ntfy-me.com" {
+            XCTAssertFalse(message.contains("ntfy-me.com"), message)
+        }
+    }
+
+    /// System fix A: one vocabulary. Swipes take filled symbols, menus outline ones, More is never
+    /// circled, and leaving a topic is not drawn as deleting messages.
+    func testIconVocabularySeparatesSwipeAndMenuAndDeleteAndLeave() {
+        XCTAssertEqual(AppSymbol.more, "ellipsis")
+        XCTAssertEqual(AppSymbol.delete(swipe: true), "trash.fill")
+        XCTAssertEqual(AppSymbol.delete(), "trash")
+        XCTAssertEqual(AppSymbol.unsubscribe(swipe: true), "minus.circle.fill")
+        XCTAssertEqual(AppSymbol.unsubscribe(), "minus.circle")
+        XCTAssertNotEqual(AppSymbol.delete(), AppSymbol.unsubscribe())
+        for (menu, swipe) in [(AppSymbol.markRead(), AppSymbol.markRead(swipe: true)),
+                              (AppSymbol.markUnread(), AppSymbol.markUnread(swipe: true)),
+                              (AppSymbol.pin(), AppSymbol.pin(swipe: true)),
+                              (AppSymbol.unpin(), AppSymbol.unpin(swipe: true)),
+                              (AppSymbol.mute(), AppSymbol.mute(swipe: true))] {
+            XCTAssertFalse(menu.hasSuffix(".fill"), menu)
+            XCTAssertEqual(swipe, menu + ".fill")
+        }
+        for symbol in [AppSymbol.more, AppSymbol.compose, AppSymbol.add] {
+            XCTAssertFalse(symbol.contains("circle"), symbol)
+            XCTAssertNotNil(UIImage(systemName: symbol), symbol)
+        }
+    }
+
+    /// Finding 24: license text on the list margin, 16 pt below 414 pt wide and 20 at or above.
+    func testLicenseTextSitsOnTheListMargin() {
+        XCTAssertEqual(LicenseTextInsets.insets(width: 375).left, 16)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 402).left, 16)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 440).left, 20)
+        XCTAssertEqual(LicenseTextInsets.insets(width: 440).right, 20)
+    }
+}
+
+/// Pins the emerald theme (notes INTERFACE "Look", 2026-11-14) so a revert to the yellow tokens, or
+/// a token that breaks contrast, fails here rather than on a screen nobody captured.
+final class ThemeColorTests: XCTestCase {
+    private func hex(_ name: String, _ style: UIUserInterfaceStyle) -> String {
+        let color = UIColor(named: name)!.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a), name)
+        return String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+    }
+
+    private func luminance(_ hex: String) -> Double {
+        let v = Int(hex, radix: 16)!
+        func lin(_ c: Int) -> Double {
+            let s = Double(c) / 255
+            return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * lin(v >> 16 & 0xFF) + 0.7152 * lin(v >> 8 & 0xFF) + 0.0722 * lin(v & 0xFF)
+    }
+
+    private func contrast(_ a: String, _ b: String) -> Double {
+        let (x, y) = (luminance(a), luminance(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    func testThemeTokensAreEmeraldInBothAppearances() {
+        let expected: [String: (light: String, dark: String)] = [
+            // Whole app in the Forest family (1.26 answer buttons, variant 2): Forest fills with white
+            // content; in dark mode accent text is the light mint, readable on black.
+            "AccentColor": ("047857", "6EE7B7"),
+            "BrandControlFill": ("047857", "047857"),
+            "BrandFill": ("047857", "047857"),
+            "Ink": ("FFFFFF", "FFFFFF"),
+            "UnreadBadgeTop": ("068462", "068462"),
+            "UnreadBadgeBottom": ("047857", "047857"),
+        ]
+        for (name, value) in expected {
+            XCTAssertEqual(hex(name, .light), value.light, "\(name) light")
+            XCTAssertEqual(hex(name, .dark), value.dark, "\(name) dark")
+        }
+    }
+
+    func testThemeTokensMeetContrastOnTheSurfacesTheyUse() {
+        // Accent text and links: on white and the grouped background in light, on the dark surfaces in dark.
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AccentColor", .light), surface), 4.5, "accent on \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AccentColor", .dark), surface), 4.5, "accent on \(surface)")
+        }
+        // Labels on Forest fills (toast, unread badge) are Ink, which is white.
+        for fill in ["BrandFill", "UnreadBadgeTop", "UnreadBadgeBottom"] {
+            for style in [UIUserInterfaceStyle.light, .dark] {
+                XCTAssertGreaterThanOrEqual(contrast(hex("Ink", style), hex(fill, style)), 4.5, "Ink on \(fill)")
+            }
+        }
+        // Swipe actions put a white label on BrandControlFill; toggles need 3:1 against the dark list.
+        XCTAssertGreaterThanOrEqual(contrast("FFFFFF", hex("BrandControlFill", .light)), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(hex("BrandControlFill", .dark), "1C1C1E"), 3.0)
+    }
+
+    private func hex(_ color: UIColor, _ style: UIUserInterfaceStyle) -> String {
+        let c = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(c.getRed(&r, green: &g, blue: &b, alpha: &a))
+        return String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+    }
+
+    /// The agent's tick and the person's answer arrow sit on adjacent lines of one receipt: they must be told
+    /// apart, and the tick must read as a symbol (3:1) on the surfaces the receipt uses.
+    func testTheAgentsTickIsNotTheAnswersGreenAndReadsOnItsSurfaces() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let tick = hex(InboxColor.agentGotUIColor, style)
+            let answer = hex("AccentColor", style)
+            XCTAssertGreaterThanOrEqual(contrast(tick, answer), 1.25, "tick vs answer, \(style.rawValue)")
+            let v = Int(tick, radix: 16)!
+            XCTAssertGreaterThan(v & 0xFF, v >> 8 & 0xFF, "tick is blue-led, not green, \(style.rawValue)")
+        }
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex(InboxColor.agentGotUIColor, .light), surface), 3.0, "tick on \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex(InboxColor.agentGotUIColor, .dark), surface), 3.0, "tick on \(surface)")
+        }
+    }
+}
+
+// MARK: - Answer buttons (1.26, Forest, lit)
+
+final class AnswerButtonTests: XCTestCase {
+    private func hex(_ name: String, _ style: UIUserInterfaceStyle) -> (hex: String, alpha: Double) {
+        let color = UIColor(named: name)!.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a), name)
+        return (String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded())), Double(a))
+    }
+
+    private func channels(_ hex: String) -> [Double] {
+        let v = Int(hex, radix: 16)!
+        return [Double(v >> 16 & 0xFF), Double(v >> 8 & 0xFF), Double(v & 0xFF)]
+    }
+
+    private func mix(_ top: String, _ bottom: String, _ t: Double) -> String {
+        let (a, b) = (channels(top), channels(bottom))
+        return zip(a, b).map { String(format: "%02X", Int(($0 * (1 - t) + $1 * t).rounded())) }.joined()
+    }
+
+    /// A translucent colour composited over a surface.
+    private func over(_ name: String, _ style: UIUserInterfaceStyle, on surface: String) -> String {
+        let (fg, alpha) = hex(name, style)
+        let (a, b) = (channels(fg), channels(surface))
+        return zip(a, b).map { String(format: "%02X", Int(($0 * alpha + $1 * (1 - alpha)).rounded())) }.joined()
+    }
+
+    private func contrast(_ a: String, _ b: String) -> Double {
+        func lum(_ hex: String) -> Double {
+            let c = channels(hex).map { s -> Double in let s = s / 255; return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4) }
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        }
+        let (x, y) = (lum(a), lum(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    func testAnswerTokens() {
+        let expected: [String: (light: String, dark: String)] = [
+            "AnswerFillTop": ("078A64", "078A64"),
+            "AnswerFill": ("047857", "047857"),
+            "AnswerTintLabel": ("06704F", "6EE7B7"),
+            "DestructiveInk": ("C4161C", "FF8178"),
+            "AnswerDisabledLabel": ("5C5C61", "AEAEB2"),
+        ]
+        for (name, value) in expected {
+            XCTAssertEqual(hex(name, .light).hex, value.light, "\(name) light")
+            XCTAssertEqual(hex(name, .dark).hex, value.dark, "\(name) dark")
+        }
+    }
+
+    /// The operator's bar: "dark enough so the text is comfortably white on it". The white label sits
+    /// in the middle half of the button, so the gradient must pass 4.5:1 from a quarter of the way down.
+    func testWhiteLabelPassesOnTheWholeLabelBandOfTheFill() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let top = hex("AnswerFillTop", style).hex, bottom = hex("AnswerFill", style).hex
+            for t in stride(from: 0.25, through: 1.0, by: 0.05) {
+                XCTAssertGreaterThanOrEqual(contrast("FFFFFF", mix(top, bottom, t)), 4.5, "white on the fill at \(t)")
+            }
+        }
+    }
+
+    func testTintedAnswerLabelsPassOnTheirWashOnEverySurface() {
+        for surface in ["FFFFFF", "F2F2F7"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AnswerTintLabel", .light).hex, over("AnswerTint", .light, on: surface)), 4.5, "tint \(surface)")
+            XCTAssertGreaterThanOrEqual(contrast(hex("DestructiveInk", .light).hex, over("DestructiveTint", .light, on: surface)), 4.5, "red \(surface)")
+        }
+        for surface in ["000000", "1C1C1E", "2C2C2E"] {
+            XCTAssertGreaterThanOrEqual(contrast(hex("AnswerTintLabel", .dark).hex, over("AnswerTint", .dark, on: surface)), 4.5, "tint \(surface)")
+            XCTAssertGreaterThanOrEqual(contrast(hex("DestructiveInk", .dark).hex, over("DestructiveTint", .dark, on: surface)), 4.5, "red \(surface)")
+        }
+    }
+
+    /// The disabled look is drawn by the component (DESIGN-REVIEW-v2 F2: the system's was 1.08:1 in dark).
+    func testDisabledLookIsReadableInBothModes() {
+        for (style, surface) in [(UIUserInterfaceStyle.light, "FFFFFF"), (.light, "F2F2F7"), (.dark, "000000"), (.dark, "1C1C1E"), (.dark, "2C2C2E")] {
+            let trait = UITraitCollection(userInterfaceStyle: style)
+            func flat(_ c: UIColor) -> (String, Double) {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                c.resolvedColor(with: trait).getRed(&r, green: &g, blue: &b, alpha: &a)
+                return (String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded())), Double(a))
+            }
+            func comp(_ c: UIColor, _ under: String) -> String {
+                let (fg, a) = flat(c)
+                return zip(channels(fg), channels(under)).map { String(format: "%02X", Int(($0 * a + $1 * (1 - a)).rounded())) }.joined()
+            }
+            // Disabled has no fill (DESIGN-REVIEW S2): the label sits on the surface itself.
+            _ = comp
+            XCTAssertGreaterThanOrEqual(contrast(flat(UIColor(named: "AnswerDisabledLabel")!).0, surface), 4.5, "disabled label \(style.rawValue) on \(surface)")
+        }
+    }
+
+    func testPhaseOfEachButton() {
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: nil, failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: "a", sentLabel: nil, failedLabel: nil), .sending)
+        XCTAssertEqual(AnswerPhase.of(id: "b", label: "Reject", sendingId: "a", sentLabel: nil, failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: "Approve", failedLabel: nil), .sent)
+        XCTAssertEqual(AnswerPhase.of(id: "b", label: "Reject", sendingId: nil, sentLabel: "Approve", failedLabel: nil), .idle)
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: nil, sentLabel: nil, failedLabel: "Approve"), .failed)
+        // A send in flight wins over an earlier failure: the retry spins.
+        XCTAssertEqual(AnswerPhase.of(id: "a", label: "Approve", sendingId: "a", sentLabel: nil, failedLabel: "Approve"), .sending)
+    }
+
+    /// Haptics: success only when this button's send lands, error only when it fails, nothing for an
+    /// answer that arrived from elsewhere.
+    func testFeedbackFiresOnTheRightTransitions() {
+        var played: [AnswerFeedback] = []
+        let haptics = AnswerHaptics { played.append($0) }
+        func run(_ steps: [AnswerPhase], fired: Bool = true) -> [AnswerFeedback] {
+            played = []
+            var tracker = AnswerFeedbackTracker()
+            if fired { tracker.fired() }
+            for step in steps { if let f = tracker.move(to: step) { haptics.play(f) } }
+            return played
+        }
+        XCTAssertEqual(run([.sending, .sent]), [.success])
+        XCTAssertEqual(run([.sending, .failed]), [.failure])
+        XCTAssertEqual(run([.sending, .failed, .sending, .sent]), [.failure, .success], "a retry confirms too")
+        // SwiftUI can coalesce sending into sent; the press already armed it.
+        XCTAssertEqual(run([.sent]), [.success])
+        // Not pressed here: the banner or another device answered.
+        XCTAssertEqual(run([.sending, .sent], fired: false), [.success], "a send seen in flight here still confirms")
+        XCTAssertEqual(run([.sent], fired: false), [])
+        XCTAssertEqual(run([.failed], fired: false), [])
+        XCTAssertEqual(run([.sent, .idle]), [.success])
+    }
+
+    func testReduceMotionDropsMovementButKeepsThePressLook() {
+        XCTAssertEqual(AnswerMetrics.scale(pressed: true, reduceMotion: false), 0.96)
+        XCTAssertEqual(AnswerMetrics.scale(pressed: true, reduceMotion: true), 1)
+        XCTAssertEqual(AnswerMetrics.scale(pressed: false, reduceMotion: false), 1)
+        XCTAssertTrue(AnswerMetrics.shakes(reduceMotion: false))
+        XCTAssertFalse(AnswerMetrics.shakes(reduceMotion: true))
+        XCTAssertLessThan(AnswerMetrics.pressedDarken, 0, "pressed still darkens with Reduce Motion")
+        XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44)
+    }
+
+    /// Operator, 2026-11-16: the answer buttons "4-6pt shorter total" than 52, and a card whose
+    /// sections breathe: each gap between sections larger than the lines inside one, the body
+    /// clear of the answers, and cards further apart than anything inside them.
+    func testAnswerHeightAndCardRhythm() {
+        XCTAssertEqual(AnswerMetrics.height, 44, "52, then 4-6 pt shorter twice, floored at the 44 pt hit target")
+        XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44, "hit target")
+        for gap in [CardSpacing.line, CardSpacing.sourceToTitle, CardSpacing.wordsToControls, CardSpacing.rowEdge] {
+            XCTAssertEqual(gap.truncatingRemainder(dividingBy: 2), 0, "on the grid: \(gap)")
+        }
+        XCTAssertGreaterThan(CardSpacing.line, 6, "title to body clears the body's own leading")
+        XCTAssertGreaterThan(CardSpacing.sourceToTitle, CardSpacing.line)
+        XCTAssertGreaterThanOrEqual(CardSpacing.wordsToControls, 16, "the body sat on the button at 6")
+        XCTAssertGreaterThan(CardSpacing.betweenCards, CardSpacing.wordsToControls)
+        XCTAssertEqual(CardSpacing.rowInsets.top, CardSpacing.rowEdge)
+        XCTAssertEqual(CardSpacing.rowInsets.bottom, CardSpacing.rowEdge)
+    }
+
+    private func entry(_ kind: AnswerEntry.Kind, _ label: String, ok: Bool, ago: TimeInterval, now: Date) -> AnswerEntry {
+        AnswerEntry(kind: kind, label: label, text: kind == .reply ? "ok" : nil, at: now.addingTimeInterval(-ago), ok: ok, messageId: nil)
+    }
+
+    /// The check shows for a moment, then the receipt takes its place.
+    func testSentHoldThenReceipt() {
+        let now = Date()
+        var state = AnswerState(entry: entry(.tap, "Approve", ok: true, ago: 0.3, now: now), sendingActionId: nil)
+        XCTAssertTrue(state.showsSent(now: now))
+        XCTAssertFalse(state.showsReceipt(now: now))
+        XCTAssertEqual(state.sentLabel(now: now), "Approve")
+        XCTAssertFalse(state.showsSent(now: now.addingTimeInterval(AnswerState.sentHold)))
+        XCTAssertTrue(state.showsReceipt(now: now.addingTimeInterval(AnswerState.sentHold)))
+        // A failure never shows a check.
+        state = AnswerState(entry: entry(.tap, "Approve", ok: false, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertFalse(state.showsSent(now: now))
+        XCTAssertEqual(state.failedLabel, "Approve")
+        // A typed reply's Send.
+        state = AnswerState(entry: entry(.reply, "", ok: true, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .sent)
+        XCTAssertNil(state.sentLabel(now: now))
+        state = AnswerState(entry: nil, sendingActionId: AgentReply.sendingId)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .sending)
+        state = AnswerState(entry: nil, sendingActionId: "approve-1")
+        XCTAssertEqual(state.replyPhase(replyActionId: "reply-1", now: now), .idle)
+        state = AnswerState(entry: entry(.reply, "", ok: false, ago: 0.1, now: now), sendingActionId: nil)
+        XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .failed)
+    }
+}
+
+/// Design review fixes on the answer buttons (DESIGN-REVIEW.md, 2026-11-15).
+final class AnswerButtonReviewTests: XCTestCase {
+    /// S3: sending keeps the answer's label and leads it with a spinner; sent swaps the spinner for a check.
+    func testSendingKeepsTheLabelBehindASpinner() {
+        XCTAssertEqual(AnswerPhase.sending.glyph, .spinner)
+        XCTAssertEqual(AnswerPhase.sent.glyph, .check)
+        XCTAssertNil(AnswerPhase.idle.glyph)
+        XCTAssertNil(AnswerPhase.failed.glyph)
+    }
+
+    /// S2: a disabled control is an outline, never the grey slab a link wears.
+    func testDisabledIsAnOutlineNotALinkSlab() {
+        for role in [AnswerRole.primary, .secondary, .destructive, .link] {
+            XCTAssertEqual(AnswerSurface.of(role: role, enabledLook: false), .outline)
+        }
+        XCTAssertEqual(AnswerSurface.of(role: .link, enabledLook: true), .grey)
+        XCTAssertNotEqual(AnswerSurface.of(role: .primary, enabledLook: false), AnswerSurface.of(role: .link, enabledLook: true))
+        XCTAssertEqual(AnswerSurface.of(role: .primary, enabledLook: true), .forest)
+        XCTAssertEqual(AnswerSurface.of(role: .destructive, enabledLook: true), .destructiveTint)
+    }
+
+    /// F1: compose Send's label is set to white on the Forest glass, not left to iOS (black in dark).
+    func testComposeSendLabelIsWhite() {
+        XCTAssertEqual(ComposeSendLook.label(enabled: true), Color.white)
+        XCTAssertNil(ComposeSendLook.label(enabled: false))
+    }
+
+    /// F2: once an answer shows its check, the reply row stays in the layout (invisible) so the
+    /// confirmed button doesn't drop into its slot.
+    func testConfirmedAnswerHoldsTheReplyRow() {
+        XCTAssertEqual(MessagePageView.replyRow(answerSent: false), .shown)
+        XCTAssertEqual(MessagePageView.replyRow(answerSent: true), .held)
+    }
+
+    /// S1: while a reply is typed, Send is the only solid button.
+    func testTypingAReplyLeavesSendTheOnlySolid() {
+        XCTAssertEqual(MessagePageView.prominentAnswer(firstAnswerId: "approve", replyTyped: false), "approve")
+        XCTAssertNil(MessagePageView.prominentAnswer(firstAnswerId: "approve", replyTyped: true))
+    }
+
+    /// F3: the failed line names the answer that didn't get through.
+    func testFailedLineNamesTheAnswer() {
+        XCTAssertEqual(AnswerReceiptView.failedText("Approve"), "Approve didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerReceiptView.failedText(nil), "Didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerReceiptView.failedText(""), "Didn't reach the agent. Try again.")
     }
 }

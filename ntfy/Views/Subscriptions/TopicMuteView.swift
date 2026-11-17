@@ -6,7 +6,7 @@ struct TopicMuteButton: View {
 
     var body: some View {
         Button { showingOptions = true } label: {
-            Label(TopicMute.isMuted(until: subscription.mutedUntil) ? String(localized: "Mute settings") : String(localized: "Mute topic"), systemImage: "bell.slash")
+            Label(TopicMute.isMuted(until: subscription.mutedUntil) ? String(localized: "Mute settings") : String(localized: "Mute topic"), systemImage: AppSymbol.mute())
         }
     }
 }
@@ -36,8 +36,8 @@ struct TopicMuteView: View {
             .navigationTitle(String(localized: "topic.mute.title", defaultValue: "Mute topic"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) { presentationMode.wrappedValue.dismiss() }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { presentationMode.wrappedValue.dismiss() }
                 }
             }
             .alert(isPresented: $saveFailed) {
@@ -56,14 +56,20 @@ struct TopicMuteView: View {
 
 struct TopicMuteStatus: View {
     @ObservedObject var subscription: Subscription
+    /// In a topic's notice bar it takes the shared notice style; in rows it stays a quiet line.
+    var asNotice = false
     var body: some View {
         // Refresh at the deadline even if this screen stays open. Delivery does not depend on this.
         TimelineView(MuteExpirySchedule(until: subscription.mutedUntil)) { context in
             if let status = TopicMute.status(until: subscription.mutedUntil, now: context.date) {
-                Label(status, systemImage: "bell.slash.fill")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if asNotice {
+                    InlineNotice(symbol: AppSymbol.mute(swipe: true), text: status)
+                } else {
+                    Label(status, systemImage: AppSymbol.mute(swipe: true))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

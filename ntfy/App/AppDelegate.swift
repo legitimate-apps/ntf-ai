@@ -46,6 +46,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     
     // Implements navigation from notifications, see https://stackoverflow.com/a/70731861/1440785
     @Published var selectedBaseUrl: String? = nil
+    /// The sequence of the message whose banner was tapped, read together with `selectedBaseUrl`:
+    /// a tap opens that message's page, one Back from its topic.
+    var selectedMessageSequence: String? = nil
     @Published private(set) var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
     @Published private(set) var timeSensitiveSetting: UNNotificationSetting = .notSupported
     @Published private(set) var notificationSwitches = NotificationSwitches()
@@ -68,6 +71,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         if NSClassFromString("XCTestCase") != nil {
             return true
         }
+        // Rows an earlier unsubscribe left behind would show as nameless cards; once gone, a no-op.
+        Store.shared.removeOrphanedRows()
 
         QuietTopicAlerts.shared.beginExecution = { cancel, start in
             DispatchQueue.main.async {
@@ -101,6 +106,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         // Move topics off the private server 1.12/1.13 shipped as the built-in default (they get 403
         // there). Once only; after Firebase is configured because a move tears down old FCM names.
         RetiredDefaultServerMigration.runIfNeeded(
+            store: Store.shared,
+            defaults: UserDefaults(suiteName: Store.appGroup) ?? .standard,
+            reconciler: FcmSubscriptionReconciler.shared
+        )
+
+        // Rows an older build created under ntf-ai.app, which it took for someone else's server.
+        HostedAliasRowMigration.run(
             store: Store.shared,
             defaults: UserDefaults(suiteName: Store.appGroup) ?? .standard,
             reconciler: FcmSubscriptionReconciler.shared
@@ -160,7 +172,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             handleNotificationResponse(
                 userInfo: relayed.userInfo,
                 actionIdentifier: relayed.actionIdentifier,
-                notificationId: relayed.notificationId
+                notificationId: relayed.notificationId,
+                userText: relayed.userText
             )
         }
     }
@@ -409,6 +422,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         UNUserNotificationCenter.current().add($0, withCompletionHandler: $1)
     }
 
+    /// Where banner answers are logged; tests inject their own.
+    var answerLog: AnswerLog = .shared
     var beginNotificationBackgroundTask: (@escaping () -> Void) -> UIBackgroundTaskIdentifier = {
         UIApplication.shared.beginBackgroundTask(withName: "Schedule notification", expirationHandler: $0)
     }
@@ -505,6 +520,12 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     }
                 }
                 if message.isControl { completionHandler([]); return }
+                // An ack is a silent receipt: never a banner or sound. With confirmations off it
+                // stays out of Notification Center too.
+                if AgentAck.isAck(tags: message.tags) {
+                    completionHandler(AgentAck.foregroundPresentation(shows: AgentAck.showsConfirmations()))
+                    return
+                }
             }
         }
         let muted = Store.shared.isNotificationMuted(userInfo: userInfo)
@@ -523,6 +544,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             userInfo: userInfo,
             actionIdentifier: response.actionIdentifier,
             notificationId: response.notification.request.identifier,
+            userText: (response as? UNTextInputNotificationResponse)?.userText,
             completionHandler: completionHandler
         )
     }
@@ -533,21 +555,33 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         userInfo: [AnyHashable: Any],
         actionIdentifier: String,
         notificationId: String,
+        userText: String? = nil,
         completionHandler: @escaping () -> Void = {}
     ) {
+        let isQuietAlert = userInfo[QuietTopicAlerts.marker] as? Bool == true
+        let decodedMessage = isQuietAlert ? nil : Message.from(userInfo: userInfo)
+        let action = decodedMessage?.actions?.first { $0.id == actionIdentifier }
+        let isReply = action.flatMap { BannerReply.destination(for: $0) } != nil
+        // Rejected submissions must not consume the once-only delivery slot.
+        if isReply && (userText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
+            !isReply && userText != nil {
+            completionHandler()
+            return
+        }
         guard responseDeduper.shouldHandle(notificationId: notificationId, actionIdentifier: actionIdentifier) else {
             Log.d(tag, "Ignoring a notification response that was already handled", actionIdentifier)
             completionHandler()
             return
         }
-        if userInfo[QuietTopicAlerts.marker] as? Bool == true {
+        if isQuietAlert {
             if let baseUrl = userInfo["base_url"] as? String, let topic = userInfo["topic"] as? String {
+                selectedMessageSequence = nil
                 selectedBaseUrl = topicUrl(baseUrl: baseUrl, topic: topic)
             }
             completionHandler()
             return
         }
-        guard let message = Message.from(userInfo: userInfo) else {
+        guard let message = decodedMessage else {
             Log.w(tag, "Cannot convert userInfo to message", userInfo)
             completionHandler()
             return
@@ -559,16 +593,16 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             return
         }
         Store.shared.read(message: message, baseUrl: baseUrl)
-        let action = message.actions?.first { $0.id == actionIdentifier }
         
-        // Show current topic
+        // Show current topic, and the tapped message's page on top of it
         if message.topic != "" {
+            selectedMessageSequence = actionIdentifier == UNNotificationDefaultActionIdentifier ? message.sequence : nil
             selectedBaseUrl = topicUrl(baseUrl: baseUrl, topic: message.topic)
         }
         
         // Execute user action or click action (if any)
         if let action = action {
-            if action.action == "http" {
+            if action.action == "http" || isReply {
                 let execute = {
                     var task = UIBackgroundTaskIdentifier.invalid
                     var execution: Progress?
@@ -584,7 +618,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                         execution?.cancel()
                         finish()
                     }
-                    execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl) {
+                    execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl,
+                                                       replyText: isReply ? userText : nil,
+                                                       answer: AnswerKey(baseUrl: baseUrl, topic: message.topic, sequence: message.sequence),
+                                                       answerLog: self.answerLog) {
                         DispatchQueue.main.async(execute: finish)
                     }
                 }

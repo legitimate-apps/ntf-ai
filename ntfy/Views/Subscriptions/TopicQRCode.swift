@@ -22,7 +22,7 @@ enum TopicQRCode {
         parts.percentEncodedPath += "/" + component
         guard let address = parts.url?.absoluteString, let link = TopicLink(scanned: address),
               link.topic == topic else { return nil }
-        return topicUrl(baseUrl: link.server, topic: link.topic)
+        return HostedServer.publicURL(topicUrl(baseUrl: link.server, topic: link.topic))
     }
 
     /// Black modules on white with the standard four-module quiet zone, scaled by whole pixels so
@@ -89,14 +89,14 @@ struct TopicQRCodeView: View {
             .navigationTitle(String(localized: "QR code"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(String(localized: "Done")) { isShowing = false }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { isShowing = false }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         sharing = true
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(systemName: AppSymbol.share)
                     }
                     .accessibilityLabel(String(localized: "Share"))
                     .disabled(shareItems.isEmpty)
@@ -258,7 +258,7 @@ struct TopicQRScannerView: View {
                 .navigationTitle(String(localized: "qr.scan.title", defaultValue: "Scan QR code"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button(String(localized: "Cancel")) { isShowing = false }
                     }
                 }
@@ -296,7 +296,7 @@ struct TopicQRScannerView: View {
         case .denied:
             message(
                 icon: "camera",
-                text: String(localized: "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
+                text: String(localized: "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."),
                 action: (String(localized: "Open Settings"), {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                 }))
@@ -318,7 +318,7 @@ struct TopicQRScannerView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if let action {
                     Button(action.0, action: action.1)
-                        .buttonStyle(.borderedProminent)
+                        .brandProminentButton()
                 }
                 if let rejected {
                     Text(Self.rejectionText(rejected))

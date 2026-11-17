@@ -5,27 +5,32 @@ struct NotificationPermissionBanner: View {
     @EnvironmentObject private var delegate: AppDelegate
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(DeliveryHealthCopy.notificationsOff)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(DeliveryHealthCopy.openSettings) { delegate.openNotificationSettings() }
-        }
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(UIColor.secondarySystemBackground))
+        InlineNotice(symbol: AppSymbol.mute(), text: DeliveryHealthCopy.notificationsOff,
+                     actionTitle: DeliveryHealthCopy.openSettings,
+                     action: { delegate.openNotificationSettings() })
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Color(UIColor.secondarySystemBackground))
     }
 }
 
-/// Consistent title/value hierarchy for notification permission and delivery settings.
+/// Value trailing, as in the rest of Settings.
 struct NotificationStatusRow: View {
     let title: String
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-            Text(value).font(.subheadline).foregroundColor(.secondary)
+        Group {
+            if #available(iOS 16.0, *) {
+                LabeledContent(title, value: value)
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                    Spacer(minLength: 8)
+                    Text(value).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                }
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -168,7 +173,7 @@ struct RelayTopicCheckView: View {
             }
             ApiService.shared.publish(subscription: subscription,
                 user: Store.shared.getBasicUser(baseUrl: subscription.baseUrl ?? ""),
-                message: String(localized: "This is a test notification from NTFY me (wake-up forwarding check)."), title: String(localized: "Wake-up forwarding test"),
+                message: String(localized: "This is a test notification from NTF-AI (wake-up forwarding check)."), title: String(localized: "Wake-up forwarding test"),
                 encryptionKey: keyState.key,
                 completionHandler: { completion(nil) }, failureHandler: { completion($0.userMessage) })
         }
@@ -190,7 +195,8 @@ struct RelayCheckContentView: View {
             Section(header: Text(String(localized: "Self-hosted wake-ups"))) {
                 Text(topicName).fixedSize(horizontal: false, vertical: true)
                 Text(baseUrl).font(.footnote).foregroundColor(.secondary)
-                Text(String(localized: "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device."))
+                // The relay is the app's own server (RelayCheck's relayBaseUrl), named as the rest of the UI names it.
+                Text(String(localized: "Check whether \(shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))) receives forwarded wake-ups for this topic. This cannot prove delivery to your device."))
                     .fixedSize(horizontal: false, vertical: true)
                 if state != .consent {
                     Button(String(localized: "Check relay support")) {
@@ -216,12 +222,13 @@ struct RelayCheckContentView: View {
                 }
             }
             Section(header: Text(String(localized: "Server setup"))) {
-                Text(String(localized: "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
+                Text(String(localized: "Your server's upstream-base-url must be \(normalizeBaseUrl(Config.appBaseUrl)). Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
                     .font(.footnote).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .navigationTitle(String(localized: "Wake-up check"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 
 }

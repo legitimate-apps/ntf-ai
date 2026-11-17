@@ -5,3 +5,6 @@ ntfy.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Maintainer build identity (see Configuration/Local.xcconfig.example)
 Configuration/Local.xcconfig
+
+# Python bytecode from the UI-test seed helper
+__pycache__/

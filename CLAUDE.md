@@ -37,4 +37,4 @@ diffs clean and focused. Don't reformat files you aren't changing.
 See `CONTRIBUTING.md`. Report bugs via GitHub issues (see README).
 
 ## License
-MIT — see `LICENSE`. Original credit to @Copephobia and Philipp C. Heckel.
+GPL-3.0-only — see `LICENSE` (Legitimate LLC). Based on ntfy-ios, MIT: `LICENSES/ntfy-ios-MIT.txt`. Original credit to @Copephobia and Philipp C. Heckel.

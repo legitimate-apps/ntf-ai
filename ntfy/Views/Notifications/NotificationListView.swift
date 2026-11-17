@@ -1,9 +1,11 @@
+import CoreData
 import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
 
+/// Errors only. Destructive actions confirm with a confirmation dialog.
 enum ActiveAlert {
-    case clear, unsubscribe, selected, encryptionUnavailable, publishFailed
+    case encryptionUnavailable, publishFailed
 }
 
 
@@ -24,12 +26,18 @@ struct NotificationListView: View {
     // in #36; this is its sibling.
     @StateObject var notificationsModel: NotificationsObservable
     
-    @State private var searchText = ""
+    @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
+    /// Names shared by topics on different servers, read once on appear for the subtitle rule.
+    @State private var ambiguousNames = Set<String>()
     @State private var editMode = EditMode.inactive
     @State private var selection = Set<Notification>()
+    @State private var heldUnread = HeldUnreadMarkers<NSManagedObjectID>()
     
     @State private var showAlert = false
-    @State private var activeAlert: ActiveAlert = .clear
+    @State private var activeAlert: ActiveAlert = .publishFailed
+    @State private var confirmClear = false
+    @State private var confirmUnsubscribe = false
+    @State private var confirmDeleteSelected = false
     @State private var showCopiedConfirmation = false
     @State private var showDetails = false
     @State private var showRenameSheet = false
@@ -43,13 +51,20 @@ struct NotificationListView: View {
     @State private var sendingTest = false
     @State private var publishError = ""
     @State private var draftDisplayName = ""
+    @State private var showConnectSheet = false
+    /// The message whose page is pushed on top of this topic.
+    @State private var opened: OpenedMessage?
+    /// A notification tap's message, opened once on arrival so Back lands on its topic.
+    let openMessageSequence: String?
+    @State private var didOpenRequested = false
     
     private var subscriptionManager: SubscriptionManager {
         return SubscriptionManager(store: store)
     }
 
-    init(subscription: Subscription) {
+    init(subscription: Subscription, openMessageSequence: String? = nil) {
         self.subscription = subscription
+        self.openMessageSequence = openMessageSequence
         // StateObject's wrappedValue is an autoclosure, so this is evaluated once for the view's
         // lifetime rather than on every struct rebuild.
         _notificationsModel = StateObject(wrappedValue: NotificationsObservable(subscriptionID: subscription.objectID))
@@ -57,19 +72,22 @@ struct NotificationListView: View {
 
     var body: some View {
         notificationList
-            .searchable(text: $searchText, prompt: NotificationHistoryStrings.search)
-            .onChange(of: searchText) { value in
-                selection = []
-                notificationsModel.scheduleSearch(value)
-            }
+            // Search is its own tab now (DECISION change 9), across every topic.
+            .modifier(MessagePageLink(opened: $opened))
             .refreshable {
                 _ = await pollOnce()
             }
             .onAppear {
                 // Opening the topic counts as reading it, so the badge clears immediately rather
                 // than lingering behind the user. Anything the live poll below pulls in afterwards
-                // stays unread, which is what you want — it hadn't arrived when you opened.
-                store.setRead(true, forSubscription: subscription)
+                // stays unread, which is what you want — it hadn't arrived when you opened. The rows
+                // that were unread keep their marker until the user leaves, so they can see what was new.
+                heldUnread.hold(store.setRead(true, forSubscription: subscription))
+                ambiguousNames = TopicServerAddressPolicy.ambiguousNames(in: store.getSubscriptions() ?? [])
+                openRequestedMessage()
+            }
+            .onDisappear {
+                heldUnread.clear()
             }
             // While this topic is on screen and the app is active, check for new messages: once right
             // away (opening a topic, or coming back to the app), then every 10 s, each check starting
@@ -107,8 +125,41 @@ struct NotificationListView: View {
         }
     }
     
+    /// A notification tap opens that message's page (DECISION change 7), pushed on this topic so
+    /// one Back returns to it. Looked up by sequence, so an updated message opens as it is now.
+    private func openRequestedMessage(tries: Int = 10) {
+        guard !didOpenRequested, let sequence = openMessageSequence, !sequence.isEmpty else { return }
+        didOpenRequested = true
+        let request = Notification.fetchRequest() as NSFetchRequest<Notification>
+        request.predicate = NSPredicate(format: "subscription == %@ AND (sequenceID == %@ OR id == %@)",
+                                        subscription, sequence, sequence)
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: false)]
+        request.fetchLimit = 1
+        guard let notification = try? store.context.fetch(request).first else {
+            // A tap on a banner can beat the extension's or the poll's save of that message: look
+            // again every half second for five seconds before giving up.
+            guard tries > 0 else { return }
+            didOpenRequested = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { openRequestedMessage(tries: tries - 1) }
+            return
+        }
+        // Only once the topic's own push has finished: a second programmatic push started during
+        // that transition shows the page and then SwiftUI pops it again.
+        NavigationSettle.after {
+            opened = OpenedMessage(notification: notification)
+        }
+    }
+
     private var signInFailed: Bool {
         deliveryHealth.topics[subscription.objectID.uriRepresentation().absoluteString]?.failure == .unauthorized
+    }
+
+    private var hasUnencryptedMessages: Bool {
+        notificationsModel.notifications.contains { $0.encryptionState == .unencrypted }
+    }
+
+    private var showsTopNotice: Bool {
+        signInFailed || hasUnencryptedMessages || TopicMute.status(until: subscription.mutedUntil, now: Date()) != nil
     }
 
     private var notificationList: some View {
@@ -123,26 +174,30 @@ struct NotificationListView: View {
                 }
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                if signInFailed {
-                    Text(String(localized: "The server refused the sign-in."))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("topic-sign-in-notice")
-                    Button { showUserEditor = true } label: {
-                        Text(String(localized: "Check server user"))
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+        // Installed only when there is something to say. An always-present opaque inset clipped
+        // the list's top edge hard instead of letting the scroll-edge effect fade it.
+        .topNoticeBar {
+            if showsTopNotice {
+                VStack(alignment: .leading, spacing: 6) {
+                    if signInFailed {
+                        InlineNotice(symbol: "exclamationmark.triangle.fill", tint: .orange,
+                                     text: String(localized: "The server refused the sign-in."),
+                                     actionTitle: String(localized: "Check server user"),
+                                     action: { showUserEditor = true })
+                            .accessibilityIdentifier("topic-sign-in-notice")
                     }
-                    .accessibilityIdentifier("topic-sign-in-settings")
+                    TopicMuteStatus(subscription: subscription, asNotice: true)
+                    if hasUnencryptedMessages {
+                        // Said once for the topic; each such row keeps its orange "Not encrypted" label.
+                        InlineNotice(symbol: "lock.open", tint: .orange,
+                                     text: String(localized: "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them."))
+                            .accessibilityIdentifier("topic-unencrypted-notice")
+                    }
                 }
-                TopicMuteStatus(subscription: subscription)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal)
-            .padding(.vertical, signInFailed ? 8 : 0)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(UIColor.systemBackground))
         }
         .sheet(isPresented: $showUserEditor) {
             UserEditorView(selectedUser: store.getUser(baseUrl: subscription.baseUrl ?? ""),
@@ -162,126 +217,67 @@ struct NotificationListView: View {
         .sheet(isPresented: $showQuietOptions) { QuietTopicView(subscription: subscription) }
         .sheet(isPresented: $showSoundOptions) { TopicSoundView(subscription: subscription) }
         .sheet(isPresented: $showMuteOptions) { TopicMuteView(subscription: subscription) }
-        .listStyle(PlainListStyle())
+        .sheet(isPresented: $showConnectSheet) {
+            ConnectAgentSheet(baseUrl: subscription.baseUrl ?? "", topic: subscription.topicName(),
+                              isShowing: $showConnectSheet)
+                .environmentObject(store)
+        }
+        // Cards on the grouped background (C2): each message its own rounded surface.
+        .listStyle(.insetGrouped)
+        .modifier(ReadableCardWidth())
+        .modifier(CompactDayBreaks())
+        .navigationTitle(subscription.shortDisplayName())
         .navigationBarTitleDisplayMode(.inline)
+        .modifier(TopicAddressSubtitle(address: showsAddress ? TopicSubtitle.address(for: subscription) : nil))
+        .navigationBarBackButtonHidden(MessageSelectionChrome.hidesBackButton(editing: editMode == .active))
         .environment(\.editMode, self.$editMode)
         .sheet(isPresented: $showComposeSheet) {
             ComposeSheetView(subscription: subscription).environmentObject(store)
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showComposeSheet = true } label: {
-                    Image(systemName: "square.and.pencil")
-                }
-                .accessibilityLabel(String(localized: "New message"))
-                .accessibilityIdentifier("compose-open")
-                .disabled(editMode == .active)
-            }
-            ToolbarItem(placement: .principal) {
-                // Match the list row's primary line: tapping "garage-alerts" opening a screen
-                // titled "ntfy.<long-host>/garage-alerts" read as a different topic.
-                Text(subscription.shortDisplayName())
-                    .font(.headline)
-                    .lineLimit(1)
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if (self.editMode == .active) {
-                    editButton
-                } else {
-                    Menu {
-                        Button(String(localized: "Topic details")) { showDetails = true }
-                        QuietTopicButton(showingOptions: $showQuietOptions)
-                        TopicSoundButton(showingOptions: $showSoundOptions)
-                        TopicMuteButton(subscription: subscription, showingOptions: $showMuteOptions)
-                        if notificationsModel.notifications.count > 0 {
-                            editButton
-                        }
-                        // Pin lives on the topic list's swipe and long-press too; here it is
-                        // where people look for a topic's settings.
-                        Button(subscription.pinned ? String(localized: "Unpin topic") : String(localized: "Pin topic")) {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            store.setPinned(!subscription.pinned, forSubscription: subscription)
-                        }
-                        Button(String(localized: "Rename")) {
-                            self.draftDisplayName = subscription.customDisplayName ?? ""
-                            self.showRenameSheet = true
-                        }
-                        Button(String(localized: "End-to-end encryption")) {
-                            self.showEncryptionSheet = true
-                        }
-                        // The publish URL is what every script needs. Once a topic has messages the
-                        // empty-state copy buttons are gone, so keep it one tap away here.
-                        Button(String(localized: "Copy publish URL")) {
-                            if let baseUrl = subscription.baseUrl {
-                                UIPasteboard.general.string = PublishCommand.publishUrl(
-                                    baseUrl: baseUrl, topic: subscription.topicName())
-                                showCopyConfirmation()
-                            }
-                        }
-                        Button(String(localized: "Show QR code")) {
-                            self.showQRCodeSheet = true
-                        }
-                        Button(String(localized: "Send test notification")) {
-                            self.sendTestNotification()
-                        }
-                        if searchText.isEmpty && notificationsModel.notifications.count > 0 {
-                            Button(String(localized: "Clear all notifications")) {
-                                self.showAlert = true
-                                self.activeAlert = .clear
-                            }
-                        }
-                        Button(String(localized: "Unsubscribe")) {
-                            self.showAlert = true
-                            self.activeAlert = .unsubscribe
-                        }
+            // Fixed items with conditional content: the toolbar builder's if/else needs iOS 16.
+            // In select mode the bar holds only Delete and Done; Compose and More step aside.
+            ToolbarItem(placement: .cancellationAction) {
+                if editMode == .active {
+                    Button(role: .destructive) {
+                        confirmDeleteSelected = true
                     } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .padding([.leading], 40)
+                        Text(String(localized: "Delete"))
                     }
-                    .accessibilityLabel(String(localized: "Topic actions"))
+                    .disabled(!MessageSelectionChrome.deleteEnabled(selectionCount: selection.count))
+                    // The app-wide tint overrides the destructive role here too; red when enabled.
+                    .tint(.red)
+                    .accessibilityIdentifier("select-delete")
+                    // Anchored to Delete, so the iOS 26 popover points at the button that opened it.
+                    .confirmationDialog(String(localized: "Delete"), isPresented: $confirmDeleteSelected,
+                                        titleVisibility: .hidden) {
+                        Button(String(localized: "Delete \(selection.count) messages"), role: .destructive,
+                               action: deleteSelected)
+                    }
                 }
             }
-            ToolbarItem(placement: .navigationBarLeading) {
-                if (self.editMode == .active) {
-                    Button(action: {
-                        self.showAlert = true
-                        self.activeAlert = .selected
-                    }) {
-                        Text(String(localized: "Delete"))
-                            .foregroundColor(.red)
+            ToolbarItem(placement: .confirmationAction) {
+                if editMode == .active {
+                    Button(String(localized: "Done")) {
+                        editMode = .inactive
+                        selection = Set<Notification>()
                     }
+                    .accessibilityIdentifier("select-done")
+                }
+            }
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if MessageSelectionChrome.showsCompose(editing: editMode == .active) {
+                    Button { showComposeSheet = true } label: {
+                        Image(systemName: AppSymbol.compose)
+                    }
+                    .accessibilityLabel(String(localized: "New message"))
+                    .accessibilityIdentifier("compose-open")
+                    topicMenu
                 }
             }
         }
         .alert(isPresented: $showAlert) {
             switch activeAlert {
-            case .clear:
-                return Alert(
-                    title: Text(String(localized: "Clear notifications")),
-                    message: Text(String(localized: "Do you really want to delete all of the notifications in this topic?")),
-                    primaryButton: .destructive(
-                        Text(String(localized: "Permanently delete")),
-                        action: deleteAll
-                    ),
-                    secondaryButton: .cancel())
-            case .unsubscribe:
-                return Alert(
-                    title: Text(String(localized: "Unsubscribe")),
-                    message: Text(String(localized: "Do you really want to unsubscribe from this topic and delete all of the notifications you received?")),
-                    primaryButton: .destructive(
-                        Text(String(localized: "Unsubscribe")),
-                        action: unsubscribe
-                    ),
-                    secondaryButton: .cancel())
-            case .selected:
-                return Alert(
-                    title: Text(String(localized: "Delete")),
-                    message: Text(String(localized: "Do you really want to delete these selected notifications?")),
-                    primaryButton: .destructive(
-                        Text(String(localized: "Delete")),
-                        action: deleteSelected
-                    ),
-                    secondaryButton: .cancel())
             case .publishFailed:
                 return Alert(title: Text(String(localized: "Test notification not sent")), message: Text(publishError))
             case .encryptionUnavailable:
@@ -293,13 +289,7 @@ struct NotificationListView: View {
         }
         .overlay(Group {
             if showCopiedConfirmation {
-                Text(String(localized: "Copied to Clipboard"))
-                    .font(.body)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color.accentColor.cornerRadius(20))
-                    .shadow(radius: 5)
+                CopiedToast()
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -336,9 +326,7 @@ struct NotificationListView: View {
         // The empty state is a row of the list, not an overlay on top of it. As an overlay it sat over
         // the (empty) list and swallowed the drag, so pull-to-refresh did nothing on a new topic, and on
         // a small phone its text ran off the screen with no way to scroll to the copy buttons.
-        if notificationsModel.notifications.isEmpty && !searchText.isEmpty {
-            Text(NotificationHistoryStrings.noMatches).foregroundColor(.secondary)
-        } else if notificationsModel.notifications.isEmpty && editMode == .inactive && !signInFailed, let baseUrl = subscription.baseUrl {
+        if notificationsModel.notifications.isEmpty && editMode == .inactive && !signInFailed, let baseUrl = subscription.baseUrl {
             TopicPublishHelpView(
                 baseUrl: baseUrl,
                 topic: subscription.topicName(),
@@ -350,21 +338,34 @@ struct NotificationListView: View {
             )
             .listRowSeparator(.hidden)
         }
-        ForEach(notificationsModel.notifications, id: \.self) { notification in
-            NotificationRowView(
-                notification: notification,
-                onCopyMessage: showCopyConfirmation
-            )
+        // One header per day, so each row shows only its time.
+        ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
+            Section(header: DayHeader(title: Notification.daySectionTitle(for: group.day))
+                .modifier(CompactDayHeaderInsets())) {
+                ForEach(group.items, id: \.self) { notification in
+                    let held = heldUnread.ids.contains(notification.objectID)
+                    MessageCard(notification: notification, heldUnread: held,
+                                open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                                onCopy: showCopyConfirmation)
+                        .listRowInsets(CardSpacing.rowInsets)
+                        .modifier(MessageRowActions(notification: notification, heldUnread: held,
+                                                    onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
+                                                    onCopy: showCopyConfirmation))
+                }
+            }
         }
         if notificationsModel.hasOlder {
             Button(NotificationHistoryStrings.loadOlder) { notificationsModel.loadOlder() }
+                .font(.subheadline)
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
         }
     }
     
     private var renameSheet: some View {
         NavigationView {
             Form {
-                Section(footer: Text(String(localized: "Set a custom name for this subscription. Leave empty to use the topic name."))) {
+                Section(footer: Text(String(localized: "Set a custom name for this topic. Leave empty to use the topic name."))) {
                     TextField(subscription.topicName(), text: $draftDisplayName)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
@@ -373,12 +374,12 @@ struct NotificationListView: View {
             .navigationTitle(String(localized: "Display name"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {
                         showRenameSheet = false
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save")) {
                         store.updateSubscription(subscription: subscription, displayName: draftDisplayName)
                         showRenameSheet = false
@@ -388,24 +389,108 @@ struct NotificationListView: View {
         }
     }
 
-    private var editButton: some View {
-        if editMode == .inactive {
-            return Button(action: {
-                self.editMode = .active
-                self.selection = Set<Notification>()
-            }) {
-                Text(String(localized: "Select messages"))
+    /// More: frequent actions first, each group divided, destructive ones last (System fixes A, C, D).
+    private var topicMenu: some View {
+        Menu {
+            Section {
+                Button { sendTestNotification() } label: {
+                    Label(String(localized: "Send test"), systemImage: AppSymbol.test)
+                }
+                // The publish URL is what every script needs. Once a topic has messages the
+                // empty-state copy buttons are gone, so keep it one tap away here.
+                Button {
+                    if let baseUrl = subscription.baseUrl {
+                        UIPasteboard.general.string = PublishCommand.publishUrl(
+                            baseUrl: baseUrl, topic: subscription.topicName())
+                        showCopyConfirmation()
+                    }
+                } label: {
+                    Label(String(localized: "Copy publish URL"), systemImage: AppSymbol.copyLink)
+                }
+                // Step 2 of Add topic, again whenever another agent should use this topic.
+                Button { showConnectSheet = true } label: {
+                    Label(String(localized: "Connect an agent"), systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .accessibilityIdentifier("topic-connect-agent")
+                Button { showQRCodeSheet = true } label: {
+                    Label(String(localized: "Show QR code"), systemImage: AppSymbol.qrCode)
+                }
             }
-        } else {
-            return Button(action: {
-                self.editMode = .inactive
-                self.selection = Set<Notification>()
-            }) {
-                Text(String(localized: "Done"))
+            Section {
+                TopicMuteButton(subscription: subscription, showingOptions: $showMuteOptions)
+                QuietTopicButton(showingOptions: $showQuietOptions)
+                TopicSoundButton(showingOptions: $showSoundOptions)
             }
+            Section {
+                // Pin lives on the topic list's swipe and long-press too; here it is
+                // where people look for a topic's settings.
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    store.setPinned(!subscription.pinned, forSubscription: subscription)
+                } label: {
+                    Label(subscription.pinned ? String(localized: "Unpin topic") : String(localized: "Pin topic"),
+                          systemImage: subscription.pinned ? AppSymbol.unpin() : AppSymbol.pin())
+                }
+                Button {
+                    draftDisplayName = subscription.customDisplayName ?? ""
+                    showRenameSheet = true
+                } label: {
+                    Label(String(localized: "Rename"), systemImage: AppSymbol.rename)
+                }
+                Button { showEncryptionSheet = true } label: {
+                    Label(String(localized: "End-to-end encryption"), systemImage: AppSymbol.encryption)
+                }
+                Button { showDetails = true } label: {
+                    Label(String(localized: "Topic details"), systemImage: AppSymbol.details)
+                }
+            }
+            if notificationsModel.notifications.count > 0 {
+                Section {
+                    Button {
+                        editMode = .active
+                        selection = Set<Notification>()
+                    } label: {
+                        Label(String(localized: "Select messages"), systemImage: AppSymbol.select)
+                    }
+                }
+            }
+            Section {
+                if notificationsModel.notifications.count > 0 {
+                    Button(role: .destructive) { confirmClear = true } label: {
+                        Label(String(localized: "Clear all notifications"), systemImage: AppSymbol.delete())
+                    }
+                }
+                Button(role: .destructive) { confirmUnsubscribe = true } label: {
+                    Label(String(localized: "Unsubscribe"), systemImage: AppSymbol.unsubscribe())
+                }
+            }
+        } label: {
+            Image(systemName: AppSymbol.more)
+        }
+        .accessibilityLabel(String(localized: "Topic actions"))
+        .accessibilityIdentifier("topic-actions")
+        // Anchored to More, where both were chosen, so the iOS 26 popover points at the ellipsis
+        // rather than the title (attached to the list it anchored to the whole screen).
+        .confirmationDialog(String(localized: "Delete all messages in \(subscription.shortDisplayName())?"),
+                            isPresented: $confirmClear, titleVisibility: .visible) {
+            Button(String(localized: "Delete"), role: .destructive, action: deleteAll)
+        } message: {
+            Text(String(localized: "This can't be undone."))
+        }
+        .confirmationDialog(String(localized: "Unsubscribe from \(subscription.shortDisplayName())?"),
+                            isPresented: $confirmUnsubscribe, titleVisibility: .visible) {
+            Button(String(localized: "Unsubscribe"), role: .destructive, action: unsubscribe)
+        } message: {
+            Text(String(localized: "Its messages are deleted from this device."))
         }
     }
-    
+
+    private var showsAddress: Bool {
+        TopicServerAddressPolicy.showsAddress(name: subscription.shortDisplayName(),
+                                              showAddresses: showServerAddresses,
+                                              ambiguousNames: ambiguousNames)
+    }
+
     private func sendTestNotification(firstRun: Bool = false) {
         guard !sendingTest else { return }
         guard let baseUrl = subscription.baseUrl else {
@@ -429,7 +514,7 @@ struct NotificationListView: View {
         ApiService.shared.publish(
             subscription: subscription,
             user: user,
-            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from NTFY me. It has a priority of \(priority). If you send another one, it may look different."),
+            message: firstRun ? FirstTopicTest.body : String(localized: "This is a test notification from NTF-AI. It has a priority of \(priority). If you send another one, it may look different."),
             title: firstRun ? FirstTopicTest.title : String(localized: "Test: You can set a title if you like"),
             priority: priority,
             tags: tags,
@@ -526,17 +611,12 @@ struct TopicPublishHelpView: View {
                 .font(.title3.bold())
             Button(action: onTest) {
                 Text(String(localized: "Send a test notification"))
-                    .font(.headline)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundColor(.white)
-                    .background(Color.accentColor.cornerRadius(10))
             }
-            .buttonStyle(.borderless)
+            .brandProminentButton()
             .disabled(sendingTest)
-            .opacity(sendingTest ? 0.5 : 1)
             Text(String(localized: "Send a message to this topic from any computer, server or script. Copy a command and run it in a terminal:"))
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -606,8 +686,8 @@ struct TopicPublishHelpView: View {
                         .foregroundColor(.accentColor)
                 }
                 .padding(10)
-                .background(Color.gray.opacity(0.12))
-                .cornerRadius(8)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemFill)))
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(String(localized: "Copy: \(title)"))
@@ -620,6 +700,13 @@ struct TopicDetailsView: View {
     @ObservedObject var subscription: Subscription
     @Environment(\.dismiss) private var dismiss
 
+    private var subscribedValue: String {
+        guard let date = subscription.subscribedAt else {
+            return String(localized: "Subscription date unknown", defaultValue: "Unknown")
+        }
+        return date.formatted(.dateTime.year().month(.abbreviated).day().hour().minute())
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -627,40 +714,26 @@ struct TopicDetailsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(String(localized: "Topic URL"))
                             .font(.footnote)
-                        Text(subscription.urlString())
-                            .foregroundColor(.primary)
+                            .foregroundColor(.secondary)
+                        Text(HostedServer.publicURL(subscription.urlString()))
                             .textSelection(.enabled)
                     }
                     .accessibilityElement(children: .combine)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(String(localized: "Subscribed"))
-                            .font(.footnote)
-                        Group {
-                            if let date = subscription.subscribedAt {
-                                Text(date, format: .dateTime.year().month(.abbreviated).day().hour().minute())
-                            } else {
-                                Text(String(localized: "Subscription date unknown", defaultValue: "Unknown"))
-                            }
-                        }
-                        .foregroundColor(.primary)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("topic-subscribed-date")
+                    NotificationStatusRow(title: String(localized: "Subscribed"), value: subscribedValue)
+                        .accessibilityIdentifier("topic-subscribed-date")
                 } header: {
                     Text(String(localized: "About this topic"))
-                        .foregroundColor(.primary)
                 } footer: {
                     if subscription.subscribedAt == nil {
                         Text(String(localized: "The subscription date was not recorded for this topic."))
-                            .foregroundColor(.primary)
                     }
                 }
             }
             .navigationTitle(String(localized: "Topic details"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(String(localized: "Done")) { dismiss() }
+                ToolbarItem(placement: SheetCloseButton.placement) {
+                    SheetCloseButton { dismiss() }
                 }
             }
         }
@@ -687,6 +760,88 @@ struct NotificationListView_Previews: PreviewProvider {
 /// A first notification should use the default priority, so it does not arrive silently.
 enum FirstTopicTest {
     static let priority = 3
-    static let title = String(localized: "NTFY me test")
-    static let body = String(localized: "This is a test notification from NTFY me. Your topic is ready.")
+    static let title = String(localized: "NTF-AI test")
+    static let body = String(localized: "This is a test notification from NTF-AI. Your topic is ready.")
+}
+
+/// Day headers sit close to the rows around them instead of opening a wide gap at each day.
+private struct CompactDayBreaks: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .listSectionSpacing(.compact)
+                .environment(\.defaultMinListHeaderHeight, 0)
+        } else {
+            content
+        }
+    }
+}
+
+/// A plain List pads each section header by about 12 pt above and below; at a day break that
+/// added to the rows' own insets and opened an 80 pt gap. Keep the header's horizontal margin.
+private struct CompactDayHeaderInsets: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+                .listRowInsets(.vertical, 0)
+        } else {
+            content
+        }
+    }
+}
+
+/// What goes under a topic's title. The title already names the topic, so the subtitle names only
+/// its server; a renamed topic keeps the full address, since its title no longer says the topic.
+enum TopicSubtitle {
+    static func address(for subscription: Subscription) -> String {
+        address(server: subscription.serverHost(), fullAddress: subscription.shortUrlString(),
+                renamed: subscription.shortDisplayName() != subscription.topicName())
+    }
+
+    static func address(server: String, fullAddress: String, renamed: Bool) -> String {
+        renamed ? fullAddress : server
+    }
+}
+
+/// The topic's address under its title, iOS 26's navigation subtitle, when the topic list shows it too.
+private struct TopicAddressSubtitle: ViewModifier {
+    let address: String?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), let address {
+            content.navigationSubtitle(address)
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    /// The topic's notices above the list. On iOS 26 a safe-area bar, so the list fades under it
+    /// with the scroll-edge effect; earlier versions put the bar material behind it.
+    @ViewBuilder
+    func topNoticeBar<Notice: View>(@ViewBuilder _ notice: () -> Notice) -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaBar(edge: .top, spacing: 0, content: notice)
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) { notice().background(.bar) }
+        }
+    }
+}
+
+/// "Copied", in a brand capsule with no shadow, and said aloud to VoiceOver.
+struct CopiedToast: View {
+    var body: some View {
+        Text(String(localized: "Copied"))
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(Color("Ink"))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color("BrandFill")))
+            .onAppear {
+                UIAccessibility.post(notification: .announcement, argument: String(localized: "Copied"))
+            }
+    }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import CoreData
+import CryptoKit
 
 /// Moves subscriptions off the built-in server that 1.12 and 1.13 shipped with.
 ///
@@ -215,9 +216,9 @@ enum RetiredDefaultServerMigration {
 
     static func noticeMessage(topics: [String]) -> String {
         let limit = 8
-        var urls = topics.prefix(limit).map { "\(replacementBaseUrl)/\($0)" }
+        var urls = topics.prefix(limit).map { HostedServer.publicURL("\(replacementBaseUrl)/\($0)") }
         if topics.count > limit { urls.append(String(localized: "and \(topics.count - limit) more")) }
-        return String(localized: "The server this app used to default to is private, so these topics never received messages there. They now live on ntfy-me.com:\n\n\(urls.joined(separator: "\n"))\n\nAnything that sends to them, such as scripts or services, must now post to \(replacementBaseUrl)/<topic>.")
+        return String(localized: "The server this app used to default to is private, so these topics never received messages there. They now live on ntf-ai.app:\n\n\(urls.joined(separator: "\n"))\n\nAnything that sends to them, such as scripts or services, must now post to \(HostedServer.publicBaseURL)/<topic>.")
     }
 
     // MARK: Matching
@@ -283,5 +284,83 @@ enum RetiredDefaultServerMigration {
     private static func fetch<T: NSFetchRequestResult>(_ request: NSFetchRequest<T>, store: Store) throws -> [T] {
         if let entity = request.entityName, let error = fetchFaultForTesting?(entity) { throw error }
         return try store.context.fetch(request)
+    }
+}
+
+/// Folds rows stored under the public alias into the built-in server.
+///
+/// Builds before 1.25 don't know ntf-ai.app is this server. Typing it or scanning its QR code stored
+/// `https://ntf-ai.app` as the base URL and bound a hashed FCM name the server never sends to. Now
+/// that `normalizeBaseUrl` resolves the alias, push lookups would also miss such a row, so it would
+/// stay silent for good. Rows can't take this spelling any more, so running on every launch only
+/// costs one fetch, and a failed save simply retries next launch.
+///
+/// Encrypted rows stay put: their key is salted with the topic URL.
+enum HostedAliasRowMigration {
+    private static let tag = "HostedAliasRowMigration"
+
+    struct Outcome: Equatable {
+        var moved: [String] = []
+        var merged: [String] = []
+        var skippedEncrypted: [String] = []
+    }
+
+    /// The FCM name the older build bound: it hashed the URL as stored, without resolving the alias.
+    static func legacyFcmName(storedBaseUrl: String, topic: String) -> String {
+        SHA256.hash(data: Data("\(storedBaseUrl)/\(topic)".utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func isAliasRow(_ baseUrl: String) -> Bool {
+        baseUrl != HostedServer.canonicalBaseURL && normalizeBaseUrl(baseUrl) == HostedServer.canonicalBaseURL
+    }
+
+    @discardableResult
+    static func run(store: Store, defaults: UserDefaults, reconciler: FcmSubscriptionReconciler?) -> Outcome {
+        var outcome = Outcome()
+        var obsoleteNames: [String] = []
+        var saved = false
+        store.context.performAndWait {
+            guard let subscriptions = try? store.context.fetch(Subscription.fetchRequest()) else { return }
+            var canonical: [String: Subscription] = [:]
+            for subscription in subscriptions where subscription.baseUrl == HostedServer.canonicalBaseURL {
+                if let topic = subscription.topic { canonical[topic] = subscription }
+            }
+            for subscription in subscriptions {
+                guard let baseUrl = subscription.baseUrl, let topic = subscription.topic,
+                      isAliasRow(baseUrl) else { continue }
+                guard !subscription.encrypted else {
+                    outcome.skippedEncrypted.append(topic)
+                    continue
+                }
+                obsoleteNames.append(legacyFcmName(storedBaseUrl: baseUrl, topic: topic))
+                if let existing = canonical[topic] {
+                    ((subscription.notifications as? Set<Notification>) ?? []).forEach { $0.subscription = existing }
+                    if subscription.pinned { existing.pinned = true }
+                    if existing.customDisplayName == nil { existing.customDisplayName = subscription.customDisplayName }
+                    store.context.delete(subscription)
+                    outcome.merged.append(topic)
+                } else {
+                    subscription.baseUrl = HostedServer.canonicalBaseURL
+                    subscription.fcmSubscribed = false
+                    canonical[topic] = subscription
+                    outcome.moved.append(topic)
+                }
+            }
+            guard store.context.hasChanges else { return }
+            // Same order as the retired-server move: queue the old names before the save.
+            let intents = FcmSubscriptionReconciler.enqueueObsoleteTopicNames(obsoleteNames, defaults: defaults)
+            do {
+                try store.context.save()
+                saved = true
+            } catch let error {
+                Log.e(tag, "Cannot fold alias subscriptions; will retry next launch", error)
+                let ledger = FcmTeardownLedger(defaults: defaults)
+                intents.forEach { ledger.rollback($0) }
+                store.rollbackAndRefresh()
+                outcome = Outcome()
+            }
+        }
+        if saved { reconciler?.reconcile(reason: "alias subscriptions folded") }
+        return outcome
     }
 }

@@ -8,6 +8,7 @@ struct RelayedNotificationResponse: Codable, Equatable {
     let actionIdentifier: String
     let userInfo: [String: String]
     let receivedAt: Date
+    var userText: String? = nil
 }
 
 /// Gets banner taps to the app when the system hands them to the extension.
@@ -59,7 +60,8 @@ final class NotificationResponseRelay: NSObject, UNUserNotificationCenterDelegat
             notificationId: response.notification.request.identifier,
             actionIdentifier: response.actionIdentifier,
             userInfo: Self.stringValues(response.notification.request.content.userInfo),
-            receivedAt: Date()
+            receivedAt: Date(),
+            userText: (response as? UNTextInputNotificationResponse)?.userText
         ))
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),

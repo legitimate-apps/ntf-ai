@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject private var delegate: AppDelegate
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     @AppStorage(InAppBrowser.preferenceKey) private var openWebLinksInApp = false
+    @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -15,10 +16,8 @@ struct SettingsView: View {
             Form {
                 Section(
                     header: Text(String(localized: "General")),
-                    footer: VStack(alignment: .leading, spacing: 8) {
-                        Text(String(localized: "When subscribing to new topics, this server will be used as a default."))
-                        Text(String(localized: "Topics with matching names always show their addresses."))
-                    }
+                    // Only the toggle needs explaining; Default server's value says what it is.
+                    footer: Text(String(localized: "Topics with matching names always show their addresses."))
                 ) {
                     Toggle(String(localized: "Open web links in app"), isOn: $openWebLinksInApp)
                     DefaultServerView()
@@ -32,6 +31,10 @@ struct SettingsView: View {
                 ) {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
+                }
+                Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {
+                    Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
+                        .accessibilityIdentifier("settings-agent-confirmations")
                 }
                 NotificationStatusView()
                 RetentionSettingsView(store: store)

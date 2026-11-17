@@ -69,6 +69,6 @@ final class SubscriptionAddServerTests: XCTestCase {
 
     func testPlaceholderNamesTheActualConfiguredFallback() {
         XCTAssertEqual(SubscriptionAddServer.placeholder(defaultBaseUrl: "https://configured.example/prefix/"), "Blank uses https://configured.example/prefix")
-        XCTAssertEqual(SubscriptionAddServer.placeholder(defaultBaseUrl: Config.appBaseUrl), "Blank uses \(normalizeBaseUrl(Config.appBaseUrl))")
+        XCTAssertEqual(SubscriptionAddServer.placeholder(defaultBaseUrl: Config.appBaseUrl), "Blank uses https://ntf-ai.app")
     }
 }

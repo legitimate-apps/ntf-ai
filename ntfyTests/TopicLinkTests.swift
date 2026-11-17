@@ -62,7 +62,7 @@ final class TopicLinkTests: XCTestCase {
     func testNewTopicRoutesToConfirmationWithExplicitServer() {
         let url = URL(string: "https://ntfy-me.com/alerts")!
         XCTAssertEqual(TopicLinkRoute.resolve(url, subscriptionURLs: []), .add(TopicLink(url: url)!))
-        XCTAssertEqual(TopicLink.baseURL, "https://ntfy-me.com")
+        XCTAssertEqual(TopicLink.baseURL, "https://ntf-ai.app")
     }
 
     func testSubscribedTopicRoutesToTheStoredNavigationURL() {
@@ -158,7 +158,7 @@ final class TopicQRCodeTests: XCTestCase {
     }
 
     func testPayloadIsTheTopicURL() {
-        XCTAssertEqual(TopicQRCode.payload(baseUrl: "https://ntfy-me.com/", topic: "Alerts"), "https://ntfy-me.com/Alerts")
+        XCTAssertEqual(TopicQRCode.payload(baseUrl: "https://ntfy-me.com/", topic: "Alerts"), "https://ntf-ai.app/Alerts")
         XCTAssertEqual(TopicQRCode.payload(baseUrl: "http://ntfy.home:2586/sub", topic: "a"), "http://ntfy.home:2586/sub/a")
     }
 
@@ -301,5 +301,187 @@ final class TopicQRCameraLifecycleTests: XCTestCase {
         XCTAssertEqual(events.last, "start")
         capture.disappear()
         queue.sync {}
+    }
+}
+
+
+/// The public domain is an alias, not a new persistence or Firebase namespace.
+@MainActor
+final class HostedServerAliasTests: XCTestCase {
+    private let internalBase = "https://ntfy-me.com"
+    private let publicBase = "https://ntf-ai.app"
+
+    func testBuiltInIdentityAndRelayRemainUnchanged() {
+        XCTAssertEqual(Config.appBaseUrl, internalBase)
+        XCTAssertEqual(Config.upstreamConfigLine, "upstream-base-url: https://ntfy-me.com")
+        XCTAssertEqual(RetiredDefaultServerMigration.replacementBaseUrl, internalBase)
+    }
+
+    func testTypedAliasCanonicalizesOnlyTheHostedRoot() {
+        for input in [publicBase, " HTTPS://NTF-AI.APP:443/// ", "http://ntf-ai.app", "http://ntf-ai.app:80/"] {
+            XCTAssertEqual(normalizeBaseUrl(input), internalBase, input)
+            XCTAssertEqual(SubscriptionAddServer.selectedBaseUrl(useAnother: true, input: input, defaultBaseUrl: internalBase), internalBase)
+        }
+        for input in ["https://ntf-ai.app:8443", "https://ntf-ai.app/prefix", "https://ntf-ai.app.evil.test", "https://user@ntf-ai.app", "https://ntf-ai.app?q=x"] {
+            XCTAssertNotEqual(normalizeBaseUrl(input), internalBase, input)
+        }
+    }
+
+    func testAliasUsesExistingRawFCMNameAndEncryptionIdentity() {
+        // Literal values: a change that moves the identity to the public host must not pass by moving
+        // both sides of a comparison. sha256("https://ntfy-me.com/Alerts"), what 1.24 phones computed.
+        XCTAssertEqual(topicHash(baseUrl: internalBase, topic: "Alerts"), "0fd637bbe9be238094cd9711b8a62a33e9c795f2322803005bfb1beb3e789226")
+        XCTAssertEqual(topicUrl(baseUrl: internalBase, topic: "Alerts"), "https://ntfy-me.com/Alerts")
+        XCTAssertEqual(firebaseTopic(baseUrl: publicBase, topic: "Alerts"), "Alerts")
+        XCTAssertEqual(topicHash(baseUrl: publicBase, topic: "Alerts"), topicHash(baseUrl: internalBase, topic: "Alerts"))
+        XCTAssertEqual(topicUrl(baseUrl: publicBase, topic: "Alerts"), internalBase + "/Alerts")
+        XCTAssertNotEqual(firebaseTopic(baseUrl: "https://ntf-ai.app:8443", topic: "Alerts"), "Alerts")
+    }
+
+    func testMixedInputsCannotCreateTwoRowsOrResetExistingState() {
+        let store = Store(inMemory: true)
+        let old = store.saveSubscription(baseUrl: internalBase, topic: "Alerts")
+        old.pinned = true; old.customDisplayName = "My alerts"; old.fcmSubscribed = true
+        let added = store.saveSubscription(baseUrl: publicBase, topic: "Alerts")
+        XCTAssertEqual(old.objectID, added.objectID)
+        XCTAssertEqual(store.getSubscriptions()?.count, 1)
+        XCTAssertTrue(added.pinned); XCTAssertTrue(added.fcmSubscribed)
+        XCTAssertEqual(added.customDisplayName, "My alerts")
+        XCTAssertEqual(added.baseUrl, internalBase)
+        XCTAssertEqual(store.getSubscription(baseUrl: publicBase, topic: "Alerts")?.objectID, old.objectID)
+        XCTAssertTrue(old.matches(baseUrl: publicBase, topic: "Alerts"))
+        XCTAssertEqual(store.findSubscriptionMatch(forPollRequestTopic: "Alerts", preferredBaseUrl: publicBase)?.baseUrl, internalBase)
+    }
+
+    func testNewAliasRowIsCanonicalBeforeItCanBindOrReceive() {
+        let store = Store(inMemory: true)
+        let first = store.saveSubscription(baseUrl: publicBase, topic: "new-topic")
+        let second = store.saveSubscription(baseUrl: internalBase, topic: "new-topic")
+        XCTAssertEqual(first.objectID, second.objectID)
+        XCTAssertEqual(first.baseUrl, internalBase)
+        XCTAssertEqual(firebaseTopic(baseUrl: first.baseUrl!, topic: first.topic!), "new-topic")
+        XCTAssertTrue(first.matches(baseUrl: internalBase, topic: "new-topic"))
+    }
+
+    func testBothUniversalLinksAndQRSpellingsOpenTheExistingRow() {
+        let existing = internalBase + "/Alerts"
+        for host in ["ntf-ai.app", "ntfy-me.com"] {
+            let url = URL(string: "https://" + host + "/Alerts")!
+            XCTAssertEqual(TopicLink(url: url)?.server, internalBase)
+            XCTAssertEqual(TopicLinkRoute.resolve(url, subscriptionURLs: [existing]), .open(existing))
+            for prefix in ["https://", "http://", "ntfy://", ""] {
+                XCTAssertEqual(TopicLinkRoute.resolve(scanned: prefix + host + "/Alerts", subscriptionURLs: [existing]), .open(existing))
+            }
+        }
+        XCTAssertNil(TopicLink(url: URL(string: publicBase + "/docs")!))
+        XCTAssertNil(TopicLink(url: URL(string: "https://ntf-ai.app.evil.test/Alerts")!))
+    }
+
+    func testGeneratedShareQRAndPublishAddressesUseThePublicHost() {
+        XCTAssertEqual(TopicQRCode.payload(baseUrl: internalBase, topic: "Alerts"), publicBase + "/Alerts")
+        XCTAssertTrue(PublishCommand.simple(baseUrl: internalBase, topic: "Alerts").contains(publicBase + "/Alerts"))
+        let store = Store(inMemory: true)
+        let sub = store.saveSubscription(baseUrl: internalBase, topic: "Alerts")
+        XCTAssertEqual(sub.shortUrlString(), "ntf-ai.app/Alerts")
+        XCTAssertEqual(sub.serverHost(), "ntf-ai.app")
+    }
+
+    func testOldAndNewReplyRecipesProduceTheSameInternalRequest() throws {
+        for host in ["ntf-ai.app", "ntfy-me.com"] {
+            let target = (publicBase + "/answers").addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
+            let action = Action(id: "reply", action: "view", label: "Reply", url: "https://" + host + "/docs/agents#reply-v1=" + target)
+            let reply = try XCTUnwrap(BannerReply.httpAction(for: action, text: "yes"))
+            let request = try XCTUnwrap(ActionExecutor.makeHTTPRequest(reply, baseUrl: nil))
+            XCTAssertEqual(request.url?.absoluteString, internalBase + "/answers")
+            XCTAssertEqual(request.httpBody, Data("yes".utf8))
+        }
+    }
+
+    func testHTTPActionAliasUsesSameServerWithoutChangingForeignURLs() throws {
+        let action = Action(id: "approve", action: "http", label: "Approve", url: publicBase + "/answers?x=1", method: "POST", body: "approved")
+        XCTAssertEqual(try XCTUnwrap(ActionExecutor.makeHTTPRequest(action, baseUrl: nil)).url?.absoluteString, internalBase + "/answers?x=1")
+        let foreign = Action(id: "approve", action: "http", label: "Approve", url: "https://ntf-ai.app.evil.test/answers")
+        XCTAssertEqual(try XCTUnwrap(ActionExecutor.makeHTTPRequest(foreign, baseUrl: nil)).url?.absoluteString, foreign.url)
+    }
+}
+
+// MARK: - Rows an older build stored under the alias
+
+@MainActor
+final class HostedAliasRowMigrationTests: XCTestCase {
+    private let alias = "https://ntf-ai.app"
+    private let canonical = "https://ntfy-me.com"
+
+    private func defaults() -> UserDefaults {
+        let name = "HostedAliasRowMigrationTests-" + UUID().uuidString
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: name) }
+        return UserDefaults(suiteName: name)!
+    }
+
+    /// What a 1.24 build left: the alias spelled in the row, with a hashed FCM binding it confirmed.
+    private func olderBuildRow(_ store: Store, topic: String) -> Subscription {
+        let row = store.saveSubscription(baseUrl: canonical, topic: topic)
+        row.baseUrl = alias
+        row.fcmSubscribed = true
+        try! store.context.save()
+        return row
+    }
+
+    func testRowMovesToRawFCMNameAndRebinds() throws {
+        let store = Store(inMemory: true)
+        let row = olderBuildRow(store, topic: "Alerts")
+        XCTAssertNil(store.getSubscription(baseUrl: alias, topic: "Alerts"), "push lookup misses the stale spelling")
+        let defaults = defaults()
+
+        let outcome = HostedAliasRowMigration.run(store: store, defaults: defaults, reconciler: nil)
+
+        XCTAssertEqual(outcome.moved, ["Alerts"])
+        XCTAssertEqual(row.baseUrl, canonical)
+        XCTAssertFalse(row.fcmSubscribed, "it holds the hashed binding, so it must bind the raw name")
+        XCTAssertEqual(firebaseTopic(baseUrl: row.baseUrl!, topic: "Alerts"), "Alerts")
+        XCTAssertEqual(store.getSubscription(baseUrl: alias, topic: "Alerts")?.objectID, row.objectID)
+        XCTAssertTrue(store.getSubscriptionsPendingFcmSubscribe().contains { $0.objectID == row.objectID })
+        // The queued name is the one the older build bound, not the canonical topic hash.
+        let oldName = HostedAliasRowMigration.legacyFcmName(storedBaseUrl: alias, topic: "Alerts")
+        XCTAssertNotEqual(oldName, topicHash(baseUrl: alias, topic: "Alerts"))
+        XCTAssertEqual(FcmTeardownLedger(defaults: defaults).entries.map(\.name), [oldName],
+                       "only the binding the older build made is torn down, never the raw name")
+    }
+
+    func testRowBesideACanonicalOneFoldsIntoIt() {
+        let store = Store(inMemory: true)
+        let existing = store.saveSubscription(baseUrl: canonical, topic: "Alerts")
+        existing.fcmSubscribed = true
+        let row = Subscription(context: store.context)
+        row.baseUrl = alias; row.topic = "Alerts"; row.pinned = true; row.customDisplayName = "Mine"
+        try! store.context.save()
+
+        let outcome = HostedAliasRowMigration.run(store: store, defaults: defaults(), reconciler: nil)
+
+        XCTAssertEqual(outcome.merged, ["Alerts"])
+        XCTAssertEqual(store.getSubscriptions()?.count, 1, "the list must not show the topic twice")
+        XCTAssertTrue(existing.pinned)
+        XCTAssertTrue(existing.fcmSubscribed, "the surviving row's raw binding is still right")
+        XCTAssertEqual(existing.customDisplayName, "Mine")
+    }
+
+    func testOtherServersAndEncryptedRowsStay() {
+        let store = Store(inMemory: true)
+        let foreign = store.saveSubscription(baseUrl: "https://ntf-ai.app:8443", topic: "Alerts")
+        foreign.fcmSubscribed = true
+        let legacySpelling = store.saveSubscription(baseUrl: "https://ntfy-me.com:443", topic: "Other")
+        legacySpelling.fcmSubscribed = true
+        let encrypted = olderBuildRow(store, topic: "Secret")
+        encrypted.encrypted = true
+        try! store.context.save()
+
+        let outcome = HostedAliasRowMigration.run(store: store, defaults: defaults(), reconciler: nil)
+
+        XCTAssertEqual(outcome, .init(moved: [], merged: [], skippedEncrypted: ["Secret"]))
+        XCTAssertEqual(foreign.baseUrl, "https://ntf-ai.app:8443")
+        XCTAssertTrue(foreign.fcmSubscribed)
+        XCTAssertEqual(legacySpelling.baseUrl, "https://ntfy-me.com:443")
+        XCTAssertTrue(legacySpelling.fcmSubscribed)
+        XCTAssertEqual(encrypted.baseUrl, alias)
     }
 }

@@ -2,8 +2,9 @@ import XCTest
 @testable import ntfy
 
 final class TopicServerAddressTests: XCTestCase {
-    func testDefaultKeepsAddressesAndToggleHidesUniqueNames() {
-        XCTAssertTrue(TopicServerAddressPolicy.showsAddress(name: "alerts", ambiguousNames: []))
+    func testDefaultHidesAddressesForUniqueNames() {
+        XCTAssertFalse(TopicServerAddressPolicy.showsAddress(name: "alerts", ambiguousNames: []))
+        XCTAssertTrue(TopicServerAddressPolicy.showsAddress(name: "alerts", showAddresses: true, ambiguousNames: []))
         XCTAssertFalse(TopicServerAddressPolicy.showsAddress(name: "alerts", showAddresses: false, ambiguousNames: []))
     }
 

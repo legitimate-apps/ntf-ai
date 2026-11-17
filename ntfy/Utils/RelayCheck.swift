@@ -23,7 +23,7 @@ final class RelayCheck: ObservableObject {
             case .received(let milliseconds):
                 let date = Date(timeIntervalSince1970: Double(milliseconds) / 1000)
                 let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .medium)
-                return String(localized: "ntfy-me.com received a wake-up for this topic at \(time), and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.")
+                return String(localized: "\(shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))) received a wake-up for this topic at \(time), and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.")
             case .notObserved: return String(localized: "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url: https://ntfy-me.com, the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.")
             case .failed(let reason): return reason
             }
@@ -47,6 +47,8 @@ final class RelayCheck: ObservableObject {
     private let read: Read
     private let schedule: Schedule
     private let relayBaseUrl: String
+    /// The server this check contacts: the app's own (Config.appBaseUrl unless a test injects one).
+    var relayBaseUrlForDisplay: String { normalizeBaseUrl(relayBaseUrl) }
     private let cooldown: ServerCooldown?
     private var generation = UUID()
     private var nextAllowed: TimeInterval = 0

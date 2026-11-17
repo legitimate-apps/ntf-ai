@@ -26,82 +26,25 @@ struct NotificationAttachmentSectionView: View {
     var body: some View {
         let resolvedLocalFileUrl = notification.attachmentLocalFileUrl()
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             if shouldShowImagePreview(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                ZStack(alignment: .topTrailing) {
-                    NotificationAttachmentImageView(
-                        localFileUrl: resolvedLocalFileUrl,
-                        isLoading: notification.isAttachmentDownloading(overrideState: currentProgressState)
-                    )
-
-                    if showsImageOnly(resolvedLocalFileUrl: resolvedLocalFileUrl),
-                       showsMenu(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                        previewMenuButton(localFileUrl: resolvedLocalFileUrl)
-                            .padding(8)
-                    }
-                }
-            } else if shouldShowImagePlaceholder(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                ZStack(alignment: .topTrailing) {
-                    imagePlaceholderCard(localFileUrl: resolvedLocalFileUrl)
-
-                    if showsMenu(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                        previewMenuButton(localFileUrl: resolvedLocalFileUrl)
-                            .padding(8)
-                    }
-                }
+                // Long-press holds what the overlay button used to: Open, Share, Save, Copy URL.
+                NotificationAttachmentImageView(
+                    localFileUrl: resolvedLocalFileUrl,
+                    isLoading: notification.isAttachmentDownloading(overrideState: currentProgressState)
+                )
+                .contextMenu { attachmentMenuItems(localFileUrl: resolvedLocalFileUrl) }
+            } else if shouldShowImagePlaceholder(resolvedLocalFileUrl: resolvedLocalFileUrl),
+                      shouldShowLoadingPlaceholder(resolvedLocalFileUrl: resolvedLocalFileUrl) {
+                // Downloading: hold the space the image will take so the row doesn't jump.
+                AttachmentLoadingPlaceholder()
+                    .contextMenu { attachmentMenuItems(localFileUrl: resolvedLocalFileUrl) }
+            } else {
+                attachmentChip(localFileUrl: resolvedLocalFileUrl)
+                    .contextMenu { attachmentMenuItems(localFileUrl: resolvedLocalFileUrl) }
             }
 
-            if !showsImageOnly(resolvedLocalFileUrl: resolvedLocalFileUrl)
-                && !shouldShowImagePlaceholder(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                HStack(alignment: .center, spacing: 10) {
-                    Button(action: {
-                        handlePrimaryTap(localFileUrl: resolvedLocalFileUrl)
-                    }) {
-                        HStack(alignment: .center, spacing: 10) {
-                            Image(systemName: attachment.systemImageName())
-                                .accessibilityHidden(true)
-                                .font(.title3)
-                                .foregroundColor(.secondary)
-                                .frame(width: 24, height: 24)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(attachment.displayName())
-                                    .font(.subheadline)
-                                    .bold()
-                                    .lineLimit(2)
-                                if !statusText.isEmpty {
-                                    Text(statusText)
-                                        .font(.caption)
-                                        .foregroundColor(statusColor)
-                                        .lineLimit(2)
-                                }
-                            }
-
-                            Spacer()
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if notification.isAttachmentDownloading(overrideState: currentProgressState) {
-                        ProgressView()
-                            .scaleEffect(0.85)
-                    }
-
-                    if showsMenu(resolvedLocalFileUrl: resolvedLocalFileUrl) {
-                        previewMenuButton(localFileUrl: resolvedLocalFileUrl)
-                    }
-                }
-                .padding(10)
-                .background(Color(.secondarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if currentProgressState == .failed {
-                Text(String(localized: "The last download attempt failed."))
-                    .font(.caption)
-                    .foregroundColor(.red)
-            }
+            // A failed download says so once, in the chip's red status; tapping the chip retries.
         }
         .padding(.top, 8)
         .onAppear {
@@ -156,52 +99,51 @@ struct NotificationAttachmentSectionView: View {
         }
     }
 
-    private func imagePlaceholderCard(localFileUrl: URL?) -> some View {
-        Button(action: {
+    /// One line for a file, or an image not downloaded yet: icon, name, and a status line only
+    /// when there is something to say. 44 pt minimum, the system's touch target.
+    private func attachmentChip(localFileUrl: URL?) -> some View {
+        let notLoadedImage = shouldShowImagePlaceholder(resolvedLocalFileUrl: localFileUrl)
+        let status = notLoadedImage
+            ? [statusText, String(localized: "Tap to load image")].filter { !$0.isEmpty }.joined(separator: " · ")
+            : statusText
+        return Button(action: {
             handlePrimaryTap(localFileUrl: localFileUrl)
         }) {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemFill))
-                .frame(maxWidth: .infinity)
-                .frame(height: 160)
-                .overlay {
-                    VStack(spacing: 10) {
-                        if shouldShowLoadingPlaceholder(resolvedLocalFileUrl: localFileUrl) {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "photo")
-                                .accessibilityHidden(true)
-                                .font(.title2)
-                                .foregroundColor(.secondary)
-                        }
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: notLoadedImage ? "arrow.down.circle" : attachment.systemImageName())
+                    .accessibilityHidden(true)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .frame(width: 24, height: 24)
 
-                        Text(attachment.displayName())
-                            .font(.subheadline)
-                            .bold()
-                            .foregroundColor(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(attachment.displayName())
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if !status.isEmpty {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundColor(statusColor)
                             .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 20)
-
-                        if !statusText.isEmpty {
-                            Text(statusText)
-                                .font(.caption)
-                                .foregroundColor(statusColor)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 20)
-                        }
-
-                        if !shouldShowLoadingPlaceholder(resolvedLocalFileUrl: localFileUrl) {
-                            Text(String(localized: "Tap to load image"))
-                                .font(.caption.weight(.semibold))
-                                .foregroundColor(.accentColor)
-                        }
                     }
                 }
+
+                Spacer(minLength: 0)
+
+                if notification.isAttachmentDownloading(overrideState: currentProgressState) {
+                    ProgressView()
+                        .scaleEffect(0.85)
+                }
+            }
+            .padding(10)
+            .frame(minHeight: 44)
+            .background(Color(.secondarySystemFill))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(shouldShowLoadingPlaceholder(resolvedLocalFileUrl: localFileUrl))
     }
 
     private var attachmentExpired: Bool {
@@ -235,7 +177,7 @@ struct NotificationAttachmentSectionView: View {
         } else if attachmentExpired {
             return .red
         } else {
-            return .gray
+            return .secondary
         }
     }
 
@@ -253,39 +195,6 @@ struct NotificationAttachmentSectionView: View {
 
     private func openLocalFile(_ localFileUrl: URL) {
         onOpen(localFileUrl)
-    }
-
-    private func previewMenuButton(localFileUrl: URL?) -> some View {
-        Menu {
-            attachmentMenuItems(localFileUrl: localFileUrl)
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
-                .background(.ultraThinMaterial, in: Circle())
-        }
-        .menuStyle(.borderlessButton)
-        .accessibilityLabel(String(localized: "Attachment actions"))
-        .accessibilityValue(attachment.displayName())
-        .fixedSize()
-    }
-
-    private func showsImageOnly(resolvedLocalFileUrl: URL?) -> Bool {
-        attachment.isImageAttachment() && resolvedLocalFileUrl != nil
-    }
-
-    private func showsMenu(resolvedLocalFileUrl: URL?) -> Bool {
-        if resolvedLocalFileUrl != nil {
-            return true
-        }
-        if notification.isAttachmentDownloading(overrideState: currentProgressState) {
-            return true
-        }
-        if !attachmentExpired {
-            return true
-        }
-        return false
     }
 
     private func attachmentAutoDownloadKey(resolvedLocalFileUrl: URL?) -> String {
