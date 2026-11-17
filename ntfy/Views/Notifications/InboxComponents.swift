@@ -119,6 +119,18 @@ extension Notification {
 
 // MARK: - Small parts
 
+/// Monogram circles: a light tint outside, the letter in the dark of the same colour (operator,
+/// 2026-11-17: "the light part is on the outside and dark part is the text inside"). The agent's is
+/// the secondary answer button's Forest tint and label; a topic's is the same inversion in grey, so
+/// both read as one family. Each letter clears 4.5:1 on its own fill over the row backgrounds
+/// (`ThemeColorTests`). A picture, when there is one, covers the circle.
+enum MonogramColor {
+    static let agentFill = "AnswerTint"
+    static let agentLetter = "AnswerTintLabel"
+    static let topicFill = "MonogramTint"
+    static let topicLetter = "MonogramInk"
+}
+
 struct TopicAvatar: View {
     let name: String
     var iconUrl: URL? = nil
@@ -130,7 +142,7 @@ struct TopicAvatar: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(.quaternary)
+            Circle().fill(Color(MonogramColor.topicFill))
             if let iconUrl {
                 AsyncImage(url: iconUrl) { image in
                     image.resizable().scaledToFill()
@@ -149,7 +161,7 @@ struct TopicAvatar: View {
     private var monogram: some View {
         Text(letter)
             .font(size <= 28 ? .caption.weight(.semibold) : .title3.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundColor(Color(MonogramColor.topicLetter))
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .padding(size <= 28 ? 2 : 4)

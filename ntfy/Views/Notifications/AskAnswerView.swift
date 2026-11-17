@@ -91,7 +91,7 @@ struct AskStatusLine: View {
     }
 }
 
-/// The agent's picture where policy allows it, else its initial on emerald (SPEC 6).
+/// The agent's picture where policy allows it, else its initial in Forest on a light Forest tint (SPEC 6, `MonogramColor`).
 struct AgentAvatar: View {
     let name: String
     let icon: String?
@@ -102,13 +102,13 @@ struct AgentAvatar: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(AnswerColor.fill)
+            Circle().fill(Color(MonogramColor.agentFill))
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
                 Text(AgentIdentity.monogram(name))
                     .font(size <= 28 ? .caption.weight(.bold) : .title3.weight(.bold))
-                    .foregroundColor(AnswerColor.label)
+                    .foregroundColor(Color(MonogramColor.agentLetter))
                     .minimumScaleFactor(0.5)
             }
         }

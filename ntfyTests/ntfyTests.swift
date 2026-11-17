@@ -10904,6 +10904,33 @@ final class ThemeColorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(contrast(hex("BrandControlFill", .dark), "1C1C1E"), 3.0)
     }
 
+    /// Monogram circles are a light tint with a dark letter of the same colour (operator, 2026-11-17).
+    /// The tint is translucent, so the letter is measured against the tint over each row background.
+    func testMonogramLettersReadOnTheirOwnTint() {
+        func over(_ name: String, _ style: UIUserInterfaceStyle, on surface: String) -> String {
+            let c = UIColor(named: name)!.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            XCTAssertTrue(c.getRed(&r, green: &g, blue: &b, alpha: &a), name)
+            let bg = Int(surface, radix: 16)!
+            let mixed = zip([r, g, b], [bg >> 16 & 0xFF, bg >> 8 & 0xFF, bg & 0xFF]).map { fg, back in
+                Int((Double(fg) * 255 * Double(a) + Double(back) * (1 - Double(a))).rounded())
+            }
+            return mixed.map { String(format: "%02X", $0) }.joined()
+        }
+        let surfaces: [(UIUserInterfaceStyle, [String])] = [(.light, ["FFFFFF", "F2F2F7"]), (.dark, ["000000", "1C1C1E", "2C2C2E"])]
+        for (fill, letter) in [(MonogramColor.agentFill, MonogramColor.agentLetter), (MonogramColor.topicFill, MonogramColor.topicLetter)] {
+            for (style, backgrounds) in surfaces {
+                for surface in backgrounds {
+                    let tint = over(fill, style, on: surface)
+                    XCTAssertGreaterThanOrEqual(contrast(hex(letter, style), tint), 4.5, "\(letter) on \(fill) over \(surface)")
+                }
+            }
+        }
+        // The agent's circle is the secondary answer button's tint, so the two greens are one family.
+        XCTAssertEqual(MonogramColor.agentFill, "AnswerTint")
+        XCTAssertEqual(MonogramColor.agentLetter, "AnswerTintLabel")
+    }
+
     private func hex(_ color: UIColor, _ style: UIUserInterfaceStyle) -> String {
         let c = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
