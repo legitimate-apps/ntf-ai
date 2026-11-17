@@ -11,10 +11,8 @@ struct AboutView: View {
     var body: some View {
         Group {
             // Primary help is the default server's quick start: its examples publish to ntfy-me.com.
-            // ntfy's own docs stay as the full protocol reference, labelled as such.
             linkRow(String(localized: "Getting started"), detail: shortUrl(url: normalizeBaseUrl(Config.helpUrl)),
                     url: Config.helpUrl)
-            linkRow(String(localized: "ntfy reference docs"), detail: "ntfy.sh/docs", url: Config.docsUrl)
             // The support page explains how to reach us.
             linkRow(String(localized: "Get help or report a bug"), detail: String(localized: "NTF-AI support"),
                     url: Config.supportUrl)

@@ -135,9 +135,6 @@ enum Config {
     /// newcomer who followed them sent their first message to a server the app was not listening to.
     static let helpUrl = "https://ntf-ai.app/"
 
-    /// ntfy's own documentation — genuinely upstream's, and correct to link as the full reference
-    /// for the protocol. Not the first place to send a newcomer; see `helpUrl`.
-    static let docsUrl = "https://ntfy.sh/docs"
 
     static private func string(for key: String) -> String {
         Bundle.main.infoDictionary?[key] as! String

@@ -6352,10 +6352,11 @@ final class ntfyTests: XCTestCase {
         XCTAssertEqual(linkTargets(in: renderMessageTitle(url)), [URL(string: url)!])
     }
 
-    func testDocsStillPointAtNtfysOwnDocumentation() {
-        // Deliberately NOT de-upstreamed: ntfy.sh/docs is the real documentation
-        // for the protocol this app speaks, and linking it is correct.
-        XCTAssertEqual(Config.docsUrl, "https://ntfy.sh/docs")
+    func testHelpLinksStayOnOurOwnSite() {
+        // Operator, 2026-11-17: the app's help links are all ours ("we're all contained?").
+        for url in [Config.helpUrl, Config.supportUrl, Config.migrateUrl, Config.selfHostingUrl] {
+            XCTAssertEqual(URL(string: url)?.host, "ntf-ai.app", url)
+        }
     }
 }
 

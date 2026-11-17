@@ -643,11 +643,6 @@ struct TopicPublishHelpView: View {
                     .font(.footnote)
                     .buttonStyle(.borderless)
             }
-            if let docs = URL(string: Config.docsUrl) {
-                Link(String(localized: "Full ntfy reference docs"), destination: docs)
-                    .font(.footnote)
-                    .buttonStyle(.borderless)
-            }
         }
         .padding(.vertical, 24)
     }
