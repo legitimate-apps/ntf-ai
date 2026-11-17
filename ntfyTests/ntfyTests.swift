@@ -11066,6 +11066,23 @@ final class AnswerButtonTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44)
     }
 
+    /// Operator, 2026-11-16: the answer buttons "4-6pt shorter total" than 52, and a card whose
+    /// sections breathe: each gap between sections larger than the lines inside one, the body
+    /// clear of the answers, and cards further apart than anything inside them.
+    func testAnswerHeightAndCardRhythm() {
+        XCTAssertTrue((46...48).contains(AnswerMetrics.height), "4-6 pt shorter than 52")
+        XCTAssertGreaterThanOrEqual(AnswerMetrics.height, 44, "hit target")
+        for gap in [CardSpacing.line, CardSpacing.sourceToTitle, CardSpacing.wordsToControls, CardSpacing.rowEdge] {
+            XCTAssertEqual(gap.truncatingRemainder(dividingBy: 2), 0, "on the grid: \(gap)")
+        }
+        XCTAssertGreaterThan(CardSpacing.line, 6, "title to body clears the body's own leading")
+        XCTAssertGreaterThan(CardSpacing.sourceToTitle, CardSpacing.line)
+        XCTAssertGreaterThanOrEqual(CardSpacing.wordsToControls, 16, "the body sat on the button at 6")
+        XCTAssertGreaterThan(CardSpacing.betweenCards, CardSpacing.wordsToControls)
+        XCTAssertEqual(CardSpacing.rowInsets.top, CardSpacing.rowEdge)
+        XCTAssertEqual(CardSpacing.rowInsets.bottom, CardSpacing.rowEdge)
+    }
+
     private func entry(_ kind: AnswerEntry.Kind, _ label: String, ok: Bool, ago: TimeInterval, now: Date) -> AnswerEntry {
         AnswerEntry(kind: kind, label: label, text: kind == .reply ? "ok" : nil, at: now.addingTimeInterval(-ago), ok: ok, messageId: nil)
     }

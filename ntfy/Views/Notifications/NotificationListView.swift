@@ -347,7 +347,7 @@ struct NotificationListView: View {
                     MessageCard(notification: notification, heldUnread: held,
                                 open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
                                 onCopy: showCopyConfirmation)
-                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                        .listRowInsets(CardSpacing.rowInsets)
                         .modifier(MessageRowActions(notification: notification, heldUnread: held,
                                                     onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
                                                     onCopy: showCopyConfirmation))

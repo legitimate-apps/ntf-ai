@@ -988,6 +988,27 @@ struct MessageRowActions: ViewModifier {
 
 // MARK: - The card (C2) and the waiting row (C1)
 
+/// The vertical rhythm of a message card (Waiting on you, Activity, a topic's messages, Search), on
+/// the 4 pt grid. A card has sections (where it came from, the title, the words, the answers), and
+/// the gap between two sections is larger than the lines inside one, so they read apart; the gap
+/// between cards is the largest. At 6 pt throughout, the body sat almost on the answer button
+/// (operator, 2026-11-16: "our vertical margins between sections is super tight").
+enum CardSpacing {
+    /// Between the parts of a card's words: title, body, tags, attachment.
+    static let line: CGFloat = 8
+    /// Added after the source row (agent and time), so it sits 12 above the title.
+    static let afterSource: CGFloat = 4
+    /// Added above the answers or the receipt, so they sit 16 below the words.
+    static let beforeControls: CGFloat = 8
+    /// Above and below a card inside its list row: two of these part one card from the next.
+    static let rowEdge: CGFloat = 14
+    static let rowInsets = EdgeInsets(top: rowEdge, leading: 16, bottom: rowEdge, trailing: 16)
+
+    static var sourceToTitle: CGFloat { line + afterSource }
+    static var wordsToControls: CGFloat { line + beforeControls }
+    static var betweenCards: CGFloat { rowEdge * 2 }
+}
+
 /// A message as a card: the whole short message with its answers in place. Long text stops at
 /// eight lines with "Show more", which opens the page. With `showsTopic` (Inbox Activity, Search)
 /// a topic line on top says which agent spoke.
@@ -1017,7 +1038,7 @@ struct MessageCard: View {
         let state = AnswerState(notification: notification, log: log)
         let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
         let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .card)
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: CardSpacing.line) {
             if showsTopic, let subscription = notification.subscription {
                 HStack(spacing: 8) {
                     TopicAvatar(name: subscription.shortDisplayName(), iconUrl: notification.iconUrl(), size: 24)
@@ -1038,6 +1059,7 @@ struct MessageCard: View {
                 Spacer(minLength: 8)
                 if !showsTopic && !timeAbove { time }
             }
+            .padding(.top, showsTopic ? CardSpacing.afterSource : 0)
             if !display.body.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     LineCappedText(text: display.cardBody, lines: 8, truncated: $truncated)
@@ -1058,25 +1080,29 @@ struct MessageCard: View {
             TagLine(tags: notification.nonEmojiTags())
             MessageAttachmentBlock(notification: notification, maxHeight: 300, onCopy: onCopy)
             if receipt.agent != nil {
-                AgentReceiptLine(receipt: receipt)
+                AgentReceiptLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
             } else if state.showsReceipt() {
-                AnswerReceiptView(entry: state.entry)
+                AnswerReceiptView(entry: state.entry).padding(.top, CardSpacing.beforeControls)
             } else if receipt.showsClosed {
                 // Confirmations are off: the agent got it, so the question takes no more answers.
-                ReceiptClosedLine(receipt: receipt)
+                ReceiptClosedLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
             } else if defersToWaiting && waiting.contains(notification) {
                 Label(String(localized: "Waiting on you"), systemImage: "hand.raised.fill")
                     .font(.footnote.weight(.semibold))
                     .foregroundColor(InboxColor.ink)
                     .accessibilityIdentifier("card-waiting-line")
+                    .padding(.top, CardSpacing.beforeControls)
             } else if !items.isEmpty {
-                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
+                if state.failed {
+                    AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
+                }
                 ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
                           sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
                           recipient: notification.subscription?.shortDisplayName(), run: run)
                     // While selecting, a tap picks the row; it must not answer the agent.
                     .disabled(editing)
                     .environment(\.actionBarMissedTap) { if !editing { open(false) } }
+                    .padding(.top, state.failed ? 0 : CardSpacing.beforeControls)
             }
         }
         .contentShape(Rectangle())
@@ -1130,7 +1156,7 @@ struct WaitingRow: View {
         let state = AnswerState(notification: notification, log: log)
         let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .waiting)
         let display = notification.display
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: CardSpacing.line) {
             HStack(spacing: 8) {
                 let name = notification.subscription?.shortDisplayName() ?? ""
                 TopicAvatar(name: name, iconUrl: notification.iconUrl(), size: 24)
@@ -1145,18 +1171,21 @@ struct WaitingRow: View {
                 }
             }
             MessageTitleLine(notification: notification, lineLimit: 2)
+                .padding(.top, CardSpacing.afterSource)
             if !display.body.isEmpty {
                 Text(display.cardBody).font(.body).foregroundColor(.secondary).lineLimit(3)
             }
             let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
             if receipt.agent != nil {
-                AgentReceiptLine(receipt: receipt)
+                AgentReceiptLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
             } else if state.showsReceipt() {
-                AnswerReceiptView(entry: state.entry)
+                AnswerReceiptView(entry: state.entry).padding(.top, CardSpacing.beforeControls)
             } else if receipt.showsClosed {
-                ReceiptClosedLine(receipt: receipt)
+                ReceiptClosedLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
             } else if !receipt.resolved {
-                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
+                if state.failed {
+                    AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
+                }
                 ActionBar(items: items, prominentId: items.first(where: \.isAnswer)?.id, sendingId: state.sendingActionId,
                           sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
                           recipient: notification.subscription?.shortDisplayName()) { item in
@@ -1169,6 +1198,7 @@ struct WaitingRow: View {
                     }
                 }
                 .environment(\.actionBarMissedTap) { open(false) }
+                .padding(.top, state.failed ? 0 : CardSpacing.beforeControls)
             }
         }
         .contentShape(Rectangle())

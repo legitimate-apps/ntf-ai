@@ -61,7 +61,7 @@ struct InboxView: View {
                         WaitingRow(notification: notification) { focus in
                             opened = OpenedMessage(notification: notification, focusReply: focus)
                         }
-                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                        .listRowInsets(CardSpacing.rowInsets)
                         .modifier(NotNeededSwipe(notification: notification))
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -87,7 +87,7 @@ struct InboxView: View {
                         MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
                                     open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
                                     onCopy: copied)
-                            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                            .listRowInsets(CardSpacing.rowInsets)
                             .modifier(MessageRowActions(notification: notification, onCopy: copied))
                     }
                 }
@@ -164,7 +164,7 @@ struct WaitingAllView: View {
                     WaitingRow(notification: notification) { focus in
                         opened = OpenedMessage(notification: notification, focusReply: focus)
                     }
-                    .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                    .listRowInsets(CardSpacing.rowInsets)
                     .modifier(NotNeededSwipe(notification: notification))
                 }
             }

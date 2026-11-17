@@ -36,7 +36,7 @@ struct SearchView: View {
                         ForEach(group.items, id: \.objectID) { notification in
                             MessageCard(notification: notification, showsTopic: true,
                                         open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) })
-                                .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                                .listRowInsets(CardSpacing.rowInsets)
                                 .modifier(MessageRowActions(notification: notification))
                         }
                     }

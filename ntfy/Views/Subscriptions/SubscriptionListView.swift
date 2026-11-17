@@ -71,7 +71,7 @@ struct SubscriptionListView: View {
                     // A rule above the first row read as an underline on the large title.
                     .listRowSeparator(subscription == subscriptionsModel.subscriptions.first ? .hidden : .automatic, edges: .top)
                     // The unread dot sits in the leading gutter, as in Mail (DIRECTIONS A1).
-                    .listRowInsets(EdgeInsets(top: 10, leading: 28, bottom: 10, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 12, leading: 28, bottom: 12, trailing: 16))
             }
         }
         // This link lives outside the lazy List rows, so an external request can open any topic.
@@ -319,7 +319,8 @@ struct SubscriptionItemRowView: View {
         let lastDateTime = lastTime.map { Notification.topicListTime(for: Date(timeIntervalSince1970: TimeInterval($0))) }
         HStack(alignment: .top, spacing: 12) {
             TopicAvatar(name: subscription.shortDisplayName(), iconUrl: lastNotification?.iconUrl())
-            VStack(alignment: .leading, spacing: 2) {
+            // 4, not 2, between name and preview: at 2 the rows read dense (operator, 2026-11-16).
+            VStack(alignment: .leading, spacing: 4) {
                 if sizeCategory.isAccessibilityCategory {
                     // At accessibility sizes the name gets its own lines and the time the next.
                     nameLine.lineLimit(3)
