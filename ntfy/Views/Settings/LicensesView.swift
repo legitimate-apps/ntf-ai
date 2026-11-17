@@ -6,7 +6,9 @@ struct OpenSourceComponent: Identifiable, Hashable {
     let detail: String
     let licenseName: String
     let notice: String         // copyright line(s), plus the license text when it is short
-    let licenseText: String?   // the shared Apache-2.0 text, stored once
+    let licenseText: String?   // the shared Apache-2.0 or GPL-3.0 text, stored once
+    /// NTF-AI's own entry: listed first, in its own section, above the projects it builds on.
+    var isThisApp = false
 
     var id: String { name }
     var fullText: String { [notice, licenseText].compactMap { $0 }.joined(separator: "\n\n") }
@@ -38,25 +40,31 @@ enum OpenSourceLicenses {
 struct LicensesView: View {
     var body: some View {
         List {
+            Section {
+                ForEach(OpenSourceLicenses.components.filter(\.isThisApp)) { row($0) }
+            }
             Section(footer: Text(String(localized: "NTF-AI is built on these open-source projects."))) {
-                ForEach(OpenSourceLicenses.components) { component in
-                    NavigationLink {
-                        LicenseTextView(text: component.displayText)
-                            .navigationTitle(component.name)
-                            .navigationBarTitleDisplayMode(.inline)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(component.name)
-                            Text(LocalizedStringKey(component.licenseName))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
+                ForEach(OpenSourceLicenses.components.filter { !$0.isThisApp }) { row($0) }
             }
         }
         .navigationTitle(String(localized: "Licenses"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(_ component: OpenSourceComponent) -> some View {
+        NavigationLink {
+            LicenseTextView(text: component.displayText)
+                .navigationTitle(component.name)
+                .navigationBarTitleDisplayMode(.inline)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(component.name)
+                Text(LocalizedStringKey(component.licenseName))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .accessibilityIdentifier(component.isThisApp ? "license-this-app" : "license-\(component.name)")
     }
 }
 
