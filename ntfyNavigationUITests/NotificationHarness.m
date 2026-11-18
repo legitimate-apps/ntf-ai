@@ -11,7 +11,9 @@
 static void deliver(void) {
     UNMutableNotificationContent *content = [UNMutableNotificationContent new];
     NSString *topic = NSProcessInfo.processInfo.environment[@"NTFY_NAV_TOPIC"] ?: @"zz-nav-118-regression";
-    content.userInfo = @{@"id": NSUUID.UUID.UUIDString, @"time": @"1792515000", @"event": @"message", @"topic": topic, @"message": @"Navigation fixture", @"base_url": @"https://ntfy-me.com"};
+    NSDictionary *env = NSProcessInfo.processInfo.environment;
+    // A seeded message's id and server make the tap open that message's page (1.26).
+    content.userInfo = @{@"id": env[@"NTFY_NAV_MESSAGE_ID"] ?: NSUUID.UUID.UUIDString, @"time": @"1792515000", @"event": @"message", @"topic": topic, @"message": @"Navigation fixture", @"base_url": env[@"NTFY_NAV_BASE_URL"] ?: @"https://ntfy-me.com"};
     UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:NSUUID.UUID.UUIDString content:content trigger:nil];
     UNNotification *notification = [NSClassFromString(@"UNNotification") new];
     [notification setValue:request forKey:@"request"];

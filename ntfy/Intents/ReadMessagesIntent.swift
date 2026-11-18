@@ -57,7 +57,7 @@ struct ReadMessagesIntent: AppIntent {
     static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     @available(iOS 26.0, *)
     static var supportedModes: IntentModes { .background }
-    @Parameter(title: "Topic", description: "A topic you subscribe to in NTFY me.") var topic: SubscribedTopic
+    @Parameter(title: "Topic", description: "A topic you subscribe to in NTF-AI.") var topic: SubscribedTopic
     @Parameter(title: "Limit", default: 1, inclusiveRange: (1, 100)) var limit: Int
     @Parameter(title: "Since", description: "Only messages newer than this date.") var since: Date?
     static var parameterSummary: some ParameterSummary {
@@ -76,7 +76,7 @@ struct ReadMessagesIntent: AppIntent {
         guard let subscription = try context.fetch(Subscription.fetchRequest()).first(where: {
             $0.objectID.uriRepresentation().absoluteString == topic.id
         }) else {
-            throw TopicPublisher.Failure(message: String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me."))
+            throw TopicPublisher.Failure(message: String(localized: "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI."))
         }
         let request = Notification.fetchRequest()
         var predicates = [NSPredicate(format: "subscription == %@", subscription)]

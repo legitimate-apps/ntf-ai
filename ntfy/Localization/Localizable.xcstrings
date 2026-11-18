@@ -1448,53 +1448,6 @@
         }
       }
     },
-    "Add subscription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add subscription"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Neues Abo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añadir suscripción"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aggiungi iscrizione"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dodaj subskrypcję"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abonnement toevoegen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouter un abonnement"
-          }
-        }
-      }
-    },
     "Add user": {
       "extractionState": "manual",
       "localizations": {
@@ -1914,53 +1867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "La vérification automatique du relais nécessite HTTPS pour le serveur du sujet et le relais. Aucun message de test n’a été envoyé."
-          }
-        }
-      }
-    },
-    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen oder tippe auf „Zufällig“."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar o toca Aleatorio."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare o tocca Casuale."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę lub stuknij „Losowa”."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam of tik op Willekeurig."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner ou touchez Aléatoire."
           }
         }
       }
@@ -3186,53 +3092,6 @@
         }
       }
     },
-    "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prüfe, ob ntfy-me.com weitergeleitete Wecksignale für dieses Thema erhält. Das bestätigt keine Zustellung an dein Gerät."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comprueba si ntfy-me.com recibe avisos reenviados de este tópico. Esto no demuestra la entrega al dispositivo."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verifica se ntfy-me.com riceve i segnali di risveglio inoltrati per questo argomento. Non prova la consegna al dispositivo."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sprawdź, czy ntfy-me.com odbiera przekazane sygnały wybudzenia dla tego tematu. Nie potwierdza to dostarczenia na urządzenie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Controleer of ntfy-me.com doorgestuurde activeringssignalen voor dit onderwerp ontvangt. Dit bewijst geen bezorging op je apparaat."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérifiez si ntfy-me.com reçoit les demandes de réveil relayées pour ce sujet. Cela ne prouve pas leur réception sur votre appareil."
-          }
-        }
-      }
-    },
     "Check your connection and look for the message in the topic before sending again.": {
       "extractionState": "manual",
       "localizations": {
@@ -3562,53 +3421,6 @@
         }
       }
     },
-    "Clear notifications": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear notifications"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Benachrichtigungen löschen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar notificaciones"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancella notifiche"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wyczyść powiadomienia"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meldingen wissen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Effacer les notifications"
-          }
-        }
-      }
-    },
     "Clearer server hints: topics on ntfy.sh explain that they get no instant banners in this app, adding a topic reminds you where your scripts must send, and the self-hosting and migration guides are one tap away.": {
       "extractionState": "manual",
       "localizations": {
@@ -3840,53 +3652,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copié"
-          }
-        }
-      }
-    },
-    "Copied to Clipboard": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copied to Clipboard"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In Zwischenablage kopiert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiado al portapapeles"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiato negli appunti"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skopiowano do schowka"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gekopieerd naar klembord"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copié dans le presse-papiers"
           }
         }
       }
@@ -4596,49 +4361,49 @@
         }
       }
     },
-    "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications.": {
+    "Critical alerts were not allowed. You can enable them for NTF-AI in the Settings app under Notifications.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications."
+            "value": "Critical alerts were not allowed. You can enable them for NTF-AI in the Settings app under Notifications."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für ntfy in der App „Einstellungen“ unter Mitteilungen aktivieren."
+            "value": "Kritische Hinweise wurden nicht erlaubt. Du kannst sie für NTF-AI in der App „Einstellungen“ unter Mitteilungen aktivieren."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se permitieron las alertas críticas. Puedes activarlas para ntfy en la app Ajustes, en Notificaciones."
+            "value": "No se permitieron las alertas críticas. Puedes activarlas para NTF-AI en la app Ajustes, en Notificaciones."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per ntfy nell’app Impostazioni, sotto Notifiche."
+            "value": "Gli avvisi critici non sono consentiti. Puoi attivarli per NTF-AI nell’app Impostazioni, sotto Notifiche."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla ntfy w aplikacji Ustawienia, w sekcji Powiadomienia."
+            "value": "Nie zezwolono na alerty krytyczne. Możesz je włączyć dla NTF-AI w aplikacji Ustawienia, w sekcji Powiadomienia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor ntfy aanzetten in de app Instellingen, onder Meldingen."
+            "value": "Kritieke meldingen zijn niet toegestaan. Je kunt ze voor NTF-AI aanzetten in de app Instellingen, onder Meldingen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour ntfy dans l’app Réglages, sous Notifications."
+            "value": "Les alertes critiques n’ont pas été autorisées. Vous pouvez les activer pour NTF-AI dans l’app Réglages, sous Notifications."
           }
         }
       }
@@ -5693,147 +5458,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom affiché"
-          }
-        }
-      }
-    },
-    "Do you really want to delete all of the notifications in this topic?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to delete all of the notifications in this topic?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle Benachrichtigungen in diesem Thema wirklich löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres eliminar todas las notificaciones de este tópico?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero eliminare tutte le notifiche di questo argomento?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz usunąć wszystkie powiadomienia w tym temacie?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je echt alle meldingen in dit onderwerp verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment supprimer toutes les notifications de ce sujet ?"
-          }
-        }
-      }
-    },
-    "Do you really want to delete these selected notifications?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to delete these selected notifications?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die ausgewählten Benachrichtigungen wirklich löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres eliminar las notificaciones seleccionadas?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero eliminare le notifiche selezionate?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz usunąć wybrane powiadomienia?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je echt deze geselecteerde meldingen verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment supprimer les notifications sélectionnées ?"
-          }
-        }
-      }
-    },
-    "Do you really want to unsubscribe from this topic and delete all of the notifications you received?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really want to unsubscribe from this topic and delete all of the notifications you received?"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses Thema wirklich abbestellen und alle empfangenen Benachrichtigungen löschen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Quieres cancelar la suscripción a este tópico y eliminar todas las notificaciones recibidas?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuoi davvero annullare l'iscrizione a questo argomento ed eliminare tutte le notifiche ricevute?"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Czy na pewno chcesz anulować subskrypcję tego tematu i usunąć wszystkie odebrane powiadomienia?"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wil je je echt afmelden voor dit onderwerp en alle ontvangen meldingen verwijderen?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voulez-vous vraiment vous désabonner de ce sujet et supprimer toutes les notifications reçues ?"
           }
         }
       }
@@ -8538,53 +8162,6 @@
         }
       }
     },
-    "It looks like you don't have any subscriptions yet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "It looks like you don't have any subscriptions yet"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast noch keine Themen abonniert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parece que aún no tienes suscripciones"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non hai ancora iscrizioni"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nie masz jeszcze żadnych subskrypcji"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je hebt nog geen abonnementen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous n’avez pas encore d’abonnements"
-          }
-        }
-      }
-    },
     "Keep editing": {
       "extractionState": "manual",
       "localizations": {
@@ -9432,53 +9009,6 @@
         }
       }
     },
-    "Message actions": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Message actions"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nachrichtenaktionen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acciones del mensaje"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Azioni messaggio"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Działania wiadomości"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Berichtacties"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actions du message"
-          }
-        }
-      }
-    },
     "Message images no longer disappear from the app after appearing in a notification.": {
       "extractionState": "manual",
       "localizations": {
@@ -9902,143 +9432,143 @@
         }
       }
     },
-    "NTFY me is built on these open-source projects.": {
+    "NTF-AI is built on these open-source projects.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me is built on these open-source projects."
+            "value": "NTF-AI is built on these open-source projects."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me basiert auf diesen Open-Source-Projekten."
+            "value": "NTF-AI basiert auf diesen Open-Source-Projekten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me está basada en estos proyectos de código abierto."
+            "value": "NTF-AI está basada en estos proyectos de código abierto."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me si basa su questi progetti open source."
+            "value": "NTF-AI si basa su questi progetti open source."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me korzysta z tych projektów open source."
+            "value": "NTF-AI korzysta z tych projektów open source."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me gebruikt deze opensourceprojecten."
+            "value": "NTF-AI gebruikt deze opensourceprojecten."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me repose sur ces projets open source."
+            "value": "NTF-AI repose sur ces projets open source."
           }
         }
       }
     },
-    "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
+    "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
+            "value": "NTF-AI needs camera access to scan a QR code. You can allow it in Settings, or type the topic and server in instead."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
+            "value": "NTF-AI benötigt Kamerazugriff zum Scannen von QR-Codes. Du kannst ihn in den Einstellungen erlauben oder Thema und Server von Hand eingeben."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
+            "value": "NTF-AI necesita acceso a la cámara para escanear un código QR. Puedes permitirlo en Ajustes o introducir el tópico y el servidor manualmente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
+            "value": "NTF-AI richiede l'accesso alla fotocamera per scansionare un codice QR. Puoi consentirlo in Impostazioni o inserire argomento e server a mano."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
+            "value": "NTF-AI potrzebuje dostępu do aparatu, aby zeskanować kod QR. Możesz zezwolić na to w Ustawieniach lub wpisać temat i serwer ręcznie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
+            "value": "NTF-AI heeft cameratoegang nodig om een QR-code te scannen. Je kunt dit toestaan in Instellingen of het onderwerp en de server zelf invullen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
+            "value": "NTF-AI a besoin d’accéder à l’appareil photo pour scanner un code QR. Autorisez cet accès dans Réglages ou saisissez le sujet et le serveur."
           }
         }
       }
     },
-    "NTFY me test": {
+    "NTF-AI test": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me test"
+            "value": "NTF-AI test"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me-Test"
+            "value": "NTF-AI-Test"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prueba de NTFY me"
+            "value": "Prueba de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prova NTFY me"
+            "value": "Prova NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test NTFY me"
+            "value": "Test NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTFY me-test"
+            "value": "NTF-AI-test"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test NTFY me"
+            "value": "Test NTF-AI"
           }
         }
       }
@@ -12346,53 +11876,6 @@
         }
       }
     },
-    "Permanently delete": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permanently delete"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Endgültig löschen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eliminar definitivamente"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elimina definitivamente"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usuń trwale"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Definitief verwijderen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Supprimer définitivement"
-          }
-        }
-      }
-    },
     "Permission": {
       "extractionState": "manual",
       "localizations": {
@@ -13521,53 +13004,6 @@
         }
       }
     },
-    "Read": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gelesen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leído"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Letto"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Przeczytane"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gelezen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lu"
-          }
-        }
-      }
-    },
     "Reading or dismissing notifications on a self-hosted topic now helps clear them on your other devices.": {
       "extractionState": "manual",
       "localizations": {
@@ -13987,147 +13423,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Renommer"
-          }
-        }
-      }
-    },
-    "Repair": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repair"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparar"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ripara"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Napraw"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Herstellen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réparer"
-          }
-        }
-      }
-    },
-    "Repair is still running. Check again in a moment.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repair is still running. Check again in a moment."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Reparatur läuft noch. Prüfe es gleich noch einmal."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La reparación sigue en curso. Compruébala de nuevo en un momento."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La riparazione è ancora in corso. Ricontrolla tra poco."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naprawa nadal trwa. Sprawdź ponownie za chwilę."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Het herstel loopt nog. Controleer het zo opnieuw."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La réparation est encore en cours. Vérifiez à nouveau dans un instant."
-          }
-        }
-      }
-    },
-    "Repairing…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Repairing…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wird repariert…"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reparando…"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riparazione…"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naprawianie…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Herstellen…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réparation…"
           }
         }
       }
@@ -14885,53 +14180,6 @@
         }
       }
     },
-    "Send test notification": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send test notification"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Testnachricht senden"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enviar notificación de prueba"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Invia notifica di prova"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wyślij powiadomienie testowe"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Testmelding sturen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envoyer une notification de test"
-          }
-        }
-      }
-    },
     "Sending needs write access to this topic; read access alone isn't enough.": {
       "extractionState": "manual",
       "localizations": {
@@ -15022,53 +14270,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Envoi…"
-          }
-        }
-      }
-    },
-    "Sent without this topic's password. Anyone who knows the topic name could have sent it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sent without this topic's password. Anyone who knows the topic name could have sent it."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ohne Passwort dieses Themas gesendet. Jeder mit Kenntnis des Themennamens könnte sie gesendet haben."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se envió sin la contraseña de este tópico. Cualquiera que conozca su nombre podría haberlo enviado."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inviato senza la password di questo argomento. Chiunque ne conosca il nome potrebbe averlo inviato."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wysłano bez hasła tego tematu. Mógł to zrobić każdy, kto zna jego nazwę."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verstuurd zonder het wachtwoord van dit onderwerp. Iedereen die de onderwerpnaam kent, kan dit hebben gestuurd."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envoyé sans le mot de passe du sujet. Toute personne qui connaît le nom du sujet aurait pu l’envoyer."
           }
         }
       }
@@ -15304,53 +14505,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "URL du serveur"
-          }
-        }
-      }
-    },
-    "Set a custom name for this subscription. Leave empty to use the topic name.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set a custom name for this subscription. Leave empty to use the topic name."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lege einen eigenen Namen für dieses Abo fest. Lass das Feld leer, um den Themennamen zu verwenden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Define un nombre para esta suscripción. Déjalo vacío para usar el nombre del tópico."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imposta un nome personalizzato per questa iscrizione. Lascia vuoto per usare il nome dell'argomento."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ustaw własną nazwę tej subskrypcji. Pozostaw puste, aby użyć nazwy tematu."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kies een eigen naam voor dit abonnement. Laat dit leeg om de onderwerpnaam te gebruiken."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un nom personnalisé pour cet abonnement. Laissez vide pour utiliser le nom du sujet."
           }
         }
       }
@@ -16248,53 +15402,6 @@
         }
       }
     },
-    "Subscribed topics": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subscribed topics"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abonnierte Themen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Iscrizioni"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topics"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets"
-          }
-        }
-      }
-    },
     "Swipe a message to mark it read or unread. Long-press a topic to pin it, mark it read or unsubscribe.": {
       "extractionState": "manual",
       "localizations": {
@@ -16432,53 +15539,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Étiquettes : %@"
-          }
-        }
-      }
-    },
-    "Tap + to create a topic. Then send it a message from any computer or script, and it shows up here and as a notification.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap + to create a topic. Then send it a message from any computer or script, and it shows up here and as a notification."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippe auf +, um ein Thema anzulegen. Sende ihm dann von einem Computer oder Skript eine Nachricht. Sie erscheint hier und als Benachrichtigung."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca + para crear un tópico. Envía un mensaje desde cualquier computadora o script y aparecerá aquí y como notificación."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tocca + per creare un argomento. Inviagli un messaggio da un computer o uno script: comparirà qui e come notifica."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stuknij +, aby utworzyć temat. Następnie wyślij do niego wiadomość z dowolnego komputera lub skryptu. Pojawi się tutaj i jako powiadomienie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tik op + om een onderwerp te maken. Stuur daarna een bericht vanaf een computer of script. Het verschijnt hier en als melding."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez + pour créer un sujet. Envoyez-lui ensuite un message depuis un ordinateur ou un script : il apparaîtra ici et sous forme de notification."
           }
         }
       }
@@ -17090,53 +16150,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossible d’enregistrer les en-têtes dans le trousseau."
-          }
-        }
-      }
-    },
-    "The last download attempt failed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The last download attempt failed."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der letzte Downloadversuch ist fehlgeschlagen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El último intento de descarga falló."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'ultimo tentativo di download non è riuscito."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ostatnia próba pobrania nie powiodła się."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De laatste downloadpoging is mislukt."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La dernière tentative de téléchargement a échoué."
           }
         }
       }
@@ -18570,191 +17583,191 @@
         }
       }
     },
-    "This is a test notification from NTFY me": {
+    "This is a test notification from NTF-AI": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me"
+            "value": "This is a test notification from NTF-AI"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me"
+            "value": "Dies ist eine Testnachricht von NTF-AI"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me"
+            "value": "Esta es una notificación de prueba de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me"
+            "value": "Questa è una notifica di prova da NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me"
+            "value": "To jest powiadomienie testowe z NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me"
+            "value": "Dit is een testmelding van NTF-AI"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me"
+            "value": "Ceci est une notification de test de NTF-AI"
           }
         }
       },
       "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
     },
-    "This is a test notification from NTFY me (wake-up forwarding check).": {
+    "This is a test notification from NTF-AI (wake-up forwarding check).": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me (wake-up forwarding check)."
+            "value": "This is a test notification from NTF-AI (wake-up forwarding check)."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me (Weiterleitungsprüfung)."
+            "value": "Dies ist eine Testnachricht von NTF-AI (Weiterleitungsprüfung)."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me (comprobación de reenvío de avisos)."
+            "value": "Esta es una notificación de prueba de NTF-AI (comprobación de reenvío de avisos)."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me (controllo dell'inoltro del risveglio)."
+            "value": "Questa è una notifica di prova da NTF-AI (controllo dell'inoltro del risveglio)."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me (test przekazywania sygnałów wybudzenia)."
+            "value": "To jest powiadomienie testowe z NTF-AI (test przekazywania sygnałów wybudzenia)."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me (controle van doorgestuurde activeringssignalen)."
+            "value": "Dit is een testmelding van NTF-AI (controle van doorgestuurde activeringssignalen)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me (vérification du relais des demandes de réveil)."
+            "value": "Ceci est une notification de test de NTF-AI (vérification du relais des demandes de réveil)."
           }
         }
       }
     },
-    "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different.": {
+    "This is a test notification from NTF-AI. It has a priority of %lld. If you send another one, it may look different.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different."
+            "value": "This is a test notification from NTF-AI. It has a priority of %lld. If you send another one, it may look different."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
+            "value": "Dies ist eine Testnachricht von NTF-AI mit Priorität %lld. Eine weitere Testnachricht kann anders aussehen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me. Tiene prioridad %lld. Si envías otra, puede verse diferente."
+            "value": "Esta es una notificación de prueba de NTF-AI. Tiene prioridad %lld. Si envías otra, puede verse diferente."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
+            "value": "Questa è una notifica di prova da NTF-AI. Ha priorità %lld. La prossima potrebbe avere un aspetto diverso."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me. Ma priorytet %lld. Następne może wyglądać inaczej."
+            "value": "To jest powiadomienie testowe z NTF-AI. Ma priorytet %lld. Następne może wyglądać inaczej."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
+            "value": "Dit is een testmelding van NTF-AI. De prioriteit is %lld. Een volgende testmelding kan er anders uitzien."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
+            "value": "Ceci est une notification de test de NTF-AI. Sa priorité est de %lld. Une autre notification peut avoir un aspect différent."
           }
         }
       }
     },
-    "This is a test notification from NTFY me. Your topic is ready.": {
+    "This is a test notification from NTF-AI. Your topic is ready.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is a test notification from NTFY me. Your topic is ready."
+            "value": "This is a test notification from NTF-AI. Your topic is ready."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies ist eine Testnachricht von NTFY me. Dein Thema ist bereit."
+            "value": "Dies ist eine Testnachricht von NTF-AI. Dein Thema ist bereit."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta es una notificación de prueba de NTFY me. Tu tópico está listo."
+            "value": "Esta es una notificación de prueba de NTF-AI. Tu tópico está listo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questa è una notifica di prova da NTFY me. Il tuo argomento è pronto."
+            "value": "Questa è una notifica di prova da NTF-AI. Il tuo argomento è pronto."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "To jest powiadomienie testowe z NTFY me. Twój temat jest gotowy."
+            "value": "To jest powiadomienie testowe z NTF-AI. Twój temat jest gotowy."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dit is een testmelding van NTFY me. Je onderwerp is klaar voor gebruik."
+            "value": "Dit is een testmelding van NTF-AI. Je onderwerp is klaar voor gebruik."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceci est une notification de test de NTFY me. Votre sujet est prêt."
+            "value": "Ceci est une notification de test de NTF-AI. Votre sujet est prêt."
           }
         }
       }
@@ -19417,53 +18430,6 @@
         }
       }
     },
-    "Topic name, e.g. alerts-k7m2-x9qp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topic name, e.g. alerts-k7m2-x9qp"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Themenname"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nombre del tópico"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nome argomento"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nazwa tematu"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpnaam"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nom du sujet"
-          }
-        }
-      }
-    },
     "Topic names can only use letters, numbers, dashes and underscores, up to 64 characters.": {
       "extractionState": "manual",
       "localizations": {
@@ -19601,53 +18567,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les sujets de ce serveur peuvent nécessiter une nouvelle connexion."
-          }
-        }
-      }
-    },
-    "Topics waiting for push": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topics waiting for push"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Themen ohne Push-Anbindung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos pendientes de avisos"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Argomenti in attesa del push"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy oczekujące na push"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpen die op push wachten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets en attente de push"
           }
         }
       }
@@ -21788,96 +20707,49 @@
         }
       }
     },
-    "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
+    "Your topic moved to ntf-ai.app": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
+            "value": "Your topic moved to ntf-ai.app"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die upstream-base-url deines Servers muss https://ntfy-me.com sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
+            "value": "Dein Thema ist jetzt auf ntf-ai.app"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El upstream-base-url del servidor debe ser https://ntfy-me.com. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
+            "value": "Tu tópico se trasladó a ntf-ai.app"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'upstream-base-url del tuo server deve essere https://ntfy-me.com. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
+            "value": "Il tuo argomento è stato spostato su ntf-ai.app"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wartość upstream-base-url Twojego serwera musi wynosić https://ntfy-me.com. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
+            "value": "Twój temat przeniesiono na ntf-ai.app"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De upstream-base-url van je server moet https://ntfy-me.com zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
+            "value": "Je onderwerp is verhuisd naar ntf-ai.app"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La valeur upstream-base-url de votre serveur doit être https://ntfy-me.com. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
-          }
-        }
-      }
-    },
-    "Your topic moved to ntfy-me.com": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your topic moved to ntfy-me.com"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dein Thema ist jetzt auf ntfy-me.com"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu tópico se trasladó a ntfy-me.com"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il tuo argomento è stato spostato su ntfy-me.com"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Twój temat przeniesiono na ntfy-me.com"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je onderwerp is verhuisd naar ntfy-me.com"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre sujet a été déplacé vers ntfy-me.com"
+            "value": "Votre sujet a été déplacé vers ntf-ai.app"
           }
         }
       }
@@ -21929,49 +20801,49 @@
         }
       }
     },
-    "Your topics moved to ntfy-me.com": {
+    "Your topics moved to ntf-ai.app": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your topics moved to ntfy-me.com"
+            "value": "Your topics moved to ntf-ai.app"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deine Themen sind jetzt auf ntfy-me.com"
+            "value": "Deine Themen sind jetzt auf ntf-ai.app"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus tópicos se trasladaron a ntfy-me.com"
+            "value": "Tus tópicos se trasladaron a ntf-ai.app"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "I tuoi argomenti sono stati spostati su ntfy-me.com"
+            "value": "I tuoi argomenti sono stati spostati su ntf-ai.app"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Twoje tematy przeniesiono na ntfy-me.com"
+            "value": "Twoje tematy przeniesiono na ntf-ai.app"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je onderwerpen zijn verhuisd naar ntfy-me.com"
+            "value": "Je onderwerpen zijn verhuisd naar ntf-ai.app"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos sujets ont été déplacés vers ntfy-me.com"
+            "value": "Vos sujets ont été déplacés vers ntf-ai.app"
           }
         }
       }
@@ -22514,49 +21386,49 @@
         }
       }
     },
-    "ntfy NextGen support": {
+    "NTF-AI support": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen support"
+            "value": "NTF-AI support"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen-Hilfe"
+            "value": "NTF-AI-Hilfe"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soporte de ntfy NextGen"
+            "value": "Soporte de NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistenza ntfy NextGen"
+            "value": "Assistenza NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pomoc ntfy NextGen"
+            "value": "Pomoc NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy NextGen-ondersteuning"
+            "value": "NTF-AI-ondersteuning"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assistance ntfy NextGen"
+            "value": "Assistance NTF-AI"
           }
         }
       }
@@ -22604,53 +21476,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Documentation de ntfy"
-          }
-        }
-      }
-    },
-    "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com hat um %@ ein Wecksignal für dieses Thema erhalten und FCM hat es angenommen. Das bestätigt weder den Empfang auf deinem Gerät noch, dass dieser Test das Wecksignal ausgelöst hat."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com recibió un aviso para este tópico a las %@ y FCM lo aceptó. Esto no demuestra que tu dispositivo lo recibiera ni que esta prueba lo causara."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com ha ricevuto un segnale di risveglio per questo argomento alle %@ e FCM lo ha accettato. Questo non prova che il dispositivo l'abbia ricevuto o che il segnale sia stato causato da questa prova."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com odebrał sygnał wybudzenia dla tego tematu o %@, a FCM go przyjął. Nie dowodzi to odebrania przez urządzenie ani tego, że sygnał wywołał ten test."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com heeft om %@ een activeringssignaal voor dit onderwerp ontvangen en FCM heeft het geaccepteerd. Dit bewijst niet dat je apparaat het ontving of dat deze test het signaal veroorzaakte."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy-me.com a reçu une demande de réveil pour ce sujet à %@, et FCM l’a acceptée. Cela ne prouve ni sa réception sur votre appareil ni que ce test l’a déclenchée."
           }
         }
       }
@@ -22747,54 +21572,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scanner"
-          }
-        }
-      }
-    },
-    "subscription.add.title": {
-      "extractionState": "manual",
-      "comment": "Short navigation title; the add button has a separate spoken label.",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add subscription"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abo"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuevo"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuova"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nowy"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nieuw"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajout"
           }
         }
       }
@@ -23364,49 +22141,49 @@
         }
       }
     },
-    "Open NTFY me and subscribe to a topic first. Then share this item again.": {
+    "Open NTF-AI and subscribe to a topic first. Then share this item again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open NTFY me and subscribe to a topic first. Then share this item again."
+            "value": "Open NTF-AI and subscribe to a topic first. Then share this item again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne NTFY me und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
+            "value": "Öffne NTF-AI und abonniere zuerst ein Thema. Teile dieses Objekt danach erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre NTFY me y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
+            "value": "Abre NTF-AI y suscríbete a un tópico primero. Luego vuelve a compartir este elemento."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri NTFY me e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
+            "value": "Apri NTF-AI e iscriviti prima a un argomento. Poi condividi di nuovo questo elemento."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otwórz NTFY me i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
+            "value": "Otwórz NTF-AI i najpierw zasubskrybuj temat. Następnie udostępnij ten element ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open NTFY me en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
+            "value": "Open NTF-AI en abonneer je eerst op een onderwerp. Deel dit onderdeel daarna opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez NTFY me et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
+            "value": "Ouvrez NTF-AI et abonnez-vous d’abord à un sujet. Partagez ensuite cet élément à nouveau."
           }
         }
       }
@@ -23552,49 +22329,49 @@
         }
       }
     },
-    "Share to NTFY me": {
+    "Share to NTF-AI": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share to NTFY me"
+            "value": "Share to NTF-AI"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit NTFY me teilen"
+            "value": "Mit NTF-AI teilen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartir con NTFY me"
+            "value": "Compartir con NTF-AI"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condividi con NTFY me"
+            "value": "Condividi con NTF-AI"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Udostępnij w NTFY me"
+            "value": "Udostępnij w NTF-AI"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delen met NTFY me"
+            "value": "Delen met NTF-AI"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager avec NTFY me"
+            "value": "Partager avec NTF-AI"
           }
         }
       }
@@ -25662,49 +24439,49 @@
         }
       }
     },
-    "A topic you subscribe to in NTFY me.": {
+    "A topic you subscribe to in NTF-AI.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A topic you subscribe to in NTFY me."
+            "value": "A topic you subscribe to in NTF-AI."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein in NTFY me abonniertes Thema."
+            "value": "Ein in NTF-AI abonniertes Thema."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un tópico al que te suscribes en NTFY me."
+            "value": "Un tópico al que te suscribes en NTF-AI."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un argomento sottoscritto in NTFY me."
+            "value": "Un argomento sottoscritto in NTF-AI."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Temat subskrybowany w NTFY me."
+            "value": "Temat subskrybowany w NTF-AI."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een onderwerp waarop je in NTFY me bent geabonneerd."
+            "value": "Een onderwerp waarop je in NTF-AI bent geabonneerd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un sujet que vous suivez dans NTFY me."
+            "value": "Un sujet que vous suivez dans NTF-AI."
           }
         }
       }
@@ -25850,49 +24627,49 @@
         }
       }
     },
-    "Topics could not be read. Unlock your device and open NTFY me, then try again.": {
+    "Topics could not be read. Unlock your device and open NTF-AI, then try again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Topics could not be read. Unlock your device and open NTFY me, then try again."
+            "value": "Topics could not be read. Unlock your device and open NTF-AI, then try again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne NTFY me und versuche es erneut."
+            "value": "Die Themen konnten nicht gelesen werden. Entsperre dein Gerät, öffne NTF-AI und versuche es erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre NTFY me y vuelve a intentarlo."
+            "value": "No se pudieron leer los tópicos. Desbloquea el dispositivo, abre NTF-AI y vuelve a intentarlo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri NTFY me, poi riprova."
+            "value": "Impossibile leggere gli argomenti. Sblocca il dispositivo e apri NTF-AI, poi riprova."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz NTFY me, a następnie spróbuj ponownie."
+            "value": "Nie można odczytać tematów. Odblokuj urządzenie i otwórz NTF-AI, a następnie spróbuj ponownie."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open NTFY me en probeer het opnieuw."
+            "value": "De onderwerpen konden niet worden gelezen. Ontgrendel je apparaat, open NTF-AI en probeer het opnieuw."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez NTFY me, puis réessayez."
+            "value": "Impossible de lire les sujets. Déverrouillez votre appareil et ouvrez NTF-AI, puis réessayez."
           }
         }
       }
@@ -25991,49 +24768,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me. Nothing was sent.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI. Nothing was sent.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me. Nothing was sent."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI. Nothing was sent."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTFY me. Es wurde nichts gesendet."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTF-AI. Es wurde nichts gesendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en NTFY me. No se envió nada."
+            "value": "Ya no estás suscrito a este tópico. Elige otro o vuelve a suscribirte en NTF-AI. No se envió nada."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in NTFY me. Non è stato inviato nulla."
+            "value": "Questo argomento non è più sottoscritto. Scegline un altro o sottoscrivilo di nuovo in NTF-AI. Non è stato inviato nulla."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w NTFY me. Nic nie wysłano."
+            "value": "Ten temat nie jest już subskrybowany. Wybierz inny lub zasubskrybuj go ponownie w NTF-AI. Nic nie wysłano."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in NTFY me. Er is niets verstuurd."
+            "value": "Je bent niet meer op dit onderwerp geabonneerd. Kies een ander onderwerp of abonneer je opnieuw in NTF-AI. Er is niets verstuurd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans NTFY me. Rien n’a été envoyé."
+            "value": "Vous ne suivez plus ce sujet. Choisissez un autre sujet ou suivez-le à nouveau dans NTF-AI. Rien n’a été envoyé."
           }
         }
       }
@@ -27813,49 +26590,49 @@
         }
       }
     },
-    "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me.": {
+    "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTFY me."
+            "value": "This topic is no longer subscribed. Choose another topic or subscribe again in NTF-AI."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTFY me."
+            "value": "Dieses Thema ist nicht mehr abonniert. Wähle ein anderes Thema oder abonniere es erneut in NTF-AI."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en NTFY me."
+            "value": "Ya no estás suscrito a este tópico. Elige otro tópico o vuelve a suscribirte en NTF-AI."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in NTFY me."
+            "value": "Non sei più iscritto a questo argomento. Scegli un altro argomento o iscriviti di nuovo in NTF-AI."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w NTFY me."
+            "value": "Nie subskrybujesz już tego tematu. Wybierz inny temat lub zasubskrybuj ponownie w NTF-AI."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in NTFY me."
+            "value": "Je bent niet meer geabonneerd op dit onderwerp. Kies een ander onderwerp of abonneer je opnieuw in NTF-AI."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans NTFY me."
+            "value": "Vous n’êtes plus abonné à ce sujet. Choisissez un autre sujet ou abonnez-vous à nouveau dans NTF-AI."
           }
         }
       }
@@ -29860,6 +28637,4050 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les liens longs fonctionnent en entier, les mots passent normalement à la ligne et le code Markdown suit les changements de taille du texte."
+          }
+        }
+      }
+    },
+    "This is a test notification from NTFY me": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a test notification from NTFY me"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dies ist eine Testnachricht von NTFY me"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta es una notificación de prueba de NTFY me"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa è una notifica di prova da NTFY me"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To jest powiadomienie testowe z NTFY me"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit is een testmelding van NTFY me"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ceci est une notification de test de NTFY me"
+          }
+        }
+      },
+      "comment": "Prefix used to exclude app-generated test messages from delivery evidence. Translated test messages must begin with its translation."
+    },
+    "NTF-AI. Same app, same topics, same settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Same app, same topics, same settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Dieselbe App, dieselben Themen, dieselben Einstellungen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. La misma app, los mismos tópicos y los mismos ajustes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Stessa app, stessi argomenti, stesse impostazioni."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Ta sama aplikacja, te same tematy i ustawienia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Dezelfde app, dezelfde onderwerpen, dezelfde instellingen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI. Même app, mêmes sujets, mêmes réglages."
+          }
+        }
+      }
+    },
+    "Topics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets"
+          }
+        }
+      }
+    },
+    "No topics yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No topics yet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Themen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay tópicos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie ma jeszcze tematów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog geen onderwerpen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun sujet pour l’instant"
+          }
+        }
+      }
+    },
+    "Messages to your topics show up here and as notifications.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages to your topics show up here and as notifications."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten an deine Themen erscheinen hier und als Benachrichtigung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los mensajes enviados a tus tópicos aparecen aquí y como notificaciones."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I messaggi inviati ai tuoi argomenti compaiono qui e come notifiche."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości wysłane do Twoich tematów pojawiają się tutaj i jako powiadomienia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berichten naar je onderwerpen verschijnen hier en als melding."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les messages envoyés à vos sujets s’affichent ici et sous forme de notifications."
+          }
+        }
+      }
+    },
+    "Create a topic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a topic"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thema anlegen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear un tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea un argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utwórz temat"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerp maken"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un sujet"
+          }
+        }
+      }
+    },
+    "Copy title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy title"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar título"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia titolo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj tytuł"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel kopiëren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le titre"
+          }
+        }
+      }
+    },
+    "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages marked Not encrypted were sent without this topic's password. Anyone who knows the topic name could have sent them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten mit „Nicht verschlüsselt“ wurden ohne Passwort dieses Themas gesendet. Jeder mit Kenntnis des Themennamens könnte sie gesendet haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los mensajes marcados como «Sin cifrar» se enviaron sin la contraseña de este tópico. Cualquiera que conozca su nombre podría haberlos enviado."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I messaggi contrassegnati come 'Non cifrato' sono stati inviati senza la password di questo argomento. Chiunque ne conosca il nome potrebbe averli inviati."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości oznaczone jako „Niezaszyfrowane” wysłano bez hasła tego tematu. Mógł je wysłać każdy, kto zna jego nazwę."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berichten met 'Niet versleuteld' zijn verstuurd zonder het wachtwoord van dit onderwerp. Iedereen die de onderwerpnaam kent, kan ze hebben gestuurd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les messages marqués « Non chiffré » ont été envoyés sans le mot de passe du sujet. Toute personne qui connaît le nom du sujet aurait pu les envoyer."
+          }
+        }
+      }
+    },
+    "Topic name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topic name"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themenname"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazwa tematu"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpnaam"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du sujet"
+          }
+        }
+      }
+    },
+    "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wer einen Themennamen kennt, kann Nachrichten lesen und senden. Wähle daher einen schwer zu erratenden Namen wie alerts‑k7m2 oder tippe auf „Zufällig“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cualquiera que conozca el nombre de un tópico puede leer y enviar mensajes. Elige uno difícil de adivinar, como alerts‑k7m2, o toca Aleatorio."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi conosce il nome di un argomento può leggerne e inviarne i messaggi. Scegli un nome difficile da indovinare, come alerts‑k7m2, o tocca Casuale."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Każdy, kto zna nazwę tematu, może czytać i wysyłać w nim wiadomości. Wybierz więc trudną do odgadnięcia nazwę, np. alerts‑k7m2, lub stuknij „Losowa”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iedereen die een onderwerpnaam kent, kan berichten lezen en sturen. Kies daarom een moeilijk te raden naam, zoals alerts‑k7m2, of tik op Willekeurig."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toute personne qui connaît le nom d’un sujet peut lire et envoyer ses messages. Choisissez un nom difficile à deviner, comme alerts‑k7m2, ou touchez Aléatoire."
+          }
+        }
+      }
+    },
+    "About this server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About this server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über diesen Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de este servidor"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informazioni su questo server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O tym serwerze"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Over deze server"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de ce serveur"
+          }
+        }
+      }
+    },
+    "New topics use %@, a free public server. Any ntfy server works: turn on \"Use another server\".": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New topics use %@, a free public server. Any ntfy server works: turn on \"Use another server\"."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Themen nutzen %@, einen kostenlosen öffentlichen Server. Jeder ntfy-Server funktioniert: Aktiviere „Anderen Server verwenden“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los nuevos tópicos usan %@, un servidor público gratuito. Puedes usar cualquier servidor ntfy: activa «Usar otro servidor»."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I nuovi argomenti usano %@, un server pubblico gratuito. Funziona qualsiasi server ntfy: attiva 'Usa un altro server'."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowe tematy używają %@, bezpłatnego serwera publicznego. Działa dowolny serwer ntfy: włącz „Użyj innego serwera”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieuwe onderwerpen gebruiken %@, een gratis openbare server. Elke ntfy-server werkt: zet 'Andere server gebruiken' aan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les nouveaux sujets utilisent %@, un serveur public gratuit. Tout serveur ntfy convient : activez « Utiliser un autre serveur »."
+          }
+        }
+      }
+    },
+    "Topics without push": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics without push"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen ohne Push-Anbindung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos sin avisos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti senza push"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy bez push"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen zonder push"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets sans push"
+          }
+        }
+      }
+    },
+    "Re-register device": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-register device"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerät neu registrieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a registrar el dispositivo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra di nuovo il dispositivo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zarejestruj urządzenie ponownie"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apparaat opnieuw registreren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réenregistrer l’appareil"
+          }
+        }
+      }
+    },
+    "Re-registering…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-registering…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird neu registriert…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrando de nuevo…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuova registrazione…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowna rejestracja…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opnieuw registreren…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réenregistrement…"
+          }
+        }
+      }
+    },
+    "Re-registration is still running. Check again in a moment.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-registration is still running. Check again in a moment."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Neuregistrierung läuft noch. Prüfe es gleich noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El nuevo registro sigue en curso. Compruébalo de nuevo en un momento."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La nuova registrazione è ancora in corso. Ricontrolla tra poco."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowna rejestracja nadal trwa. Sprawdź ponownie za chwilę."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Het opnieuw registreren loopt nog. Controleer het zo opnieuw."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le réenregistrement est encore en cours. Vérifiez à nouveau dans un instant."
+          }
+        }
+      }
+    },
+    "more": {
+      "comment": "Trailing cue under a message cut at six lines; tapping it shows the rest.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "more"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mehr"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "más"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "altro"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "więcej"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "meer"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "plus"
+          }
+        }
+      }
+    },
+    "less": {
+      "comment": "Shown in place of \"more\" under an expanded message; tapping it cuts the message back to six lines.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weniger"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "menos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "meno"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mniej"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "minder"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moins"
+          }
+        }
+      }
+    },
+    "Delete all messages in %@?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all messages in %@?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Nachrichten in %@ löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar todos los mensajes de %@?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminare tutti i messaggi in %@?"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usunąć wszystkie wiadomości w %@?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle berichten in %@ verwijderen?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer tous les messages de %@ ?"
+          }
+        }
+      }
+    },
+    "Unsubscribe from %@?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsubscribe from %@?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ abbestellen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cancelar la suscripción a %@?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annullare l'iscrizione a %@?"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anulować subskrypcję %@?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afmelden voor %@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se désabonner de %@ ?"
+          }
+        }
+      }
+    },
+    "This can't be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This can't be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das kann nicht rückgängig gemacht werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta acción no se puede deshacer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa azione non può essere annullata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tej operacji nie można cofnąć."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit kan niet ongedaan worden gemaakt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "Its messages are deleted from this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its messages are deleted from this device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Nachrichten des Themas werden von diesem Gerät gelöscht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sus mensajes se eliminan de este dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I suoi messaggi vengono eliminati da questo dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiadomości tego tematu zostaną usunięte z tego urządzenia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De berichten van dit onderwerp worden van dit apparaat verwijderd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses messages sont supprimés de cet appareil."
+          }
+        }
+      }
+    },
+    "Add topic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add topic"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neues Thema"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dodaj temat"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieuw onderwerp"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un sujet"
+          }
+        }
+      }
+    },
+    "Set a custom name for this topic. Leave empty to use the topic name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a custom name for this topic. Leave empty to use the topic name."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lege einen eigenen Namen für dieses Thema fest. Lass das Feld leer, um den Themennamen zu verwenden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Define un nombre para este tópico. Déjalo vacío para usar el nombre del tópico."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imposta un nome personalizzato per questo argomento. Lascia vuoto per usare il nome dell'argomento."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ustaw własną nazwę tego tematu. Pozostaw puste, aby użyć nazwy tematu."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kies een eigen naam voor dit onderwerp. Laat dit leeg om de onderwerpnaam te gebruiken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un nom personnalisé pour ce sujet. Laissez vide pour utiliser le nom du sujet."
+          }
+        }
+      }
+    },
+    "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe, ob %@ weitergeleitete Wecksignale für dieses Thema erhält. Das bestätigt keine Zustellung an dein Gerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba si %@ recibe avisos reenviados de este tópico. Esto no demuestra la entrega al dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica se %@ riceve i segnali di risveglio inoltrati per questo argomento. Non prova la consegna al dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź, czy %@ odbiera przekazane sygnały wybudzenia dla tego tematu. Nie potwierdza to dostarczenia na urządzenie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controleer of %@ doorgestuurde activeringssignalen voor dit onderwerp ontvangt. Dit bewijst geen bezorging op je apparaat."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez si %@ reçoit les demandes de réveil relayées pour ce sujet. Cela ne prouve pas leur réception sur votre appareil."
+          }
+        }
+      }
+    },
+    "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat um %@ ein Wecksignal für dieses Thema erhalten und FCM hat es angenommen. Das bestätigt weder den Empfang auf deinem Gerät noch, dass dieser Test das Wecksignal ausgelöst hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ recibió un aviso para este tópico a las %@ y FCM lo aceptó. Esto no demuestra que tu dispositivo lo recibiera ni que esta prueba lo causara."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha ricevuto un segnale di risveglio per questo argomento alle %@ e FCM lo ha accettato. Questo non prova che il dispositivo l'abbia ricevuto o che il segnale sia stato causato da questa prova."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ odebrał sygnał wybudzenia dla tego tematu o %@, a FCM go przyjął. Nie dowodzi to odebrania przez urządzenie ani tego, że sygnał wywołał ten test."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ heeft om %@ een activeringssignaal voor dit onderwerp ontvangen en FCM heeft het geaccepteerd. Dit bewijst niet dat je apparaat het ontving of dat deze test het signaal veroorzaakte."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a reçu une demande de réveil pour ce sujet à %@, et FCM l’a acceptée. Cela ne prouve ni sa réception sur votre appareil ni que ce test l’a déclenchée."
+          }
+        }
+      }
+    },
+    "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die upstream-base-url deines Servers muss %@ sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El upstream-base-url del servidor debe ser %@. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'upstream-base-url del tuo server deve essere %@. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartość upstream-base-url Twojego serwera musi wynosić %@. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De upstream-base-url van je server moet %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La valeur upstream-base-url de votre serveur doit être %@. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
+          }
+        }
+      }
+    },
+    "Send test": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send test"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test senden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar prueba"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invia prova"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyślij test"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test sturen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer un test"
+          }
+        }
+      }
+    },
+    "Delete %lld messages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld message"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Delete %lld messages"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Nachricht löschen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Nachrichten löschen"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar %lld mensaje"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar %lld mensajes"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Eliminar %lld mensajes"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Elimina %lld messaggio"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Elimina %lld messaggi"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Elimina %lld messaggi"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld wiadomość"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld wiadomości"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld wiadomości"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuń %lld wiadomości"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld bericht verwijderen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld berichten verwijderen"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Supprimer %lld message"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Supprimer %lld messages"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Supprimer %lld messages"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Inbox": {
+      "extractionState": "manual",
+      "comment": "Tab: questions waiting on you and every agent's messages",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingang"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibidos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In arrivo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrane"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réception"
+          }
+        }
+      }
+    },
+    "Search": {
+      "extractionState": "manual",
+      "comment": "Tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerca"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Szukaj"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoeken"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher"
+          }
+        }
+      }
+    },
+    "Activity": {
+      "extractionState": "manual",
+      "comment": "Inbox section: every topic's messages, newest first",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activity"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktivität"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividad"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktywność"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activiteit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité"
+          }
+        }
+      }
+    },
+    "Waiting on you": {
+      "extractionState": "manual",
+      "comment": "Inbox section: questions agents are blocked on",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting on you"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf dich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando tu respuesta"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa di una tua risposta"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czeka na twoją odpowiedź"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht op jou"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de votre réponse"
+          }
+        }
+      }
+    },
+    "Show all %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle %lld anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar las %lld"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra tutte (%lld)"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż wszystkie (%lld)"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle %lld tonen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout afficher (%lld)"
+          }
+        }
+      }
+    },
+    "Not needed": {
+      "extractionState": "manual",
+      "comment": "Swipe: take a question out of Waiting without answering",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not needed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht nötig"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hace falta"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non serve"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niepotrzebne"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niet nodig"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inutile"
+          }
+        }
+      }
+    },
+    "Show more": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show more"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar más"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra altro"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż więcej"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meer tonen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher plus"
+          }
+        }
+      }
+    },
+    "Reply": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antworten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responder"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rispondi"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedz"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwoorden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondre"
+          }
+        }
+      }
+    },
+    "Open link": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open link"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir enlace"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri link"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz link"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link openen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir le lien"
+          }
+        }
+      }
+    },
+    "Open message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open message"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachricht öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir mensaje"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri messaggio"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz wiadomość"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bericht openen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir le message"
+          }
+        }
+      }
+    },
+    "Sending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sending"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird gesendet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviando"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invio"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysyłanie"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verzenden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoi"
+          }
+        }
+      }
+    },
+    "Urgent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dringend"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilne"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dringend"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urgent"
+          }
+        }
+      }
+    },
+    "Didn't reach the agent. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't reach the agent. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat den Agenten nicht erreicht. Versuch es noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No llegó al agente. Inténtalo de nuevo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è arrivato all’agente. Riprova."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie dotarło do agenta. Spróbuj ponownie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kwam niet aan bij de agent. Probeer het opnieuw."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’agent ne l’a pas reçu. Réessayez."
+          }
+        }
+      }
+    },
+    "%@ didn't reach the agent. Try again.": {
+      "comment": "An answer that failed to send: the answer button's label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ didn't reach the agent. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ hat den Agenten nicht erreicht. Versuch es noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no llegó al agente. Inténtalo de nuevo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» non è arrivato all’agente. Riprova."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@” nie dotarło do agenta. Spróbuj ponownie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘%@’ kwam niet aan bij de agent. Probeer het opnieuw."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » n’a pas atteint l’agent. Réessayez."
+          }
+        }
+      }
+    },
+    "You tapped %@ · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the answer button's label, then the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You tapped %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ gewählt · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegiste %@ · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai scelto %@ · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybrano %@ · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je koos %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez choisi %@ · %@"
+          }
+        }
+      }
+    },
+    "You replied · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You replied · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast geantwortet · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondiste · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai risposto · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedziano · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je hebt geantwoord · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez répondu · %@"
+          }
+        }
+      }
+    },
+    "Waiting %@": {
+      "extractionState": "manual",
+      "comment": "How long an agent has waited, e.g. 12 minutes",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet seit %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando desde hace %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa da %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czeka od %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht al %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente depuis %@"
+          }
+        }
+      }
+    },
+    "expires %@": {
+      "extractionState": "manual",
+      "comment": "Attachment fine print: a date",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expires %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "läuft am %@ ab"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "caduca el %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "scade il %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wygasa %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verloopt op %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expire le %@"
+          }
+        }
+      }
+    },
+    "Copy text": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy text"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia testo"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj tekst"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekst kopiëren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le texte"
+          }
+        }
+      }
+    },
+    "Message actions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message actions"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichtenaktionen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones del mensaje"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Azioni messaggio"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akcje wiadomości"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berichtacties"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions du message"
+          }
+        }
+      }
+    },
+    "Reply to %@": {
+      "extractionState": "manual",
+      "comment": "Reply field placeholder: the topic name",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply to %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ antworten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responder a %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rispondi a %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedz: %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ antwoorden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondre à %@"
+          }
+        }
+      }
+    },
+    "Connect an agent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect an agent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenten verbinden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectar un agente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collega un agente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Połącz agenta"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent koppelen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter un agent"
+          }
+        }
+      }
+    },
+    "Connect your first agent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect your first agent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ersten Agenten verbinden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecta tu primer agente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collega il tuo primo agente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Połącz pierwszego agenta"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koppel je eerste agent"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez votre premier agent"
+          }
+        }
+      }
+    },
+    "Copy instructions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy instructions"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anleitung kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar instrucciones"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia istruzioni"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj instrukcje"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instructies kopiëren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier les instructions"
+          }
+        }
+      }
+    },
+    "Copy topic URL": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy topic URL"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen-URL kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar URL del tópico"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia URL dell’argomento"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj adres tematu"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerp-URL kopiëren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier l’URL du sujet"
+          }
+        }
+      }
+    },
+    "Agent guide": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent guide"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anleitung für Agenten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guía para agentes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guida per agenti"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przewodnik dla agentów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gids voor agents"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide des agents"
+          }
+        }
+      }
+    },
+    "Paste this into your agent's chat or instructions. It tells the agent how to notify you, ask you a question and read your answer.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste this into your agent's chat or instructions. It tells the agent how to notify you, ask you a question and read your answer."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge das in den Chat oder die Anweisungen deines Agenten ein. Dann weiß er, wie er dich benachrichtigt, dir eine Frage stellt und deine Antwort liest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega esto en el chat o las instrucciones de tu agente. Le explica cómo avisarte, hacerte una pregunta y leer tu respuesta."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incolla questo nella chat o nelle istruzioni del tuo agente. Gli spiega come avvisarti, farti una domanda e leggere la tua risposta."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wklej to do czatu lub instrukcji agenta. Dowie się z tego, jak cię powiadomić, zadać ci pytanie i odczytać odpowiedź."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plak dit in de chat of de instructies van je agent. Zo weet die hoe hij je een melding stuurt, je een vraag stelt en je antwoord leest."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collez ceci dans la conversation ou les instructions de votre agent. Il saura comment vous notifier, vous poser une question et lire votre réponse."
+          }
+        }
+      }
+    },
+    "No agents yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agents yet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Agenten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay agentes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun agente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak agentów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog geen agents"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun agent pour le moment"
+          }
+        }
+      }
+    },
+    "Connect an agent and its messages and questions show up here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect an agent and its messages and questions show up here."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde einen Agenten, dann erscheinen hier seine Nachrichten und Fragen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecta un agente y aquí aparecerán sus mensajes y preguntas."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collega un agente e qui compariranno i suoi messaggi e le sue domande."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Połącz agenta, a tutaj pojawią się jego wiadomości i pytania."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koppel een agent, dan verschijnen zijn berichten en vragen hier."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez un agent : ses messages et ses questions s’afficheront ici."
+          }
+        }
+      }
+    },
+    "What your agents send shows up here, newest first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What your agents send shows up here, newest first."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was deine Agenten senden, erscheint hier, das Neueste zuerst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo que envían tus agentes aparece aquí, lo más reciente primero."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qui compare ciò che inviano i tuoi agenti, dal più recente."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pojawia się to, co wysyłają twoi agenci, od najnowszych."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wat je agents sturen verschijnt hier, nieuwste eerst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que vos agents envoient s’affiche ici, du plus récent au plus ancien."
+          }
+        }
+      }
+    },
+    "Each agent sends to a topic. Add one and connect your agent to it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each agent sends to a topic. Add one and connect your agent to it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeder Agent sendet an ein Thema. Füge eins hinzu und verbinde deinen Agenten damit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada agente envía a un tópico. Añade uno y conecta tu agente."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ogni agente invia a un argomento. Aggiungine uno e collegaci il tuo agente."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Każdy agent wysyła do tematu. Dodaj temat i połącz z nim agenta."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elke agent stuurt naar een onderwerp. Voeg er een toe en koppel je agent eraan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque agent envoie à un sujet. Ajoutez-en un et connectez-y votre agent."
+          }
+        }
+      }
+    },
+    "Find a message from any topic by its title or text.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find a message from any topic by its title or text."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finde eine Nachricht aus jedem Thema über ihren Titel oder Text."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca un mensaje de cualquier tópico por su título o texto."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trova un messaggio di qualsiasi argomento dal titolo o dal testo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znajdź wiadomość z dowolnego tematu po tytule lub treści."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoek een bericht uit elk onderwerp op titel of tekst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trouvez un message de n’importe quel sujet par son titre ou son texte."
+          }
+        }
+      }
+    },
+    "Check the spelling or try another word.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the spelling or try another word."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe die Schreibweise oder versuch ein anderes Wort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa la ortografía o prueba con otra palabra."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlla l’ortografia o prova un’altra parola."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź pisownię lub spróbuj innego słowa."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controleer de spelling of probeer een ander woord."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez l’orthographe ou essayez un autre mot."
+          }
+        }
+      }
+    },
+    "Muted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muted"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stummgeschaltet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciado"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenziato"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyciszony"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gedempt"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silencieux"
+          }
+        }
+      }
+    },
+    "You answered %@ · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the answer button's label, then the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You answered %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ geantwortet · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondiste %@ · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai risposto %@ · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedziano: %@ · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je antwoordde %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez répondu %@ · %@"
+          }
+        }
+      }
+    },
+    "Agent got it · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the agent confirmed it got the answer; the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu · %@"
+          }
+        }
+      }
+    },
+    "Agent got it · %@ · %@": {
+      "extractionState": "manual",
+      "comment": "List card receipt: the answer, then the time of the agent's confirmation",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it · %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten · %@ · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió · %@ · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto · %@ · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał · %@ · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen · %@ · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu · %@ · %@"
+          }
+        }
+      }
+    },
+    "Agent stopped waiting · %@": {
+      "extractionState": "manual",
+      "comment": "Receipt: the agent stopped waiting for an answer; the time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent stopped waiting · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wartet nicht mehr · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente dejó de esperar · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente ha smesso di aspettare · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent przestał czekać · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wacht niet meer · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent n'attend plus · %@"
+          }
+        }
+      }
+    },
+    "Agent got it": {
+      "extractionState": "manual",
+      "comment": "Notification body: the agent confirmed it got the answer",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent got it"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent hat es erhalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente lo recibió"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente l'ha ricevuto"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent otrzymał"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent heeft het ontvangen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent l'a reçu"
+          }
+        }
+      }
+    },
+    "Show agent confirmations": {
+      "extractionState": "manual",
+      "comment": "Settings toggle",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show agent confirmations"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent-Bestätigungen anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar confirmaciones del agente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra conferme dell'agente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokazuj potwierdzenia agenta"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bevestigingen van agents tonen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les confirmations de l'agent"
+          }
+        }
+      }
+    },
+    "You answered %@": {
+      "comment": "Receipt at large text sizes: the answer button's label (the time follows on its own line)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You answered %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast %@ geantwortet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondiste %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai risposto %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedziano: %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je antwoordde %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez répondu %@"
+          }
+        }
+      }
+    },
+    "You replied": {
+      "comment": "Receipt at large text sizes (the time follows on its own line)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You replied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast geantwortet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondiste"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai risposto"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedziano"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je hebt geantwoord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez répondu"
+          }
+        }
+      }
+    },
+    "Agent stopped waiting": {
+      "comment": "Receipt at large text sizes: the agent stopped waiting for an answer (the time follows on its own line)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent stopped waiting"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wartet nicht mehr"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El agente dejó de esperar"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agente ha smesso di aspettare"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent przestał czekać"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wacht niet meer"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'agent n'attend plus"
+          }
+        }
+      }
+    },
+    "Answered %@": {
+      "comment": "Receipt: the answer the agent says it got, given on another device or by a reply; the answer's label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answered %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beantwortet: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondida: %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Risposta: %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedź: %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beantwoord: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondu : %@"
+          }
+        }
+      }
+    },
+    "Closed": {
+      "comment": "Receipt: the agent's question is done and takes no more answers",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschlossen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrada"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiusa"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknięte"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesloten"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermée"
+          }
+        }
+      }
+    },
+    "Closed · %@": {
+      "comment": "Receipt: the agent's question is done; the answer it got",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschlossen · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrada · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiusa · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknięte · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesloten · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermée · %@"
+          }
+        }
+      }
+    },
+    "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent.": {
+      "comment": "Settings footer under Show agent confirmations",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt eine Bestätigung und die Notiz des Agents, wenn ein Agent deine Antwort bestätigt. Bestätigungen sind immer lautlos."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra un recibo y la nota del agente cuando un agente confirma tu respuesta. Las confirmaciones siempre son silenciosas."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra una ricevuta e la nota dell'agente quando un agente conferma la tua risposta. Le conferme sono sempre silenziose."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokazuje potwierdzenie i notatkę agenta, gdy agent potwierdzi Twoją odpowiedź. Potwierdzenia są zawsze ciche."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toont een ontvangstbevestiging en de notitie van de agent als een agent je antwoord bevestigt. Bevestigingen zijn altijd stil."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche un accusé de réception et la note de l'agent quand un agent confirme votre réponse. Les confirmations sont toujours silencieuses."
+          }
+        }
+      }
+    },
+    "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Eingang zeigt die Fragen deiner Agenten unter „Wartet auf dich“ und alles andere unter „Aktivität“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibidos muestra las preguntas de tus agentes en «Esperando tu respuesta» y todo lo demás en «Actividad»."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In arrivo mostra le domande dei tuoi agenti in «In attesa di una tua risposta» e tutto il resto in «Attività»."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrane pokazuje pytania od agentów w sekcji „Czeka na twoją odpowiedź”, a resztę w sekcji „Aktywność”."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox toont de vragen van je agents onder ‘Wacht op jou’ en al het andere onder ‘Activiteit’."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réception affiche les questions de vos agents sous « En attente de votre réponse » et tout le reste sous « Activité »."
+          }
+        }
+      }
+    },
+    "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antworte einem Agenten direkt in der Mitteilung, per Taste oder getippter Antwort. Ein blauer Haken zeigt, dass er sie erhalten hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responde a un agente desde la notificación con un botón o escribiendo. Una marca azul indica que el agente la recibió."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rispondi a un agente dalla notifica con un pulsante o scrivendo. Una spunta blu indica che l'agente l'ha ricevuta."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiadaj agentowi prosto z powiadomienia, przyciskiem lub wpisanym tekstem. Niebieski znacznik oznacza, że agent ją otrzymał."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beantwoord een agent vanuit de melding met een knop of een getypt antwoord. Een blauw vinkje laat zien dat de agent het heeft ontvangen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez à un agent depuis la notification, avec un bouton ou une réponse saisie. Une coche bleue indique que l’agent l’a reçue."
+          }
+        }
+      }
+    },
+    "Connect an agent shows how to link an agent or a script to a topic.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect an agent shows how to link an agent or a script to a topic."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Agenten verbinden“ zeigt, wie du einen Agenten oder ein Skript mit einem Thema verbindest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Conectar un agente» explica cómo conectar un agente o un script a un tópico."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Collega un agente» spiega come collegare un agente o uno script a un argomento."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Połącz agenta” pokazuje, jak połączyć agenta lub skrypt z tematem."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘Agent koppelen’ laat zien hoe je een agent of script aan een onderwerp koppelt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Connecter un agent » explique comment relier un agent ou un script à un sujet."
+          }
+        }
+      }
+    },
+    "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kompaktere Nachrichtenlisten: Lange Nachrichten werden auf sechs Zeilen gekürzt, Aktionen findest du im Kontextmenü."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listas de mensajes más compactas: los mensajes largos se pliegan a seis líneas y las acciones están en el menú al mantener pulsado."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elenchi di messaggi più compatti: i messaggi lunghi si riducono a sei righe e le azioni sono nel menu a pressione prolungata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gęstsze listy wiadomości: długie wiadomości zwijają się do sześciu wierszy, a akcje są w menu po przytrzymaniu."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compactere berichtenlijsten: lange berichten worden ingekort tot zes regels en acties staan in het menu bij lang drukken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listes de messages plus denses : les longs messages se replient sur six lignes et les actions sont dans le menu par appui long."
+          }
+        }
+      }
+    },
+    "A new emerald look and app icon.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new emerald look and app icon."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein neuer smaragdgrüner Look und ein neues App-Symbol."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nuevo aspecto esmeralda y un nuevo icono."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nuovo aspetto smeraldo e una nuova icona."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowy szmaragdowy wygląd i nowa ikona."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een nieuwe smaragdgroene stijl en een nieuw app-icoon."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nouveau look émeraude et une nouvelle icône."
+          }
+        }
+      }
+    },
+    "Sent": {
+      "comment": "An answer's Send button and VoiceOver value once the agent has it",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesendet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviato"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verstuurd"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano"
+          }
+        }
+      }
+    },
+    "Sends %@ to %@": {
+      "comment": "VoiceOver hint on an answer button: the answer, then the topic (agent) it goes to",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sends %1$@ to %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sendet %1$@ an %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía %1$@ a %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoie %1$@ à %2$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invia %1$@ a %2$@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stuurt %1$@ naar %2$@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysyła %1$@ do: %2$@"
           }
         }
       }

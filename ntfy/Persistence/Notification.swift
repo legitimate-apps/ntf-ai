@@ -44,7 +44,93 @@ extension Notification {
 
         return formatter.string(from: date)
     }
-    
+
+    /// When a topic last heard something, for the topic list: the time for today, then
+    /// "Yesterday", then a date. Mail and Messages do the same; the topic's own message list
+    /// gives the exact time, and a clock time on every row cost the topic name its width.
+    static func topicListTime(for date: Date,
+                              now: Date = Date(),
+                              calendar: Calendar = .current,
+                              locale: Locale = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) {
+            return shortTime(for: date, calendar: calendar, locale: locale)
+        }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.timeStyle = .none
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday),
+           let realYesterday = calendar.date(byAdding: .day, value: -1, to: Date()) {
+            // The relative word is judged against the real clock, so format the real yesterday.
+            formatter.dateStyle = .medium
+            formatter.doesRelativeDateFormatting = true
+            return formatter.string(from: realYesterday)
+        }
+        formatter.dateStyle = .short
+        return formatter.string(from: date)
+    }
+
+    /// The time alone, for a row that sits under a day header. The header carries the date, so
+    /// repeating "Yesterday at" on every row only cost width. Never truncated (ntfy#1205).
+    static func shortTime(for date: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    /// One header per day in a topic: "Today", "Yesterday", then "Mon, Nov 10" (the year only
+    /// when it isn't this year). Relative words come from `doesRelativeDateFormatting`, so they
+    /// are localized by the system and absent where a locale has none.
+    static func daySectionTitle(for date: Date,
+                                now: Date = Date(),
+                                calendar: Calendar = .current,
+                                locale: Locale = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        // The relative words are judged against the real clock, not `now`, so format the matching
+        // day of the real clock: the word is right even when `now` is injected or a day boundary
+        // passed between the two reads.
+        let realNow = Date()
+        for offset in [0, -1] {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now),
+                  calendar.isDate(date, inSameDayAs: day),
+                  let realDay = calendar.date(byAdding: .day, value: offset, to: realNow) else { continue }
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            formatter.doesRelativeDateFormatting = true
+            return formatter.string(from: realDay)
+        }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+        formatter.setLocalizedDateFormatFromTemplate(sameYear ? "EEEdMMM" : "EEEdMMMy")
+        return formatter.string(from: date)
+    }
+
+    /// Splits an already ordered list into runs of the same calendar day, keeping the order.
+    static func groupedByDay<T>(_ items: [T], calendar: Calendar = .current, date: (T) -> Date) -> [(day: Date, items: [T])] {
+        var groups: [(day: Date, items: [T])] = []
+        for item in items {
+            let day = calendar.startOfDay(for: date(item))
+            if let last = groups.last, last.day == day {
+                groups[groups.count - 1].items.append(item)
+            } else {
+                groups.append((day, [item]))
+            }
+        }
+        return groups
+    }
+
+    func date() -> Date {
+        Date(timeIntervalSince1970: TimeInterval(time))
+    }
+
+
     func formatMessage(bundle: Bundle = .main) -> String {
         // A stored locked placeholder is app copy, not server content. Resolve it again after
         // a language change without touching any readable message from the sender.

@@ -26,13 +26,22 @@ struct SubscriptionAddView: View {
     @State private var showScanner = false
     /// The topic address read from a QR code, filling the sheet the same way a Universal Link does.
     @State private var scannedLink: TopicLink?
+    @State private var showServerDetails = false
+    /// Step 2 (DECISION change 10): the topic just added, shown as "Connect an agent".
+    @State private var connecting: ConnectStep?
+
+    struct ConnectStep: Equatable {
+        let baseUrl: String
+        let topic: String
+        let url: String
+    }
 
     init(isShowing: Binding<Bool>, topicLink: TopicLink? = nil) {
         self.topicLink = topicLink
         _isShowing = isShowing
         _topic = State(initialValue: topicLink?.topic ?? "")
         _useAnother = State(initialValue: topicLink != nil)
-        _baseUrl = State(initialValue: topicLink?.server ?? "")
+        _baseUrl = State(initialValue: topicLink.map { HostedServer.publicURL($0.server) } ?? "")
     }
 
     private var subscriptionManager: SubscriptionManager {
@@ -46,7 +55,12 @@ struct SubscriptionAddView: View {
             // If anyone has a better way to do a two-page layout let me know.
             
             Group {
-                if let primingTopicUrl {
+                if let connecting {
+                    ConnectAgentView(baseUrl: connecting.baseUrl, topic: connecting.topic) {
+                        resetAndHide(openingTopicUrl: connecting.url)
+                    }
+                    .navigationBarBackButtonHidden(true)
+                } else if let primingTopicUrl {
                     permissionPrimingView(topicUrl: primingTopicUrl)
                 } else {
                     addView
@@ -61,10 +75,15 @@ struct SubscriptionAddView: View {
                     }
                 })
         }
+        .alert(isPresented: $showServerDetails) {
+            Alert(title: Text(shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))),
+                  message: Text(Config.subscriptionServerFooter(baseUrl: selectedBaseUrl, useAnother: false)),
+                  dismissButton: .default(Text("OK")))
+        }
     }
     
     private var topicField: some View {
-        TextField(String(localized: "Topic name, e.g. alerts-k7m2-x9qp"), text: $topic)
+        TextField(String(localized: "Topic name"), text: $topic)
             .disableAutocapitalization()
             .disableAutocorrection(true)
     }
@@ -106,8 +125,22 @@ struct SubscriptionAddView: View {
                         }
                     }
                 }
-                Section(footer: ServerFooterText(text: serverFooterText)
-                    .fixedSize(horizontal: false, vertical: true)) {
+                Section(footer: VStack(alignment: .leading, spacing: 4) {
+                    ServerFooterText(text: serverFooterText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // The short footer leaves who runs the server, and how it relates to ntfy.sh,
+                    // one tap away instead of six lines under every new topic.
+                    if showsShortServerFooter {
+                        Button {
+                            showServerDetails = true
+                        } label: {
+                            Label(String(localized: "About this server"), systemImage: "info.circle")
+                                .font(.footnote)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("subscription-server-about")
+                    }
+                }) {
                     Toggle(String(localized: "Use another server"), isOn: $useAnother)
                     if useAnother {
                         TextField(SubscriptionAddServer.placeholder(defaultBaseUrl: store.getDefaultBaseUrl()), text: $baseUrl)
@@ -138,38 +171,32 @@ struct SubscriptionAddView: View {
                     }
                     .accessibilityHint(String(localized: "Fills in a topic and server from a QR code"))
                 }
+                if loading {
+                    Section { ProgressView().frame(maxWidth: .infinity) }
+                }
             }
             if let error = addError {
                 ErrorView(error: error)
             }
         }
-        .navigationTitle(String(localized: "subscription.add.title", defaultValue: "Add subscription"))
+        .navigationTitle(String(localized: "Add topic"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showScanner) {
             TopicQRScannerView(isShowing: $showScanner, onCode: handleScannedCode)
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .cancellationAction) {
                 Button(action: cancelAction) {
                     Text(String(localized: "Cancel"))
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            // The label stays while subscribing, so the capsule keeps its width; the form shows progress.
+            ToolbarItem(placement: .confirmationAction) {
                 Button(action: subscribeOrShowLoginAction) {
-                    VStack {
-                        if loading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        } else {
-                            Text(String(localized: "Subscribe"))
-                        }
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-
+                    Text(String(localized: "Subscribe"))
                 }
-                .accessibilityLabel(String(localized: "Subscribe"))
                 .accessibilityValue(loading ? String(localized: "In progress") : "")
-                .disabled(!isAddViewValid())
+                .disabled(loading || !isAddViewValid())
             }
         }
     }
@@ -182,6 +209,9 @@ struct SubscriptionAddView: View {
                 ) {
                     ServerLoginFields(input: $login)
                 }
+                if loading {
+                    Section { ProgressView().frame(maxWidth: .infinity) }
+                }
             }
             if let notice = UrlSecurityNotice.message(for: selectedBaseUrl, isAccessToken: login.method == .token) {
                 Text(notice).font(.footnote).foregroundColor(.secondary).padding()
@@ -193,18 +223,12 @@ struct SubscriptionAddView: View {
         .navigationTitle(String(localized: "Login required"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .confirmationAction) {
                 Button(action: subscribeWithUserAction) {
-                    if loading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                    } else {
-                        Text(String(localized: "Subscribe"))
-                    }
+                    Text(String(localized: "Subscribe"))
                 }
-                .accessibilityLabel(String(localized: "Subscribe"))
                 .accessibilityValue(loading ? String(localized: "In progress") : "")
-                .disabled(!isLoginViewValid())
+                .disabled(loading || !isLoginViewValid())
             }
         }
     }
@@ -217,7 +241,7 @@ struct SubscriptionAddView: View {
     /// typed something that can't be subscribed to. Stays quiet while the field is empty —
     /// scolding someone before they've typed anything is worse than saying nothing.
     private var topicFooterText: String {
-        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, or tap Random.")
+        let defaultText = String(localized: "Anyone who knows a topic name can read and send its messages, so pick one that's hard to guess, like alerts‑k7m2, or tap Random.")
         guard !sanitizedTopic.isEmpty else { return defaultText }
         if !isValidTopicName(sanitizedTopic) {
             return String(localized: "Topic names can only use letters, numbers, dashes and underscores, up to 64 characters.")
@@ -317,6 +341,10 @@ struct SubscriptionAddView: View {
     private func finishSubscribing(topicURLs: [String]? = nil) {
         let urls = topicURLs ?? [topicUrl(baseUrl: selectedBaseUrl, topic: sanitizedTopic)]
         guard let url = urls.first else { return }
+        // One topic named here goes on to "Connect an agent". Topics picked from an account, or
+        // arriving by a shared link or QR code, were made elsewhere and already have their senders.
+        let typedHere = topicURLs == nil && topicLink == nil && scannedLink == nil
+        let step = typedHere ? ConnectStep(baseUrl: selectedBaseUrl, topic: sanitizedTopic, url: url) : nil
         // Pop the account picker before replacing the root with the permission primer.
         showAccountTopics = false
         primingTopicCount = urls.count
@@ -325,9 +353,22 @@ struct SubscriptionAddView: View {
                 NotificationPermissionPolicy.recordPrimerOffered()
                 showLogin = false
                 primingTopicUrl = url
+                pendingConnect = step
             } else {
-                resetAndHide(openingTopicUrl: url)
+                proceed(to: step, else: url)
             }
+        }
+    }
+
+    /// The step-2 target held while the permission primer shows.
+    @State private var pendingConnect: ConnectStep?
+
+    private func proceed(to step: ConnectStep?, else url: String) {
+        if let step {
+            primingTopicUrl = nil
+            connecting = step
+        } else {
+            resetAndHide(openingTopicUrl: url)
         }
     }
 
@@ -361,17 +402,16 @@ struct SubscriptionAddView: View {
             VStack(spacing: 12) {
                 Button {
                     delegate.requestStandardNotificationAuthorization {
-                        resetAndHide(openingTopicUrl: url)
+                        proceed(to: pendingConnect, else: url)
                     }
                 } label: {
                     Text(String(localized: "Continue"))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .brandProminentButton()
                 .accessibilityHint(String(localized: "Shows the system notification permission prompt"))
                 Button(String(localized: "Not now")) {
-                    resetAndHide(openingTopicUrl: url)
+                    proceed(to: pendingConnect, else: url)
                 }
                 .accessibilityHint(String(localized: "Skips notifications for now. Messages still appear in the app."))
             }
@@ -384,9 +424,25 @@ struct SubscriptionAddView: View {
         .navigationBarBackButtonHidden(true)
     }
     
+    private var usesLinkFooter: Bool {
+        if let server = (scannedLink ?? topicLink)?.server, selectedBaseUrl == server { return true }
+        return false
+    }
+
+    private var serverFooterUsesAnother: Bool {
+        useAnother && !baseUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var showsShortServerFooter: Bool {
+        !usesLinkFooter && Config.subscriptionServerShortFooter(baseUrl: selectedBaseUrl, useAnother: serverFooterUsesAnother) != nil
+    }
+
     private var serverFooterText: String {
         if let server = (scannedLink ?? topicLink)?.server, selectedBaseUrl == server {
             return String(localized: "This link uses \(shortUrl(url: server)). Review the topic above, then tap Subscribe to add it.")
+        }
+        if let short = Config.subscriptionServerShortFooter(baseUrl: selectedBaseUrl, useAnother: serverFooterUsesAnother) {
+            return short
         }
         return Config.subscriptionServerFooter(baseUrl: selectedBaseUrl, useAnother: useAnother && !baseUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
@@ -401,7 +457,7 @@ struct SubscriptionAddView: View {
             scannedLink = link
             topic = link.topic
             useAnother = true
-            baseUrl = link.server
+            baseUrl = HostedServer.publicURL(link.server)
             addError = nil
         case .open(let url):
             resetAndHide(openingTopicUrl: url)
@@ -432,6 +488,8 @@ struct SubscriptionAddView: View {
             useAnother = false
             primingTopicUrl = nil
             primingTopicCount = 1
+            connecting = nil
+            pendingConnect = nil
             scannedLink = nil
             showAccountTopics = false
         }
@@ -507,7 +565,7 @@ enum SubscriptionAddServer {
     }
 
     static func placeholder(defaultBaseUrl: String) -> String {
-        String(localized: "Blank uses \(normalizeBaseUrl(defaultBaseUrl))")
+        String(localized: "Blank uses \(HostedServer.publicURL(normalizeBaseUrl(defaultBaseUrl)))")
     }
 }
 

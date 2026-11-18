@@ -3,7 +3,7 @@ import Foundation
 /// Matches ntfy v2.31.1 server.go topicRegex and config.go DefaultDisallowedTopics.
 /// Hosts ignore case; topics (including reserved names) retain their case.
 struct TopicLink: Equatable {
-    static let baseURL = "https://ntfy-me.com"
+    static let baseURL = HostedServer.publicBaseURL
     static let reservedNames: Set<String> = [
         "docs", "static", "file", "app", "metrics", "account", "settings", "signup", "login", "v1"
     ]
@@ -11,10 +11,10 @@ struct TopicLink: Equatable {
     let server: String
     let topic: String
 
-    /// Universal Links: only https://ntfy-me.com/<topic>, the one host whose association file names this app.
+    /// Universal Links: both hosted HTTPS origins; their association files name this app.
     init?(url: URL) {
         guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              parts.scheme?.lowercased() == "https", parts.host?.lowercased() == "ntfy-me.com",
+              parts.scheme?.lowercased() == "https", HostedServer.hosts.contains(parts.host?.lowercased() ?? ""),
               parts.port == nil || parts.port == 443, parts.user == nil, parts.password == nil else { return nil }
         self.init(scheme: "https", parts: parts, prefixAllowed: false)
     }
@@ -54,12 +54,12 @@ struct TopicLink: Equatable {
               !segments.contains(where: { $0.isEmpty || Self.reservedNames.contains($0) }) else { return nil }
         // Our own server supports HTTPS. A scanned legacy HTTP link must resolve to the
         // existing HTTPS subscription rather than creating a second, insecure address.
-        let normalizedScheme = host == "ntfy-me.com" ? "https" : scheme
+        let normalizedScheme = HostedServer.hosts.contains(host) ? "https" : scheme
         var server = normalizedScheme + "://" + host
         if let port = parts.port, port != (normalizedScheme == "https" ? 443 : 80),
-           !(host == "ntfy-me.com" && scheme == "http" && port == 80) { server += ":\(port)" }
+           !(HostedServer.hosts.contains(host) && scheme == "http" && port == 80) { server += ":\(port)" }
         server += encoded.dropLast().map { "/" + $0 }.joined()
-        self.server = server
+        self.server = normalizeBaseUrl(server)
         self.topic = topic
     }
 }

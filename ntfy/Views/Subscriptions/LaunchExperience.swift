@@ -11,6 +11,16 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.26.0", bullets: [
+            String(localized: "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity."),
+            String(localized: "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it."),
+            String(localized: "Connect an agent shows how to link an agent or a script to a topic."),
+            String(localized: "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu."),
+            String(localized: "A new emerald look and app icon.")
+        ]),
+        ReleaseNotes(version: "1.25.0", bullets: [
+            String(localized: "NTF-AI. Same app, same topics, same settings.")
+        ]),
         ReleaseNotes(version: "1.24.0", bullets: [
             String(localized: "The next poll fetches messages missed by dropped pushes, while they remain in the server cache."),
             String(localized: "Use Read messages in Shortcuts to read stored messages from a topic."),
@@ -216,28 +226,48 @@ struct WhatsNewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     ForEach(entries) { entry in
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(entry.version).font(.headline).accessibilityAddTraits(.isHeader)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(entry.version)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.secondary)
+                                .accessibilityAddTraits(.isHeader)
                             ForEach(entry.bullets, id: \.self) { bullet in
-                                HStack(alignment: .top) {
-                                    Text("•").accessibilityHidden(true)
-                                    Text(bullet).fixedSize(horizontal: false, vertical: true)
-                                }
+                                Text(bullet).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
-                    Button(String(localized: "Continue"), action: onContinue)
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundColor(.white)
-                        .background(Color.accentColor.cornerRadius(10))
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
             }
+            // Pinned below the notes, so Continue never scrolls out of reach.
+            .modifier(BottomBar {
+                Button(action: onContinue) {
+                    Text(String(localized: "Continue")).frame(maxWidth: .infinity)
+                }
+                .brandProminentButton()
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            })
             .navigationTitle(String(localized: "What's new"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+}
+
+/// A control pinned to the bottom edge: iOS 26's safe-area bar, which joins the scroll-edge effect,
+/// or a safe-area inset on the bar material before it.
+struct BottomBar<Bar: View>: ViewModifier {
+    let bar: Bar
+
+    init(@ViewBuilder _ bar: () -> Bar) { self.bar = bar() }
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.safeAreaBar(edge: .bottom) { bar }
+        } else {
+            content.safeAreaInset(edge: .bottom) { bar.padding(.top, 8).background(.bar) }
+        }
     }
 }

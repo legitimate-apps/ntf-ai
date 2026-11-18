@@ -91,22 +91,22 @@ final class LocalizationTests: XCTestCase {
 
     func testDeviceNeutralCopyCompilesIntoAppAndNotificationExtension() throws {
         let keys = [
-            "Check whether ntfy-me.com receives forwarded wake-ups for this topic. This cannot prove delivery to your device.",
+            "Check whether %@ receives forwarded wake-ups for this topic. This cannot prove delivery to your device.",
             "Critical alerts, which play sound even when your device is silenced, need special approval from Apple and aren't offered in this app.",
             "Encrypted messages stay locked and plain ones are marked \"Not encrypted\". If this persists after unlocking your device, set the password again or remove it.",
             "Device registration",
             "The encryption password is unavailable. Unlock your device or set the topic password again. Nothing was sent.",
             "This topic is end-to-end encrypted, but its password can't be read right now, so the test message would go out unencrypted. Try again after unlocking your device, or set the password again.",
             "With a password, messages are encrypted by whoever sends them, in transit and on the server: the server, Google and Apple see only ciphertext. Once they arrive they are stored readable on this device. The password stays on this device only and isn't backed up, so a restored or new device needs it entered again. Senders need the same password; see \"How to send encrypted messages\".",
-            "Your server's upstream-base-url must be https://ntfy-me.com. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
-            "ntfy-me.com received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
+            "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
+            "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
             "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent.",
-            "Topics could not be read. Unlock your device and open NTFY me, then try again.",
+            "Topics could not be read. Unlock your device and open NTF-AI, then try again.",
             "Get one alert when no message arrives within the chosen time, even if this topic is muted. A new message starts the timer again. A quiet alert can also mean this device isn't receiving messages, including when it is offline.",
             "New messages won't show while your device is locked. Tap Open Settings, then turn on Lock Screen.",
             "Allow notifications so each message sent to %@ shows up on your lock screen, even when the app is closed. You'll be asked for permission next.",
             "Allow notifications so messages sent to the topics you added show up on your lock screen, even when the app is closed. You'll be asked for permission next.",
-            "Critical alerts were not allowed. You can enable them for ntfy in the Settings app under Notifications.",
+            "Critical alerts were not allowed. You can enable them for NTF-AI in the Settings app under Notifications.",
             "Priority 4 and 5 messages are Time Sensitive. They can break through Focus and the Notification Summary when allowed in the Settings app, including your Focus settings.",
             "Your device provides reports after some crashes, hangs or resource issues. They may arrive later and do not cover every incident.",
             "Date shown is the end of the reporting period. The JSON file contains call stacks and technical metadata. You can attach it to a bug report.",
@@ -336,9 +336,9 @@ final class LocalizationTests: XCTestCase {
     func testAddedLanguagesCompileIntoAppAndExtensionWithLocalePlurals() throws {
         let expected: [String: [String]] = [
             "es": ["Tópicos", "1 hora", "2 horas", "5 horas", "12 horas", "22 horas"],
-            "it": ["Iscrizioni", "1 ora", "2 ore", "5 ore", "12 ore", "22 ore"],
+            "it": ["Argomenti", "1 ora", "2 ore", "5 ore", "12 ore", "22 ore"],
             "pl": ["Tematy", "1 godzina", "2 godziny", "5 godzin", "12 godzin", "22 godziny"],
-            "nl": ["Topics", "1 uur", "2 uur", "5 uur", "12 uur", "22 uur"],
+            "nl": ["Onderwerpen", "1 uur", "2 uur", "5 uur", "12 uur", "22 uur"],
             "fr": ["Sujets", "1 heure", "2 heures", "5 heures", "12 heures", "22 heures"]
         ]
         let regions = ["es": "ES", "it": "IT", "pl": "PL", "nl": "NL", "fr": "FR"]
@@ -349,7 +349,7 @@ final class LocalizationTests: XCTestCase {
             let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
             let values = try XCTUnwrap(expected[language])
             let locale = Locale(identifier: language + "_" + regions[language]!)
-            XCTAssertEqual(bundle.localizedString(forKey: "Subscribed topics", value: nil, table: nil), values[0])
+            XCTAssertEqual(bundle.localizedString(forKey: "Topics", value: nil, table: nil), values[0])
             for (index, count) in [1, 2, 5, 12, 22].enumerated() {
                 let format = bundle.localizedString(forKey: "%lld hours", value: nil, table: nil)
                 XCTAssertEqual(String(format: format, locale: locale, count), values[index + 1], language)
@@ -368,7 +368,7 @@ final class LocalizationTests: XCTestCase {
             }
             let permission = bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
             XCTAssertNotEqual(permission, "NSCameraUsageDescription")
-            XCTAssertTrue(permission.contains("NTFY me"))
+            XCTAssertTrue(permission.contains("NTF-AI"))
         }
     }
 
@@ -456,6 +456,27 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testVersion126ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.26.0" })
+        XCTAssertEqual(release.bullets.count, 5)
+        let expected: [String: [String]] = [
+            "en": ["Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity.", "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it.", "Connect an agent shows how to link an agent or a script to a topic.", "Denser message lists: long messages fold to six lines, and row actions are in the long-press menu.", "A new emerald look and app icon."],
+            "de": ["Der Eingang zeigt die Fragen deiner Agenten unter „Wartet auf dich“ und alles andere unter „Aktivität“.", "Antworte einem Agenten direkt in der Mitteilung, per Taste oder getippter Antwort. Ein blauer Haken zeigt, dass er sie erhalten hat.", "„Agenten verbinden“ zeigt, wie du einen Agenten oder ein Skript mit einem Thema verbindest.", "Kompaktere Nachrichtenlisten: Lange Nachrichten werden auf sechs Zeilen gekürzt, Aktionen findest du im Kontextmenü.", "Ein neuer smaragdgrüner Look und ein neues App-Symbol."],
+            "es": ["Recibidos muestra las preguntas de tus agentes en «Esperando tu respuesta» y todo lo demás en «Actividad».", "Responde a un agente desde la notificación con un botón o escribiendo. Una marca azul indica que el agente la recibió.", "«Conectar un agente» explica cómo conectar un agente o un script a un tópico.", "Listas de mensajes más compactas: los mensajes largos se pliegan a seis líneas y las acciones están en el menú al mantener pulsado.", "Un nuevo aspecto esmeralda y un nuevo icono."],
+            "it": ["In arrivo mostra le domande dei tuoi agenti in «In attesa di una tua risposta» e tutto il resto in «Attività».", "Rispondi a un agente dalla notifica con un pulsante o scrivendo. Una spunta blu indica che l'agente l'ha ricevuta.", "«Collega un agente» spiega come collegare un agente o uno script a un argomento.", "Elenchi di messaggi più compatti: i messaggi lunghi si riducono a sei righe e le azioni sono nel menu a pressione prolungata.", "Un nuovo aspetto smeraldo e una nuova icona."],
+            "pl": ["Odebrane pokazuje pytania od agentów w sekcji „Czeka na twoją odpowiedź”, a resztę w sekcji „Aktywność”.", "Odpowiadaj agentowi prosto z powiadomienia, przyciskiem lub wpisanym tekstem. Niebieski znacznik oznacza, że agent ją otrzymał.", "„Połącz agenta” pokazuje, jak połączyć agenta lub skrypt z tematem.", "Gęstsze listy wiadomości: długie wiadomości zwijają się do sześciu wierszy, a akcje są w menu po przytrzymaniu.", "Nowy szmaragdowy wygląd i nowa ikona."],
+            "nl": ["Inbox toont de vragen van je agents onder ‘Wacht op jou’ en al het andere onder ‘Activiteit’.", "Beantwoord een agent vanuit de melding met een knop of een getypt antwoord. Een blauw vinkje laat zien dat de agent het heeft ontvangen.", "‘Agent koppelen’ laat zien hoe je een agent of script aan een onderwerp koppelt.", "Compactere berichtenlijsten: lange berichten worden ingekort tot zes regels en acties staan in het menu bij lang drukken.", "Een nieuwe smaragdgroene stijl en een nieuw app-icoon."],
+            "fr": ["Réception affiche les questions de vos agents sous « En attente de votre réponse » et tout le reste sous « Activité ».", "Répondez à un agent depuis la notification, avec un bouton ou une réponse saisie. Une coche bleue indique que l’agent l’a reçue.", "« Connecter un agent » explique comment relier un agent ou un script à un sujet.", "Listes de messages plus denses : les longs messages se replient sur six lignes et les actions sont dans le menu par appui long.", "Un nouveau look émeraude et une nouvelle icône."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion124ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.24.0" })
         XCTAssertEqual(release.bullets.count, 6)
@@ -513,15 +534,15 @@ final class LocalizationTests: XCTestCase {
         let extensionBundle = try XCTUnwrap(Bundle(url: extensionURL))
         let extensionGerman = try XCTUnwrap(extensionBundle.path(forResource: "de", ofType: "lproj").flatMap(Bundle.init(path:)))
         XCTAssertEqual(extensionGerman.localizedString(forKey: "Notification state synchronized", value: nil, table: nil), "Benachrichtigungsstatus synchronisiert")
-        XCTAssertEqual(bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist"), "NTFY me nutzt die Kamera nur, um QR-Codes für Themen zu scannen, die du abonnieren möchtest.")
+        XCTAssertEqual(bundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist"), "NTF-AI nutzt die Kamera nur, um QR-Codes für Themen zu scannen, die du abonnieren möchtest.")
         // Review eligibility uses this prefix in every bundled language, including old messages.
         // A future translator can fix an inconsistent prefix entirely in the catalog.
         for language in Bundle.main.localizations where language != "Base" {
             let localized = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
             let prefix = localized.localizedString(forKey: Store.testMessagePrefix, value: nil, table: nil)
             for key in [
-                "This is a test notification from NTFY me. Your topic is ready.",
-                "This is a test notification from NTFY me. It has a priority of %lld. If you send another one, it may look different."
+                "This is a test notification from NTF-AI. Your topic is ready.",
+                "This is a test notification from NTF-AI. It has a priority of %lld. If you send another one, it may look different."
             ] {
                 XCTAssertTrue(localized.localizedString(forKey: key, value: nil, table: nil).hasPrefix(prefix),
                               "\(language): test-message copy must retain its translated prefix")

@@ -93,34 +93,30 @@ private struct ShareView: View {
         NavigationView {
             Form {
                 if model.topics.isEmpty {
-                    Section { Text(String(localized: "Open NTFY me and subscribe to a topic first. Then share this item again.")) }
+                    Section { Text(String(localized: "Open NTF-AI and subscribe to a topic first. Then share this item again.")) }
                 } else {
-                    Section {
+                    // Names only in the picker; the chosen topic's address once, as the footer.
+                    Section(footer: model.selected.map { Text($0.shortUrlString()) }) {
                         Picker(String(localized: "Topic"), selection: $model.selectedURL) {
                             ForEach(model.topics, id: \.objectID) { topic in
-                                VStack(alignment: .leading) {
-                                    Text(topic.shortDisplayName())
-                                    Text(topic.urlString()).font(.caption).foregroundColor(.secondary)
-                                }.tag(topic.urlString())
+                                Text(topic.shortDisplayName()).tag(topic.urlString())
                             }
                         }.accessibilityIdentifier("share-topic")
-                        if let topic = model.selected {
-                            if sizeCategory.isAccessibilityCategory {
-                                Text(topic.shortDisplayName()).fixedSize(horizontal: false, vertical: true)
-                                    .accessibilityIdentifier("share-selected-topic")
-                            }
-                            Text(topic.urlString()).font(.caption).foregroundColor(.secondary)
+                        if let topic = model.selected, sizeCategory.isAccessibilityCategory {
+                            Text(topic.shortDisplayName()).fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("share-selected-topic")
                         }
                     }
-                    Section(header: Text(String(localized: "Message"))) {
-                        TextEditor(text: $compose.message).frame(minHeight: 100)
-                            .accessibilityLabel(String(localized: "Message")).accessibilityIdentifier("share-message")
+                    // In the order the message renders, as in Compose: title, then body.
+                    Section {
                         TextField(String(localized: "Title (optional)"), text: $compose.title)
                             .accessibilityIdentifier("share-title")
+                        messageEditor
+                            .accessibilityLabel(String(localized: "Message")).accessibilityIdentifier("share-message")
                     }
                     if compose.fileURL != nil {
                         Section(header: Text(String(localized: "Attachment"))) {
-                            Text(compose.fileName)
+                            fileChip
                             if model.encrypted {
                                 Text(String(localized: "Attachments are unavailable for encrypted topics. Remove the attachment to send text or a link."))
                             } else if let limit = compose.attachmentLimit {
@@ -130,17 +126,16 @@ private struct ShareView: View {
                                 Text(String(localized: "Upload limits are unavailable. Try checking again before sending the attachment."))
                                 Button(String(localized: "Check upload limits"), action: model.selectTopic).disabled(compose.loadingLimits)
                             }
-                            Button(String(localized: "Remove attachment"), role: .destructive, action: compose.removeFile)
                         }
                     }
                 }
                 if model.loading { ProgressView(String(localized: "Loading shared item…")) }
-                if !model.inputError.isEmpty { Text(model.inputError).foregroundColor(.red).accessibilityIdentifier("share-input-error") }
-                if !compose.error.isEmpty { Text(compose.error).foregroundColor(.red).accessibilityIdentifier("share-error") }
+                if !model.inputError.isEmpty { errorLabel(model.inputError).accessibilityIdentifier("share-input-error") }
+                if !compose.error.isEmpty { errorLabel(compose.error).accessibilityIdentifier("share-error") }
                 if compose.busy { ProgressView(String(localized: "Sending…")) }
             }
             .disabled(compose.busy)
-            .navigationTitle(String(localized: "Share to NTFY me"))
+            .navigationTitle(String(localized: "Share to NTF-AI"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -159,6 +154,55 @@ private struct ShareView: View {
             }
             .onChange(of: model.selectedURL) { _ in model.selectTopic() }
         }.navigationViewStyle(StackNavigationViewStyle())
+            .tint(Color("AccentColor"))
+            .toggleStyle(SwitchToggleStyle(tint: Color("BrandControlFill")))
     }
     private func close() { model.close(); finish() }
+
+    /// Same as Compose's message field: a vertical text field lines up with the title above it,
+    /// where a TextEditor's own inset pushed the text 6 pt in.
+    @ViewBuilder
+    private var messageEditor: some View {
+        if #available(iOS 16.0, *) {
+            TextField(String(localized: "Message"), text: $compose.message, axis: .vertical)
+                .lineLimit(5...12)
+        } else {
+            TextEditor(text: $compose.message).frame(minHeight: 100)
+        }
+    }
+
+    /// Compose's file chip, with its remove control on the chip itself.
+    private var fileChip: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "doc")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .frame(width: 24, height: 24)
+                    .accessibilityHidden(true)
+                Text(compose.fileName)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(minHeight: 44)
+            .background(Color(.secondarySystemFill))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Button(action: compose.removeFile) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(String(localized: "Remove attachment"))
+            .accessibilityIdentifier("share-remove-attachment")
+        }
+    }
+
+    private func errorLabel(_ text: String) -> some View {
+        Label(text, systemImage: "exclamationmark.triangle").foregroundColor(.red)
+    }
 }

@@ -1,6 +1,6 @@
 # ntfy.sh iOS - Getting Started with Development
 
-> **ntfy NextGen:** the app's built-in server comes from the `APP_BASE_URL` build setting (Info.plist
+> **NTF-AI:** the app's built-in server comes from the `APP_BASE_URL` build setting (Info.plist
 > `AppBaseURL`, app and NSE), which is `https://ntfy-me.com`. Subscriptions on that server bind their raw
 > topic name in FCM; every other server binds a hash of its topic URL. Release archives are checked with
 > `scripts/verify-app-base-url.sh`. Your own bundle id and team go in `Configuration/Local.xcconfig`

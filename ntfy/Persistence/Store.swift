@@ -85,6 +85,10 @@ class Store: ObservableObject {
     var notificationBatchRemover: ([SequenceRemoval]) -> Void = SequenceRemoval.removeDelivered
     var topicNotificationRemover: (String, String, Int64, Date) -> Void = SequenceRemoval.removeDelivered
     var notificationRemover: (SequenceRemoval) -> Void = { $0.removeDelivered() }
+    /// Where agent acks are kept (ACK-SPEC). Tests give each store its own.
+    var ackLog: AckLog = .shared
+    /// The pushed message the last save took as an agent ack: it confirms a question, never alerts.
+    private(set) var acknowledgedPush: (id: String, questionTitle: String?)?
     /// Whether a missing cached key may be re-derived from the password (PBKDF2). Off in the
     /// notification service extension, which has a tight time and memory budget; the app derives it
     /// the next time it reads the topic, and `retryLockedMessages` then opens what arrived meanwhile.
@@ -282,8 +286,16 @@ class Store: ObservableObject {
         // `performAndWait` fixes both: it hops to the context's queue and is reentrant-safe from it.
         var subscription: Subscription!
         context.performAndWait {
+            let canonical = normalizeBaseUrl(baseUrl)
+            // All entry points converge before insertion. Reopening a hosted alias keeps the same
+            // row, history, encryption and confirmed FCM state instead of creating a second topic.
+            if canonical == HostedServer.canonicalBaseURL,
+               let existing = try? fetchSubscription(baseUrl: canonical, topic: topic) {
+                subscription = existing
+                return
+            }
             subscription = Subscription(context: context)
-            subscription.baseUrl = normalizeBaseUrl(baseUrl)
+            subscription.baseUrl = canonical
             subscription.topic = topic
             subscription.subscribedAt = Date()
             Log.d(Store.tag, "Storing subscription baseUrl=\(subscription.baseUrl ?? "?"), topic=\(topic)")
@@ -503,15 +515,16 @@ class Store: ObservableObject {
             // can fail to fulfil a deleted fault (leaking the file) and writing it back to nil is an
             // unsaved mutation of a deleted object. Strings survive the delete; managed objects
             // don't. Filesystem cleanup is not transactional either way, so it follows the commit.
-            var pendingFileCleanup: [String] = []
-            if let notifications = subscription.notifications {
-                notifications.forEach { notification in
-                    guard let notification = notification as? Notification,
-                          let localPath = notification.attachmentLocalPath,
-                          !localPath.isEmpty else { return }
-                    pendingFileCleanup.append(localPath)
-                }
-            }
+            //
+            // The rows to delete come from the store, not from `subscription.notifications`. This
+            // context's copy of that to-many can predate rows the extension saved since (merging its
+            // history doesn't refault the topic), and the cascade only follows the copy: a pushed
+            // question then outlived its topic, pointing at the deleted row, and came back in
+            // Waiting on you with no receipts and live answer buttons (iPad check 49, B1).
+            let rows = (try? context.fetch(Self.rowsRequest(entityName: "Notification", of: subscription))) ?? []
+            let states = (try? context.fetch(Self.rowsRequest(entityName: "SequenceState", of: subscription))) ?? []
+            let pendingFileCleanup = rows.compactMap { ($0 as? Notification)?.attachmentLocalPath }.filter { !$0.isEmpty }
+            (rows + states).forEach(context.delete)
             let subscriptionTopicUrl = subscription.baseUrl.flatMap { baseUrl in
                 subscription.topic.map { topicUrl(baseUrl: baseUrl, topic: $0) }
             }
@@ -540,6 +553,41 @@ class Store: ObservableObject {
         return deleted
     }
 
+    /// Every row of `entityName` the store holds for this topic, whatever this context has loaded.
+    private static func rowsRequest(entityName: String, of subscription: Subscription) -> NSFetchRequest<NSManagedObject> {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        request.predicate = NSPredicate(format: "subscription == %@", subscription)
+        request.includesPropertyValues = entityName == "Notification"
+        return request
+    }
+
+    /// Deletes rows whose topic is gone: no subscription, or one that no longer exists. Unsubscribes
+    /// before 1.26 could leave pushed rows behind (see `delete(subscription:)`); they showed as
+    /// nameless cards. Idempotent; one batch delete per entity, merged into this context.
+    @discardableResult
+    func removeOrphanedRows() -> Int {
+        var removed = 0
+        context.performAndWait {
+            let topics = NSFetchRequest<NSManagedObjectID>(entityName: "Subscription")
+            topics.resultType = .managedObjectIDResultType
+            guard let live = try? context.fetch(topics) else { return }
+            for entity in ["Notification", "SequenceState"] {
+                let request = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
+                request.predicate = NSPredicate(format: "subscription == nil OR NOT (subscription IN %@)", live)
+                let delete = NSBatchDeleteRequest(fetchRequest: request)
+                delete.resultType = .resultTypeObjectIDs
+                do {
+                    let ids = (try context.execute(delete) as? NSBatchDeleteResult)?.result as? [NSManagedObjectID] ?? []
+                    guard !ids.isEmpty else { continue }
+                    removed += ids.count
+                    NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
+                } catch { Log.w(Store.tag, "Cannot remove orphaned \(entity) rows", error) }
+            }
+        }
+        if removed > 0 { Log.i(Store.tag, "Removed \(removed) rows whose topic no longer exists") }
+        return removed
+    }
+
     func updateSubscription(subscription: Subscription, displayName: String?) {
         context.performAndWait {
             let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -562,8 +610,11 @@ class Store: ObservableObject {
     // MARK: Read state
 
     /// Mark every notification in a subscription read (or unread) in one pass. Used by the
-    /// subscription list's swipe action and by opening a topic.
-    func setRead(_ read: Bool, forSubscription subscription: Subscription) {
+    /// subscription list's swipe action and by opening a topic. Returns the rows it changed, so
+    /// an opened topic can keep marking the ones that were new for that visit.
+    @discardableResult
+    func setRead(_ read: Bool, forSubscription subscription: Subscription) -> Set<NSManagedObjectID> {
+        var changed = Set<NSManagedObjectID>()
         context.performAndWait {
             let started = Date()
             let predicate = NSPredicate(format: "subscription == %@ AND read != %@ AND (storedAt == nil OR storedAt <= %@)", subscription, NSNumber(value: read), started as NSDate)
@@ -585,6 +636,7 @@ class Store: ObservableObject {
                 update.resultType = .updatedObjectIDsResultType
                 let result = try context.execute(update) as? NSBatchUpdateResult
                 let ids = Set(result?.result as? [NSManagedObjectID] ?? [])
+                changed = ids
                 let cached = context.registeredObjects.filter { !$0.isFault && ids.contains($0.objectID) }.map(\.objectID)
                 NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSUpdatedObjectsKey: cached], into: [context])
                 context.processPendingChanges()
@@ -608,8 +660,10 @@ class Store: ObservableObject {
             } catch {
                 Log.w(Store.tag, "Cannot mark notifications read", error)
                 rollbackAndRefresh()
+                changed = []
             }
         }
+        return changed
     }
 
     /// Marking a topic unread flags only its most recent notification, the way Mail does. Flipping
@@ -787,14 +841,19 @@ class Store: ObservableObject {
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.
-    static let testMessagePrefix = "This is a test notification from NTFY me"
+    static let testMessagePrefix = "This is a test notification from NTF-AI"
 
-    /// All shipped languages, including older English test messages after a language change.
+    /// Historical text can remain in saved messages; keep excluding it after the rename.
+    private static let legacyTestMessagePrefix = "This is a test notification from NTFY me"
+
+    /// All shipped languages and names, including test messages saved before a language change.
     static let testMessagePrefixes: [String] = {
-        Bundle.main.localizations.compactMap { language in
-            Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:))?
-                .localizedString(forKey: testMessagePrefix, value: testMessagePrefix, table: nil)
-        } + [testMessagePrefix]
+        [testMessagePrefix, legacyTestMessagePrefix].flatMap { prefix in
+            Bundle.main.localizations.compactMap { language in
+                Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:))?
+                    .localizedString(forKey: prefix, value: prefix, table: nil)
+            } + [prefix]
+        }
     }()
 
     static func isOwnTestMessage(_ message: String) -> Bool {
@@ -978,7 +1037,9 @@ class Store: ObservableObject {
                     return
                 }
                 let changed = try saveNotifications(ingested, withSubscription: subscription, isPush: true)
-                if let updated = changed.first {
+                if let ack = acknowledgedPush, ack.id == message.id {
+                    stored = .acknowledged(ingested.first?.message ?? message, questionTitle: ack.questionTitle)
+                } else if let updated = changed.first {
                     stored = .stored(updated)
                 } else if deferredPushID == message.id, let request = pollRequest(for: subscription) {
                     stored = .reconcile(request)
@@ -1005,7 +1066,7 @@ class Store: ObservableObject {
             }
         }
         switch stored {
-        case .stored, .handled: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
+        case .stored, .handled, .acknowledged: DeliveryReceipt.record(baseUrl: baseUrl, topic: topic)
         default: break // A deferred reconciliation has not demonstrated recovery yet.
         }
         return stored
@@ -1693,6 +1754,9 @@ class Store: ObservableObject {
         let unread: Int
         /// Nil when the topic has no messages yet, which is distinct from a time of zero.
         let lastTime: Int64?
+        /// The newest message itself, fetched for the whole list in one request so the topic list
+        /// can preview it without faulting each topic's history. Nil when there is none.
+        var lastNotification: Notification? = nil
     }
 
     /// Row data for every subscription, as TWO aggregate queries for the whole list.
@@ -1703,10 +1767,12 @@ class Store: ObservableObject {
     /// with a few thousand stored messages paid that on every badge change and every scroll.
     ///
     /// Grouped counts resolve in SQLite instead. Two queries rather than one because the unread
-    /// tally needs a predicate the totals must not share.
+    /// tally needs a predicate the totals must not share; a third fetches each topic's newest
+    /// message for the row preview.
     func subscriptionSummaries() -> [NSManagedObjectID: SubscriptionSummary]? {
         var totals: [NSManagedObjectID: (count: Int, lastTime: Int64?)] = [:]
         var unreads: [NSManagedObjectID: Int] = [:]
+        var latest: [NSManagedObjectID: Notification] = [:]
         var failed = false
 
         context.performAndWait {
@@ -1758,6 +1824,25 @@ class Store: ObservableObject {
                 guard let objectID = row["subscription"] as? NSManagedObjectID else { continue }
                 unreads[objectID] = row["rowCount"] as? Int ?? 0
             }
+            // The newest message per topic, in one request: every row whose time is some topic's
+            // maximum, then keep the one belonging to that topic. A preview is a nicety, so a
+            // failure here leaves previews empty rather than failing the counts.
+            let maxTimes = Set(totals.values.compactMap { $0.lastTime })
+            if !maxTimes.isEmpty {
+                let request = NSFetchRequest<Notification>(entityName: "Notification")
+                request.predicate = NSPredicate(format: "time IN %@", Array(maxTimes))
+                request.returnsObjectsAsFaults = false
+                do {
+                    for notification in try context.fetch(request) {
+                        guard let objectID = notification.subscription?.objectID,
+                              totals[objectID]?.lastTime == notification.time else { continue }
+                        if let existing = latest[objectID], (existing.id ?? "") > (notification.id ?? "") { continue }
+                        latest[objectID] = notification
+                    }
+                } catch let error {
+                    Log.w(Store.tag, "Cannot fetch latest messages for topic previews", error)
+                }
+            }
         }
 
         guard !failed else { return nil }
@@ -1766,7 +1851,8 @@ class Store: ObservableObject {
         for (objectID, total) in totals {
             summaries[objectID] = SubscriptionSummary(total: total.count,
                                                       unread: unreads[objectID] ?? 0,
-                                                      lastTime: total.lastTime)
+                                                      lastTime: total.lastTime,
+                                                      lastNotification: latest[objectID])
         }
         return summaries
     }
@@ -1893,7 +1979,7 @@ class Store: ObservableObject {
     /// asking from the current cursor orders an answer only after states from an earlier second.
     @discardableResult
     private func saveNotifications(_ ingested: [IngestedMessage], withSubscription subscription: Subscription, polledSince: String? = nil, isPush: Bool = false, applyingRetention: Bool = false) throws -> [Message] {
-        if isPush { deferredPushID = nil }
+        if isPush { deferredPushID = nil; acknowledgedPush = nil }
         let request = Notification.fetchRequest()
         let sequences = ingested.map { $0.message.sequence }
         let ids = ingested.map { $0.message.id }
@@ -1977,6 +2063,17 @@ class Store: ObservableObject {
                 }
                 removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
                                                 sequence: sequence, throughTime: message.time))
+            } else if AgentAck.isAck(tags: message.tags), let row, !AgentAck.isAck(tags: parseAllTags(row.tags)), let version = row.id {
+                // An ack confirms the question on its sequence; it never replaces it. The question
+                // keeps its row, leaves Waiting, and its banner goes. The ack itself is never presented.
+                ackLog.save(AgentAck.Record(id: message.id, time: message.time,
+                                            note: AgentAck.note(fromBody: message.message),
+                                            answer: AgentAck.answer(fromBody: message.message), version: version),
+                            forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: sequence))
+                row.read = true
+                removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
+                                                sequence: sequence, throughTime: message.time, keepingID: message.id))
+                if isPush { acknowledgedPush = (message.id, row.title) }
             } else {
                 let notification = row ?? Notification(context: context)
                 message.isUpdate = row != nil
@@ -1991,7 +2088,13 @@ class Store: ObservableObject {
                 populate(notification, from: item)
                 notification.subscription = subscription
                 if row == nil { rows.append(notification) }
-                presentations.append(message)
+                if AgentAck.isAck(tags: message.tags) {
+                    // An ack with no question here (pruned, or never received): kept as a quiet row.
+                    notification.read = true
+                    if isPush { acknowledgedPush = (message.id, nil) }
+                } else {
+                    presentations.append(message)
+                }
             }
         }
         if !isPush, !subscription.sequenceReconcile, let last = ingested.last(where: { $0.message.topic == subscription.topic && ($0.message.event == "message" || $0.message.isControl) })?.message {

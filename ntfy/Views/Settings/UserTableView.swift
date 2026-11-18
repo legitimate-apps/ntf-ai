@@ -44,15 +44,8 @@ struct UserTableView: View {
                     .foregroundColor(.primary)
             }
         }
-        Button(action: {
+        Button(String(localized: "Add user")) {
             dialog = .add
-        }) {
-            HStack {
-                Image(systemName: "plus")
-                    .accessibilityHidden(true)
-                Text(String(localized: "Add user"))
-            }
-            .foregroundColor(.primary)
         }
     }
 }

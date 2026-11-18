@@ -13,29 +13,40 @@ struct NotificationRowView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.openURL) private var openURL
     @Environment(\.editMode) private var editMode
+    @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var notification: Notification
     let onCopyMessage: () -> Void
+    /// Unread when the topic was opened: keeps the dot and weight for this visit (see HeldUnreadMarkers).
+    var heldUnread = false
+    /// The user set this row's read state themselves, which ends the hold.
+    var onReleaseHeldUnread: () -> Void = {}
+    @ScaledMetric(relativeTo: .subheadline) private var priorityGlyphSize = MessageRowMetrics.priorityGlyphSize
     @StateObject private var attachmentController = NotificationAttachmentController()
     @State private var browserURL: URL?
     @State private var attachmentPresentation: AttachmentPresentation?
+    @State private var metadataWidth: CGFloat = 0
+    @State private var isExpanded = false
+    @State private var titleExceedsCap = false
+    @State private var bodyExceedsCap = false
     
     var body: some View {
         notificationRow
             .swipeActions(edge: .leading) {
                 Button {
-                    store.setRead(!notification.read, forNotification: notification)
+                    toggleRead()
                 } label: {
-                    Label(notification.read ? String(localized: "Mark unread") : String(localized: "Mark read"),
-                          systemImage: notification.read ? "envelope.badge" : "envelope.open")
+                    readToggleLabel(swipe: true)
                 }
-                .tint(.blue)
+                .tint(Color("BrandControlFill"))
             }
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     store.delete(notification: notification)
                 } label: {
-                    Label(String(localized: "Delete"), systemImage: "trash.circle")
+                    Label(String(localized: "Delete"), systemImage: AppSymbol.delete(swipe: true))
                 }
+                // The app-wide tint overrides the destructive role in swipe actions; keep it red.
+                .tint(.red)
             }
             .background(InAppBrowser(url: $browserURL))
             .sheet(item: $attachmentPresentation) { attachmentPresentation in
@@ -67,30 +78,46 @@ struct NotificationRowView: View {
                     },
                     onCopy: showCopyFeedback
                 )
+                .padding(.leading, contentLeadingInset)
             }
             if !notification.actionsList().isEmpty {
-                HStack {
-                    ForEach(notification.actionsList()) { action in
-                        Button(action.label) {
-                            ActionExecutor.execute(
-                                action,
-                                notificationId: notification.id,
-                                baseUrl: notification.subscription?.baseUrl,
-                                openURL: openMessageURL
-                            )
-                            if action.copiesText {
-                                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                showCopyFeedback()
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-                .padding([.top], 5)
+                MessageActionButtons(
+                    actions: notification.actionsList(),
+                    run: runAction
+                )
+                .padding(.top, 8)
+                .padding(.leading, contentLeadingInset)
             }
         }
-        .padding(.all, 4)
+        .overlay(alignment: .topLeading) {
+            if showsUnread {
+                // Inside the row's leading inset, so the text column stays on the screen margin.
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: MessageRowMetrics.unreadDotSize, height: MessageRowMetrics.unreadDotSize)
+                    .offset(x: -MessageRowMetrics.unreadDotGutter,
+                            y: max(0, firstLineHeight / 2 - MessageRowMetrics.unreadDotSize / 2))
+                    .accessibilityHidden(true)
+            }
+        }
         .contentShape(Rectangle())
+        .contextMenu { messageMenuItems }
+        .accessibilityElement(children: .contain)
+        .accessibilityValue(showsUnread ? String(localized: "Unread") : "")
+        .modifier(SeparatorFromRowLeadingEdge())
+    }
+
+    private func runAction(_ action: Action) {
+        ActionExecutor.execute(
+            action,
+            notificationId: notification.id,
+            baseUrl: notification.subscription?.baseUrl,
+            openURL: openMessageURL
+        )
+        if action.copiesText {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            showCopyFeedback()
+        }
     }
 
     @ViewBuilder
@@ -106,112 +133,232 @@ struct NotificationRowView: View {
         }
     }
 
+    private var title: String? {
+        guard let title = notification.formatTitle(), !title.isEmpty else { return nil }
+        return title
+    }
+
+    private var titleStyle: MessageTextStyle {
+        .title(read: !showsUnread)
+    }
+
+    /// The style of whichever text opens the row: the title, or the body when there is none.
+    private var firstLineStyle: MessageTextStyle {
+        title == nil ? .body : titleStyle
+    }
+
+    private var traitCollection: UITraitCollection {
+        UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(sizeCategory))
+    }
+
+    private var firstLineHeight: CGFloat {
+        firstLineStyle.lineHeight(compatibleWith: traitCollection)
+    }
+
+    private var showsPriority: Bool {
+        [4, 5].contains(notification.priority)
+    }
+
+    /// At accessibility sizes the time gets its own line under the title instead of sharing one.
+    private var stacksMetadata: Bool {
+        sizeCategory.isAccessibilityCategory
+    }
+
+    private var contentLeadingInset: CGFloat {
+        notification.iconUrl() == nil ? 0 : MessageRowMetrics.iconSize + MessageRowMetrics.iconSpacing
+    }
+
     private var messageContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 8) {
-                HStack(alignment: .top, spacing: 8) {
-                    HStack(alignment: .center, spacing: 2) {
-                        Text(notification.shortDateTime())
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        if [1,2,4,5].contains(notification.priority) {
-                            Image("priority-\(notification.priority)")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 16, height: 16)
-                                .accessibilityLabel(priorityLabel)
-                        }
-                        switch notification.encryptionState {
-                        case .none:
-                            EmptyView()
-                        case .decrypted, .locked:
-                            Image(systemName: notification.encryptionState == .locked ? "lock" : "lock.fill")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding([.leading], 2)
-                                .accessibilityLabel(notification.encryptionState == .locked
-                                    ? String(localized: "Encrypted, not readable yet")
-                                    : String(localized: "End-to-end encrypted"))
-                        case .unencrypted:
-                            Label(String(localized: "Not encrypted"), systemImage: "lock.open")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .padding([.leading], 2)
-                                .accessibilityLabel(String(localized: "Not encrypted: this topic has a password, but this message was sent without it"))
-                        }
-                    }
-                    Spacer()
+        HStack(alignment: .top, spacing: MessageRowMetrics.iconSpacing) {
+            if let iconUrl = notification.iconUrl() {
+                AsyncImage(url: iconUrl) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color(.secondarySystemFill)
                 }
-                .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
-                // Every message gets the menu, not only ones carrying a click URL.
-                // Without a click URL the only ways to copy a body were tapping the
-                // row — which nothing advertises — or a long-press text selection,
-                // so the one message you most want to copy (a token, a code) was the
-                // one with no visible way to copy it.
-                messageActionsMenu
-            }
-            .padding([.bottom], 2)
-            if #available(iOS 15.0, *), let iconUrl = notification.iconUrl() {
-                HStack {
-                    AsyncImage(url: iconUrl) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        Color.clear
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .accessibilityHidden(true)
-                    Spacer()
-                }
-                .padding([.bottom], 4)
+                .frame(width: MessageRowMetrics.iconSize, height: MessageRowMetrics.iconSize)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .accessibilityHidden(true)
                 .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
             }
-            if let title = notification.formatTitle(), title != "" {
-                SelectableMessageText(
-                    attributedText: renderMessageTitle(title),
-                    style: .title,
-                    isInteractionEnabled: !isEditing,
-                    onOpenURL: openMessageURL, onPlainTap: handleRowTap
-                )
-                .fixedSize(horizontal: false, vertical: true)
-                .padding([.bottom], 2)
-            }
-            messageText
-            if notification.encryptionState == .unencrypted {
-                Text(String(localized: "Sent without this topic's password. Anyone who knows the topic name could have sent it."))
-                    .font(.footnote)
-                    .foregroundColor(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding([.top], 2)
-                    .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
-            }
-            if notification.encryptionState == .locked {
-                Text(String(localized: "Set this topic's password (topic menu → End-to-end encryption) to read it."))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding([.top], 2)
-                    .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
-            }
-            if !notification.nonEmojiTags().isEmpty {
-                Text(String(localized: "Tags: \(notification.nonEmojiTags().joined(separator: ", "))"))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding([.top], 2)
-                    .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
+            VStack(alignment: .leading, spacing: 0) {
+                firstLine
+                if title != nil {
+                    messageText
+                        .padding(.top, 2)
+                }
+                if let cue = messageRowExpansionCue(exceedsLineCap: exceedsLineCap, isExpanded: isExpanded) {
+                    expansionToggle(cue)
+                }
+                if notification.encryptionState == .locked {
+                    Text(String(localized: "Set this topic's password (topic menu → End-to-end encryption) to read it."))
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding([.top], 2)
+                        .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
+                }
+                if !notification.nonEmojiTags().isEmpty {
+                    Text(notification.nonEmojiTags().joined(separator: " · "))
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding([.top], 4)
+                        .accessibilityLabel(String(localized: "Tags: \(notification.nonEmojiTags().joined(separator: ", "))"))
+                        .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
+                }
             }
         }
     }
-    
+
+    /// Line 1: [priority] title (or the body's first line) with the time trailing on the same
+    /// baseline. The glyph and the time are reserved out of the text's first line only, so a
+    /// wrapped title or body uses the full width below them.
+    @ViewBuilder
+    private var firstLine: some View {
+        if stacksMetadata {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if showsPriority { priorityGlyph }
+                    firstText(exclusion: FirstLineExclusion())
+                }
+                metadata
+            }
+        } else {
+            ZStack(alignment: Alignment(horizontal: .trailing, vertical: .firstTextBaseline)) {
+                firstText(exclusion: FirstLineExclusion(
+                    leading: showsPriority ? priorityGlyphSize + 4 : 0,
+                    trailing: metadataWidth > 0 ? metadataWidth + 8 : 0,
+                    lineHeight: max(0, firstLineHeight - 1)
+                ))
+                metadata
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: MetadataWidthKey.self, value: proxy.size.width)
+                    })
+            }
+            .overlay(alignment: .topLeading) {
+                if showsPriority {
+                    priorityGlyph
+                        .padding(.top, max(0, (firstLineHeight - priorityGlyphSize) / 2))
+                }
+            }
+            .onPreferenceChange(MetadataWidthKey.self) { metadataWidth = ceil($0) }
+        }
+    }
+
+    @ViewBuilder
+    private func firstText(exclusion: FirstLineExclusion) -> some View {
+        let style = firstLineStyle
+        let baseline = style.firstBaseline(compatibleWith: traitCollection)
+        Group {
+            if let title {
+                SelectableMessageText(
+                    attributedText: renderMessageTitle(title),
+                    style: style,
+                    exclusion: exclusion,
+                    lineCap: MessageRowLineCap.title(accessibilitySize: sizeCategory.isAccessibilityCategory),
+                    isCollapsed: !isExpanded,
+                    isInteractionEnabled: !isEditing,
+                    onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+                    onExceedsLineCapChange: { titleExceedsCap = $0 }
+                )
+            } else {
+                SelectableMessageText(
+                    attributedText: notification.renderedMessageAttributedString(),
+                    style: .body,
+                    exclusion: exclusion,
+                    lineCap: MessageRowLineCap.body,
+                    isCollapsed: !isExpanded,
+                    isInteractionEnabled: !isEditing,
+                    onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+                    onExceedsLineCapChange: { bodyExceedsCap = $0 }
+                )
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .alignmentGuide(.firstTextBaseline) { _ in baseline }
+    }
+
+    private var priorityGlyph: some View {
+        Image("priority-\(notification.priority)")
+            .resizable()
+            .scaledToFit()
+            .frame(width: priorityGlyphSize, height: priorityGlyphSize)
+            .accessibilityLabel(priorityLabel)
+    }
+
+    /// Encryption state and time at footnote size on one baseline. The message's actions live in
+    /// the long-press menu, so line 1 carries no button.
+    private var metadata: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            switch notification.encryptionState {
+            case .none:
+                EmptyView()
+            case .decrypted, .locked:
+                // Locked reads as a warning (can't read it yet), not as a lighter lock.
+                Image(systemName: notification.encryptionState == .locked ? "lock.trianglebadge.exclamationmark" : "lock.fill")
+                    .font(.caption)
+                    .foregroundColor(notification.encryptionState == .locked ? .orange : .secondary)
+                    .accessibilityLabel(notification.encryptionState == .locked
+                        ? String(localized: "Encrypted, not readable yet")
+                        : String(localized: "End-to-end encrypted"))
+            case .unencrypted:
+                Label(String(localized: "Not encrypted"), systemImage: "lock.open")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .lineLimit(1)
+                    .accessibilityLabel(String(localized: "Not encrypted: this topic has a password, but this message was sent without it"))
+            }
+            Text(Notification.shortTime(for: notification.date()))
+                .font(.footnote.monospacedDigit())
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                // Never truncate the time (ntfy#1205): it keeps its width and the text yields.
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
+                .accessibilityLabel(notification.shortDateTime())
+        }
+        .fixedSize()
+        .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: handleRowTap))
+    }
+
     private var messageText: some View {
         SelectableMessageText(
             attributedText: notification.renderedMessageAttributedString(),
             style: .body,
+            exclusion: FirstLineExclusion(),
+            lineCap: MessageRowLineCap.body,
+            isCollapsed: !isExpanded,
             isInteractionEnabled: !isEditing,
-            onOpenURL: openMessageURL, onPlainTap: handleRowTap
+            onOpenURL: openMessageURL, onPlainTap: handleRowTap,
+            onExceedsLineCapChange: { bodyExceedsCap = $0 }
         )
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var exceedsLineCap: Bool {
+        titleExceedsCap || bodyExceedsCap
+    }
+
+    /// The cut-off cue after the last line ("more"), and "less" in the same spot once expanded,
+    /// each with its own tap so a row whose tap opens a click URL can still expand and collapse.
+    /// Plain text, not a Button: a Button in the List row rendered blank.
+    private func expansionToggle(_ cue: MessageRowExpansionCue) -> some View {
+        Text(cue == .less ? String(localized: "less") : String(localized: "more"))
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .modifier(MessageRowTapModifier(enabled: installsMessageRegionTaps, action: toggleExpansion))
+            .accessibilityAddTraits(.isButton)
+    }
+
+    private func toggleExpansion() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isExpanded.toggle()
+        }
     }
 
     private var isEditing: Bool {
@@ -243,27 +390,63 @@ struct NotificationRowView: View {
         return user.toHeader()
     }
     
-    private var messageActionsMenu: some View {
-        Menu {
-            Button(String(localized: "Copy message")) {
-                copyMessage()
-            }
-            Button {
-                store.setRead(!notification.read, forNotification: notification)
-            } label: {
-                Label(notification.read ? String(localized: "Mark unread") : String(localized: "Mark read"),
-                      systemImage: notification.read ? "envelope.badge" : "envelope.open")
-            }
+    /// The long-press menu: everything the row offers besides its swipe actions.
+    @ViewBuilder
+    private var messageMenuItems: some View {
+        Button {
+            copyMessage()
         } label: {
-            Image(systemName: "ellipsis.circle")
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
+            Label(String(localized: "Copy message"), systemImage: "doc.on.doc")
         }
-        .menuStyle(.borderlessButton)
-        .accessibilityLabel(String(localized: "Message actions"))
+        if let title = notification.title, !title.isEmpty {
+            Button {
+                UIPasteboard.general.setValue(title, forPasteboardType: UTType.plainText.identifier)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                showCopyFeedback()
+            } label: {
+                Label(String(localized: "Copy title"), systemImage: AppSymbol.copyText)
+            }
+        }
+        if #available(iOS 16.0, *) {
+            ShareLink(item: shareText) {
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
+            }
+        }
+        Button {
+            toggleRead()
+        } label: {
+            readToggleLabel(swipe: false)
+        }
+        Button(role: .destructive) {
+            store.delete(notification: notification)
+        } label: {
+            Label(String(localized: "Delete"), systemImage: AppSymbol.delete())
+        }
     }
-    
+
+    /// Unread as the row shows it: really unread, or held from when the topic was opened.
+    private var showsUnread: Bool {
+        !notification.read || heldUnread
+    }
+
+    private func readToggleLabel(swipe: Bool) -> some View {
+        Label(showsUnread ? String(localized: "Mark read") : String(localized: "Mark unread"),
+              systemImage: showsUnread ? AppSymbol.markRead(swipe: swipe) : AppSymbol.markUnread(swipe: swipe))
+    }
+
+    private func toggleRead() {
+        let read = showsUnread
+        onReleaseHeldUnread()
+        store.setRead(read, forNotification: notification)
+    }
+
+    private var shareText: String {
+        [notification.title, notification.formatMessage()]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+    }
+
     private var priorityLabel: String {
         switch notification.priority {
         case 1: return String(localized: "Minimum priority")
@@ -291,10 +474,13 @@ struct NotificationRowView: View {
     }
 
     private func handleRowTap() {
-        if let clickUrl {
-            openMessageURL(clickUrl)
-        } else {
-            copyMessage()
+        switch messageRowTapAction(hasClickURL: clickUrl != nil, exceedsLineCap: exceedsLineCap) {
+        case .openClickURL:
+            if let clickUrl { openMessageURL(clickUrl) }
+        case .toggleExpansion:
+            toggleExpansion()
+        case .none:
+            break
         }
     }
 }
@@ -320,9 +506,13 @@ extension NotificationRowView {
     private struct SelectableMessageText: UIViewRepresentable {
         let attributedText: AttributedString
         let style: MessageTextStyle
+        var exclusion = FirstLineExclusion()
+        var lineCap = 0
+        var isCollapsed = true
         let isInteractionEnabled: Bool
         let onOpenURL: (URL) -> Void
         let onPlainTap: () -> Void
+        var onExceedsLineCapChange: (Bool) -> Void = { _ in }
 
         func makeCoordinator() -> Coordinator {
             Coordinator(onOpenURL: onOpenURL, onPlainTap: onPlainTap)
@@ -340,7 +530,25 @@ extension NotificationRowView {
             context.coordinator.onOpenURL = onOpenURL
             context.coordinator.onPlainTap = onPlainTap
             configureMessageTextView(textView, isInteractionEnabled: isInteractionEnabled)
+            let report = onExceedsLineCapChange
+            // Reported from layout, so the state change waits for the current update to finish.
+            textView.onExceedsLineCapChange = { exceeds in DispatchQueue.main.async { report(exceeds) } }
             textView.setMessageText(attributedText, style: style)
+            textView.setFirstLineExclusion(exclusion)
+            textView.setLineCap(lineCap, collapsed: isCollapsed)
+            // Report the current answer on every update too, not only on a change: a List can hand
+            // this row a text view that already measured "exceeds" for an earlier row, and then no
+            // change ever fires and the row never shows "more".
+            let exceeds = textView.exceedsLineCap
+            DispatchQueue.main.async { report(exceeds) }
+        }
+
+        /// The height at the width SwiftUI proposes. Reporting it through `intrinsicContentSize`
+        /// alone left rows sized from a stale `bounds` (the same row 162 pt in light, 182 in dark).
+        @available(iOS 16.0, *)
+        func sizeThatFits(_ proposal: ProposedViewSize, uiView: MessageTextView, context: Context) -> CGSize? {
+            guard let width = proposal.width, width > 0, width.isFinite else { return nil }
+            return CGSize(width: width, height: uiView.fittingHeight(forWidth: width))
         }
 
         final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
@@ -444,7 +652,7 @@ extension NotificationRowView {
         }
     }
 
-    private struct ActivityView: UIViewControllerRepresentable {
+    struct ActivityView: UIViewControllerRepresentable {
         let activityItems: [Any]
 
         func makeUIViewController(context: Context) -> UIActivityViewController {
@@ -455,7 +663,7 @@ extension NotificationRowView {
         }
     }
 
-    private struct AttachmentPresentation: Identifiable {
+    struct AttachmentPresentation: Identifiable {
         enum Mode {
             case preview
             case share
@@ -466,7 +674,7 @@ extension NotificationRowView {
         let mode: Mode
     }
 
-    private struct AttachmentPreviewView: UIViewControllerRepresentable {
+    struct AttachmentPreviewView: UIViewControllerRepresentable {
         let url: URL
 
         func makeUIViewController(context: Context) -> UINavigationController {
@@ -596,7 +804,7 @@ extension NotificationRowView {
     }
 
     @MainActor
-    private final class AttachmentExportPresenter: NSObject, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
+    final class AttachmentExportPresenter: NSObject, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
         static let shared = AttachmentExportPresenter()
         private var activePicker: UIDocumentPickerViewController?
         private var activeExportUrl: URL?
@@ -688,4 +896,123 @@ extension NotificationRowView {
         }
     }
 
+}
+
+// MARK: Row layout
+
+/// One message-row spec (REVIEW.md 2026-11-12, finding 1): every number the row uses.
+enum MessageRowMetrics {
+    static let verticalInset: CGFloat = 10
+
+    /// Before iOS 26 a row can't set only its vertical insets, so the horizontal margin is spelled
+    /// out as UIKit picks it: 20 pt on lists 414 pt wide and up, 16 below.
+    static func horizontalMargin(listWidth: CGFloat) -> CGFloat {
+        listWidth >= 414 ? 20 : 16
+    }
+
+    static func insets(listWidth: CGFloat) -> EdgeInsets {
+        let margin = horizontalMargin(listWidth: listWidth)
+        return EdgeInsets(top: verticalInset, leading: margin, bottom: verticalInset, trailing: margin)
+    }
+    static let unreadDotSize: CGFloat = 8
+    /// The dot's leading edge sits this far left of the text column, inside the row's inset.
+    static let unreadDotGutter: CGFloat = 12
+    static let priorityGlyphSize: CGFloat = 12
+    static let iconSize: CGFloat = 28
+    static let iconSpacing: CGFloat = 8
+}
+
+/// Starts the row's separator at the row's own leading edge. SwiftUI otherwise aligns it to the
+/// first SwiftUI `Text` it finds; title and body are UIKit text views, so in some rows that was the
+/// time at the trailing edge and the separator became a stub under it.
+private struct SeparatorFromRowLeadingEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+        } else {
+            content
+        }
+    }
+}
+
+private struct MetadataWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// A message's action buttons: quiet tinted capsules that wrap onto more lines instead of
+/// squeezing three long labels into one.
+struct MessageActionButtons: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let actions: [Action]
+    let run: (Action) -> Void
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            WrappingHStack(spacing: 8, lineSpacing: 8) { buttons }
+        } else {
+            VStack(alignment: .leading, spacing: 8) { buttons }
+        }
+    }
+
+    private var buttons: some View {
+        ForEach(actions) { action in
+            Button(action.label) { run(action) }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .buttonBorderShape(.capsule)
+                .tint(Color("BrandFill"))
+                // Ink on the pale tinted fill in light mode, the brand emerald in dark: both
+                // pass contrast, where emerald text on white would not.
+                .foregroundColor(colorScheme == .dark ? Color("BrandFill") : Color("Ink"))
+                .lineLimit(1)
+        }
+    }
+}
+
+/// Lays children out left to right and starts a new line when the next one doesn't fit.
+@available(iOS 16.0, *)
+struct WrappingHStack: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        let frames = WrappingHStack.frames(for: subviews.map { $0.sizeThatFits(.init(width: width, height: nil)) },
+                                           width: width, spacing: spacing, lineSpacing: lineSpacing)
+        let used = frames.reduce(CGRect.null) { $0.union($1) }
+        return used.isNull ? .zero : CGSize(width: used.maxX, height: used.maxY)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let sizes = subviews.map { $0.sizeThatFits(.init(width: bounds.width, height: nil)) }
+        let frames = WrappingHStack.frames(for: sizes, width: bounds.width, spacing: spacing, lineSpacing: lineSpacing)
+        for (subview, frame) in zip(subviews, frames) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                          proposal: ProposedViewSize(frame.size))
+        }
+    }
+
+    /// Pure line-breaking, testable without a view tree. A child wider than the line gets the
+    /// line to itself, clamped to its width.
+    static func frames(for sizes: [CGSize], width: CGFloat, spacing: CGFloat, lineSpacing: CGFloat) -> [CGRect] {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        for size in sizes {
+            let itemWidth = min(size.width, width)
+            if x > 0, x + itemWidth > width {
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            frames.append(CGRect(x: x, y: y, width: itemWidth, height: size.height))
+            x += itemWidth + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        return frames
+    }
 }

@@ -6,7 +6,14 @@ import Combine
 /// Older pages use (time, id), so a new push never shifts a fetch offset or skips a row.
 class NotificationsObservable: NSObject, ObservableObject {
     static let pageSize = 50
-    private let subscriptionID: NSManagedObjectID
+    /// One topic's history; every topic but the muted ones (the Inbox's Activity feed); or every
+    /// topic, only while a search is typed (the Search tab).
+    enum Scope: Equatable {
+        case topic(NSManagedObjectID)
+        case activity
+        case search
+    }
+    private let scope: Scope
     private let context: NSManagedObjectContext
     private var observers: [NSObjectProtocol] = []
     private var searchSubscription: AnyCancellable?
@@ -17,8 +24,12 @@ class NotificationsObservable: NSObject, ObservableObject {
     @Published private(set) var hasOlder = false
     private(set) var fetchCount = 0
 
-    init(subscriptionID: NSManagedObjectID, context: NSManagedObjectContext = Store.shared.context) {
-        self.subscriptionID = subscriptionID
+    convenience init(subscriptionID: NSManagedObjectID, context: NSManagedObjectContext = Store.shared.context) {
+        self.init(scope: .topic(subscriptionID), context: context)
+    }
+
+    init(scope: Scope, context: NSManagedObjectContext = Store.shared.context) {
+        self.scope = scope
         self.context = context
         super.init()
         refetch()
@@ -34,10 +45,24 @@ class NotificationsObservable: NSObject, ObservableObject {
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
 
+    private func scopePredicate(now: Date = Date()) -> NSPredicate {
+        switch scope {
+        case .topic(let id):
+            return NSPredicate(format: "subscription == %@", id)
+        case .activity:
+            // A muted topic stays out of Activity, so a chatty bot can be kept out with the
+            // existing mute. A mute that has ended lets it back in.
+            return NSPredicate(format: "subscription != nil AND (subscription.mutedUntil == nil OR subscription.mutedUntil <= %@)",
+                               now as NSDate)
+        case .search:
+            return query.isEmpty ? NSPredicate(value: false) : NSPredicate(format: "subscription != nil")
+        }
+    }
+
     private func predicate() -> NSPredicate {
-        let topic = NSPredicate(format: "subscription == %@", subscriptionID)
-        guard !query.isEmpty else { return topic }
-        return NSCompoundPredicate(andPredicateWithSubpredicates: [topic,
+        let scoped = scopePredicate()
+        guard !query.isEmpty else { return scoped }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [scoped,
             NSPredicate(format: "message CONTAINS[cd] %@ OR title CONTAINS[cd] %@", query, query)])
     }
 
@@ -86,15 +111,30 @@ class NotificationsObservable: NSObject, ObservableObject {
     private func apply(_ change: Foundation.Notification) {
         guard let info = change.userInfo else { return }
         if info[NSInvalidatedAllObjectsKey] != nil { refetch(); return }
+        if scope == .activity {
+            // Muting or unmuting a topic changes which rows belong in the feed.
+            let topics = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey, NSRefreshedObjectsKey]
+                .flatMap { (info[$0] as? Set<NSManagedObject> ?? []).compactMap { $0 as? Subscription } }
+            if topics.contains(where: { $0.changedValuesForCurrentEvent()["mutedUntil"] != nil || $0.isDeleted || $0.isInserted }) {
+                refetch(); return
+            }
+        }
         let removed = (info[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? [])
             .union(info[NSInvalidatedObjectsKey] as? Set<NSManagedObject> ?? [])
-        let changed = (info[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? [])
-            .union(info[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
-            .union(info[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? [])
         let removedIDs = Set(removed.map(\.objectID))
         let loadedIDs = Set(notifications.map(\.objectID))
+        var refreshed = info[NSRefreshedObjectsKey] as? Set<NSManagedObject> ?? []
+        if case .topic = scope {} else {
+            // The cross-topic feeds see every topic's refreshes. A refreshed fault that isn't on
+            // screen changed nothing in memory, and reading its topic would load it: a store-wide
+            // refresh would otherwise load every registered row (RetentionTests, 10k unread).
+            refreshed = refreshed.filter { !$0.isFault || loadedIDs.contains($0.objectID) }
+        }
+        let changed = (info[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? [])
+            .union(info[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? [])
+            .union(refreshed)
         let rows = changed.compactMap { $0 as? Notification }.filter {
-            loadedIDs.contains($0.objectID) || (!$0.isDeleted && $0.subscription?.objectID == subscriptionID)
+            loadedIDs.contains($0.objectID) || (!$0.isDeleted && inScope($0))
         }
         guard !removedIDs.isDisjoint(with: loadedIDs) || !rows.isEmpty else { return }
         let changedIDs = Set(rows.map(\.objectID))
@@ -120,8 +160,17 @@ class NotificationsObservable: NSObject, ObservableObject {
         }
     }
 
+    private func inScope(_ row: Notification) -> Bool {
+        guard let subscription = row.subscription else { return false }
+        switch scope {
+        case .topic(let id): return subscription.objectID == id
+        case .activity: return !TopicMute.isMuted(until: subscription.mutedUntil)
+        case .search: return !query.isEmpty
+        }
+    }
+
     private func matches(_ row: Notification) -> Bool {
-        guard row.subscription?.objectID == subscriptionID else { return false }
+        guard inScope(row) else { return false }
         return query.isEmpty || NSPredicate(format: "message CONTAINS[cd] %@ OR title CONTAINS[cd] %@", query, query).evaluate(with: row)
     }
 

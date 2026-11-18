@@ -1,6 +1,15 @@
 import SwiftUI
 import UIKit
 
+// The same adaptive accent used by SwiftUI links: Forest (#047857) on light surfaces, mint
+// (#6EE7B7) on dark. Keep a matching dynamic fallback for contexts that do not load the asset catalog.
+private let messageLinkColor = UIColor(named: "AccentColor") ?? UIColor { traits in
+    if traits.userInterfaceStyle == .dark {
+        return UIColor(red: 0x6E / 255.0, green: 0xE7 / 255.0, blue: 0xB7 / 255.0, alpha: 1)
+    }
+    return UIColor(red: 0x04 / 255.0, green: 0x78 / 255.0, blue: 0x57 / 255.0, alpha: 1)
+}
+
 // MARK: Extensions
 
 extension Notification {
@@ -12,6 +21,28 @@ extension Notification {
 
     func linkifiedMessageAttributedString() -> AttributedString {
         return renderMessageBody(formatMessage(), contentType: nil)
+    }
+
+    /// The one line a list shows for this message: its title if it has one, else its body as
+    /// plain text (Markdown resolved, line breaks folded), so a preview never shows `**`.
+    /// A locked message previews as its placeholder only, never a title.
+    func previewText() -> String {
+        if encryptionState == .locked {
+            return formatMessage()
+        }
+        if let title = formatTitle(), !title.isEmpty {
+            return title
+        }
+        let plain = String(renderedMessageAttributedString().characters)
+        return plain.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    /// Whether a list preview of this message needs the row's orange "Not encrypted" mark: it
+    /// arrived as plaintext on a topic with a password, so it must not pass as the encrypted
+    /// sender's words in the topic list either.
+    var previewIsMarkedNotEncrypted: Bool {
+        encryptionState == .unencrypted
     }
 }
 
@@ -137,7 +168,7 @@ func linkifyBareUrls(in attributed: inout AttributedString) {
         let attrRange = lower..<upper
         guard attributed[attrRange].runs.allSatisfy({ $0.link == nil }) else { continue }
         attributed[attrRange].link = match.url
-        attributed[attrRange].foregroundColor = UIColor.link
+        attributed[attrRange].foregroundColor = messageLinkColor
         attributed[attrRange].underlineStyle = NSUnderlineStyle.single
     }
 }
@@ -156,7 +187,7 @@ func linkify(_ source: String) -> AttributedString {
     let mutable = NSMutableAttributedString(string: source)
     for match in detectedMessageLinks(in: source) {
         mutable.addAttribute(.link, value: match.url, range: match.range)
-        mutable.addAttribute(.foregroundColor, value: UIColor.link, range: match.range)
+        mutable.addAttribute(.foregroundColor, value: messageLinkColor, range: match.range)
         mutable.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
     }
     return AttributedString(mutable)
@@ -179,26 +210,104 @@ func messageRowTapPolicy(isEditing: Bool) -> MessageRowTapPolicy {
     )
 }
 
+/// What a plain tap on a message row does. A click URL wins; otherwise a row cut at its line cap
+/// expands or collapses. A tap never copies: copying a whole message by accident while scrolling
+/// was easy and nothing advertised it, so copy lives in the long-press menu.
+enum MessageRowTapAction: Equatable {
+    case openClickURL
+    case toggleExpansion
+    case none
+}
+
+func messageRowTapAction(hasClickURL: Bool, exceedsLineCap: Bool) -> MessageRowTapAction {
+    if hasClickURL { return .openClickURL }
+    return exceedsLineCap ? .toggleExpansion : .none
+}
+
+/// The cue under a cut row: "more" while collapsed, "less" once expanded (so a row whose tap opens
+/// a click URL can still be cut back), nothing when the whole message fits.
+enum MessageRowExpansionCue: Equatable {
+    case more
+    case less
+}
+
+func messageRowExpansionCue(exceedsLineCap: Bool, isExpanded: Bool) -> MessageRowExpansionCue? {
+    guard exceedsLineCap else { return nil }
+    return isExpanded ? .less : .more
+}
+
+/// Collapsed rows show one line of title (three at accessibility sizes, where one line holds a
+/// word or two) and six of body; a tap shows the rest.
+enum MessageRowLineCap {
+    static let title = 1
+    static let accessibilityTitle = 3
+    static let body = 6
+
+    static func title(accessibilitySize: Bool) -> Int {
+        accessibilitySize ? accessibilityTitle : title
+    }
+}
+
+/// Unread markers held for one visit to a topic. Opening a topic marks it read at once (the badge
+/// clears), but the rows that were unread keep their dot and weight until the user leaves, as in
+/// Mail, so they can still see what was new. Generic over the id so it is testable without Core Data.
+struct HeldUnreadMarkers<ID: Hashable> {
+    private(set) var ids: Set<ID> = []
+
+    /// The rows that were unread when the topic opened.
+    mutating func hold(_ unread: Set<ID>) { ids.formUnion(unread) }
+
+    /// The user marked this row read or unread themselves: their choice wins over the hold.
+    mutating func release(_ id: ID) { ids.remove(id) }
+
+    /// Leaving the topic.
+    mutating func clear() { ids.removeAll() }
+
+    func showsUnread(_ id: ID, read: Bool) -> Bool { !read || ids.contains(id) }
+}
+
+/// Message rows are set at `.subheadline` (15/20 at the default size): title and body differ by
+/// weight, and the row reads as an inbox, not a page. Unread titles are semibold, read ones medium,
+/// which is how a row says it is unread without another glyph.
 enum MessageTextStyle {
     case body
     case title
+    case titleRead
+
+    /// Unread titles are semibold; once read they drop to medium, so the weight itself says
+    /// which messages are new without a second color.
+    static func title(read: Bool) -> MessageTextStyle {
+        read ? .titleRead : .title
+    }
 
     var uiTextStyle: UIFont.TextStyle {
+        .subheadline
+    }
+
+    var weight: UIFont.Weight? {
         switch self {
         case .body:
-            return .body
+            return nil
         case .title:
-            return .headline
+            return .semibold
+        case .titleRead:
+            return .medium
         }
     }
 
     var baseTraits: UIFontDescriptor.SymbolicTraits {
-        switch self {
-        case .body:
-            return []
-        case .title:
-            return .traitBold
-        }
+        []
+    }
+
+    /// The first line's baseline measured from the top of the text view, for aligning the
+    /// row's trailing time with it. TextKit places the first baseline at the font's ascender
+    /// when the container inset and padding are zero, as `configureMessageTextView` sets them.
+    func firstBaseline(compatibleWith traitCollection: UITraitCollection?) -> CGFloat {
+        UIFont.preferredFont(forTextStyle: uiTextStyle, compatibleWith: traitCollection).ascender
+    }
+
+    func lineHeight(compatibleWith traitCollection: UITraitCollection?) -> CGFloat {
+        UIFont.preferredFont(forTextStyle: uiTextStyle, compatibleWith: traitCollection).lineHeight
     }
 }
 
@@ -257,6 +366,16 @@ func makeMessageNSAttributedString(
             }
         }
         descriptor = descriptor.withSymbolicTraits(traits) ?? descriptor
+        // A weight is a trait attribute, not a symbolic trait, so it goes on after them. Markdown
+        // bold inside a title stays bold rather than being lowered to the title's weight.
+        if let weight = style.weight, !traits.contains(.traitBold) {
+            descriptor = descriptor.addingAttributes([
+                .traits: [
+                    UIFontDescriptor.TraitKey.weight: weight.rawValue,
+                    UIFontDescriptor.TraitKey.symbolic: traits.rawValue
+                ]
+            ])
+        }
         output.addAttribute(.font, value: UIFont(descriptor: descriptor, size: 0), range: range)
     }
 
@@ -279,9 +398,9 @@ func configureMessageTextView(
     textView.textContainerInset = .zero
     textView.textContainer.lineFragmentPadding = 0
     textView.textContainer.lineBreakMode = .byWordWrapping
-    textView.tintColor = .link
+    textView.tintColor = messageLinkColor
     textView.linkTextAttributes = [
-        .foregroundColor: UIColor.link,
+        .foregroundColor: messageLinkColor,
         .underlineStyle: NSUnderlineStyle.single.rawValue
     ]
     textView.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -333,9 +452,61 @@ func applyMessageWrapping(to attributed: NSAttributedString) -> NSAttributedStri
 /// when a message contains oversized tokens.
 final class MessageTextView: UITextView {
     private var lastLaidOutWidth: CGFloat = 0
+    /// Space kept free on the first line, so a row's time (trailing) and priority glyph
+    /// (leading) sit inside the text's first line and the lines below use the full width.
+    private(set) var firstLineExclusion = FirstLineExclusion()
     private var messageText: NSAttributedString?
     private var messageSource: AttributedString?
     private var messageStyle: MessageTextStyle = .body
+    /// The most lines shown while collapsed; 0 means no cap.
+    private(set) var lineCap = 0
+    private(set) var isCollapsed = true
+    /// Whether the text needs more lines than `lineCap` at the current width.
+    private(set) var exceedsLineCap = false
+    var onExceedsLineCapChange: ((Bool) -> Void)?
+
+    func setLineCap(_ cap: Int, collapsed: Bool) {
+        // TextKit draws the "…" only with a truncating mode; word wrapping just stops at the cap.
+        // Set on every update: `configureMessageTextView` resets the mode to word wrapping.
+        let mode: NSLineBreakMode = collapsed && cap > 0 ? .byTruncatingTail : .byWordWrapping
+        let modeChanged = textContainer.lineBreakMode != mode
+        if modeChanged { textContainer.lineBreakMode = mode }
+        guard modeChanged || cap != lineCap || collapsed != isCollapsed else {
+            // `configureMessageTextView` also zeroes the container inset a one-line cap uses.
+            applyFirstLineExclusion()
+            return
+        }
+        lineCap = cap
+        isCollapsed = collapsed
+        textContainer.maximumNumberOfLines = collapsed ? cap : 0
+        applyFirstLineExclusion()
+        updateExceedsLineCap()
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
+    /// The height the text takes at `width` with the current cap and first-line exclusion, for
+    /// SwiftUI's `sizeThatFits`. Measured at the width SwiftUI proposes rather than `bounds`, so
+    /// the List gets the right height on its first pass instead of whatever `bounds` held then.
+    func fittingHeight(forWidth width: CGFloat) -> CGFloat {
+        guard width > 0, width.isFinite else { return 1 }
+        applyFirstLineExclusion(width: width)
+        updateExceedsLineCap(width: width)
+        let size = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return ceil(size.height)
+    }
+
+    private func updateExceedsLineCap(width: CGFloat? = nil) {
+        let width = width ?? bounds.width
+        let exceeds = lineCap > 0 && width > 0 && messageLineCount(
+            of: attributedText,
+            width: width,
+            exclusionPaths: firstLineExclusion.rects(containerWidth: width).map { UIBezierPath(rect: $0) }
+        ) > lineCap
+        guard exceeds != exceedsLineCap else { return }
+        exceedsLineCap = exceeds
+        onExceedsLineCapChange?(exceeds)
+    }
 
     func setMessageText(_ source: AttributedString, style: MessageTextStyle) {
         messageSource = source
@@ -369,7 +540,35 @@ final class MessageTextView: UITextView {
         if NSMaxRange(selection) <= wrapped.length {
             selectedRange = selection
         }
+        updateExceedsLineCap()
         invalidateIntrinsicContentSize()
+    }
+
+    func setFirstLineExclusion(_ exclusion: FirstLineExclusion) {
+        guard exclusion != firstLineExclusion else { return }
+        firstLineExclusion = exclusion
+        applyFirstLineExclusion()
+        updateExceedsLineCap()
+        invalidateIntrinsicContentSize()
+    }
+
+    /// A text cut to one line is all first line, and TextKit draws a truncated line's "…" across
+    /// exclusion paths (the title ran under the time). So a one-line cap reserves the glyph and
+    /// the time as container insets instead, which truncation respects.
+    private var reservesFirstLineAsInsets: Bool {
+        isCollapsed && lineCap == 1
+    }
+
+    private func applyFirstLineExclusion(width: CGFloat? = nil) {
+        let insets = reservesFirstLineAsInsets
+            ? UIEdgeInsets(top: 0, left: firstLineExclusion.leading, bottom: 0, right: firstLineExclusion.trailing)
+            : .zero
+        if textContainerInset != insets { textContainerInset = insets }
+        let rects = reservesFirstLineAsInsets ? [] : firstLineExclusion.rects(containerWidth: width ?? bounds.width)
+        let paths = rects.map { UIBezierPath(rect: $0) }
+        if textContainer.exclusionPaths.map(\.bounds) != paths.map(\.bounds) {
+            textContainer.exclusionPaths = paths
+        }
     }
 
     override var intrinsicContentSize: CGSize {
@@ -391,7 +590,49 @@ final class MessageTextView: UITextView {
             return
         }
         lastLaidOutWidth = bounds.width
+        applyFirstLineExclusion()
+        updateExceedsLineCap()
         invalidateIntrinsicContentSize()
+    }
+}
+
+/// Lines the text takes at `width`, counted on a private TextKit 1 stack so the answer does not
+/// depend on the visible view's line cap. A first line split by exclusion paths counts once.
+func messageLineCount(of text: NSAttributedString, width: CGFloat, exclusionPaths: [UIBezierPath] = []) -> Int {
+    guard text.length > 0, width > 0 else { return 0 }
+    let storage = NSTextStorage(attributedString: applyMessageWrapping(to: text))
+    let layoutManager = NSLayoutManager()
+    let container = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+    container.lineFragmentPadding = 0
+    container.exclusionPaths = exclusionPaths
+    layoutManager.addTextContainer(container)
+    storage.addLayoutManager(layoutManager)
+    var lineTops = Set<CGFloat>()
+    layoutManager.enumerateLineFragments(
+        forGlyphRange: layoutManager.glyphRange(for: container)
+    ) { rect, _, _, _, _ in
+        lineTops.insert(rect.minY.rounded())
+    }
+    return lineTops.count
+}
+
+/// Widths reserved at either end of a text view's first line. Pure, so the geometry is testable.
+struct FirstLineExclusion: Equatable {
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
+    var lineHeight: CGFloat = 0
+
+    func rects(containerWidth: CGFloat) -> [CGRect] {
+        guard containerWidth > 0, lineHeight > 0 else { return [] }
+        var rects: [CGRect] = []
+        if leading > 0 {
+            rects.append(CGRect(x: 0, y: 0, width: min(leading, containerWidth), height: lineHeight))
+        }
+        if trailing > 0 {
+            let width = min(trailing, containerWidth)
+            rects.append(CGRect(x: containerWidth - width, y: 0, width: width, height: lineHeight))
+        }
+        return rects
     }
 }
 
@@ -418,4 +659,159 @@ extension View {
     func disableAutocapitalization() -> some View {
         modifier(DisableAutocapitalizationModifier())
     }
+}
+
+// MARK: Chrome vocabulary (1.26 small-elements pass)
+
+/// One symbol per concept. Menus and context menus use the outline form, swipe actions the filled
+/// one, and toolbar symbols are never circled: the glass capsule is already the container.
+enum AppSymbol {
+    static let more = "ellipsis"
+    static let compose = "square.and.pencil"
+    static let add = "plus"
+    static func markRead(swipe: Bool = false) -> String { swipe ? "envelope.open.fill" : "envelope.open" }
+    static func markUnread(swipe: Bool = false) -> String { swipe ? "envelope.badge.fill" : "envelope.badge" }
+    static func pin(swipe: Bool = false) -> String { swipe ? "pin.fill" : "pin" }
+    static func unpin(swipe: Bool = false) -> String { swipe ? "pin.slash.fill" : "pin.slash" }
+    static func mute(swipe: Bool = false) -> String { swipe ? "bell.slash.fill" : "bell.slash" }
+    static let alertIfQuiet = "timer"
+    static let sound = "speaker.wave.2"
+    /// Messages go: one message, a selection, or a topic's whole history.
+    static func delete(swipe: Bool = false) -> String { swipe ? "trash.fill" : "trash" }
+    /// Leaving a topic, which is not the same picture as deleting messages.
+    static func unsubscribe(swipe: Bool = false) -> String { swipe ? "minus.circle.fill" : "minus.circle" }
+    static let copyText = "doc.on.doc"
+    static let copyLink = "link"
+    static let share = "square.and.arrow.up"
+    static let qrCode = "qrcode"
+    static let test = "paperplane"
+    static let rename = "pencil"
+    static let encryption = "lock"
+    static let details = "info.circle"
+    static let select = "checkmark.circle"
+    static let disclosure = "chevron.forward"
+    static let externalLink = "arrow.up.forward"
+    static let fieldClear = "xmark.circle.fill"
+}
+
+/// The trailing glyph of a row: a chevron for a push, an arrow for a link that leaves the app.
+/// Same size and colour as the system NavigationLink chevron, so the accessory column is one width.
+struct RowAccessoryGlyph: View {
+    var systemName: String = AppSymbol.disclosure
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(Color(UIColor.tertiaryLabel))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The close control of a sheet that saves as you go: the system Close button on iOS 26, "Done"
+/// before it. Place it with `SheetCloseButton.placement`.
+struct SheetCloseButton: View {
+    let action: () -> Void
+
+    static var placement: ToolbarItemPlacement {
+        if #available(iOS 26.0, *) { return .cancellationAction }
+        return .confirmationAction
+    }
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            Button(role: .close, action: action)
+        } else {
+            Button(String(localized: "Done"), action: action)
+        }
+    }
+}
+
+/// The in-content primary button (empty states, What's new, permission): the answer button's
+/// primary look, so every solid button in the app presses and reads the same way.
+struct BrandProminentButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content.answerButtonStyle(.primary, expands: false)
+    }
+}
+
+extension View {
+    func brandProminentButton() -> some View {
+        modifier(BrandProminentButton())
+    }
+}
+
+/// One notice line: a tinted symbol, the text at footnote size, and an optional borderless action
+/// that sits on the same line when it fits. Used for notifications off, sign-in refused, muted and
+/// not encrypted, so the four read as one family.
+struct InlineNotice: View {
+    let symbol: String
+    var tint: Color = .secondary
+    let text: String
+    var actionTitle: String? = nil
+    var action: () -> Void = {}
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    label.fixedSize()
+                    Spacer(minLength: 0)
+                    actionButton
+                }
+                stacked
+            }
+        } else {
+            stacked
+        }
+    }
+
+    private var label: some View {
+        Label {
+            noticeText
+        } icon: {
+            icon
+        }
+        .font(.footnote)
+    }
+
+    /// When the action doesn't fit on the line it goes under the text, in the label's title column,
+    /// so it stays aligned with the text at every text size (the icon column grows with it).
+    private var stacked: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                noticeText
+                actionButton
+            }
+        } icon: {
+            icon
+        }
+        .font(.footnote)
+    }
+
+    private var noticeText: some View {
+        Text(text)
+            .foregroundColor(.primary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var icon: some View {
+        Image(systemName: symbol).foregroundColor(tint)
+    }
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if let actionTitle {
+            Button(actionTitle, action: action)
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.borderless)
+        }
+    }
+}
+
+/// Select mode on a topic: Delete needs something to delete, and the back button and Compose step
+/// aside so the bar holds only Delete and Done.
+enum MessageSelectionChrome {
+    static func deleteEnabled(selectionCount: Int) -> Bool { selectionCount > 0 }
+    static func hidesBackButton(editing: Bool) -> Bool { editing }
+    static func showsCompose(editing: Bool) -> Bool { !editing }
 }

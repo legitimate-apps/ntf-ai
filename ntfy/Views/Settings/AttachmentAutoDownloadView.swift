@@ -7,47 +7,14 @@
 
 import SwiftUI
 
-private struct AttachmentAutoDownloadOption: Identifiable {
+struct AttachmentAutoDownloadOption: Identifiable, Equatable {
     let value: Int64
     let title: String
 
     var id: Int64 { value }
-}
 
-struct AttachmentAutoDownloadView: View {
-    @EnvironmentObject private var store: Store
-    @FetchRequest(sortDescriptors: []) private var prefs: FetchedResults<Preference>
-    @State private var showingOptions = false
-
-    private var currentValue: Int64 {
-        prefs
-            .first { $0.key == Store.prefKeyAttachmentAutoDownloadMaxSize }?
-            .value
-            .flatMap(Int64.init) ?? Store.autoDownloadDefault
-    }
-
-    var body: some View {
-        Button {
-            showingOptions = true
-        } label: {
-            ValueRow(String(localized: "Download attachments"), value: title(for: currentValue))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .confirmationDialog("Download attachments", isPresented: $showingOptions, titleVisibility: .visible) {
-            ForEach(options) { option in
-                Button {
-                    store.saveAttachmentAutoDownloadMaxSize(option.value)
-                } label: {
-                    Text(option.title)
-                }
-            }
-
-            Button(String(localized: "Cancel"), role: .cancel) {}
-        }
-    }
-
-    private var options: [AttachmentAutoDownloadOption] {
+    /// The choices, in the order the menu lists them.
+    static var all: [AttachmentAutoDownloadOption] {
         [
             .init(value: Store.autoDownloadNever, title: String(localized: "Never")),
             .init(value: Store.autoDownloadAlways, title: String(localized: "Always")),
@@ -60,7 +27,32 @@ struct AttachmentAutoDownloadView: View {
         ]
     }
 
-    private func title(for value: Int64) -> String {
-        options.first(where: { $0.value == value })?.title ?? String(localized: "Under 1 MB")
+    /// What the picker reads and writes: the stored limit, saved through the same store call the
+    /// action sheet made.
+    static func selection(store: Store, current: @escaping () -> Int64) -> Binding<Int64> {
+        Binding(get: current, set: { store.saveAttachmentAutoDownloadMaxSize($0) })
+    }
+}
+
+/// A menu picker, like "Sort topics by" above it: the value is tinted and carries the up-down
+/// chevron, so the row reads as a choice rather than a read-only value.
+struct AttachmentAutoDownloadView: View {
+    @EnvironmentObject private var store: Store
+    @FetchRequest(sortDescriptors: []) private var prefs: FetchedResults<Preference>
+
+    private var currentValue: Int64 {
+        prefs
+            .first { $0.key == Store.prefKeyAttachmentAutoDownloadMaxSize }?
+            .value
+            .flatMap(Int64.init) ?? Store.autoDownloadDefault
+    }
+
+    var body: some View {
+        Picker(String(localized: "Download attachments"),
+               selection: AttachmentAutoDownloadOption.selection(store: store, current: { currentValue })) {
+            ForEach(AttachmentAutoDownloadOption.all) { option in
+                Text(option.title).tag(option.value)
+            }
+        }
     }
 }

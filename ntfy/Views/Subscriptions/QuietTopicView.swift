@@ -5,7 +5,7 @@ struct QuietTopicButton: View {
     @Binding var showingOptions: Bool
     var body: some View {
         Button { showingOptions = true } label: {
-            Label(String(localized: "Alert if quiet"), systemImage: "timer")
+            Label(String(localized: "Alert if quiet"), systemImage: AppSymbol.alertIfQuiet)
         }
     }
 }
@@ -35,8 +35,8 @@ struct QuietTopicView: View {
             }
             .navigationTitle(String(localized: "Alert if quiet"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button(String(localized: "Done")) { presentationMode.wrappedValue.dismiss() }
+            .toolbar { ToolbarItem(placement: SheetCloseButton.placement) {
+                SheetCloseButton { presentationMode.wrappedValue.dismiss() }
             } }
             .onAppear {
                 selected = alerts.interval(for: identity)

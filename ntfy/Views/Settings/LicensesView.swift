@@ -38,7 +38,7 @@ enum OpenSourceLicenses {
 struct LicensesView: View {
     var body: some View {
         List {
-            Section(footer: Text(String(localized: "NTFY me is built on these open-source projects."))) {
+            Section(footer: Text(String(localized: "NTF-AI is built on these open-source projects."))) {
                 ForEach(OpenSourceLicenses.components) { component in
                     NavigationLink {
                         LicenseTextView(text: component.displayText)
@@ -56,6 +56,7 @@ struct LicensesView: View {
             }
         }
         .navigationTitle(String(localized: "Licenses"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -72,12 +73,25 @@ private struct LicenseTextView: UIViewRepresentable {
         view.adjustsFontForContentSizeCategory = true
         view.textColor = .label
         view.backgroundColor = .systemBackground
-        view.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
+        // Text on the same margin as the title and every list: 16 pt on narrow phones, 20 on wide.
+        view.textContainer.lineFragmentPadding = 0
+        view.textContainerInset = LicenseTextInsets.insets(width: UIScreen.main.bounds.width)
         view.accessibilityIdentifier = "licenseText"
         return view
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
         if view.text != text { view.text = text }
+        if view.bounds.width > 0 {
+            let insets = LicenseTextInsets.insets(width: view.bounds.width)
+            if view.textContainerInset != insets { view.textContainerInset = insets }
+        }
+    }
+}
+
+enum LicenseTextInsets {
+    static func insets(width: CGFloat) -> UIEdgeInsets {
+        let side: CGFloat = width >= 414 ? 20 : 16
+        return UIEdgeInsets(top: 16, left: side, bottom: 16, right: side)
     }
 }

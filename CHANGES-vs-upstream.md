@@ -1,6 +1,6 @@
 # Changes vs upstream (binwiederhier/ntfy-ios)
 
-Fork-original changes and backports that diverge from the `binwiederhier/ntfy-ios`
+NTF-AI changes and backports that diverge from the `binwiederhier/ntfy-ios`
 base, so we can track where we diverge and what shipped when.
 
 Rows dated before 2026-10-07 refer to the earlier private development repository; their PR numbers and
