@@ -28,4 +28,8 @@ NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy pro
   use the same password in the app. Never put a password value on argv. Encrypted topics need an encrypted sender;
   plain curl is for plain topics. `--e2e-strict` omits legacy plaintext HTTP button answers. Native decrypted answers
   have `authenticated:true`; legacy buttons have `authenticated:false`. Attachments are refused on encrypted topics.
-  Undecryptable messages warn once immediately, are skipped and counted. Config `topics.<topic>.e2e=true` fails closed if no password.
+  Undecryptable messages warn once immediately, are skipped and counted.
+  From ntf 0.4.1 an encrypted answer is authenticated only with `re-<request id>` inside the ciphertext (NTF-AI 1.26 and later) and not
+  older than the question (compose-sheet replies are not); strict waits past unauthenticated answers, and plain ask exits 7 on one.
+  From ntf 0.4.2 a repeated ciphertext (replay) is skipped, a saved authenticated answer is never
+  replaced, and attachments outside the ciphertext are dropped. Config `topics.<topic>.e2e=true` fails closed if no password.

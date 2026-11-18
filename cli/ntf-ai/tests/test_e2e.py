@@ -766,6 +766,25 @@ class EncryptionE2E(Base):
         raw=poll(self.topic)[-1];self.assertNotIn('stopped',raw['message'])
         settled,auth=self.client.decode_answer(raw);self.assertTrue(auth)
         self.assertEqual(settled['priority'],1);self.assertFalse(settled.get('actions'))
+    def test_strict_ask_waits_for_an_answer_bound_to_it(self):
+        # 0.4.1: a compose-sheet reply (encrypted, no inner re-<id>) and a plain one never resolve a strict ask.
+        def answer():
+            q=self.question()
+            self.client.publish(self.topic,'unbound')
+            http('POST','/'+self.topic,b'plain',{'Tags':'re-'+q['sequence_id']})
+            time.sleep(.3)
+            self.client.publish(self.topic,'bound',tags=['re-'+q['sequence_id']])
+        t,errors=self.in_background(answer)
+        p=self.cli('ask','--e2e-strict','--json','--timeout','8','Proceed?')
+        t.join(10);self.assertEqual(errors,[]);self.assertEqual(p.returncode,0,p.stderr)
+        r=json.loads(p.stdout);self.assertEqual((r['answer'],r['authenticated']),('bound',True))
+    def test_unbound_reply_in_plain_mode_exits_7(self):
+        def answer():
+            self.question();self.client.publish(self.topic,'go ahead')
+        t,errors=self.in_background(answer)
+        p=self.cli('ask','--timeout','8','Proceed?')
+        t.join(10);self.assertEqual(errors,[]);self.assertEqual(p.returncode,7,p.stderr)
+        self.assertEqual(p.stdout,'go ahead\n');self.assertIn('unauthenticated answer',p.stderr)
     def test_mcp_inherits_password(self):
         s=dict(server=SERVER,topic=self.topic,topic_password=self.env['NTF_TOPIC_PASSWORD'],ledger_path=os.path.join(self.tmp,'asks.jsonl'))
         mcp=self.n.McpServer(s)
