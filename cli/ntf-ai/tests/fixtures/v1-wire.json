@@ -1,0 +1,70 @@
+[
+  {
+    "options": {},
+    "request": {
+      "method": "POST",
+      "url": "https://ntf-ai.app/",
+      "body": "{\"topic\": \"topic\", \"message\": \"Deploy?\", \"title\": \"Your agent needs an answer\", \"tags\": [\"agent\"], \"actions\": [{\"action\": \"http\", \"label\": \"Approve\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:approve\", \"clear\": true}, {\"action\": \"http\", \"label\": \"Reject\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:reject\", \"clear\": true}], \"sequence_id\": \"RID\"}",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "options": {
+      "buttons": [
+        [
+          "Staging",
+          "staging"
+        ],
+        [
+          "Production",
+          "prod"
+        ],
+        [
+          "Both",
+          "both"
+        ]
+      ]
+    },
+    "request": {
+      "method": "POST",
+      "url": "https://ntf-ai.app/",
+      "body": "{\"topic\": \"topic\", \"message\": \"Deploy?\", \"title\": \"Your agent needs an answer\", \"tags\": [\"agent\"], \"actions\": [{\"action\": \"http\", \"label\": \"Staging\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:staging\", \"clear\": true}, {\"action\": \"http\", \"label\": \"Production\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:prod\", \"clear\": true}, {\"action\": \"http\", \"label\": \"Both\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:both\", \"clear\": true}], \"sequence_id\": \"RID\"}",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "options": {
+      "accept_reply": false
+    },
+    "request": {
+      "method": "POST",
+      "url": "https://ntf-ai.app/",
+      "body": "{\"topic\": \"topic\", \"message\": \"Deploy?\", \"title\": \"Your agent needs an answer\", \"tags\": [\"agent\", \"no-reply\"], \"actions\": [{\"action\": \"http\", \"label\": \"Approve\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:approve\", \"clear\": true}, {\"action\": \"http\", \"label\": \"Reject\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:reject\", \"clear\": true}], \"sequence_id\": \"RID\"}",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "options": {
+      "title": "部署",
+      "tags": [
+        "rocket"
+      ],
+      "priority": 4,
+      "markdown": true
+    },
+    "request": {
+      "method": "POST",
+      "url": "https://ntf-ai.app/",
+      "body": "{\"topic\": \"topic\", \"message\": \"Deploy?\", \"title\": \"\\u90e8\\u7f72\", \"priority\": 4, \"tags\": [\"agent\", \"rocket\"], \"actions\": [{\"action\": \"http\", \"label\": \"Approve\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:approve\", \"clear\": true}, {\"action\": \"http\", \"label\": \"Reject\", \"url\": \"https://ntf-ai.app/topic-answers\", \"method\": \"POST\", \"headers\": {\"Content-Type\": \"text/plain\"}, \"body\": \"reply:RID:reject\", \"clear\": true}], \"sequence_id\": \"RID\", \"markdown\": true}",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+]
