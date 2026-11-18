@@ -14,6 +14,17 @@ make build; curl -d "make finished: exit $?" https://ntf-ai.app/your-secret-topi
 
 No account or API key: the topic name is the password, so pick a long random one. The topic is shared access: anyone who knows it can read, send or forge replies. These plain requests are not end-to-end encrypted. Button responses do not bypass your coding tool's permission checks. Written replies use the compose sheet in the app.
 
+Or use the `ntf` command (MIT, Python 3.9+), which adds typed questions (choice, number, date, text, form) and end-to-end encrypted answers, plus an MCP server for agents:
+
+```sh
+pipx install ntf-ai            # or: brew install legitimate-apps/tap/ntf-ai
+ntf topic new --save           # a long random topic, saved for later commands
+ntf link                       # the subscribe link and a QR code for your iPhone
+ntf ask --choice Ship --choice Wait "Release the update?"
+```
+
+See [cli/ntf-ai/README.md](cli/ntf-ai/README.md) for every command.
+
 More recipes (Windows PowerShell, Python, GitHub Actions, Home Assistant, SSH login alerts) are on [ntf-ai.app](https://ntf-ai.app).
 
 NTF-AI is an independent fork of [ntfy-ios](https://github.com/binwiederhier/ntfy-ios), published by Legitimate LLC. It is not affiliated with ntfy.sh or the ntfy project. It works through upstream's backlog of iOS issues: reliability and security fixes, end-to-end encrypted topics, display names, pinned topics, a simpler first-run setup, and general UX work. See [CHANGELOG.md](CHANGELOG.md) for each release.
