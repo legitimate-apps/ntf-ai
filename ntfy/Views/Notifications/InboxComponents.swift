@@ -694,7 +694,8 @@ struct AnsweredView: View {
             if stacksTime { Text(Notification.shortTime(for: AnswerSummary.time(status))) }
         }
         .font(font)
-        .foregroundColor(.secondary)
+        // Quieter than the chip, still 4.5:1 at footnote size: .secondary measured 3.45:1 on white.
+        .foregroundColor(Color.primary.opacity(0.62))
         .accessibilityIdentifier("answer-status")
     }
 
