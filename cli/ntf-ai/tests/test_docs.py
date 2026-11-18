@@ -67,6 +67,26 @@ class DocsAgree(unittest.TestCase):
             for term in ('--password-env', '--password-file', '--e2e-strict', '8 days', '12 hours'):
                 self.assertIn(term, text)
 
+    def test_041_authentication_rules_are_documented(self):
+        n = check_docs.load_cli(ROOT)
+        texts = check_docs.cli_surfaces(n, ROOT)
+        if GUIDE:
+            texts['guide'] = check_docs.read(GUIDE)
+        for name, text in texts.items():
+            if name in ('ntf ask --help',):
+                continue
+            with self.subTest(surface=name):
+                self.assertIn('0.4.1', text)
+                self.assertIn('re-<request id>', text)
+                self.assertIn('0.4.2', text)
+        for name in ('SKILL.md', 'README.md', 'AGENTS-snippet.md', 'ntf --help', 'guide'):
+            if name in texts:
+                with self.subTest(surface=name):
+                    self.assertRegex(texts[name], r'exits 7|7 unauthenticated')
+        if GUIDE:
+            self.assertIn('**ntf 0.4.1:**', texts['guide'])
+            self.assertIn('**ntf 0.4.2:**', texts['guide'])
+
     def test_retention_names_the_advertised_field(self):
         n = check_docs.load_cli(ROOT)
         texts = check_docs.cli_surfaces(n, ROOT)

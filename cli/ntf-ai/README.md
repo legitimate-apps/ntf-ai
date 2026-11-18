@@ -213,6 +213,21 @@ schema even for Approve/Reject. Successfully decrypted native replies report `au
 knowledge of the shared password, not a person's identity. Wrong-password or damaged ciphertext is skipped with an immediate one-time stderr warning;
 ask/status JSON includes `undecryptable`, and read/listen reports the count on stderr.
 
+From ntf 0.4.1, an encrypted answer is `authenticated: true` only when its encrypted payload carries
+`re-<request id>` and the server received it no earlier than the question, so an old encrypted reply cannot be
+replayed into a new ask. NTF-AI 1.26 and 1.27 both encrypt that tag (replies typed on the question's page, and 1.27
+answer-form answers); compose-sheet replies have no tag and report `authenticated: false`. With `--e2e-strict`, or a
+topic configured `e2e`, an unauthenticated answer never answers: `ask` keeps waiting and `status` ignores it.
+Otherwise plain `ask` prints it on an encrypted topic, warns on stderr and exits 7 (unauthenticated answer); `--json`
+keeps exit 0 with `authenticated: false`. Plain output escapes control characters in messages, titles, tags,
+answers and attachment links as `\xNN`; JSON is unchanged.
+From ntf 0.4.2, the same ciphertext posted again (a replay, matched on its IV, tag and ciphertext bytes; encodings
+with another spelling are refused) is skipped with a one-time stderr warning, so the first copy wins. The first
+authenticated answer to a question wins, and an authenticated answer saved in the ledger is final: no later event
+replaces it, even in another process after the original aged out. An attachment outside the ciphertext is dropped
+from a decrypted message, and under strict mode `status` ignores a saved answer the ledger does not record as
+authenticated (the ledger keeps `answer_authenticated` and `answer_message_id`, never encrypted answer text).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

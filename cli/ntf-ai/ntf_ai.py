@@ -31,7 +31,7 @@ import urllib.parse
 import urllib.request
 import zlib
 
-VERSION = "0.4.0"
+VERSION = "0.4.2"
 LEAD = ("NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; "
         "use it when someone asks for ntf, NTF-AI or ntfy notifications.")
 DEFAULT_SERVER = "https://ntf-ai.app"
@@ -297,6 +297,8 @@ class Client:
         self.e2e_strict = False
         self.undecryptable = 0
         self._undecryptable_ids = set()
+        self.replayed = 0
+        self._ciphertexts = {}  # sha256 of an encrypted body -> the (topic, id) that first carried it
         self._topic_keys = {}
         self._hidden = {}  # value -> placeholder, for error messages
         if token:
@@ -428,7 +430,16 @@ class Client:
                 payload = None
             if not isinstance(payload, dict):
                 payload = {"message": plaintext}  # upstream also permits authenticated raw text
-            decoded = {k: v for k, v in message.items() if k not in ENCRYPTED_FIELDS}
+            digest = jwe_digest(text)
+            first = self._ciphertexts.setdefault(digest, (message.get("topic"), message.get("id")))
+            if first != (message.get("topic"), message.get("id")):
+                # The same ciphertext posted again (a replay): the first copy wins, the copy is skipped.
+                self.replayed += 1
+                if self.replayed == 1:
+                    sys.stderr.write("ntf: skipped a repeated encrypted message (a replay of an earlier one)\n")
+                return None, False
+            # Outer fields outside ENCRYPTED_FIELDS are not authenticated; an attachment there could be anyone's.
+            decoded = {k: v for k, v in message.items() if k not in ENCRYPTED_FIELDS and k not in UNAUTHENTICATED_OUTER}
             decoded.update({k: v for k, v in payload.items() if k in ENCRYPTED_FIELDS})
             if not isinstance(decoded.get("message", ""), str):
                 raise NtfError("invalid encrypted message text")
@@ -751,9 +762,18 @@ def unb64url(text):
     if not re.fullmatch(r'[A-Za-z0-9_-]*',text) or len(text)%4 == 1:
         raise NtfError('invalid encrypted message encoding')
     try:
-        return base64.b64decode(text+'='*(-len(text)%4),altchars=b'-_',validate=True)
+        data = base64.b64decode(text+'='*(-len(text)%4),altchars=b'-_',validate=True)
     except (ValueError,binascii.Error):
         raise NtfError('invalid encrypted message encoding')
+    if b64url(data) != text:  # one spelling per value: no stray trailing bits, so a copy cannot pass as new
+        raise NtfError('invalid encrypted message encoding')
+    return data
+
+
+def jwe_digest(text):
+    """Identity of an encrypted body: its IV, tag and ciphertext bytes (the header is GCM associated data)."""
+    _header, _ek, iv, ct, tag = text.strip().split('.')
+    return hashlib.sha256(unb64url(iv) + unb64url(tag) + unb64url(ct)).hexdigest()
 
 
 def derive_topic_key(password, server, topic):
@@ -770,6 +790,7 @@ def derive_topic_key(password, server, topic):
 
 
 ENCRYPTED_FIELDS = ("message", "title", "tags", "priority", "click", "icon", "markdown", "actions")
+UNAUTHENTICATED_OUTER = ("attachment",)  # dropped from decrypted messages (encrypted topics carry no attachments)
 _JWE_HEADER = b64url(b'{"alg":"dir","enc":"A256GCM"}')
 
 
@@ -808,7 +829,7 @@ def configure_encryption(client, settings, topic, required=False):
     if (required or configured.get('e2e') or strict) and not password:
         raise NtfError('this topic or question is encrypted; set NTF_TOPIC_PASSWORD, --password-env VAR or --password-file PATH',EXIT_USAGE)
     client.topic_password = password
-    client.e2e_strict = strict
+    client.e2e_strict = bool(strict or configured.get('e2e'))  # a topic configured E2E is strict too
     if password:
         client._hidden[password] = '<topic password>'
     return client
@@ -821,6 +842,20 @@ SCHEMA_URL = "https://ntf-ai.app/docs/agents"
 SCHEMA_LIMIT = 1536
 EXIT_WITHDRAWN = 5
 EXIT_INVALID = 6
+EXIT_UNAUTHENTICATED = 7
+_CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def safe_text(value):
+    """Text from the topic as a terminal may show it: C0 controls (but newline and tab), DEL and C1 controls become a
+    visible \\xNN, so a message cannot move the cursor, retitle the window or hide text. JSON output is never escaped."""
+    return _CONTROL_RE.sub(lambda m: "\\x%02x" % ord(m.group()), str(value))
+
+
+def unauthenticated_answer(client, res):
+    """An answer on an encrypted topic that does not prove the topic password and this question (non-strict mode)."""
+    return bool(getattr(client, "topic_password", None)) and res.get("status") == "answered" \
+        and "answer" in res and not res.get("authenticated")
 KEY_RE = re.compile(r"[A-Za-z0-9_.-]{1,40}\Z")
 
 
@@ -1209,7 +1244,11 @@ def _record_ask(entry, path=None, now=None):
         rows = [r for r in rows.values() if now-r.get("asked_at", 0) <= 30*86400]
         for row in rows:
             if row.get("e2e") and row.get("final"):
-                row["final"] = {k: v for k, v in row["final"].items() if k != "answer"}
+                final = row["final"]
+                if isinstance(final.get("answer"), dict):  # keep whether it was authenticated, not its text
+                    final = dict(final, answer_authenticated=final["answer"].get("authenticated") is True,
+                                 answer_message_id=final["answer"].get("message_id"))
+                row["final"] = {k: v for k, v in final.items() if k != "answer"}
         fd, tmp = tempfile.mkstemp(prefix=".asks-", dir=os.path.dirname(path))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -1225,7 +1264,7 @@ def find_ask(request_id, path=None):
     return next((r for r in reversed(_ledger_rows(path or ledger_path())) if r.get("id") == request_id), None)
 
 
-def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_ids=None):
+def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_ids=None, require_authenticated=False):
     """Fold only evidence linked to this sequence. Cached observed terminal results outlive server retention."""
     now = time.time() if now is None else now
     authenticated_ids = authenticated_ids or {}
@@ -1233,9 +1272,19 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
     out = dict(id=rid, topic=topic, server=entry["server"], state="unknown", asked_at=entry.get("asked_at"),
                reminders_sent=0, withdrawn=False, expired=False, retention_seconds=retention_seconds)
     cached = entry.get("final") or {}
-    for k in ("seen_at", "answered_at", "acked_at", "answer", "reminders_sent", "withdrawn", "settled_at"):
-        if k in cached:
+    cached_auth = (cached.get("answer") or {}).get("authenticated", cached.get("answer_authenticated"))
+    # E2E strict: a cached answer counts only if it was recorded as authenticated (older ledgers did not say).
+    drop = ("answer", "answered_at", "acked_at", "answer_authenticated") if require_authenticated and \
+        ("answer" in cached or cached.get("answered_at") is not None) and cached_auth is not True else ()
+    for k in ("seen_at", "answered_at", "acked_at", "answer", "reminders_sent", "withdrawn", "settled_at",
+              "answer_authenticated", "answer_message_id"):
+        if k in cached and k not in drop:
             out[k] = cached[k]
+    # A saved authenticated answer is final: no later event replaces it, even a replay seen by another process after
+    # the original aged out. Only the same message may fill in the text the ledger does not keep.
+    locked = None
+    if cached_auth is True and not drop and ("answer" in cached or cached.get("answered_at") is not None):
+        locked = (cached.get("answer") or {}).get("message_id") or cached.get("answer_message_id") or ""
     schema = entry.get("schema")
     buttons = [(o["l"], o["k"]) for o in (schema or {}).get("options", [])]
     # v1 ledger carries its offered buttons too. Without a ledger, accept any linked button, unvalidated.
@@ -1269,11 +1318,20 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
                 elif question_seen or entry.get("asked_at") is not None and m.get("time", 0) > entry["asked_at"]:
                     out["settled_at"] = m.get("time")
         a = match_answer(m, topic, rid, buttons, True, seen, schema=schema, linked_only=True,
-                         authenticated=authenticated_ids.get(m.get("id"), False))
+                         authenticated=authenticated_ids.get(m.get("id"), False), asked_at=out["asked_at"])
+        if a and require_authenticated and a["kind"] != "withdrawn" and not a.get("authenticated"):
+            a = None  # E2E strict: an unauthenticated answer never answers the question
         if a and a["kind"] != "withdrawn":
+            if locked is not None:
+                if locked and a.get("message_id") == locked:
+                    out["answer"] = a
+                continue
+            if (out.get("answer") or {}).get("authenticated") is True:
+                continue  # the first authenticated answer wins
             if a.get("time", 0) >= (out.get("answered_at") or 0):
                 out["answer"] = a
                 out["answered_at"] = a.get("time")
+                out["answer_authenticated"] = a.get("authenticated") is True
     exp = entry.get("exp") or (schema or {}).get("exp")
     out["expired"] = exp is not None and now > exp
     if out["withdrawn"]:
@@ -1310,7 +1368,8 @@ def question_status(client, topic, request_id, now=None):
     decoded = [client.decode_answer(m) if hasattr(client, "decode_answer") else (m, False) for m in events]
     decoded = [(m, verified) for m, verified in decoded if m is not None]
     out = fold_status(entry, [m for m, _ in decoded], now=now, retention_seconds=retention,
-                      authenticated_ids={m.get("id"): verified for m, verified in decoded})
+                      authenticated_ids={m.get("id"): verified for m, verified in decoded},
+                      require_authenticated=getattr(client, "e2e_strict", False))
     out["undecryptable"] = getattr(client, "undecryptable", 0)
     if entry.get("asked_at") is not None and out["state"] not in ("pending", "seen", "unknown"):
         record_ask(dict(entry, final=out), now=now, path=getattr(client, "ledger_file", None))
@@ -1369,14 +1428,24 @@ def reply_target(msg):
     return None
 
 
+def bound_to_question(msg, request_id, authenticated, asked_at):
+    """An answer is authenticated only when it decrypted with the topic key (`authenticated`), its encrypted payload
+    names this question (inner `re-<request id>`; decode_answer never keeps outer tags), and the server received it
+    no earlier than the question, so an old encrypted reply cannot be replayed into a new ask."""
+    return bool(authenticated) and reply_target(msg) == request_id and asked_at is not None \
+        and isinstance(msg.get("time"), (int, float)) and msg["time"] >= asked_at
+
+
 def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=None, linked_only=False,
-                 authenticated=False):
+                 authenticated=False, asked_at=None):
     """Decide whether one event answers the question. Pure, so it can be tested alone.
 
     Returns a dict for an answer, or None. Adds the id to `seen` so each message counts once:
     Timestamp cursors on ntfy also return messages from the same second before the question.
     A written reply tagged `re-<another id>` answers another question and is skipped; an untagged one (the
     compose sheet) is taken, since nothing in it says which question it answers.
+    `authenticated` says the message decrypted with the topic key; the result is authenticated only if it is also
+    bound to this question and not older than `asked_at` (bound_to_question).
     """
     if msg.get("event") == "message_delete" and msg.get("topic") == topic and msg.get("sequence_id") == request_id:
         return {"kind": "withdrawn", "message_id": msg.get("id"), "time": msg.get("time")}
@@ -1399,7 +1468,7 @@ def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=Non
             return None
         out = dict(kind="structured", answer=msg.get("message") or "", message_id=mid,
                    time=msg.get("time"), reply_to=request_id)
-        return validated_result(out, schema, authenticated=authenticated)
+        return validated_result(out, schema, authenticated=bound_to_question(msg, request_id, authenticated, asked_at))
     if msg.get("topic") == topic and accept_reply and AGENT_TAG not in (msg.get("tags") or []):
         target = reply_target(msg)
         if target is not None and target != request_id:
@@ -1411,7 +1480,7 @@ def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=Non
             return None
         if msg.get("attachment"):
             out["attachment"] = msg["attachment"]
-        return validated_result(out, schema, authenticated=authenticated)
+        return validated_result(out, schema, authenticated=bound_to_question(msg, request_id, authenticated, asked_at))
     return None
 
 
@@ -1460,7 +1529,13 @@ def answer_status(answer, reject_answers):
 
 
 def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, since, timeout, poll_interval=None,
-                    cancel=None, on_tick=None, clock=time.monotonic, schema=None, strict=False, wake_at=None, on_event=None, on_answer=None):
+                    cancel=None, on_tick=None, clock=time.monotonic, schema=None, strict=False, wake_at=None, on_event=None, on_answer=None,
+                    asked_at=None, require_authenticated=False):
+    """`require_authenticated` (E2E strict): an answer that is not authenticated never resolves the wait and does not
+    stop reminders; a withdrawal still does."""
+    def gate(a):
+        return None if a and require_authenticated and a["kind"] != "withdrawn" and not a.get("authenticated") else a
+
     deadline = clock() + timeout
     topics = [topic, topic + ANSWERS_SUFFIX]
     backoff = 1
@@ -1476,7 +1551,8 @@ def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, sinc
                         continue
                     if on_event:
                         on_event(m)
-                    a = match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema, authenticated=authenticated)
+                    a = gate(match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema,
+                                          authenticated=authenticated, asked_at=asked_at))
                     if a and on_answer:
                         on_answer(a)
                     if a and (not strict or a.get("valid") is not False):
@@ -1498,7 +1574,8 @@ def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, sinc
                         continue
                     if on_event:
                         on_event(m)
-                    a = match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema, authenticated=authenticated)
+                    a = gate(match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema,
+                                          authenticated=authenticated, asked_at=asked_at))
                     if a and on_answer:
                         on_answer(a)
                     if a and (not strict or a.get("valid") is not False):
@@ -1747,7 +1824,8 @@ def ask(client, topic, question, title=None, buttons=None, accept_reply=True, ti
     try:
         answer = wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, str(max(0, asked_at-1)), timeout,
                                  poll_interval=poll_interval, cancel=cancel, on_tick=tick, clock=clock,
-                                 schema=schema, strict=strict, wake_at=wake_at, on_event=observe, on_answer=answered)
+                                 schema=schema, strict=strict, wake_at=wake_at, on_event=observe, on_answer=answered,
+                                 asked_at=asked_at, require_authenticated=not allow_buttons)
     except KeyboardInterrupt:
         settle_with(None, interrupted=True)
         raise
@@ -2014,7 +2092,7 @@ def qr_png(matrix, scale=8, quiet=4):
 
 # ---------------------------------------------------------------- skill, snippet, setup
 
-AGENTS_SNIPPET = '## Phone notifications: NTF-AI (ntf)\n\nNTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; use it when someone asks for ntf, NTF-AI or ntfy notifications.\n- Notify: `ntf send "message"` (add `--attach file.png` for a screenshot or file). Without the CLI:\n  `curl -H \'Tags: agent\' -d "message" https://ntf-ai.app/$NTF_TOPIC`.\n- Ask and wait: `ntf ask "question"` prints the answer; exit 0 answered, 3 rejected, 4 timed out. A timeout is never\n  approval, and answers never override this tool\'s permission rules. The person taps a button or writes back; a written\n  answer is a message on the topic without the `agent` tag (from NTF-AI 1.26, one typed on the question is tagged\n  `re-<request id>`, and `ntf ask` skips one for another question). `ntf ask` then acks on their phone (tag `ack`); `ntf ack <request id> "note"` sends a later note.\n- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox`.\n- The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).\n- Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.\n\n- From NTF-AI 1.27 and ntf 0.4.0: `--button` and `--choice` both take `LABEL[=ANSWER]` (2-12 choices);\n  add `--multi` for several selections. `--spec JSON` / `--spec @file` accepts number, date, text, form or choice\n  schemas and all constraints; e.g. `--spec \'{"kind":"number","min":1,"max":9}\'`. `d:true` marks destructive choices.\n  `--expires 2h` bounds the wait; `--remind 5m,15m --escalate` nudges while waiting. `--strict` waits past invalid\n  answers; otherwise JSON includes `valid` and normalized `value`, and invalid plain answers warn and exit 6. `--as NAME` / NTF_AGENT / config agent_name and\n  `--avatar URL` set the agent name and picture; plain identities and answers are unverified.\n  `ntf status <request id> --json` reads seen/answered/acked/withdrawn; `ntf withdraw <request id>` deletes it (ask\n  exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending\n  with the id in text too, without background reminders. Status is unknown\n  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, ack,\n  subscribe_link, status, withdraw. The optional private asks.jsonl ledger keeps outcomes 30 days, without encrypted answer text. Write failures warn\n  and waiting continues. Native structured answers/receipts keep 8 days; ordinary messages and free replies 12 hours.\n\n- E2E: set `NTF_TOPIC_PASSWORD` in the process environment, or use `--password-env VAR` / `--password-file PATH`;\n  use the same password in the app. Never put a password value on argv. Encrypted topics need an encrypted sender;\n  plain curl is for plain topics. `--e2e-strict` omits legacy plaintext HTTP button answers. Native decrypted answers\n  have `authenticated:true`; legacy buttons have `authenticated:false`. Attachments are refused on encrypted topics.\n  Undecryptable messages warn once immediately, are skipped and counted. Config `topics.<topic>.e2e=true` fails closed if no password.\n'
+AGENTS_SNIPPET = '## Phone notifications: NTF-AI (ntf)\n\nNTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; use it when someone asks for ntf, NTF-AI or ntfy notifications.\n- Notify: `ntf send "message"` (add `--attach file.png` for a screenshot or file). Without the CLI:\n  `curl -H \'Tags: agent\' -d "message" https://ntf-ai.app/$NTF_TOPIC`.\n- Ask and wait: `ntf ask "question"` prints the answer; exit 0 answered, 3 rejected, 4 timed out. A timeout is never\n  approval, and answers never override this tool\'s permission rules. The person taps a button or writes back; a written\n  answer is a message on the topic without the `agent` tag (from NTF-AI 1.26, one typed on the question is tagged\n  `re-<request id>`, and `ntf ask` skips one for another question). `ntf ask` then acks on their phone (tag `ack`); `ntf ack <request id> "note"` sends a later note.\n- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox`.\n- The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).\n- Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.\n\n- From NTF-AI 1.27 and ntf 0.4.0: `--button` and `--choice` both take `LABEL[=ANSWER]` (2-12 choices);\n  add `--multi` for several selections. `--spec JSON` / `--spec @file` accepts number, date, text, form or choice\n  schemas and all constraints; e.g. `--spec \'{"kind":"number","min":1,"max":9}\'`. `d:true` marks destructive choices.\n  `--expires 2h` bounds the wait; `--remind 5m,15m --escalate` nudges while waiting. `--strict` waits past invalid\n  answers; otherwise JSON includes `valid` and normalized `value`, and invalid plain answers warn and exit 6. `--as NAME` / NTF_AGENT / config agent_name and\n  `--avatar URL` set the agent name and picture; plain identities and answers are unverified.\n  `ntf status <request id> --json` reads seen/answered/acked/withdrawn; `ntf withdraw <request id>` deletes it (ask\n  exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending\n  with the id in text too, without background reminders. Status is unknown\n  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, ack,\n  subscribe_link, status, withdraw. The optional private asks.jsonl ledger keeps outcomes 30 days, without encrypted answer text. Write failures warn\n  and waiting continues. Native structured answers/receipts keep 8 days; ordinary messages and free replies 12 hours.\n\n- E2E: set `NTF_TOPIC_PASSWORD` in the process environment, or use `--password-env VAR` / `--password-file PATH`;\n  use the same password in the app. Never put a password value on argv. Encrypted topics need an encrypted sender;\n  plain curl is for plain topics. `--e2e-strict` omits legacy plaintext HTTP button answers. Native decrypted answers\n  have `authenticated:true`; legacy buttons have `authenticated:false`. Attachments are refused on encrypted topics.\n  Undecryptable messages warn once immediately, are skipped and counted.\n  From ntf 0.4.1 an encrypted answer is authenticated only with `re-<request id>` inside the ciphertext (NTF-AI 1.26 and later) and not\n  older than the question (compose-sheet replies are not); strict waits past unauthenticated answers, and plain ask exits 7 on one.\n  From ntf 0.4.2 a repeated ciphertext (replay) is skipped, a saved authenticated answer is never\n  replaced, and attachments outside the ciphertext are dropped. Config `topics.<topic>.e2e=true` fails closed if no password.\n'
 
 
 # The skill file, embedded so this one file is enough. `python3 tools/sync_skill.py` copies
@@ -2287,6 +2365,21 @@ Legacy HTTP buttons stay inside the encrypted question for NTF-AI 1.26. They pos
 schema even for Approve/Reject. Successfully decrypted native replies report `authenticated: true`: they prove
 knowledge of the shared password, not a person's identity. Wrong-password or damaged ciphertext is skipped with an immediate one-time stderr warning;
 ask/status JSON includes `undecryptable`, and read/listen reports the count on stderr.
+
+From ntf 0.4.1, an encrypted answer is `authenticated: true` only when its encrypted payload carries
+`re-<request id>` and the server received it no earlier than the question, so an old encrypted reply cannot be
+replayed into a new ask. NTF-AI 1.26 and 1.27 both encrypt that tag (replies typed on the question's page, and 1.27
+answer-form answers); compose-sheet replies have no tag and report `authenticated: false`. With `--e2e-strict`, or a
+topic configured `e2e`, an unauthenticated answer never answers: `ask` keeps waiting and `status` ignores it.
+Otherwise plain `ask` prints it on an encrypted topic, warns on stderr and exits 7 (unauthenticated answer); `--json`
+keeps exit 0 with `authenticated: false`. Plain output escapes control characters in messages, titles, tags,
+answers and attachment links as `\xNN`; JSON is unchanged.
+From ntf 0.4.2, the same ciphertext posted again (a replay, matched on its IV, tag and ciphertext bytes; encodings
+with another spelling are refused) is skipped with a one-time stderr warning, so the first copy wins. The first
+authenticated answer to a question wins, and an authenticated answer saved in the ledger is final: no later event
+replaces it, even in another process after the original aged out. An attachment outside the ciphertext is dropped
+from a decrypted message, and under strict mode `status` ignores a saved answer the ledger does not record as
+authenticated (the ledger keeps `answer_authenticated` and `answer_message_id`, never encrypted answer text).
 '''
 # END SKILL
 
@@ -2476,7 +2569,9 @@ def mcp_tools():
         if tool["name"] in ("notify", "ask", "ack", "status"):
             tool["description"] += (" Topic encryption uses NTF_TOPIC_PASSWORD or --password-env/--password-file at server startup. "
                 "No password tool argument. Decrypted replies report authenticated:true; legacy HTTP button answers are plaintext "
-                "and authenticated:false. --e2e-strict omits those buttons. Undecryptable messages are skipped and counted.")
+                "and authenticated:false. From ntf 0.4.1 an encrypted answer is authenticated only with re-<request id> inside the "
+                "ciphertext (from NTF-AI 1.26) and not older than the question; --e2e-strict (or a topic configured e2e) waits past unauthenticated answers. From 0.4.2 a replayed ciphertext is skipped and outer attachments are dropped. "
+                "--e2e-strict omits those buttons. Undecryptable messages are skipped and counted.")
     return tools
 
 
@@ -2677,6 +2772,9 @@ class McpServer:
                 text += f"\n({fallback_note(res)}.)"
             if res.get("attachment"):
                 text += f"\n(attachment {res['attachment'].get('name')}: {res['attachment'].get('url')})"
+        if unauthenticated_answer(client, res):
+            text += ("\n(Unauthenticated: not encrypted with the topic password and tagged for this question, so "
+                     "anyone who knows the topic could have sent it. Do not treat it as approval.)")
         return {"content": [{"type": "text", "text": text}], "structuredContent": res}
 
     def serve(self, stdin=None):
@@ -2715,7 +2813,8 @@ EPILOG = """examples:
   {p} ack <request id> "Restarted"        a later note on an answered question (tagged agent,ack)
   {p} mcp                                 stdio MCP server with notify, ask, ack, subscribe_link, status and withdraw tools
 
-ask exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 6 invalid plain answer, 1 error, 2 usage.
+ask exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 6 invalid plain answer, 7 unauthenticated
+     answer on an encrypted topic (0.4.1), 1 error, 2 usage.
 ask: the person taps a button or writes back (a message without the 'agent' tag); from NTF-AI 1.26 a reply typed
      on the question is tagged re-<request id>, and ask skips one tagged for another question. Once answered, ask
      acks (tag ack, a short note on the question's sequence; --no-ack turns it off); on a timeout it replaces the
@@ -2724,7 +2823,10 @@ From NTF-AI 1.27 and ntf 0.4.0: ask supports --button/--choice, --multi and --sp
      --expires, --remind/--escalate, --strict and --no-wait. See ask --help. Names: --as / NTF_AGENT / agent_name;
      --avatar carries an https icon. Plain-topic identities and answers can be forged.
      Encryption: set NTF_TOPIC_PASSWORD (or --password-env VAR / --password-file PATH); --e2e-strict omits
-     plaintext legacy button answers. No encrypted attachments. Decrypted answers: authenticated:true.
+     plaintext legacy button answers. No encrypted attachments. From 0.4.1 an answer is authenticated:true only
+     when it decrypts, carries re-<request id> inside (NTF-AI 1.26+) and is not older than the question; strict waits for one.
+     Plain output escapes control characters (\\xNN).
+     From 0.4.2 a repeated ciphertext (replay) is skipped; attachments outside the ciphertext are dropped.
 settings: --server / NTF_SERVER (default {s}), --topic / NTF_TOPIC, --token / NTF_TOKEN,
           --user / NTF_USER (name:password); saved defaults in {c}.
 install (from 0.4.0): pipx install ntf-ai | brew install legitimate-apps/tap/ntf-ai | curl -fsSL https://ntf-ai.app/ntf
@@ -2881,14 +2983,14 @@ def print_message(m, as_json, out, path=None):
         out.write(json.dumps(m, ensure_ascii=False) + "\n")
         return
     when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(m.get("time", 0)))
-    tags = m.get("tags") or []
+    tags = [str(t) for t in m.get("tags") or []]
     head = f"[{when}] {m.get('topic', '')}" + (f" ({','.join(tags)})" if tags else "")
     if m.get("title"):
         head += f" {m['title']}:"
-    out.write(f"{head} {m.get('message', '')}\n")
+    out.write(safe_text(f"{head} {m.get('message', '')}") + "\n")
     att = m.get("attachment")
     if att:
-        out.write(f"  attachment: {path or att.get('url')}\n")
+        out.write(safe_text(f"  attachment: {path or att.get('url')}") + "\n")
     out.flush()
 
 
@@ -2930,7 +3032,7 @@ def main(argv=None, stdin=None, stdout=None, env=None):
     except NtfError as e:
         if as_json and getattr(args, "command", None) in ("ask", "send"):
             out.write(json.dumps({"status": "error", "error": str(e)}) + "\n")
-        sys.stderr.write(f"{prog}: {e}\n")
+        sys.stderr.write(safe_text(f"{prog}: {e}") + "\n")  # error text can quote the server
         return e.code
     except KeyboardInterrupt:
         return 130
@@ -3044,14 +3146,21 @@ def run(args, parser, stdin, out, env, as_json, prog):
         elif res["status"] == "withdrawn":
             sys.stderr.write("question withdrawn; stopped waiting\n")
         elif "answer" in res:
-            out.write(answer_text(res) + "\n")
+            out.write(safe_text(answer_text(res)) + "\n")
             if fallback_note(res):
-                sys.stderr.write("ntf: " + fallback_note(res) + "\n")
+                sys.stderr.write(safe_text("ntf: " + fallback_note(res)) + "\n")
             if res.get("downloaded"):
-                out.write(res["downloaded"] + "\n")
+                out.write(safe_text(res["downloaded"]) + "\n")
+        unauthenticated = unauthenticated_answer(client, res) and not as_json
         if res.get("valid") is False and not as_json:
             sys.stderr.write("invalid answer for the question schema; raw answer returned (use --strict to keep waiting)\n")
-            return EXIT_INVALID
+            if not unauthenticated:
+                return EXIT_INVALID
+        if unauthenticated:
+            sys.stderr.write("ntf: unauthenticated answer: it is not encrypted with the topic password and tagged for this "
+                             "question (a plaintext button, a compose-sheet reply or an older message), so anyone who "
+                             "knows the topic could have sent it; use --e2e-strict to wait for an authenticated one\n")
+            return EXIT_UNAUTHENTICATED
         return {"answered": EXIT_OK, "rejected": EXIT_REJECTED, "timeout": EXIT_TIMEOUT, "pending": EXIT_OK, "withdrawn": EXIT_WITHDRAWN}[res["status"]]
     if cmd in ("read", "listen"):
         topics = [topic] + ([topic + ANSWERS_SUFFIX] if args.answers else [])
