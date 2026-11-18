@@ -229,6 +229,110 @@ final class BackgroundHTTPActionTests: XCTestCase {
 
 }
 
+/// Operator, 2026-11-18: a plain ntfy button ("Toggle light", "Restart service") is meant to be pressed
+/// again and again. Since 1.26 the app locked every `http` button to its first press. Only an agent's
+/// question takes one answer; any other message keeps its buttons, and every press runs.
+final class RepeatableButtonTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+
+    private func defaults() -> UserDefaults {
+        let name = "repeatable-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private func row(port: UInt16, label: String, tags: [String]?) throws -> (ntfy.Notification, Action) {
+        let button = Action(id: UUID().uuidString, action: "http", label: label, url: "http://127.0.0.1:\(port)/approve",
+                            method: "POST", headers: nil, body: nil, clear: nil)
+        let subscription = store.saveSubscription(baseUrl: "http://127.0.0.1:\(port)", topic: "home")
+        let message = Message(id: "m-1", time: Int64(Date().timeIntervalSince1970), event: "message", topic: "home",
+                              message: "Hallway", tags: tags, actions: [button], sequenceID: "hall")
+        _ = store.save(notificationsFromMessages: [message], withSubscription: subscription)
+        store.context.processPendingChanges()
+        let request = ntfy.Notification.fetchRequest()
+        return (try XCTUnwrap(try store.context.fetch(request).first), button)
+    }
+
+    /// Presses `button`, answers with `status`, and waits for the log to hold that press.
+    private func press(_ button: Action, on row: ntfy.Notification, server: ActionLoopbackServer, status: Int,
+                       received: XCTestExpectation) {
+        let key = AnswerKey(notification: row)
+        let before = log.entry(for: key)?.at
+        MessageActionRunner(notification: row, openURL: { _ in }, answerLog: log).run(button)
+        wait(for: [received], timeout: 5)
+        server.respond(status: status)
+        let logged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let entry = self.log.entry(for: key) else { return false }
+            return entry.at != before && self.log.sendingActionId(key) == nil
+        }, object: nil)
+        wait(for: [logged], timeout: 5)
+    }
+
+    private func pause(_ seconds: TimeInterval) {
+        let done = expectation(description: "pause")
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { done.fulfill() }
+        wait(for: [done], timeout: seconds + 2)
+    }
+
+    func testAPlainMessagesButtonRunsEveryPressAndKeepsItsButtons() throws {
+        let server = try ActionLoopbackServer()
+        defer { server.stop() }
+        let ready = expectation(description: "listener ready")
+        server.start { ready.fulfill() }; wait(for: [ready], timeout: 5)
+        let first = expectation(description: "first press"), second = expectation(description: "second press")
+        var requests = 0
+        server.received = { requests += 1; (requests == 1 ? first : second).fulfill() }
+        let (row, button) = try row(port: server.port, label: "Toggle light", tags: ["bulb"])
+
+        press(button, on: row, server: server, status: 200, received: first)
+        var state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.sentLabel(), "Toggle light", "the press shows its check")
+        XCTAssertFalse(state.showsReceipt(now: Date().addingTimeInterval(3600)), "then the buttons come back, never a receipt")
+
+        // Pressed again once the check has gone: it runs again.
+        pause(AnswerState.hold(locks: false))
+        press(button, on: row, server: server, status: 400, received: second)
+        XCTAssertEqual(requests, 2, "both presses reached the server")
+        state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.failedLabel, "Toggle light", "the latest press failed, and says so")
+        XCTAssertFalse(state.showsReceipt(now: Date().addingTimeInterval(3600)))
+    }
+
+    func testAnAgentsQuestionTakesOneAnswer() throws {
+        let server = try ActionLoopbackServer()
+        defer { server.stop() }
+        let ready = expectation(description: "listener ready")
+        server.start { ready.fulfill() }; wait(for: [ready], timeout: 5)
+        let first = expectation(description: "the answer")
+        server.received = { first.fulfill() }
+        let (row, button) = try row(port: server.port, label: "Approve", tags: ["agent"])
+
+        press(button, on: row, server: server, status: 200, received: first)
+        let state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.sentLabel(), "Approve")
+        XCTAssertTrue(state.showsReceipt(now: Date().addingTimeInterval(AnswerState.sentHold)), "the answer takes the buttons' place")
+        XCTAssertEqual(AnswerSummary(receipt: AgentReceipt(notification: row, log: log, acks: acks, shows: true)).choice,
+                       .picked("Approve"))
+    }
+}
+
 // Adapted from NSEAuthLoopbackServer's Network listener and complete-request-line framing.
 // The original fixture is private in ntfyTests.swift; this fixture holds responses until released.
 private final class ActionLoopbackServer {

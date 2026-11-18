@@ -626,6 +626,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     execution = ActionExecutor.execute(action, notificationId: notificationId, baseUrl: baseUrl,
                                                        replyText: isReply ? userText : nil,
                                                        answer: AnswerKey(baseUrl: baseUrl, topic: message.topic, sequence: message.sequence),
+                                                       repeatable: !AgentQuestion.locksAfterAnswer(tags: message.tags ?? [],
+                                                                                                   actions: message.actions ?? []),
                                                        answerLog: self.answerLog) {
                         DispatchQueue.main.async(execute: finish)
                     }

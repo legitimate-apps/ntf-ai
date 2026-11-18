@@ -35,6 +35,7 @@ struct ActionExecutor {
         openURL: ((URL) -> Void)? = nil,
         replyText: String? = nil,
         answer: AnswerKey? = nil,
+        repeatable: Bool = false,
         answerLog: AnswerLog = .shared,
         completion: @escaping () -> Void = {}
     ) -> Progress {
@@ -67,14 +68,17 @@ struct ActionExecutor {
                 Log.w(tag, "Refusing a view action URL that isn't http(s), mailto, tel or sms", action)
             }
         case "http":
-            // An answer to a question (a tapped `http` button or a typed reply) is logged, so the
-            // app can show the receipt and take the question out of Waiting on every path.
+            // A tapped `http` button or a typed reply is logged, so the button shows sending, its
+            // check or its failure on every path, and the message leaves Waiting on you. Only an
+            // agent's question then locks to its answer; on any other message (`repeatable`) the
+            // buttons come back and can be pressed again, as in ntfy.
             var report: (Bool) -> Void = { _ in }
             if let answer {
                 answerLog.begin(answer, actionId: action.id)
                 let label = action.label, text = replyText
                 report = { ok in
-                    answerLog.record(answer, AnswerEntry(kind: text == nil ? .tap : .reply, label: label, text: text, at: Date(), ok: ok))
+                    answerLog.record(answer, AnswerEntry(kind: text == nil ? .tap : .reply, label: label, text: text, at: Date(), ok: ok),
+                                     repeatable: repeatable)
                 }
             }
             http(action, baseUrl: baseUrl, credentialStore: credentialStore, execution: execution, report: report, completion: completion)

@@ -631,6 +631,13 @@ enum AgentQuestion {
     static func isAgentQuestion(tags: [String], actions: [Action]) -> Bool {
         tags.contains { $0.lowercased() == "agent" } && actions.contains(where: isAnswerAction)
     }
+
+    /// Whether answering takes the buttons away: an agent's question, or a typed (ask-v2) question,
+    /// takes one answer. Any other message's buttons ("Toggle light", "Restart service") stay
+    /// and can be pressed again, as in ntfy (operator, 2026-11-18).
+    static func locksAfterAnswer(tags: [String], actions: [Action]) -> Bool {
+        isAgentQuestion(tags: tags, actions: actions) || AskSchema.detect(in: actions) != .none
+    }
 }
 
 /// A person's answer on a question's topic, as the app shows it (agent protocol v2, SPEC 2). The

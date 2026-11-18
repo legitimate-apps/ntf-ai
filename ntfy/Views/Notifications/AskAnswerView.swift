@@ -8,6 +8,8 @@ import UIKit
 extension Notification {
     /// The question's `ask-v2` link, read once per draw.
     var askDetection: AskSchema.Detection { AskSchema.detect(in: actionsList()) }
+    /// An agent's or a typed question: answering it takes its buttons away (`AnswerState.locks`).
+    var locksAfterAnswer: Bool { AgentQuestion.locksAfterAnswer(tags: parseAllTags(tags), actions: actionsList()) }
 
     /// The buttons and links a surface shows. A typed question hides its `ask-v2` link and the old
     /// answer paths it carries for older apps; other links ("Open PR") stay (SPEC 4). One this build
