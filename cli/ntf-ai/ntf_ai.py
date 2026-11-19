@@ -2179,6 +2179,10 @@ keep one question outstanding per topic. `--json` gives `reply_to` for a tagged 
 question `no-reply`; from NTF-AI 1.26 the app then shows no reply box (earlier versions still let the person write from
 the compose sheet, which `ntf ask` ignores).
 
+The app's Inbox (from NTF-AI 1.26) lists a question under Waiting on you, and counts it in the Inbox badge, until it is
+answered. From NTF-AI 1.28 only an agent's question goes there: one tagged `agent` (`ntf ask` adds it) or a typed
+question. A message without the `agent` tag stays under Activity even with buttons, so tag every question you send.
+
 Once answered, `ntf ask` acks: one message on the question's sequence tagged `agent,ack`, priority 1, whose body is a
 short note ("✓ Got: Approve", or "✓ Got your reply", never the reply itself). From NTF-AI 1.26 the app shows it as a
 silent receipt on the question; other ntfy clients show the note in place of the question. It also stops the question
