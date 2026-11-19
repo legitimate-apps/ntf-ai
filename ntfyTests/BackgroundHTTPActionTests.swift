@@ -201,6 +201,16 @@ final class BackgroundHTTPActionTests: XCTestCase {
         wait(for: [read], timeout: 5)
     }
 
+    /// Backup to the category rewrite: with the setting off, a locked http tap is refused; unlocked,
+    /// on, on a Mac, or not an http button, it runs.
+    func testLockedTapThroughAStaleCategoryIsRefusedWhenOff() {
+        XCTAssertFalse(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: true, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: true, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: true))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: false, enabled: false, protectedDataAvailable: false, onMac: false))
+    }
+
     private func replyLinkAction() -> Action {
         Action(id: "reply-link", action: "view", label: "Reply in NTF-AI",
                url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",

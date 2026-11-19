@@ -600,6 +600,22 @@ enum LockScreenButtons {
 
     static func enabled(_ defaults: UserDefaults = LockScreenButtons.defaults) -> Bool { defaults.bool(forKey: key) }
 
+    /// A backup to the category options, checked when the tap arrives (iPhone delivers taps to the app
+    /// directly; the Mac relay is exempt). With the setting off, iOS unlocks before an http button runs,
+    /// so protected data is available; a locked tap here means a category missed the rewrite. Protected
+    /// data goes away about 10 s after locking, so a tap inside that window still runs.
+    static func mayRun(httpButton: Bool, enabled: Bool, protectedDataAvailable: Bool, onMac: Bool) -> Bool {
+        !httpButton || enabled || protectedDataAvailable || onMac
+    }
+
+    /// Tells the person why the button did nothing, so they can unlock and tap it again.
+    static func notifyRefused(_ label: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "⚠️ \(label) failed")
+        content.body = String(localized: "Unlock your device, then tap the button again.")
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
+    }
+
     /// Options feed the category id, so notifications that arrive after a change get a new category.
     /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for
     /// Face ID on an approval that arrived while it was on.
