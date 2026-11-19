@@ -35117,49 +35117,49 @@
         }
       }
     },
-    "Anonymous. Includes app and device details to help us fix problems.": {
+    "Includes app and device details to help us fix problems. Anonymous unless you add your email.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonymous. Includes app and device details to help us fix problems."
+            "value": "Includes app and device details to help us fix problems. Anonymous unless you add your email."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonym. Enthält App- und Gerätedetails, damit wir Probleme beheben können."
+            "value": "Enthält App- und Gerätedetails, damit wir Probleme beheben können. Anonym, außer du gibst deine E-Mail an."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anónimo. Incluye detalles de la app y del dispositivo para ayudarnos a solucionar problemas."
+            "value": "Incluye detalles de la app y del dispositivo para ayudarnos a solucionar problemas. Anónimo, salvo que añadas tu correo."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonimo. Include dettagli sull'app e sul dispositivo per aiutarci a risolvere i problemi."
+            "value": "Include dettagli sull'app e sul dispositivo per aiutarci a risolvere i problemi. Anonimo, a meno che tu non aggiunga la tua email."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonimowo. Zawiera szczegóły aplikacji i urządzenia, aby pomóc nam naprawiać problemy."
+            "value": "Zawiera szczegóły aplikacji i urządzenia, aby pomóc nam naprawiać problemy. Anonimowo, chyba że podasz swój e-mail."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anoniem. Bevat app- en apparaatgegevens zodat we problemen kunnen oplossen."
+            "value": "Bevat app- en apparaatgegevens zodat we problemen kunnen oplossen. Anoniem, tenzij je je e-mailadres toevoegt."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonyme. Inclut des détails sur l’app et l’appareil pour nous aider à corriger les problèmes."
+            "value": "Inclut des détails sur l’app et l’appareil pour nous aider à corriger les problèmes. Anonyme, sauf si vous ajoutez votre e-mail."
           }
         }
       }

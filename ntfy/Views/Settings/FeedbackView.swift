@@ -158,7 +158,7 @@ struct FeedbackSheet: View {
 
     private var form: some View {
         Form {
-            Section(header: dislikeHeader) {
+            Section(header: dislikeHeader, footer: Text(String(localized: "Includes app and device details to help us fix problems. Anonymous unless you add your email."))) {
                 ZStack(alignment: .topLeading) {
                     if note.isEmpty {
                         Text(prompt)
@@ -181,8 +181,7 @@ struct FeedbackSheet: View {
                     .disableAutocorrection(true)
                     .accessibilityIdentifier("feedback-email")
             }
-            Section(footer: VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "Anonymous. Includes app and device details to help us fix problems."))
+            Section(footer: Group {
                 if phase == .failed {
                     Text(String(localized: "Couldn't send. Try again in a moment."))
                         .foregroundColor(.red)
