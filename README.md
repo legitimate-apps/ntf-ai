@@ -66,7 +66,7 @@ NTF-AI began as a fork of the official [ntfy-ios](https://github.com/binwiederhi
   <img alt="47 pull requests merged and 36 upstream ntfy issues addressed, as of November 19." src="docs/progress-tracker/progress-throughput-light.svg" width="100%">
 </picture>
 
-On November 19, 2026, 47 pull requests had been merged in this repository since October 31 and 0 was open. 36 issues reported on the ntfy tracker have a change here. So far 1 fix has been delivered to a person (1 no reply). That is too few to chart.
+On November 19, 2026, 47 pull requests had been merged in this repository since October 31 and 1 was open. 36 issues reported on the ntfy tracker have a change here. So far 1 fix has been delivered to a person, and nobody has replied. That is too few to chart.
 
 An issue is addressed when [CHANGES-vs-upstream.md](CHANGES-vs-upstream.md) lists a change for it; listing it is a claim that the change shipped or merged, not that the reporter agrees. A fix is a different thing: one moment someone outside the project was told their problem was dealt with, which means a fix PR merged for their issue here, their issue closed as done, their own PR merged or closed, or our note on an upstream ntfy thread pointing them to this app. Everything we open ourselves is excluded. Happy means they then said it works or were content with it. Not fixed means they reopened it, said it is still broken in whole or part, or were unhappy with how it went, and every close in a close-and-reopen cycle counts. No reply means nothing came back. So far we have left one note on one upstream ntfy thread. Each reply is judged against [a written rubric](docs/progress-tracker/JUDGING.md) by one model and checked by a second; where they disagree the thread is reread and settled. Every verdict and the quote behind it are in [docs/progress-tracker](docs/progress-tracker/). Replies on Discord, Reddit and the App Store are not counted.
 
@@ -77,7 +77,7 @@ An issue is addressed when [CHANGES-vs-upstream.md](CHANGES-vs-upstream.md) list
 | Jul 2026 | 0 | 0 | 3 | 0 | 0 | 0 |
 | Aug 2026 | 0 | 0 | 5 | 0 | 0 | 0 |
 | Oct 2026 | 6 | 4 | 7 | 0 | 0 | 0 |
-| Nov 2026 | 41 | 43 | 21 | 0 | 0 | 1 |
+| Nov 2026 | 42 | 43 | 21 | 0 | 0 | 1 |
 
 Regenerate with `python3 scripts/progress_tracker.py fetch`, then `queue`, judge the new replies, `apply` and `render`.
 

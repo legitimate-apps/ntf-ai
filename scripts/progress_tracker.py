@@ -723,7 +723,9 @@ def outcome_sentence(attempts: list[dict]) -> str:
     if n < MIN_CHART_ATTEMPTS:
         parts = [f"{totals[k]} {name.lower()}" for k, name, _ in OUTCOMES if totals[k]]
         if n == 1:
-            return f"So far 1 fix has been delivered to a person ({parts[0]}). That is too few to chart."
+            said = {"happy": "the person said it worked", "not_fixed": "the person said it was not fixed",
+                    "no_reply": "nobody has replied"}[attempts[0]["outcome"]]
+            return f"So far 1 fix has been delivered to a person, and {said}. That is too few to chart."
         return (f"So far {n} fixes have been delivered to a person: {', '.join(parts)}. "
                 "That is too few to chart.")
     heard = totals["happy"] + totals["not_fixed"]
