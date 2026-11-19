@@ -8,3 +8,6 @@ Configuration/Local.xcconfig
 
 # Python bytecode from the UI-test seed helper
 __pycache__/
+
+# Progress tracker scratch
+/build/
