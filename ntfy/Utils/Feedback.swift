@@ -20,6 +20,8 @@ struct FeedbackPayload {
     var includeLogs: Bool
     var logs: [String: Any]?
     var source: FeedbackSource
+    /// Anonymous flags and counts sent with every report (FeedbackDiagnostics.appState).
+    var appState: [String: Any]? = nil
     var appVersion = Config.version
     var build = Config.build
     var ios = UIDevice.current.systemVersion
@@ -61,6 +63,7 @@ struct FeedbackPayload {
             "sent_at": Self.minuteTimestamp(sentAt),
             "include_logs": includeLogs,
             "logs": logsValue,
+            "app_state": appState.map { $0 as Any } ?? NSNull() as Any,
             "source": source.rawValue
         ]
         return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])

@@ -40,13 +40,9 @@ struct FeedbackScrubber {
     }
 
     func clean(_ input: String) -> String {
-        var text = input
-        // Literals first, against the original text: rewriting topics or URLs first would change a message that
-        // contains them, so the message would no longer match and the rest of it would leak.
-        for literal in literals { text = removeLiteral(literal, from: text) }
-        for topic in topics {
-            text = text.replacingOccurrences(of: topic, with: topicToken(topic), options: [.caseInsensitive])
-        }
+        // Topics and literals in one pass over the original text, longest match first: a message that contains a
+        // topic goes whole, and a short literal inside a topic name can't split the topic so part of it leaks.
+        var text = replaceKnownValues(in: input)
         // A URL whose host was a literal now reads "https://<text>/path"; it is still a URL and is cut down.
         text = replace(#"(?i)\b[a-z][a-z0-9+.\-]*://(?:<text>|[^\s"'<>])+"#, in: text) { url in
             let parsed = URLComponents(string: url)
@@ -80,24 +76,57 @@ struct FeedbackScrubber {
         return text
     }
 
-    /// Removes the value and any cut-short copy of it: a log may show only its first characters.
-    private func removeLiteral(_ literal: String, from input: String) -> String {
-        let lead = String(literal.prefix(Self.truncatedPrefixLength))
-        var text = input.replacingOccurrences(of: literal, with: "<text>", options: [.caseInsensitive])
-        guard literal.count > Self.truncatedPrefixLength else { return text }
-        var searchStart = text.startIndex
-        while let found = text.range(of: lead, options: [.caseInsensitive], range: searchStart..<text.endIndex) {
-            var end = found.upperBound
-            var literalIndex = literal.index(literal.startIndex, offsetBy: lead.count)
-            while end < text.endIndex, literalIndex < literal.endIndex,
-                  String(text[end]).caseInsensitiveCompare(String(literal[literalIndex])) == .orderedSame {
-                end = text.index(after: end)
-                literalIndex = literal.index(after: literalIndex)
-            }
-            text.replaceSubrange(found.lowerBound..<end, with: "<text>")
-            searchStart = text.index(found.lowerBound, offsetBy: "<text>".count)
+    private struct KnownValue {
+        let folded: [String]
+        let isTopic: Bool
+        let original: String
+    }
+
+    /// Folded per character, so a case-insensitive comparison never shifts positions.
+    private static func fold(_ text: String) -> [String] { text.map { String($0).lowercased() } }
+
+    private var knownValuesByFirstCharacter: [String: [KnownValue]] {
+        var index: [String: [KnownValue]] = [:]
+        for (value, isTopic) in topics.map({ ($0, true) }) + literals.map({ ($0, false) }) {
+            let folded = Self.fold(value)
+            guard let first = folded.first else { continue }
+            index[first, default: []].append(KnownValue(folded: folded, isTopic: isTopic, original: value))
         }
-        return text
+        return index
+    }
+
+    /// At each position the longest match wins: a whole topic or literal, or, for a literal longer than
+    /// `truncatedPrefixLength`, a cut-short copy of at least that many leading characters.
+    private func replaceKnownValues(in input: String) -> String {
+        let index = knownValuesByFirstCharacter
+        guard !index.isEmpty else { return input }
+        let characters = Array(input)
+        let folded = Self.fold(input)
+        var output = ""
+        var i = 0
+        while i < folded.count {
+            var best: (length: Int, value: KnownValue)?
+            for candidate in index[folded[i]] ?? [] {
+                var length = 0
+                while length < candidate.folded.count, i + length < folded.count,
+                      folded[i + length] == candidate.folded[length] { length += 1 }
+                let whole = length == candidate.folded.count
+                let cutShort = !candidate.isTopic && candidate.folded.count > Self.truncatedPrefixLength
+                    && length >= Self.truncatedPrefixLength
+                guard whole || cutShort else { continue }
+                if best == nil || length > best!.length || (length == best!.length && candidate.isTopic) {
+                    best = (length, candidate)
+                }
+            }
+            if let best {
+                output += best.value.isTopic ? topicToken(best.value.original) : "<text>"
+                i += best.length
+            } else {
+                output.append(characters[i])
+                i += 1
+            }
+        }
+        return output
     }
 
     private func replace(_ pattern: String, in text: String, template: String) -> String {
@@ -116,7 +145,8 @@ struct FeedbackScrubber {
     }
 }
 
-/// The optional diagnostic bundle: counts, flags and cleaned log lines, never content.
+/// What a report carries beside the note. Always: an anonymous app state (flags, counts, sizes, MetricKit
+/// metadata), never content. Only with the box checked: cleaned recent log lines.
 enum FeedbackDiagnostics {
     static let maximumBytes = 400_000
 
@@ -137,12 +167,35 @@ enum FeedbackDiagnostics {
         return FeedbackScrubber.allowedHosts.contains(host) ? host : "other"
     }
 
-    /// Pure: everything it needs is in `inputs`, so tests can prove what leaves.
-    static func bundle(_ inputs: Inputs, scrubber: FeedbackScrubber? = nil) -> [String: Any] {
+    struct Report {
+        var appState: [String: Any]
+        /// nil unless the person checked "Share additional details".
+        var logs: [String: Any]?
+    }
+
+    /// Pure: everything it needs is in `inputs`, so tests can prove what leaves. The two parts together stay
+    /// under `maximumBytes`.
+    static func report(_ inputs: Inputs, includeLogs: Bool, scrubber: FeedbackScrubber? = nil) -> Report {
+        var state = appState(inputs)
+        if size(of: state) > maximumBytes { state["metrickit"] = [] }
+        guard includeLogs else { return Report(appState: state, logs: nil) }
         let scrubber = scrubber ?? FeedbackScrubber(topics: inputs.topics, literals: inputs.literals)
+        let budget = maximumBytes - size(of: state)
+        var lines = inputs.logLines.map(scrubber.clean)
+        var logs: [String: Any] = ["schema": 1, "log": lines]
+        // Drop the oldest lines until both parts fit.
+        while size(of: logs) > budget, !lines.isEmpty {
+            lines.removeFirst(max(1, lines.count / 8))
+            logs["log"] = lines
+        }
+        return Report(appState: state, logs: logs)
+    }
+
+    /// Flags, counts and sizes only: no topic, server address, message or log line.
+    static func appState(_ inputs: Inputs) -> [String: Any] {
         var byServer: [String: Int] = [:]
         for url in inputs.serverURLs { byServer[serverType(url), default: 0] += 1 }
-        var bundle: [String: Any] = [
+        return [
             "schema": 1,
             "settings": inputs.settings,
             "notifications": inputs.notificationState,
@@ -151,26 +204,17 @@ enum FeedbackDiagnostics {
             "core_data_bytes": inputs.coreDataBytes,
             "metrickit": inputs.diagnostics
         ]
-        var lines = inputs.logLines.map(scrubber.clean)
-        bundle["log"] = lines
-        // Drop the oldest lines until the bundle fits.
-        while size(of: bundle) > maximumBytes, !lines.isEmpty {
-            lines.removeFirst(max(1, lines.count / 8))
-            bundle["log"] = lines
-        }
-        if size(of: bundle) > maximumBytes { bundle["metrickit"] = [] }
-        return bundle
     }
 
     static func size(of object: [String: Any]) -> Int {
         (try? JSONSerialization.data(withJSONObject: object))?.count ?? Int.max
     }
 
-    /// Reads the app's state on the main queue (Core Data's view context), then builds the bundle.
-    static func collect(store: Store = .shared, completion: @escaping ([String: Any]) -> Void) {
+    /// Reads the app's state on the main queue (Core Data's view context), then builds the report parts.
+    static func collect(includeLogs: Bool, store: Store = .shared, completion: @escaping (Report) -> Void) {
         UNUserNotificationCenter.current().getNotificationSettings { notificationSettings in
             DispatchQueue.main.async {
-                completion(bundle(gather(store: store, notificationSettings: notificationSettings)))
+                completion(report(gather(store: store, notificationSettings: notificationSettings), includeLogs: includeLogs))
             }
         }
     }

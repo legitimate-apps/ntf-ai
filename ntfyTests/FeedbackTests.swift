@@ -73,14 +73,17 @@ final class FeedbackCryptoTests: XCTestCase {
 
     func testPayloadCarriesOnlyTheDeclaredFields() throws {
         var payload = FeedbackPayload(note: "  It works  ", email: "  ", includeLogs: false, logs: ["log": ["x"]], source: .shake)
+        payload.appState = ["schema": 1, "push_token_present": true]
         payload.sentAt = Date(timeIntervalSince1970: 1_795_000_000.9)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: payload.plaintext()) as? [String: Any])
         XCTAssertEqual(Set(object.keys), ["note", "email", "app_version", "build", "ios", "device_model", "locale",
-                                          "sent_at", "include_logs", "logs", "source"])
+                                          "sent_at", "include_logs", "logs", "app_state", "source"])
         XCTAssertEqual(object["note"] as? String, "It works")
         XCTAssertTrue(object["email"] is NSNull, "a blank email is null")
         XCTAssertTrue(object["logs"] is NSNull, "unchecked box: no logs, even if some were gathered")
         XCTAssertEqual(object["include_logs"] as? Bool, false)
+        XCTAssertEqual((object["app_state"] as? [String: Any])?["push_token_present"] as? Bool, true,
+                       "the anonymous app state goes with every report")
         XCTAssertEqual(object["source"] as? String, "shake")
         XCTAssertEqual(object["sent_at"] as? String, "2026-11-18T11:06Z")
         XCTAssertNotNil((object["device_model"] as? String)?.range(of: #"^(iPhone|iPad|iPod)\d+,\d+$"#, options: .regularExpression))
@@ -125,19 +128,47 @@ final class FeedbackScrubberTests: XCTestCase {
         ]
     }
 
-    func testNothingSensitiveLeavesInTheBundle() throws {
-        let scrubber = FeedbackScrubber(topics: [topic], literals: [title, body, username, password, attachment, host])
-        let inputs = FeedbackDiagnostics.Inputs(
+    private var leakList: [String] {
+        [topic, title, body, String(body.prefix(20)), host, "example-home", username, password, token,
+         "AgQdq7mVBoFD", fcm, "APA91b", email, attachment, "IMG_4821", "since=all", "auth=abc", "mytopic",
+         "poll=1", "old-removed-topic", "192.168.1.20", "nas01"]
+    }
+
+    private var inputs: FeedbackDiagnostics.Inputs {
+        FeedbackDiagnostics.Inputs(
             logLines: log, topics: [topic], literals: [title, body, username, password, attachment, host],
             serverURLs: ["https://\(host)", "https://ntf-ai.app", "https://ntfy.sh", "https://ntfy-me.com"],
             settings: ["shake_to_send_feedback": true], notificationState: ["authorization": "authorized"],
             pushTokenPresent: true, coreDataBytes: 4096, diagnostics: [])
-        let bundle = FeedbackDiagnostics.bundle(inputs, scrubber: scrubber)
-        let json = String(decoding: try JSONSerialization.data(withJSONObject: bundle), as: UTF8.self)
-            .replacingOccurrences(of: "\\/", with: "/")
-        for secret in [topic, title, body, String(body.prefix(20)), host, "example-home", username, password, token,
-                       "AgQdq7mVBoFD", fcm, "APA91b", email, attachment, "IMG_4821", "since=all", "auth=abc", "mytopic",
-                       "poll=1", "old-removed-topic", "192.168.1.20", "nas01"] {
+    }
+
+    /// The report as it travels: the payload's plaintext with both parts in it.
+    private func plaintext(_ report: FeedbackDiagnostics.Report, includeLogs: Bool) throws -> String {
+        var payload = FeedbackPayload(note: "n", email: nil, includeLogs: includeLogs, logs: report.logs, source: .settings)
+        payload.appState = report.appState
+        return String(decoding: try payload.plaintext(), as: UTF8.self).replacingOccurrences(of: "\\/", with: "/")
+    }
+
+    func testAnUncheckedReportCarriesTheAppStateButNoLogsAndNothingOnTheLeakList() throws {
+        let report = FeedbackDiagnostics.report(inputs, includeLogs: false)
+        XCTAssertNil(report.logs)
+        let json = try plaintext(report, includeLogs: false)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        XCTAssertTrue(object["logs"] is NSNull)
+        let state = try XCTUnwrap(object["app_state"] as? [String: Any])
+        XCTAssertEqual(Set(state.keys), ["schema", "settings", "notifications", "push_token_present", "subscriptions",
+                                         "core_data_bytes", "metrickit"])
+        XCTAssertEqual((state["subscriptions"] as? [String: Any])?["count"] as? Int, 4)
+        for secret in leakList + ["Subscribing", "Poll:", "<text>"] {
+            XCTAssertFalse(json.localizedCaseInsensitiveContains(secret), "leaked \(secret): \(json)")
+        }
+    }
+
+    func testNothingSensitiveLeavesInTheBundle() throws {
+        let scrubber = FeedbackScrubber(topics: [topic], literals: [title, body, username, password, attachment, host])
+        let report = FeedbackDiagnostics.report(inputs, includeLogs: true, scrubber: scrubber)
+        let json = try plaintext(report, includeLogs: true)
+        for secret in leakList {
             XCTAssertFalse(json.localizedCaseInsensitiveContains(secret), "leaked \(secret): \(json)")
         }
         // What is meant to remain does.
@@ -145,9 +176,9 @@ final class FeedbackScrubberTests: XCTestCase {
         XCTAssertTrue(json.contains("https://ntf-ai.app"))
         XCTAssertTrue(json.contains(scrubber.topicToken(topic)))
         XCTAssertTrue(json.contains("Subscribing to"))
-        let byServer = try XCTUnwrap((bundle["subscriptions"] as? [String: Any])?["by_server"] as? [String: Int])
+        let byServer = try XCTUnwrap((report.appState["subscriptions"] as? [String: Any])?["by_server"] as? [String: Int])
         XCTAssertEqual(byServer, ["other": 1, "ntf-ai.app": 1, "ntfy.sh": 1, "ntfy-me.com": 1])
-        XCTAssertEqual(bundle["push_token_present"] as? Bool, true)
+        XCTAssertEqual(report.appState["push_token_present"] as? Bool, true)
     }
 
     /// A message that contains a topic name or a URL is still removed whole: literals are matched against the
@@ -163,6 +194,17 @@ final class FeedbackScrubberTests: XCTestCase {
         XCTAssertTrue(cleaned.contains("Store: <text>"), cleaned)
     }
 
+    /// A username or display name that is part of a topic name must not split the topic so its rest leaks.
+    func testAShortLiteralInsideATopicDoesNotLeakTheTopic() {
+        let topicName = "alex-secret-topic"
+        let scrubber = FeedbackScrubber(topics: [topicName], literals: ["alex", "secret-top"])
+        let cleaned = scrubber.clean("12:00:01 D Store: Subscribing to \(topicName) as alex")
+        for secret in ["-secret-topic", "secret", "alex"] {
+            XCTAssertFalse(cleaned.localizedCaseInsensitiveContains(secret), "leaked \(secret): \(cleaned)")
+        }
+        XCTAssertTrue(cleaned.contains("Subscribing to \(scrubber.topicToken(topicName)) as <text>"), cleaned)
+    }
+
     func testTopicHashesAreStableWithinAReportAndDifferAcrossReports() {
         let one = FeedbackScrubber(topics: [topic], literals: [])
         let two = FeedbackScrubber(topics: [topic], literals: [])
@@ -176,9 +218,11 @@ final class FeedbackScrubberTests: XCTestCase {
         let inputs = FeedbackDiagnostics.Inputs(logLines: Array(repeating: line, count: 3000), topics: [], literals: [],
                                                 serverURLs: [], settings: [:], notificationState: [:],
                                                 pushTokenPresent: false, coreDataBytes: 0, diagnostics: [])
-        let bundle = FeedbackDiagnostics.bundle(inputs)
-        XCTAssertLessThanOrEqual(FeedbackDiagnostics.size(of: bundle), FeedbackDiagnostics.maximumBytes)
-        XCTAssertFalse((bundle["log"] as? [String] ?? []).isEmpty, "trims the oldest lines, keeps the newest")
+        let report = FeedbackDiagnostics.report(inputs, includeLogs: true)
+        let logs = try XCTUnwrap(report.logs)
+        XCTAssertLessThanOrEqual(FeedbackDiagnostics.size(of: report.appState) + FeedbackDiagnostics.size(of: logs),
+                                 FeedbackDiagnostics.maximumBytes)
+        XCTAssertFalse((logs["log"] as? [String] ?? []).isEmpty, "trims the oldest lines, keeps the newest")
     }
 
     func testRecentLogKeepsTheNewestLinesOnly() {

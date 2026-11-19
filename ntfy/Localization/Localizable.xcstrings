@@ -34647,53 +34647,6 @@
         }
       }
     },
-    "Include diagnostic logs to help fix this": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Include diagnostic logs to help fix this"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diagnoseprotokolle beifügen, um das Problem zu beheben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Incluir registros de diagnóstico para ayudar a solucionarlo"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Includi i log di diagnostica per aiutarci a risolvere"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dołącz logi diagnostyczne, aby pomóc to naprawić"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diagnoselogboeken toevoegen om dit op te lossen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Joindre les journaux de diagnostic pour aider à corriger"
-          }
-        }
-      }
-    },
     "Checked": {
       "extractionState": "manual",
       "localizations": {
@@ -34976,53 +34929,6 @@
         }
       }
     },
-    "Sends your note, app version, system version and device model. Nothing else unless you add it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sends your note, app version, system version and device model. Nothing else unless you add it."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sendet deine Nachricht, App-Version, Systemversion und Gerätemodell. Sonst nichts, außer du fügst es hinzu."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envía tu nota, la versión de la app, la versión del sistema y el modelo del dispositivo. Nada más, salvo lo que añadas."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Invia la tua nota, la versione dell'app, la versione del sistema e il modello del dispositivo. Nient'altro, a meno che non lo aggiunga tu."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wysyła twoją wiadomość, wersję aplikacji, wersję systemu i model urządzenia. Nic więcej, chyba że to dodasz."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stuurt je bericht, de appversie, de systeemversie en het apparaatmodel. Verder niets, tenzij je het toevoegt."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envoie votre message, la version de l’app, la version du système et le modèle de l’appareil. Rien d’autre, sauf si vous l’ajoutez."
-          }
-        }
-      }
-    },
     "Sorry to hear that.": {
       "extractionState": "manual",
       "localizations": {
@@ -35160,6 +35066,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Envoi impossible. Réessayez dans un instant."
+          }
+        }
+      }
+    },
+    "Share additional details to help fix this": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share additional details to help fix this"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Details teilen, um das Problem zu beheben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir más detalles para ayudar a solucionarlo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condividi altri dettagli per aiutarci a risolvere"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij więcej szczegółów, aby pomóc to naprawić"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extra details delen om dit te helpen oplossen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager plus de détails pour aider à corriger"
+          }
+        }
+      }
+    },
+    "Anonymous. Includes app and device details to help us fix problems.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonymous. Includes app and device details to help us fix problems."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonym. Enthält App- und Gerätedetails, damit wir Probleme beheben können."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anónimo. Incluye detalles de la app y del dispositivo para ayudarnos a solucionar problemas."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonimo. Include dettagli sull'app e sul dispositivo per aiutarci a risolvere i problemi."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonimowo. Zawiera szczegóły aplikacji i urządzenia, aby pomóc nam naprawiać problemy."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anoniem. Bevat app- en apparaatgegevens zodat we problemen kunnen oplossen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonyme. Inclut des détails sur l’app et l’appareil pour nous aider à corriger les problèmes."
           }
         }
       }

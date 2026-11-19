@@ -182,7 +182,7 @@ struct FeedbackSheet: View {
                     .accessibilityIdentifier("feedback-email")
             }
             Section(footer: VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "Sends your note, app version, system version and device model. Nothing else unless you add it."))
+                Text(String(localized: "Anonymous. Includes app and device details to help us fix problems."))
                 if phase == .failed {
                     Text(String(localized: "Couldn't send. Try again in a moment."))
                         .foregroundColor(.red)
@@ -193,12 +193,12 @@ struct FeedbackSheet: View {
                         Image(systemName: includeLogs ? "checkmark.square.fill" : "square")
                             .font(.title3)
                             .foregroundColor(includeLogs ? Color("AccentColor") : .secondary)
-                        Text(String(localized: "Include diagnostic logs to help fix this"))
+                        Text(String(localized: "Share additional details to help fix this"))
                             .foregroundColor(.primary)
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(String(localized: "Include diagnostic logs to help fix this"))
+                .accessibilityLabel(String(localized: "Share additional details to help fix this"))
                 .accessibilityValue(includeLogs ? String(localized: "Checked") : String(localized: "Unchecked"))
                 .accessibilityAddTraits(includeLogs ? [.isButton, .isSelected] : .isButton)
                 .accessibilityIdentifier("feedback-include-logs")
@@ -258,14 +258,11 @@ struct FeedbackSheet: View {
                 }
             }
         }
-        if includeLogs {
-            FeedbackDiagnostics.collect { logs in
-                var withLogs = payload
-                withLogs.logs = logs
-                deliver(withLogs)
-            }
-        } else {
-            deliver(payload)
+        FeedbackDiagnostics.collect(includeLogs: includeLogs) { report in
+            var full = payload
+            full.appState = report.appState
+            full.logs = report.logs
+            deliver(full)
         }
     }
 }
