@@ -113,6 +113,8 @@ final class AnswerLog: ObservableObject {
             if !repeatable, let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
             self.entries[key.id] = entry
             self.save()
+            // An answered agent question is one of the moments the review question may follow.
+            if !repeatable && entry.ok && entry.kind != .dismissed { ReviewPrompt.shared.noteGoodMoment() }
             // The button shows its check for a moment; then the views redraw: to the answered state
             // on a question, back to the buttons on any other message.
             if entry.ok && entry.kind != .dismissed {

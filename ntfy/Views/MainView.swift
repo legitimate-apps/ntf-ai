@@ -65,10 +65,10 @@ struct MainView: View {
                 launchExperience.prepare(hasSubscriptions: !(store.getSubscriptions() ?? []).isEmpty)
                 do { try await Task.sleep(nanoseconds: 600_000_000) } catch { return }
                 guard movedTopicsNotice.isEmpty, !isPresenting, !launchExperience.presentWhatsNew() else { return }
-                // The review request waits for a quiet moment on the Inbox, never over a sheet.
+                // The review question waits for a quiet moment on the Inbox, never over a sheet.
                 do { try await Task.sleep(nanoseconds: 1_500_000_000) } catch { return }
                 guard tab == .inbox, linkRequest == nil, !isPresenting else { return }
-                await launchExperience.requestReview(store: store)
+                ReviewPrompt.shared.considerAsking()
             }
     }
 

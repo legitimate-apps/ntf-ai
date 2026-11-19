@@ -6322,7 +6322,11 @@ final class ntfyTests: XCTestCase {
                 // Authored/parser-created Markdown links use UITextView's native
                 // linkTextAttributes; plain links also carry explicit styling.
                 if type == nil {
-                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor(named: "AccentColor"))
+                    // Compare the resolved colour: UIKit may hand out a new catalog-colour instance
+                    // after its asset cache is trimmed, and instances compare by identity.
+                    let traits = UITraitCollection(userInterfaceStyle: .light)
+                    XCTAssertEqual((attrs[.foregroundColor] as? UIColor)?.resolvedColor(with: traits),
+                                   UIColor(named: "AccentColor")?.resolvedColor(with: traits))
                     XCTAssertEqual(attrs[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
                 }
                 if attrs[.link] != nil { linked += run.length }
@@ -7272,29 +7276,6 @@ final class LaunchExperiencePolicyTests: XCTestCase {
                                                    hasSubscriptions: true, entries: [])
         XCTAssertTrue(missing.entries.isEmpty)
         XCTAssertTrue(missing.recordNow)
-    }
-
-    func testReviewEligibilityNeedsPushDeliveredMessagesOnTwoDaysAndThreeDayInstall() {
-        func eligible(presented: Int = 3, days: Int = 2, prompted: String? = nil,
-                      age: TimeInterval? = 259200, hasSubscriptions: Bool = true,
-                      authorized: Bool = true, healthy: Bool = true) -> Bool {
-            LaunchExperiencePolicy.shouldRequestReview(current: current, lastPrompted: prompted,
-                presentedCount: presented, presentedDays: days, firstLaunch: age.map { now.addingTimeInterval(-$0) },
-                hasSubscriptions: hasSubscriptions, notificationsAuthorized: authorized, topicsHealthy: healthy, now: now)
-        }
-        XCTAssertTrue(eligible())
-        XCTAssertFalse(eligible(presented: 0, days: 0), "polled-only messages never qualify")
-        XCTAssertFalse(eligible(presented: 2))
-        XCTAssertFalse(eligible(presented: 30, days: 1), "one busy day is not two days of working delivery")
-        XCTAssertFalse(eligible(prompted: current), "once per version")
-        XCTAssertTrue(eligible(prompted: "1.16.0"))
-        XCTAssertFalse(eligible(age: 259199))
-        XCTAssertFalse(eligible(age: 172800), "the old two-day age no longer suffices")
-        XCTAssertFalse(eligible(age: -1))
-        XCTAssertTrue(eligible(age: nil)) // Existing subscriber before first-launch tracking.
-        XCTAssertFalse(eligible(age: nil, hasSubscriptions: false))
-        XCTAssertFalse(eligible(authorized: false), "denied notifications never qualify")
-        XCTAssertFalse(eligible(healthy: false))
     }
 
     func testPresentedDeliveriesCountOnlyBannersNotPolledOrTestMessagesByDistinctDay() throws {
