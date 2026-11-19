@@ -46,6 +46,7 @@ struct NotificationListView: View {
     @State private var showQuietOptions = false
     @State private var showSoundOptions = false
     @State private var showQRCodeSheet = false
+    @State private var shareRequest: ShareRequest?
     @State private var showComposeSheet = false
     @State private var showUserEditor = false
     @State private var sendingTest = false
@@ -308,7 +309,8 @@ struct NotificationListView: View {
         }
         .sheet(isPresented: $showQRCodeSheet) {
             TopicQRCodeView(baseUrl: subscription.baseUrl ?? "", topic: subscription.topicName(),
-                            isShowing: $showQRCodeSheet)
+                            isShowing: $showQRCodeSheet,
+                            topicShare: .topic(subscription, store: store, onCopied: showCopyConfirmation))
         }
     }
     
@@ -396,6 +398,10 @@ struct NotificationListView: View {
                 Button { sendTestNotification() } label: {
                     Label(String(localized: "Send test"), systemImage: AppSymbol.test)
                 }
+                Button(action: shareTopic) {
+                    Label(String(localized: "Share topic"), systemImage: AppSymbol.share)
+                }
+                .accessibilityIdentifier("topic-share")
                 // The publish URL is what every script needs. Once a topic has messages the
                 // empty-state copy buttons are gone, so keep it one tap away here.
                 Button {
@@ -469,6 +475,7 @@ struct NotificationListView: View {
         }
         .accessibilityLabel(String(localized: "Topic actions"))
         .accessibilityIdentifier("topic-actions")
+        .shareSheet($shareRequest)
         // Anchored to More, where both were chosen, so the iOS 26 popover points at the ellipsis
         // rather than the title (attached to the list it anchored to the whole screen).
         .confirmationDialog(String(localized: "Delete all messages in \(subscription.shortDisplayName())?"),
@@ -489,6 +496,10 @@ struct NotificationListView: View {
         TopicServerAddressPolicy.showsAddress(name: subscription.shortDisplayName(),
                                               showAddresses: showServerAddresses,
                                               ambiguousNames: ambiguousNames)
+    }
+
+    private func shareTopic() {
+        shareRequest = .topic(subscription, store: store, onCopied: showCopyConfirmation)
     }
 
     private func sendTestNotification(firstRun: Bool = false) {

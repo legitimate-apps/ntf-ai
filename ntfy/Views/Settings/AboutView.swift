@@ -8,8 +8,19 @@
 import SwiftUI
 
 struct AboutView: View {
+    @State private var shareRequest: ShareRequest?
+
     var body: some View {
         Group {
+            // Word of mouth is how most people find the app: one tap to the share sheet.
+            Button { shareRequest = .app() } label: {
+                ValueRow(String(localized: "Share NTF-AI"), value: "") {
+                    RowAccessoryGlyph(systemName: AppSymbol.share)
+                }
+                .shareSheet($shareRequest)
+            }
+            .foregroundColor(.primary)
+            .accessibilityIdentifier("share-app")
             // Primary help is the default server's quick start: its examples publish to ntfy-me.com.
             linkRow(String(localized: "Getting started"), detail: shortUrl(url: normalizeBaseUrl(Config.helpUrl)),
                     url: Config.helpUrl)

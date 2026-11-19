@@ -1046,6 +1046,7 @@ struct MessageAttachmentBlock: View {
     var onCopy: () -> Void = {}
     @StateObject private var controller = NotificationAttachmentController()
     @State private var presentation: NotificationRowView.AttachmentPresentation?
+    @State private var shareRequest: ShareRequest?
 
     var body: some View {
         if let attachment = notification.messageAttachment() {
@@ -1056,12 +1057,13 @@ struct MessageAttachmentBlock: View {
                     authorizationHeader: authorizationHeader,
                     controller: controller,
                     onOpen: { presentation = .init(url: $0, mode: .preview) },
-                    onShare: { presentation = .init(url: $0, mode: .share) },
+                    onShare: { shareRequest = .file($0) },
                     onSave: { url in Task { @MainActor in NotificationRowView.AttachmentExportPresenter.shared.present(url: url) } },
                     onCopy: onCopy
                 )
                 .padding(.top, -8)
                 .environment(\.attachmentImageMaxHeight, maxHeight)
+                .shareSheet($shareRequest)
                 if attachment.isImageAttachment(), notification.attachmentLocalFileUrl() != nil,
                    let fine = notification.attachmentFinePrint(includeName: maxHeight > 300) {
                     Text(fine).font(.footnote).foregroundColor(.secondary)
@@ -1115,11 +1117,13 @@ struct MessageRowActions: ViewModifier {
     var heldUnread = false
     var onReleaseHeldUnread: () -> Void = {}
     var onCopy: () -> Void = {}
+    @State private var shareRequest: ShareRequest?
 
     private var showsUnread: Bool { !notification.read || heldUnread }
 
     func body(content: Content) -> some View {
         content
+            .shareSheet($shareRequest)
             .contextMenu {
                 Button {
                     UIPasteboard.general.setValue(notification.shareText, forPasteboardType: UTType.plainText.identifier)
@@ -1128,8 +1132,10 @@ struct MessageRowActions: ViewModifier {
                 } label: {
                     Label(String(localized: "Copy text"), systemImage: AppSymbol.copyText)
                 }
-                if #available(iOS 16.0, *) {
-                    ShareLink(item: notification.shareText) {
+                if notification.encryptionState != .locked {
+                    Button {
+                        shareRequest = .message(notification, onCopied: onCopy)
+                    } label: {
                         Label(String(localized: "Share"), systemImage: AppSymbol.share)
                     }
                 }

@@ -42,7 +42,9 @@ struct TopicQRCodeView: View {
     let baseUrl: String
     let topic: String
     @Binding var isShowing: Bool
-    @State private var sharing = false
+    /// The topic's own share (invitation, link, copy commands); the QR image is added to it.
+    var topicShare: ShareRequest? = nil
+    @State private var shareRequest: ShareRequest?
 
     private var payload: String? { TopicQRCode.payload(baseUrl: baseUrl, topic: topic) }
     private var shareItems: [Any] {
@@ -94,29 +96,22 @@ struct TopicQRCodeView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        sharing = true
+                        if var request = topicShare, let image = shareItems.first {
+                            request.items.insert(image, at: 0)
+                            shareRequest = request
+                        } else {
+                            shareRequest = ShareRequest(items: shareItems)
+                        }
                     } label: {
                         Image(systemName: AppSymbol.share)
                     }
                     .accessibilityLabel(String(localized: "Share"))
                     .disabled(shareItems.isEmpty)
+                    .shareSheet($shareRequest)
                 }
-            }
-            .sheet(isPresented: $sharing) {
-                TopicQRShareSheet(items: shareItems)
             }
         }
     }
-}
-
-private struct TopicQRShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 /// What the scanner screen can show before it has a code.

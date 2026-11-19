@@ -145,6 +145,7 @@ struct SubscriptionItemNavView: View {
     var waiting: Notification? = nil
     @State private var unsubscribeAlert = false
     @State private var showMuteOptions = false
+    @State private var shareRequest: ShareRequest?
     @State private var showQuietOptions = false
     @State private var showSoundOptions = false
     
@@ -155,6 +156,7 @@ struct SubscriptionItemNavView: View {
     var body: some View {
         if #available(iOS 15.0, *) {
             subscriptionRow
+                .shareSheet($shareRequest)
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     // Mirrors Messages: swipe right to toggle read state, and a full swipe commits
                     // it without waiting for a tap.
@@ -204,6 +206,11 @@ struct SubscriptionItemNavView: View {
                             togglePinned()
                         } label: {
                             pinLabel(swipe: false)
+                        }
+                        Button {
+                            shareRequest = .topic(subscription, store: store)
+                        } label: {
+                            Label(String(localized: "Share topic"), systemImage: AppSymbol.share)
                         }
                     }
                     Section {

@@ -17,6 +17,7 @@ struct MessagePageView: View {
     @ObservedObject private var waiting = WaitingObservable.shared
     @State private var browserURL: URL?
     @State private var showCopied = false
+    @State private var shareRequest: ShareRequest?
     @State private var scrollToReply = UUID()
     @State private var replyTyped = false
 
@@ -78,9 +79,15 @@ struct MessagePageView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if #available(iOS 16.0, *) {
-                    ShareLink(item: notification.shareText)
-                        .accessibilityLabel(String(localized: "Share"))
+                if notification.encryptionState != .locked {
+                    Button {
+                        shareRequest = .message(notification, onCopied: copied)
+                    } label: {
+                        Image(systemName: AppSymbol.share)
+                    }
+                    .accessibilityLabel(String(localized: "Share"))
+                    .accessibilityIdentifier("message-share")
+                    .shareSheet($shareRequest)
                 }
                 Menu {
                     Button {
