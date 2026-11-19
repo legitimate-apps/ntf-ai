@@ -457,7 +457,10 @@ extension UNMutableNotificationContent {
                     $0.identifier != category.identifier
                         && (!$0.identifier.hasPrefix(categoryPrefix) || live.contains($0.identifier))
                 }
-                center.setNotificationCategories(Set(kept).union([category]))
+                // Re-apply the saved lock-screen setting to every category we write, so a delivery
+                // racing a toggle can't put back buttons that skip Face ID after it was turned off.
+                let current = LockScreenButtons.rewrite(Set(kept).union([category]), withoutUnlock: LockScreenButtons.enabled())
+                center.setNotificationCategories(Set(current))
                 // Read back to confirm the write landed before signalling.
                 center.getNotificationCategories { _ in sem.signal() }
             }
@@ -572,6 +575,21 @@ enum LockScreenButtons {
     static var defaults: UserDefaults { UserDefaults(suiteName: Config.appGroupId) ?? .standard }
 
     static func enabled(_ defaults: UserDefaults = LockScreenButtons.defaults) -> Bool { defaults.bool(forKey: key) }
+
+    /// Backstop for a category written before a toggle landed: with the setting off, iOS unlocks before
+    /// an http button runs, so a tap that arrives while protected data is unavailable came through a
+    /// stale category and must not run. A Mac's buttons open the app, so they always may.
+    static func mayRun(httpButton: Bool, enabled: Bool, protectedDataAvailable: Bool, onMac: Bool) -> Bool {
+        !httpButton || enabled || protectedDataAvailable || onMac
+    }
+
+    /// Tells the person why the button did nothing, so they can unlock and tap it again.
+    static func notifyRefused(_ label: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "⚠️ \(label) failed")
+        content.body = String(localized: "Unlock your device, then tap the button again.")
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
+    }
 
     /// Options feed the category id, so notifications that arrive after a change get a new category.
     /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for

@@ -138,6 +138,42 @@ final class BackgroundHTTPActionTests: XCTestCase {
         XCTAssertEqual(on.first?.actions.map(\.options), [[], .foreground, .authenticationRequired])
     }
 
+    /// Off after on: a delivery that built its buttons while the setting was on, then registered after it
+    /// was turned off, must still land with Face ID required (the write that lands last re-applies it).
+    func testRegistrationAfterTurningOffReappliesAuthentication() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        let buttons = [action(id: "http"), action("copy", id: "copy")]
+        let stale = UNNotificationCategory(
+            identifier: UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: true),
+            actions: UNMutableNotificationContent.notificationActions(for: buttons, onMac: false, withoutUnlock: true),
+            intentIdentifiers: [], options: .customDismissAction)
+        XCTAssertEqual(stale.actions.map(\.options), [[], .foreground])
+        shared.set(false, forKey: LockScreenButtons.key)
+        let registered = expectation(description: "registered on worker")
+        DispatchQueue.global().async {
+            UNMutableNotificationContent.registerCategorySynchronously(stale)
+            registered.fulfill()
+        }
+        wait(for: [registered], timeout: 10)
+        let read = expectation(description: "category options")
+        UNUserNotificationCenter.current().getNotificationCategories { categories in
+            XCTAssertEqual(categories.first { $0.identifier == stale.identifier }?.actions.map(\.options),
+                           [.authenticationRequired, .foreground])
+            read.fulfill()
+        }
+        wait(for: [read], timeout: 5)
+    }
+
+    func testLockedTapThroughAStaleCategoryIsRefusedWhenOff() {
+        XCTAssertFalse(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: true, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: true, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: true))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: false, enabled: false, protectedDataAvailable: false, onMac: false))
+    }
+
     private func replyLinkAction() -> Action {
         Action(id: "reply-link", action: "view", label: "Reply in NTF-AI",
                url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",
