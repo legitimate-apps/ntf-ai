@@ -17,8 +17,22 @@ final class WaitingRuleTests: XCTestCase {
                method: nil, headers: nil, body: nil, clear: nil)
     }
 
-    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil) -> Bool {
-        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, now: now)
+    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil, tags: [String] = ["agent"]) -> Bool {
+        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, tags: tags, now: now)
+    }
+
+    /// Only an agent's question waits: a plain ntfy message with a button ("Toggle light" from Home
+    /// Assistant) is not a question, so it stays under Activity and doesn't badge the Inbox tab.
+    func testOnlyAnAgentsQuestionWaits() {
+        XCTAssertFalse(waits([act("http")], tags: []), "a plain http button is not an agent's question")
+        XCTAssertFalse(waits([replyLink], tags: ["house"]), "nor is a plain reply link")
+        XCTAssertTrue(waits([act("http")], tags: ["agent"]))
+        XCTAssertTrue(waits([act("http")], tags: ["Agent"]), "the agent tag in any case")
+        let typed = Action(id: "ask", action: "view", label: "Answer",
+                           url: "https://ntf-ai.app/docs/agents#ask-v2=" + TopicEncryption.base64urlEncode(Data(#"{"v":2,"kind":"text"}"#.utf8)),
+                           method: nil, headers: nil, body: nil, clear: nil)
+        XCTAssertNotEqual(AskSchema.detect(in: [typed]), .none, "fixture: a typed question")
+        XCTAssertTrue(waits([typed], tags: []), "a typed question waits without the agent tag")
     }
 
     func testHTTPAndReplyActionsWaitButLinksAndCopyDoNot() {
@@ -90,9 +104,11 @@ final class WaitingStoreTests: XCTestCase {
     }
 
     private func message(_ id: String, sequence: String, age: TimeInterval = 600, event: String = "message",
-                         text: String? = "Deploy v2?", actions: [Action]? = nil) -> Message {
-        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: event, topic: "deploys",
-                message: text, actions: actions, sequenceID: sequence)
+                         text: String? = "Deploy v2?", actions: [Action]? = nil, tags: [String]? = ["agent"]) -> Message {
+        var message = Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: event, topic: "deploys",
+                              message: text, actions: actions, sequenceID: sequence)
+        message.tags = tags
+        return message
     }
 
     private func save(_ messages: Message...) {
@@ -102,6 +118,15 @@ final class WaitingStoreTests: XCTestCase {
 
     private var waitingIDs: [String] {
         store.waitingNotifications(log: log, now: now).compactMap(\.id)
+    }
+
+    /// A Home Assistant style alert with a button is not waiting on you; an agent's question beside it is.
+    func testAPlainButtonMessageIsNotWaiting() {
+        let toggle = Action(id: "toggle", action: "http", label: "Toggle light", url: "https://ha.example/api/light",
+                            method: "POST", headers: nil, body: nil, clear: nil)
+        save(message("ha-1", sequence: "ha-1", age: 30, text: "Motion in the hallway", actions: [toggle], tags: nil),
+             message("q-1", sequence: "q-1", age: 60, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["q-1"], "only the agent's question waits")
     }
 
     /// `re-<sequence>` marks the person's own written answer: never a question, even with buttons.

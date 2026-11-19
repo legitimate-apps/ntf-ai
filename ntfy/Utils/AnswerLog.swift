@@ -163,7 +163,9 @@ extension AnswerLog {
     }
 }
 
-/// "Waiting on you" (DIRECTIONS 1.6): a question an agent is blocked on.
+/// "Waiting on you" (DIRECTIONS 1.6): a question an agent is blocked on. Only an agent's question
+/// waits: tagged `agent` with an answer, or a typed (ask-v2) question, the same set that takes one
+/// answer. A plain message's buttons ("Toggle light") are not a question and stay under Activity.
 enum WaitingRule {
     static let maxAge: TimeInterval = 7 * 24 * 60 * 60
 
@@ -183,9 +185,10 @@ enum WaitingRule {
     /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
     /// An agent's ack on the question resolves it, however it was answered (ACK-SPEC).
     /// A typed question past its deadline (`exp`) waits no longer; a withdrawn one is acked (SPEC 7).
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], acked: Bool = false,
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String], acked: Bool = false,
                           now: Date = Date()) -> Bool {
-        guard hasAnswerAction(actions), !acked, !tags.contains(where: ProtocolTag.isReply) else { return false }
+        guard hasAnswerAction(actions), AgentQuestion.locksAfterAnswer(tags: tags, actions: actions), !acked,
+              !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
         if AskSchema.detect(in: actions).schema?.isExpired(now: now) == true { return false }
         let age = now.timeIntervalSince(time)
