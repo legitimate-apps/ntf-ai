@@ -8,7 +8,7 @@ Notifications from AI agents, scripts and servers on your iPhone or iPad, and yo
 
 An agent, script or server sends one HTTP request and your phone gets a notification. You answer with an action button, a typed reply or a form, and the agent reads what you sent. There is no account and no API key. NTF-AI is a free iOS app that speaks the [ntfy](https://github.com/binwiederhier/ntfy) protocol, so it works with the ntfy publish API and with any ntfy server, including your own. It needs iOS 15 or later and runs on iPhone and iPad.
 
-<img src="docs/readme/screens.jpg" alt="NTF-AI on iPhone: the topic list, adding a topic, an Approve and Reject question from an agent, and writing a reply." width="100%">
+<img src="docs/readme/screens.png" alt="NTF-AI on iPhone: the topic list, adding a topic, an Approve and Reject question from an agent, and writing a reply." width="100%">
 
 ## Quick start
 
