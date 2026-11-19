@@ -65,7 +65,7 @@ Give a topic a password (topic menu → **End-to-end encryption**) and messages 
 
 ## Reporting a bug
 
-[Open an issue](../../issues/new/choose) with your iOS version, device, and app version, plus steps to reproduce. Questions and ideas: [Discussions](../../discussions). You can also get help at [ntf-ai.app/docs/support](https://ntf-ai.app/docs/support).
+[Open an issue](../../issues/new/choose) with your iOS version, device, and app version, plus steps to reproduce. Questions and ideas: [Discussions](../../discussions) or [Discord](https://discord.gg/vdWNvxdHzQ). You can also get help at [ntf-ai.app/docs/support](https://ntf-ai.app/docs/support).
 
 Bugs in the underlying ntfy server or protocol belong upstream: [binwiederhier/ntfy/issues](https://github.com/binwiederhier/ntfy/issues).
 
@@ -83,7 +83,7 @@ Upstream: [binwiederhier/ntfy-ios](https://github.com/binwiederhier/ntfy-ios). S
 
 ## Support the project
 
-If this fork is useful to you: [Ko-fi](https://ko-fi.com/ntfyiosnextgen).
+If this fork is useful to you: [Ko-fi](https://ko-fi.com/ntfai).
 
 ## License
 
