@@ -34413,54 +34413,6 @@
         }
       }
     },
-    "Cleared %lld from Waiting": {
-      "comment": "Undo bar after Clear all in Waiting on you; %lld is how many questions left the list",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cleared %lld from Waiting"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld aus „Wartet auf dich“ entfernt"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitadas de la espera: %lld"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rimosse dall’attesa: %lld"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usunięto z oczekujących: %lld"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld uit Wacht op jou gehaald"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retirées de l’attente : %lld"
-          }
-        }
-      }
-    },
     "Undo": {
       "comment": "Undo bar button: put the cleared questions back in Waiting on you",
       "extractionState": "manual",
@@ -34505,6 +34457,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annuler"
+          }
+        }
+      }
+    },
+    "Questions cleared": {
+      "comment": "Undo bar after Clear all in Waiting on you",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questions cleared"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fragen entfernt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntas quitadas"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Domande rimosse"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pytania usunięte"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vragen gewist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questions retirées"
+          }
+        }
+      }
+    },
+    "They leave Waiting on you on this device. The messages stay in Activity.": {
+      "comment": "Clear all menu: what clearing does (nothing is deleted)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They leave Waiting on you on this device. The messages stay in Activity."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie verschwinden auf diesem Gerät aus „Wartet auf dich“. Die Nachrichten bleiben unter Aktivität."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salen de «Esperando tu respuesta» en este dispositivo. Los mensajes siguen en Actividad."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escono da «In attesa di una tua risposta» su questo dispositivo. I messaggi restano in Attività."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znikają z sekcji „Czeka na twoją odpowiedź” na tym urządzeniu. Wiadomości zostają w Aktywności."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ze verdwijnen op dit apparaat uit Wacht op jou. De berichten blijven in Activiteit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elles quittent « En attente de votre réponse » sur cet appareil. Les messages restent dans Activité."
+          }
+        }
+      }
+    },
+    "More for Waiting on you": {
+      "comment": "Accessibility label of the … button on the Waiting on you header",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More for Waiting on you"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr zu „Wartet auf dich“"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más opciones de «Esperando tu respuesta»"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altro per «In attesa di una tua risposta»"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Więcej: „Czeka na twoją odpowiedź”"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meer voor Wacht op jou"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus pour « En attente de votre réponse »"
           }
         }
       }
