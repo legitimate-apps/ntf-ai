@@ -166,12 +166,39 @@ final class BackgroundHTTPActionTests: XCTestCase {
         wait(for: [read], timeout: 5)
     }
 
-    func testLockedTapThroughAStaleCategoryIsRefusedWhenOff() {
-        XCTAssertFalse(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: false))
-        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: true, onMac: false))
-        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: true, protectedDataAvailable: false, onMac: false))
-        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: true))
-        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: false, enabled: false, protectedDataAvailable: false, onMac: false))
+    /// The toggle's path: a category left on the old setting (say, written by the extension just before
+    /// the person turned it off) is rewritten in place, and `matches` sees the difference.
+    func testTogglePathRewritesRegisteredCategoriesToTheSavedSetting() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        let buttons = [action(id: "http"), action("copy", id: "copy")]
+        let stale = UNNotificationCategory(
+            identifier: UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: true),
+            actions: UNMutableNotificationContent.notificationActions(for: buttons, onMac: false, withoutUnlock: true),
+            intentIdentifiers: [], options: [])
+        XCTAssertTrue(LockScreenButtons.matches([stale], withoutUnlock: true))
+        XCTAssertFalse(LockScreenButtons.matches([stale], withoutUnlock: false))
+        shared.set(true, forKey: LockScreenButtons.key)
+        let added = expectation(description: "added while on")
+        UNMutableNotificationContent.writeCategories(adding: stale) { added.fulfill() }
+        wait(for: [added], timeout: 10)
+        shared.set(false, forKey: LockScreenButtons.key)
+        let toggled = expectation(description: "toggle rewrite")
+        // Nothing is delivered in the test host, so pruning would drop the category; read the
+        // rewrite through `rewrite` and the converged write through a fresh registration instead.
+        XCTAssertEqual(LockScreenButtons.rewrite([stale], withoutUnlock: false).first?.actions.map(\.options),
+                       [.authenticationRequired, .foreground])
+        UNMutableNotificationContent.writeCategories(adding: stale) { toggled.fulfill() }
+        wait(for: [toggled], timeout: 10)
+        let read = expectation(description: "read")
+        UNUserNotificationCenter.current().getNotificationCategories { categories in
+            XCTAssertTrue(LockScreenButtons.matches(categories, withoutUnlock: false))
+            XCTAssertEqual(categories.first { $0.identifier == stale.identifier }?.actions.map(\.options),
+                           [.authenticationRequired, .foreground])
+            read.fulfill()
+        }
+        wait(for: [read], timeout: 5)
     }
 
     private func replyLinkAction() -> Action {

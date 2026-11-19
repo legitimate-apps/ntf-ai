@@ -283,8 +283,8 @@ final class NavigationPilotUITests: XCTestCase {
     }
     /// Settings, "Use buttons without unlocking": off by default, and one tap turns it on.
     func testCaptureLockScreenButtonsSetting() {
-        app.launch()
-        app.buttons["Settings"].tap()
+        launchList()
+        tab("Settings")
         let toggle = app.switches["settings-buttons-without-unlocking"]
         for _ in 0..<8 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)

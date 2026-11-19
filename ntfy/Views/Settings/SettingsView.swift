@@ -39,7 +39,7 @@ struct SettingsView: View {
                     Section(footer: Text(String(localized: "Buttons such as Approve work from the Lock Screen without Face ID, Touch ID or your passcode. Anyone holding your device could tap them."))) {
                         Toggle(String(localized: "Use buttons without unlocking"), isOn: $buttonsWithoutUnlocking)
                             .accessibilityIdentifier("settings-buttons-without-unlocking")
-                            .onChange(of: buttonsWithoutUnlocking) { LockScreenButtons.applyToRegisteredCategories(withoutUnlock: $0) }
+                            .onChange(of: buttonsWithoutUnlocking) { _ in LockScreenButtons.applyToRegisteredCategories() }
                     }
                 }
                 Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {

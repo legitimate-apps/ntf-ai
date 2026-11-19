@@ -576,16 +576,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             completionHandler()
             return
         }
-        // Before the once-only slot, so the same button works after the person unlocks.
-        if let action, action.action == "http", !isReply,
-           !LockScreenButtons.mayRun(httpButton: true, enabled: LockScreenButtons.enabled(),
-                                     protectedDataAvailable: UIApplication.shared.isProtectedDataAvailable,
-                                     onMac: ProcessInfo.processInfo.isiOSAppOnMac) {
-            Log.w(tag, "Refusing an http button tapped while locked with Use buttons without unlocking off", action.id)
-            LockScreenButtons.notifyRefused(action.label)
-            completionHandler()
-            return
-        }
         guard responseDeduper.shouldHandle(notificationId: notificationId, actionIdentifier: actionIdentifier) else {
             Log.d(tag, "Ignoring a notification response that was already handled", actionIdentifier)
             completionHandler()

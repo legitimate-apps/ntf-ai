@@ -35259,54 +35259,6 @@
           }
         }
       }
-    },
-    "Unlock your device, then tap the button again.": {
-      "extractionState": "manual",
-      "comment": "Notification body when an http button is tapped on a locked device and must wait for an unlock",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock your device, then tap the button again."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entsperre dein Gerät und tippe dann erneut auf die Taste."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desbloquea tu dispositivo y vuelve a tocar el botón."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sblocca il tuo dispositivo, poi tocca di nuovo il pulsante."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odblokuj urządzenie, a potem naciśnij przycisk ponownie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ontgrendel je apparaat en tik dan nogmaals op de knop."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Déverrouillez votre appareil, puis touchez à nouveau le bouton."
-          }
-        }
-      }
     }
   },
   "version": "1.0"

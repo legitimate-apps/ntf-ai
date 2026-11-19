@@ -442,31 +442,55 @@ extension UNMutableNotificationContent {
                                               center: UNUserNotificationCenter = .current(),
                                               timeout: TimeInterval = 3) {
         let sem = DispatchSemaphore(value: 0)
-        // Garbage-collect our own stale categories before adding this one. The ntfy server
-        // mints a FRESH random `id` for every action of every message (verified against a
-        // live server), so `actionCategoryIdentifier` is effectively unique per notification
-        // and a purely additive registration would grow without bound — re-serializing an
-        // ever-larger set to the notification center on every single delivery, on the NSE's
-        // critical path. A category is only needed while its notification is still on
-        // screen, so keep exactly those (plus the one being registered) and drop the rest.
-        // Categories that aren't ours are never touched.
-        center.getDeliveredNotifications { delivered in
-            let live = Set(delivered.map { $0.request.content.categoryIdentifier })
-            center.getNotificationCategories { existing in
-                let kept = existing.filter {
-                    $0.identifier != category.identifier
-                        && (!$0.identifier.hasPrefix(categoryPrefix) || live.contains($0.identifier))
-                }
-                // Re-apply the saved lock-screen setting to every category we write, so a delivery
-                // racing a toggle can't put back buttons that skip Face ID after it was turned off.
-                let current = LockScreenButtons.rewrite(Set(kept).union([category]), withoutUnlock: LockScreenButtons.enabled())
-                center.setNotificationCategories(Set(current))
-                // Read back to confirm the write landed before signalling.
-                center.getNotificationCategories { _ in sem.signal() }
-            }
-        }
+        writeCategories(adding: category, center: center) { sem.signal() }
         guard !Thread.isMainThread else { return }
         _ = sem.wait(timeout: .now() + timeout)
+    }
+
+    /// Every category write in this process, one at a time. Settings' lock-screen toggle passes no
+    /// category and only rewrites what is registered.
+    private static let categoryWrites = DispatchQueue(label: "ntfy.notificationCategoryWrites")
+
+    static func writeCategories(adding category: UNNotificationCategory?, center: UNUserNotificationCenter = .current(),
+                                completion: @escaping () -> Void = {}) {
+        categoryWrites.async {
+            let finished = DispatchSemaphore(value: 0)
+            var attempts = 0
+            func write() {
+                attempts += 1
+                // Garbage-collect our own stale categories before adding this one. The ntfy server
+                // mints a FRESH random `id` for every action of every message (verified against a
+                // live server), so `actionCategoryIdentifier` is effectively unique per notification
+                // and a purely additive registration would grow without bound — re-serializing an
+                // ever-larger set to the notification center on every single delivery, on the NSE's
+                // critical path. A category is only needed while its notification is still on
+                // screen, so keep exactly those (plus the one being registered) and drop the rest.
+                // Categories that aren't ours are never touched.
+                center.getDeliveredNotifications { delivered in
+                    let live = Set(delivered.map { $0.request.content.categoryIdentifier })
+                    center.getNotificationCategories { existing in
+                        let kept = existing.filter {
+                            $0.identifier != category?.identifier
+                                && (!$0.identifier.hasPrefix(categoryPrefix) || live.contains($0.identifier))
+                        }
+                        // Every write carries the saved lock-screen setting into all our categories.
+                        let wanted = LockScreenButtons.rewrite(kept.union(category.map { [$0] } ?? []),
+                                                               withoutUnlock: LockScreenButtons.enabled())
+                        center.setNotificationCategories(Set(wanted))
+                        // Read back: the write landed, and nothing written since by the extension or
+                        // the app (a toggle, a delivery) left a category off the current setting.
+                        center.getNotificationCategories { now in
+                            let settled = LockScreenButtons.matches(now, withoutUnlock: LockScreenButtons.enabled())
+                                && category.map { added in now.contains { $0.identifier == added.identifier } } ?? true
+                            if settled || attempts >= 3 { finished.signal() } else { write() }
+                        }
+                    }
+                }
+            }
+            write()
+            _ = finished.wait(timeout: .now() + 5)
+            completion()
+        }
     }
 
     private func completeAttachmentHandling(message: Message, didAttachImage: Bool, completionHandler: @escaping () -> Void) {
@@ -576,28 +600,20 @@ enum LockScreenButtons {
 
     static func enabled(_ defaults: UserDefaults = LockScreenButtons.defaults) -> Bool { defaults.bool(forKey: key) }
 
-    /// Backstop for a category written before a toggle landed: with the setting off, iOS unlocks before
-    /// an http button runs, so a tap that arrives while protected data is unavailable came through a
-    /// stale category and must not run. A Mac's buttons open the app, so they always may.
-    static func mayRun(httpButton: Bool, enabled: Bool, protectedDataAvailable: Bool, onMac: Bool) -> Bool {
-        !httpButton || enabled || protectedDataAvailable || onMac
-    }
-
-    /// Tells the person why the button did nothing, so they can unlock and tap it again.
-    static func notifyRefused(_ label: String) {
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "⚠️ \(label) failed")
-        content.body = String(localized: "Unlock your device, then tap the button again.")
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
-    }
-
     /// Options feed the category id, so notifications that arrive after a change get a new category.
     /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for
     /// Face ID on an approval that arrived while it was on.
-    static func applyToRegisteredCategories(withoutUnlock: Bool, center: UNUserNotificationCenter = .current()) {
-        center.getNotificationCategories { existing in
-            center.setNotificationCategories(Set(rewrite(existing, withoutUnlock: withoutUnlock)))
-        }
+    static func applyToRegisteredCategories() {
+        UNMutableNotificationContent.writeCategories(adding: nil)
+    }
+
+    /// Whether every one of our categories already has the options `withoutUnlock` gives.
+    static func matches(_ categories: Set<UNNotificationCategory>, withoutUnlock: Bool) -> Bool {
+        Set(rewrite(categories, withoutUnlock: withoutUnlock).map(signature)) == Set(categories.map(signature))
+    }
+
+    private static func signature(_ category: UNNotificationCategory) -> String {
+        category.identifier + category.actions.map { "\u{1f}\($0.identifier)\u{1e}\($0.options.rawValue)" }.joined()
     }
 
     /// Only an iPhone `http` button runs in the background: every other button opens the app
