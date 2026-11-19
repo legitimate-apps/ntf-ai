@@ -8,7 +8,7 @@ Bug reports, fixes, and small features welcome.
 
 ## Building the app
 
-Requirements: a Mac with Xcode installed, matching the deployment target in `ntfy.xcodeproj` (iOS 14 for the app, iOS 15 for the Notification Service Extension).
+Requirements: a Mac with Xcode installed, matching the deployment target in `ntfy.xcodeproj` (iOS 15 for the app and its extensions).
 
 1. **Bootstrap first.** A fresh clone does not build without this:
    ```
