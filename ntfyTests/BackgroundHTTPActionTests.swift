@@ -64,6 +64,80 @@ final class BackgroundHTTPActionTests: XCTestCase {
         XCTAssertEqual(UNMutableNotificationContent.notificationActions(for: buttons + buttons, onMac: false).count, 4)
     }
 
+    // MARK: Settings, "Use buttons without unlocking"
+
+    func testButtonsWithoutUnlockingDropAuthenticationOnlyForIPhoneHTTP() {
+        let buttons = [action(id: "http"), action("view", id: "view"), action("copy", id: "copy")]
+        let options = { (mac: Bool, on: Bool) in
+            UNMutableNotificationContent.notificationActions(for: buttons, onMac: mac, withoutUnlock: on).map(\.options)
+        }
+        XCTAssertEqual(options(false, false), [.authenticationRequired, .foreground, .foreground], "off by default asks for Face ID")
+        XCTAssertEqual(options(false, true), [[], .foreground, .foreground], "on, Approve runs from the Lock Screen")
+        XCTAssertEqual(options(true, false), [.foreground, .foreground, .foreground])
+        XCTAssertEqual(options(true, true), [.foreground, .foreground, .foreground], "a Mac always opens the app")
+        // A reply still unlocks: the setting is for buttons.
+        let reply = UNMutableNotificationContent.notificationActions(for: [replyLinkAction()], onMac: false, withoutUnlock: true)
+        XCTAssertEqual(reply.map(\.options), [.authenticationRequired])
+
+        let id = { (on: Bool) in UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: on) }
+        XCTAssertNotEqual(id(false), id(true), "a new delivery after a toggle must not reuse the old category")
+        XCTAssertEqual(UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: true, withoutUnlock: false),
+                       UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: true, withoutUnlock: true))
+    }
+
+    func testButtonsWithoutUnlockingIsOffByDefaultAndReadFromTheAppGroup() throws {
+        let suite = "lockscreen-buttons-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertFalse(LockScreenButtons.enabled(defaults))
+        defaults.set(true, forKey: LockScreenButtons.key)
+        XCTAssertTrue(LockScreenButtons.enabled(defaults))
+    }
+
+    func testDeliveryRegistersTheSavedSetting() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        for on in [true, false] {
+            shared.set(on, forKey: LockScreenButtons.key)
+            let message = try XCTUnwrap(Message.from(userInfo: userInfo([action(), action("copy")])))
+            let content = UNMutableNotificationContent()
+            let registered = expectation(description: "registered on worker")
+            DispatchQueue.global().async {
+                content.modify(message: message, baseUrl: "http://127.0.0.1")
+                registered.fulfill()
+            }
+            wait(for: [registered], timeout: 10)
+            let read = expectation(description: "category options")
+            UNUserNotificationCenter.current().getNotificationCategories { categories in
+                let options = categories.first { $0.identifier == content.categoryIdentifier }?.actions.map(\.options)
+                XCTAssertEqual(options, [on ? [] : .authenticationRequired, .foreground])
+                read.fulfill()
+            }
+            wait(for: [read], timeout: 5)
+        }
+    }
+
+    func testToggleRewritesDeliveredCategories() throws {
+        let http = UNNotificationAction(identifier: "a", title: "Approve", options: [])
+        let view = UNNotificationAction(identifier: "v", title: "Open", options: .foreground)
+        let reply = UNTextInputNotificationAction(identifier: "r", title: "Reply", options: .authenticationRequired,
+                                                  textInputButtonTitle: "Send", textInputPlaceholder: "Reply")
+        let ours = UNNotificationCategory(identifier: UNMutableNotificationContent.categoryPrefix + "abc",
+                                          actions: [http, view, reply], intentIdentifiers: [], options: .customDismissAction)
+        let foreign = UNNotificationCategory(identifier: "other", actions: [http], intentIdentifiers: [], options: [])
+        let off = LockScreenButtons.rewrite([ours, foreign], withoutUnlock: false)
+        let rewritten = try XCTUnwrap(off.first { $0.identifier == ours.identifier })
+        XCTAssertEqual(rewritten.actions.map(\.options), [.authenticationRequired, .foreground, .authenticationRequired],
+                       "turning the setting off asks for Face ID on approvals already on screen")
+        XCTAssertTrue(rewritten.actions[2] is UNTextInputNotificationAction)
+        XCTAssertEqual(rewritten.actions.map(\.identifier), ["a", "v", "r"])
+        XCTAssertEqual(rewritten.options, .customDismissAction)
+        XCTAssertEqual(off.first { $0.identifier == "other" }?.actions.map(\.options), [[]], "never touch another category")
+        let on = LockScreenButtons.rewrite([rewritten], withoutUnlock: true)
+        XCTAssertEqual(on.first?.actions.map(\.options), [[], .foreground, .authenticationRequired])
+    }
+
     private func replyLinkAction() -> Action {
         Action(id: "reply-link", action: "view", label: "Reply in NTF-AI",
                url: "https://ntfy-me.com/docs/agents#reply-v1=https%3A%2F%2Fntfy-me.com%2Freply-secret",

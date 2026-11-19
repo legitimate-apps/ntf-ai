@@ -388,7 +388,8 @@ extension UNMutableNotificationContent {
         return openable.filter { $0.id != carrier }
     }
 
-    static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> [UNNotificationAction] {
+    static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac,
+                                    withoutUnlock: Bool = LockScreenButtons.enabled()) -> [UNNotificationAction] {
         actions.prefix(4).map {
             if BannerReply.destination(for: $0) != nil {
                 return UNTextInputNotificationAction(identifier: $0.id, title: $0.label,
@@ -397,16 +398,23 @@ extension UNMutableNotificationContent {
                     textInputPlaceholder: $0.label)
             }
             return UNNotificationAction(identifier: $0.id, title: $0.label,
-                options: $0.action == "http" && !onMac ? [.authenticationRequired] : [.foreground])
+                options: $0.action == "http" && !onMac ? httpOptions(withoutUnlock: withoutUnlock) : [.foreground])
         }
     }
 
-    static func actionCategoryIdentifier(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> String {
+    /// An `http` button on iPhone runs in the background. Locked, iOS asks for Face ID or the passcode
+    /// first unless the person turned on Settings, "Use buttons without unlocking".
+    static func httpOptions(withoutUnlock: Bool) -> UNNotificationActionOptions {
+        withoutUnlock ? [] : [.authenticationRequired]
+    }
+
+    static func actionCategoryIdentifier(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac,
+                                         withoutUnlock: Bool = LockScreenButtons.enabled()) -> String {
         let capped = actions.prefix(4)
         guard !capped.isEmpty else { return "" }
         // Delimit fields/records with control chars that can't appear in button text so
         // e.g. [("a","bc")] and [("ab","c")] hash to different categories.
-        let canonical = notificationActions(for: Array(capped), onMac: onMac)
+        let canonical = notificationActions(for: Array(capped), onMac: onMac, withoutUnlock: withoutUnlock)
             .map { action in
                 let base = "\(action.identifier)\u{1f}\(action.title)\u{1f}\(action.options.rawValue)"
                 guard let text = action as? UNTextInputNotificationAction else { return base }
@@ -553,6 +561,39 @@ struct SequenceRemoval {
         center.getDeliveredNotifications { notifications in
             let ids = self.identifiers(in: notifications.map(\.request))
             if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+}
+
+/// Settings, "Use buttons without unlocking". Default off. In the app group, so the extension, which
+/// builds most categories, reads what the app saved.
+enum LockScreenButtons {
+    static let key = "lockScreenButtons"
+    static var defaults: UserDefaults { UserDefaults(suiteName: Config.appGroupId) ?? .standard }
+
+    static func enabled(_ defaults: UserDefaults = LockScreenButtons.defaults) -> Bool { defaults.bool(forKey: key) }
+
+    /// Options feed the category id, so notifications that arrive after a change get a new category.
+    /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for
+    /// Face ID on an approval that arrived while it was on.
+    static func applyToRegisteredCategories(withoutUnlock: Bool, center: UNUserNotificationCenter = .current()) {
+        center.getNotificationCategories { existing in
+            center.setNotificationCategories(Set(rewrite(existing, withoutUnlock: withoutUnlock)))
+        }
+    }
+
+    /// Only an iPhone `http` button runs in the background: every other button opens the app
+    /// (`.foreground`) and a reply keeps its own options.
+    static func rewrite(_ categories: Set<UNNotificationCategory>, withoutUnlock: Bool) -> [UNNotificationCategory] {
+        categories.map { category in
+            guard category.identifier.hasPrefix(UNMutableNotificationContent.categoryPrefix) else { return category }
+            let actions = category.actions.map { action -> UNNotificationAction in
+                guard !(action is UNTextInputNotificationAction), !action.options.contains(.foreground) else { return action }
+                return UNNotificationAction(identifier: action.identifier, title: action.title,
+                                            options: UNMutableNotificationContent.httpOptions(withoutUnlock: withoutUnlock))
+            }
+            return UNNotificationCategory(identifier: category.identifier, actions: actions,
+                                          intentIdentifiers: category.intentIdentifiers, options: category.options)
         }
     }
 }

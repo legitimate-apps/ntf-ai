@@ -35163,6 +35163,102 @@
           }
         }
       }
+    },
+    "Use buttons without unlocking": {
+      "extractionState": "manual",
+      "comment": "Settings toggle: notification buttons run from the Lock Screen without authentication",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use buttons without unlocking"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasten ohne Entsperren verwenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar botones sin desbloquear"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa i pulsanti senza sbloccare"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Używaj przycisków bez odblokowania"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Knoppen gebruiken zonder ontgrendelen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser les boutons sans déverrouiller"
+          }
+        }
+      }
+    },
+    "Buttons such as Approve work from the Lock Screen without Face ID, Touch ID or your passcode. Anyone holding your device could tap them.": {
+      "extractionState": "manual",
+      "comment": "Footer for the Use buttons without unlocking toggle",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buttons such as Approve work from the Lock Screen without Face ID, Touch ID or your passcode. Anyone holding your device could tap them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasten wie „Approve“ funktionieren auf dem Sperrbildschirm ohne Face ID, Touch ID oder Code. Wer dein Gerät in der Hand hat, kann sie antippen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los botones como Approve funcionan en la pantalla de bloqueo sin Face ID, Touch ID ni código. Cualquiera que tenga tu dispositivo podría tocarlos."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I pulsanti come Approve funzionano dalla schermata di blocco senza Face ID, Touch ID o codice. Chiunque abbia in mano il tuo dispositivo potrebbe toccarli."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przyciski takie jak Approve działają na ekranie blokady bez Face ID, Touch ID ani kodu. Każdy, kto trzyma Twoje urządzenie, może je nacisnąć."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Knoppen zoals Approve werken vanaf het toegangsscherm zonder Face ID, Touch ID of toegangscode. Iedereen die je apparaat vasthoudt, kan erop tikken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les boutons comme Approve fonctionnent depuis l’écran verrouillé sans Face ID, Touch ID ni code. Toute personne qui tient votre appareil pourrait les toucher."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(InAppBrowser.preferenceKey) private var openWebLinksInApp = false
     @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
     @AppStorage(AgentReminder.settingKey, store: AgentAck.defaults) private var agentReminders = true
+    @AppStorage(LockScreenButtons.key, store: LockScreenButtons.defaults) private var buttonsWithoutUnlocking = false
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -32,6 +33,14 @@ struct SettingsView: View {
                 ) {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
+                }
+                // On a Mac every button opens the app, so there is nothing to allow.
+                if !ProcessInfo.processInfo.isiOSAppOnMac {
+                    Section(footer: Text(String(localized: "Buttons such as Approve work from the Lock Screen without Face ID, Touch ID or your passcode. Anyone holding your device could tap them."))) {
+                        Toggle(String(localized: "Use buttons without unlocking"), isOn: $buttonsWithoutUnlocking)
+                            .accessibilityIdentifier("settings-buttons-without-unlocking")
+                            .onChange(of: buttonsWithoutUnlocking) { LockScreenButtons.applyToRegisteredCategories(withoutUnlock: $0) }
+                    }
                 }
                 Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {
                     Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
