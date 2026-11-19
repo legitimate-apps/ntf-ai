@@ -142,7 +142,8 @@ final class ShareTextItem: NSObject, UIActivityItemSource {
         let metadata = LPLinkMetadata()
         metadata.title = title
         if let link { metadata.originalURL = link; metadata.url = link }
-        if let icon = AppIconImage.image { metadata.iconProvider = NSItemProvider(object: icon) }
+        // As the thumbnail, pre-rounded: an icon provider is drawn small on a white tile, like a favicon.
+        if let icon = AppIconImage.rounded { metadata.imageProvider = NSItemProvider(object: icon) }
         return metadata
     }
 }
@@ -197,6 +198,16 @@ enum AppIconImage {
             + [primary?["CFBundleIconName"] as? String, "AppIcon"].compactMap { $0 }
         return names.lazy.compactMap { UIImage(named: $0) }.first
     }()
+
+    /// The icon clipped to the home-screen shape.
+    static let rounded: UIImage? = image.map { icon in
+        let bounds = CGRect(origin: .zero, size: icon.size)
+        return UIGraphicsImageRenderer(size: icon.size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = icon.scale; return f }())
+            .image { _ in
+                UIBezierPath(roundedRect: bounds, cornerRadius: icon.size.width * 0.2237).addClip()
+                icon.draw(in: bounds)
+            }
+    }
 }
 
 // MARK: - Presenting
@@ -213,10 +224,10 @@ struct ShareRequest: Identifiable {
         var activities: [UIActivity] = []
         if let curl = content.curl {
             activities.append(CopyTextActivity(type: "app.ntfai.copy-curl", title: String(localized: "Copy curl command"),
-                                               symbol: "terminal", text: curl))
+                                               symbol: "network", text: curl))
         }
         activities.append(CopyTextActivity(type: "app.ntfai.copy-ntf", title: String(localized: "Copy ntf command"),
-                                           symbol: "chevron.left.forwardslash.chevron.right", text: content.ntf))
+                                           symbol: "terminal", text: content.ntf))
         return ShareRequest(items: [ShareTextItem(words: content.words, fullText: content.text, link: url, title: content.title)]
                                 + (url.map { [ShareLinkItem(url: $0)] } ?? []),
                             activities: activities, onCopied: onCopied)
@@ -317,6 +328,8 @@ enum SharePresenter {
             if let anchor, anchor.window === window {
                 popover.sourceView = anchor
                 popover.sourceRect = anchor.bounds
+                // Above or below the control: sideways it covers a sheet's close button and title.
+                popover.permittedArrowDirections = [.up, .down]
             } else {
                 popover.sourceView = window
                 popover.sourceRect = CGRect(x: window.bounds.midX, y: window.bounds.midY, width: 0, height: 0)

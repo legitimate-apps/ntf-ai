@@ -109,6 +109,7 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertNil(link.activityViewController(controller, itemForActivityType: .copyToPasteboard))
         XCTAssertEqual(link.activityViewController(controller, itemForActivityType: .message) as? URL, URL(string: topic.link))
         XCTAssertEqual(item.activityViewControllerLinkMetadata(controller)?.url, URL(string: topic.link))
+        XCTAssertNil(item.activityViewControllerLinkMetadata(controller)?.iconProvider, "the icon is the thumbnail, not a favicon")
     }
 
     func testTheTopicShareOffersCopyCommandsOnlyWhereTheyWork() {

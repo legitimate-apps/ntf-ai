@@ -6322,7 +6322,14 @@ final class ntfyTests: XCTestCase {
                 // Authored/parser-created Markdown links use UITextView's native
                 // linkTextAttributes; plain links also carry explicit styling.
                 if type == nil {
-                    XCTAssertEqual(attrs[.foregroundColor] as? UIColor, UIColor(named: "AccentColor"))
+                    // Same colour, light and dark; not the same object: a UIKit asset-catalog reload (the
+                    // share sheet loads one) hands out a new AccentColor instance.
+                    let color = try? XCTUnwrap(attrs[.foregroundColor] as? UIColor)
+                    let accent = UIColor(named: "AccentColor")
+                    for style in [UIUserInterfaceStyle.light, .dark] {
+                        let traits = UITraitCollection(userInterfaceStyle: style)
+                        XCTAssertEqual(color?.resolvedColor(with: traits), accent?.resolvedColor(with: traits), "\(style.rawValue)")
+                    }
                     XCTAssertEqual(attrs[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
                 }
                 if attrs[.link] != nil { linked += run.length }

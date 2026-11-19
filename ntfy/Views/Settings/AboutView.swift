@@ -15,9 +15,10 @@ struct AboutView: View {
             // Word of mouth is how most people find the app: one tap to the share sheet.
             Button { shareRequest = .app() } label: {
                 ValueRow(String(localized: "Share NTF-AI"), value: "") {
+                    // Anchored on the glyph, so the iPad popover points at it, not mid-row.
                     RowAccessoryGlyph(systemName: AppSymbol.share)
+                        .shareSheet($shareRequest)
                 }
-                .shareSheet($shareRequest)
             }
             .foregroundColor(.primary)
             .accessibilityIdentifier("share-app")
