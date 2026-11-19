@@ -41,10 +41,14 @@ struct FeedbackScrubber {
 
     func clean(_ input: String) -> String {
         var text = input
+        // Literals first, against the original text: rewriting topics or URLs first would change a message that
+        // contains them, so the message would no longer match and the rest of it would leak.
+        for literal in literals { text = removeLiteral(literal, from: text) }
         for topic in topics {
             text = text.replacingOccurrences(of: topic, with: topicToken(topic), options: [.caseInsensitive])
         }
-        text = replace(#"(?i)\b[a-z][a-z0-9+.\-]*://[^\s"'<>]+"#, in: text) { url in
+        // A URL whose host was a literal now reads "https://<text>/path"; it is still a URL and is cut down.
+        text = replace(#"(?i)\b[a-z][a-z0-9+.\-]*://(?:<text>|[^\s"'<>])+"#, in: text) { url in
             let parsed = URLComponents(string: url)
             let scheme = parsed?.scheme?.lowercased() ?? "url"
             let host = parsed?.host?.lowercased() ?? ""
@@ -52,7 +56,6 @@ struct FeedbackScrubber {
             let hasMore = !(parsed?.path ?? "").isEmpty && parsed?.path != "/" || parsed?.query != nil
             return "\(scheme)://\(shownHost)" + (hasMore ? "/<path>" : "")
         }
-        for literal in literals { text = removeLiteral(literal, from: text) }
         text = replace(#"(?i)[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}"#, in: text) { _ in "<email>" }
         text = replace(#"(?i)\b(bearer|basic)\s+[a-z0-9._~+/=\-]+"#, in: text, template: "$1 <secret>")
         text = replace(#"\btk_[A-Za-z0-9]+"#, in: text) { _ in "<token>" }

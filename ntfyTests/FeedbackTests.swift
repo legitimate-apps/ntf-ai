@@ -150,6 +150,19 @@ final class FeedbackScrubberTests: XCTestCase {
         XCTAssertEqual(bundle["push_token_present"] as? Bool, true)
     }
 
+    /// A message that contains a topic name or a URL is still removed whole: literals are matched against the
+    /// original text, before topics and URLs are rewritten into a form the literal no longer matches.
+    func testAMessageContainingATopicOrURLIsRemovedWhole() {
+        let topicName = "wellhouse-alarms"
+        let message = "Pump on \(topicName) tripped, see https://example-home.lan/pump Kestrelward"
+        let scrubber = FeedbackScrubber(topics: [topicName], literals: [message, "example-home.lan"])
+        let cleaned = scrubber.clean("12:00:01 D Store: \(message)\n12:00:02 D Poll: https://example-home.lan/x/y ok")
+        for secret in ["Kestrelward", "tripped", "Pump on", topicName, "example-home", "/pump", "/x/y"] {
+            XCTAssertFalse(cleaned.localizedCaseInsensitiveContains(secret), "leaked \(secret): \(cleaned)")
+        }
+        XCTAssertTrue(cleaned.contains("Store: <text>"), cleaned)
+    }
+
     func testTopicHashesAreStableWithinAReportAndDifferAcrossReports() {
         let one = FeedbackScrubber(topics: [topic], literals: [])
         let two = FeedbackScrubber(topics: [topic], literals: [])
