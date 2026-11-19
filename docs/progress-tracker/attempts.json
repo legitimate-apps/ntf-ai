@@ -1,0 +1,17 @@
+[
+ {
+  "date": "2026-11-03",
+  "thread": "https://github.com/binwiederhier/ntfy/issues/2117",
+  "title": "iOS 27.0.1: no push notifications at all, messages only appear when opening the app (also for ntfy.sh topics, after reinstall)",
+  "person": "MarcBuschta",
+  "delivered_via": [
+   "our comment"
+  ],
+  "outcome": "no_reply",
+  "basis": "reply: none",
+  "quote": "",
+  "evidence": "",
+  "judged_by": "review",
+  "id": "binwiederhier/ntfy#2117@2026-11-03T22:10:11Z"
+ }
+]
