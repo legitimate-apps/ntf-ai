@@ -127,6 +127,36 @@ final class AnswerLog: ObservableObject {
         record(key, AnswerEntry(kind: .dismissed, label: "", text: nil, at: now, ok: true))
     }
 
+    /// "Clear all" in Waiting on you: every listed question is marked "Not needed" at once, on this
+    /// device. Returns what each key held before, so Undo can put it back. Main thread only.
+    @discardableResult
+    func dismissAll(_ keys: [AnswerKey], now: Date = Date()) -> AnswerLog.Cleared {
+        dispatchPrecondition(condition: .onQueue(.main))
+        var previous: [String: AnswerEntry?] = [:]
+        for key in keys where previous[key.id] == nil {
+            previous[key.id] = .some(entries[key.id])
+            entries[key.id] = AnswerEntry(kind: .dismissed, label: "", text: nil, at: now, ok: true, messageId: key.version)
+        }
+        if !previous.isEmpty { save() }
+        return Cleared(previous: previous, at: now)
+    }
+
+    /// Undo of a "Clear all": each key gets back what it held, unless it was answered since.
+    func restore(_ cleared: AnswerLog.Cleared) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        for (id, before) in cleared.previous {
+            guard let current = entries[id], current.kind == .dismissed, current.at == cleared.at else { continue }
+            entries[id] = before
+        }
+        save()
+    }
+
+    struct Cleared: Equatable {
+        let previous: [String: AnswerEntry?]
+        let at: Date
+        var count: Int { previous.count }
+    }
+
     /// How long an answer is kept: 90 days.
     static let keepFor: TimeInterval = 90 * 24 * 3600
 
@@ -370,6 +400,38 @@ final class WaitingObservable: ObservableObject {
     func dismiss(_ notification: Notification) {
         guard let key = AnswerKey(notification: notification) else { return }
         log.dismiss(key)
+        refresh()
+    }
+
+    /// The last "Clear all", while its Undo is offered.
+    @Published private(set) var lastClear: AnswerLog.Cleared?
+    private var undoExpiry: DispatchWorkItem?
+    /// How long Undo stays on screen.
+    static let undoWindow: TimeInterval = 6
+
+    /// "Clear all": every question now listed leaves the queue and the tab badge, on this device
+    /// (as "Not needed"; the messages stay in their topic and in Activity, buttons live). A question
+    /// that arrives afterwards, or a new version of a cleared one, waits as normal.
+    func clearAll(now: Date = Date()) {
+        let keys = notifications.compactMap { AnswerKey(notification: $0) }
+        guard !keys.isEmpty else { return }
+        let cleared = log.dismissAll(keys, now: now)
+        refresh()
+        lastClear = cleared
+        undoExpiry?.cancel()
+        let expiry = DispatchWorkItem { [weak self] in
+            if self?.lastClear == cleared { self?.lastClear = nil }
+        }
+        undoExpiry = expiry
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.undoWindow, execute: expiry)
+    }
+
+    /// Undo of the last "Clear all".
+    func undoClear() {
+        guard let cleared = lastClear else { return }
+        undoExpiry?.cancel()
+        lastClear = nil
+        log.restore(cleared)
         refresh()
     }
 }

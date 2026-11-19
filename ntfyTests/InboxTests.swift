@@ -237,6 +237,55 @@ final class WaitingStoreTests: XCTestCase {
         XCTAssertEqual(waitingIDs, ["c"])
     }
 
+    /// "Clear all" (operator, 2026-11-19, 55 stale broker prompts): every listed question leaves
+    /// Waiting and the tab badge, and stays gone after a relaunch; the messages stay in their topic
+    /// with live buttons; a question that arrives afterwards waits as normal; Undo puts them back.
+    func testClearAllEmptiesWaitingSurvivesRelaunchAndKeepsTheMessages() throws {
+        let live = Date()
+        func question(_ id: String, age: TimeInterval) -> Message {
+            var m = Message(id: id, time: Int64(live.addingTimeInterval(-age).timeIntervalSince1970), event: "message",
+                            topic: "deploys", message: "Approve \(id)?", actions: [http()], sequenceID: id)
+            m.tags = ["agent"]
+            return m
+        }
+        save(question("q1", age: 900), question("q2", age: 600), question("q3", age: 300))
+        let waiting = WaitingObservable(store: store, log: log)
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q3", "q2", "q1"])
+
+        waiting.clearAll()
+        XCTAssertEqual(waiting.notifications.count, 0, "Waiting and the tab badge (its count) are empty")
+        XCTAssertEqual(waiting.lastClear?.count, 3, "Undo is offered for the three")
+        XCTAssertEqual(subscription.notificationCount(), 3, "no message is deleted")
+        for row in try XCTUnwrap(subscription.notifications?.allObjects as? [ntfy.Notification]) {
+            XCTAssertFalse(AnswerState(notification: row, log: log).answered, "\(row.id ?? "") keeps its buttons in the topic and Activity")
+        }
+
+        let relaunched = AnswerLog(defaults: UserDefaults(suiteName: suite)!)
+        XCTAssertEqual(store.waitingNotifications(log: relaunched, now: live).count, 0, "cleared after a relaunch")
+
+        save(question("q4", age: 10))
+        waiting.refresh()
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q4"], "a question after the clear waits")
+
+        waiting.undoClear()
+        XCTAssertNil(waiting.lastClear)
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q4", "q3", "q2", "q1"], "Undo puts the cleared ones back")
+        XCTAssertEqual(store.waitingNotifications(log: AnswerLog(defaults: UserDefaults(suiteName: suite)!), now: live).count, 4,
+                       "and the undo is saved too")
+    }
+
+    /// Undo never takes back an answer made after the clear.
+    func testUndoClearKeepsAnAnswerMadeSince() throws {
+        save(message("u1", sequence: "u1", age: 600, actions: [http()]), message("u2", sequence: "u2", age: 300, actions: [http()]))
+        let keys = try store.waitingNotifications(log: log, now: now).map { try XCTUnwrap(AnswerKey(notification: $0)) }
+        let cleared = log.dismissAll(keys, now: now)
+        XCTAssertEqual(waitingIDs, [])
+        let u1 = try XCTUnwrap(keys.first { $0.sequence == "u1" })
+        log.record(u1, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now.addingTimeInterval(5), ok: true))
+        log.restore(cleared)
+        XCTAssertEqual(waitingIDs, ["u2"], "u1 stays answered; u2 waits again")
+    }
+
     func testOlderThanSevenDaysDoesNotWait() {
         save(message("old", sequence: "s-old", age: WaitingRule.maxAge + 60, actions: [http()]))
         XCTAssertEqual(waitingIDs, [])
