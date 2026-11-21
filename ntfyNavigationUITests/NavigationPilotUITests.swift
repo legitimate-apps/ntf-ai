@@ -281,6 +281,20 @@ final class NavigationPilotUITests: XCTestCase {
         captureAX("empty-topic-list")
         XCTAssertTrue(app.staticTexts["No topics yet"].exists)
     }
+    /// Settings, "Use buttons without unlocking": off by default, and one tap turns it on.
+    func testCaptureLockScreenButtonsSetting() {
+        launchList()
+        tab("Settings")
+        let toggle = app.switches["settings-buttons-without-unlocking"]
+        for _ in 0..<8 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "0")
+        captureAX("lockscreen-buttons-off")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        captureAX("lockscreen-buttons-on")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+    }
     func testCaptureSavedUserRow() {
         app.launch()
         openTopics()
