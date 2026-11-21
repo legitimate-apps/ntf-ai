@@ -170,10 +170,10 @@ enum WaitingRule {
         return age < maxAge
     }
 
-    /// Urgent first, then high, then everything else; newest first within each.
-    static func precedes(priority lp: Int, time lt: Date, _ rp: Int, _ rt: Date) -> Bool {
-        let rank: (Int) -> Int = { $0 >= 5 ? 0 : $0 == 4 ? 1 : 2 }
-        return rank(lp) != rank(rp) ? rank(lp) < rank(rp) : lt > rt
+    /// Newest first, the same order as Activity. Priority doesn't rank: an urgent ask from days ago
+    /// sat above every newer one and read as shuffled (operator, 2026-11-21). Ids break a same-second tie.
+    static func precedes(time lt: Date, id li: String?, _ rt: Date, _ ri: String?) -> Bool {
+        lt != rt ? lt > rt : (li ?? "") > (ri ?? "")
     }
 }
 
@@ -249,7 +249,7 @@ extension Store {
                                          tags: parseAllTags(row.tags),
                                          acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false, now: now)
         }
-        .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
+        .sorted { WaitingRule.precedes(time: $0.date(), id: $0.id, $1.date(), $1.id) }
     }
 }
 
