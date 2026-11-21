@@ -64,13 +64,12 @@ final class WaitingRuleTests: XCTestCase {
     }
 
 
-    func testUrgentThenHighThenNewest() {
-        let old = now.addingTimeInterval(-3600)
-        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 3, now), "urgent leads even when older")
-        XCTAssertTrue(WaitingRule.precedes(priority: 4, time: old, 3, now))
-        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 4, now))
-        XCTAssertTrue(WaitingRule.precedes(priority: 3, time: now, 1, old), "default and low share a rank")
-        XCTAssertFalse(WaitingRule.precedes(priority: 3, time: old, 3, now))
+    func testNewestFirstWhateverThePriority() {
+        let old = now.addingTimeInterval(-6 * 86_400)
+        XCTAssertTrue(WaitingRule.precedes(time: now, id: "b", old, "a"), "a newer ask leads an older one")
+        XCTAssertFalse(WaitingRule.precedes(time: old, id: "a", now, "b"), "an old urgent ask no longer jumps ahead")
+        XCTAssertTrue(WaitingRule.precedes(time: now, id: "b", now, "a"), "same second: the id breaks the tie")
+        XCTAssertFalse(WaitingRule.precedes(time: now, id: "a", now, "a"))
     }
 }
 
@@ -127,6 +126,19 @@ final class WaitingStoreTests: XCTestCase {
         save(message("ha-1", sequence: "ha-1", age: 30, text: "Motion in the hallway", actions: [toggle], tags: nil),
              message("q-1", sequence: "q-1", age: 60, actions: [http()]))
         XCTAssertEqual(waitingIDs, ["q-1"], "only the agent's question waits")
+    }
+
+    /// The queue reads newest to oldest. Ranked by priority, a six-day-old urgent prompt sat above
+    /// a six-hour-old high one and the list looked shuffled (operator's screenshot, 2026-11-21).
+    func testWaitingIsNewestFirstWhateverThePriority() {
+        var urgentOld = message("urgent-old", sequence: "urgent-old", age: 6 * 86_400, actions: [http()])
+        urgentOld.priority = 5
+        var highNew = message("high-new", sequence: "high-new", age: 6 * 3600, actions: [http()])
+        highNew.priority = 4
+        var lowNewest = message("low-newest", sequence: "low-newest", age: 60, actions: [http()])
+        lowNewest.priority = 2
+        save(urgentOld, highNew, lowNewest)
+        XCTAssertEqual(waitingIDs, ["low-newest", "high-new", "urgent-old"])
     }
 
     /// `re-<sequence>` marks the person's own written answer: never a question, even with buttons.
