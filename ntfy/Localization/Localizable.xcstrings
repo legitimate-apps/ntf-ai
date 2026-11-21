@@ -35970,6 +35970,342 @@
           }
         }
       }
+    },
+    "Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Alle entfernen“ leert „Wartet auf dich“ auf einmal: Halte die Überschrift gedrückt. „Widerrufen“ holt alles zurück."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar todas vacía Esperando tu respuesta de una vez: mantén pulsado su encabezado. Deshacer lo recupera."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout effacer vide En attente de votre réponse d’un coup : maintenez le doigt sur son en-tête. Annuler rétablit tout."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rimuovi tutte svuota In attesa di una tua risposta in un colpo: tieni premuta l’intestazione. Annulla ripristina tutto."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles wissen leegt Wacht op jou in één keer: houd de kop ingedrukt. Ongedaan maken zet alles terug."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyczyść wszystkie opróżnia Czeka na twoją odpowiedź naraz: przytrzymaj nagłówek. Cofnij przywraca wszystko."
+          }
+        }
+      }
+    },
+    "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Fragen von Agenten warten auf dich. Mitteilungen mit einfachen Tasten, etwa ein Smart-Home-Alarm, bleiben unter „Aktivität“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo las preguntas de agentes esperan tu respuesta. Los mensajes con botones simples, como una alerta de domótica, quedan en Actividad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seules les questions des agents attendent votre réponse. Les messages avec de simples boutons, comme une alerte domotique, restent dans Activité."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo le domande degli agenti aspettano una tua risposta. I messaggi con semplici pulsanti, come un avviso della casa smart, restano in Attività."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alleen vragen van agents wachten op jou. Berichten met gewone knoppen, zoals een slimme-huismelding, blijven bij Activiteit."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na twoją odpowiedź czekają tylko pytania od agentów. Wiadomości ze zwykłymi przyciskami, jak alert inteligentnego domu, zostają w Aktywności."
+          }
+        }
+      }
+    },
+    "Waiting on you lists the newest question first.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting on you lists the newest question first."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Wartet auf dich“ zeigt die neueste Frage zuerst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando tu respuesta muestra primero la pregunta más reciente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de votre réponse affiche d’abord la question la plus récente."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa di una tua risposta mostra per prima la domanda più recente."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht op jou toont de nieuwste vraag eerst."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czeka na twoją odpowiedź pokazuje najpierw najnowsze pytanie."
+          }
+        }
+      }
+    },
+    "Plain buttons can be tapped again, and an answered question shows the answer you chose.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plain buttons can be tapped again, and an answered question shows the answer you chose."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einfache Tasten lassen sich erneut tippen, und eine beantwortete Frage zeigt deine gewählte Antwort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los botones simples se pueden volver a pulsar, y una pregunta respondida muestra la respuesta que elegiste."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les boutons simples peuvent être touchés à nouveau, et une question répondue affiche la réponse choisie."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I pulsanti semplici si possono toccare di nuovo, e una domanda con risposta mostra la risposta che hai scelto."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewone knoppen kun je opnieuw tikken, en een beantwoorde vraag toont het antwoord dat je koos."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwykłe przyciski można nacisnąć ponownie, a pytanie z odpowiedzią pokazuje wybraną odpowiedź."
+          }
+        }
+      }
+    },
+    "Share a topic, a message or a file, or copy a topic's curl or ntf command.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share a topic, a message or a file, or copy a topic's curl or ntf command."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teile ein Thema, eine Nachricht oder eine Datei, oder kopiere den curl- oder ntf-Befehl eines Themas."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte un tópico, un mensaje o un archivo, o copia el comando curl o ntf de un tópico."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partagez un sujet, un message ou un fichier, ou copiez la commande curl ou ntf d’un sujet."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condividi un argomento, un messaggio o un file, oppure copia il comando curl o ntf di un argomento."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deel een onderwerp, een bericht of een bestand, of kopieer de curl- of ntf-opdracht van een onderwerp."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij temat, wiadomość lub plik albo skopiuj polecenie curl lub ntf dla tematu."
+          }
+        }
+      }
+    },
+    "New setting: Use buttons without unlocking lets you answer from the lock screen.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New setting: Use buttons without unlocking lets you answer from the lock screen."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Einstellung: Mit „Tasten ohne Entsperren verwenden“ antwortest du direkt vom Sperrbildschirm."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo ajuste: Usar botones sin desbloquear te deja responder desde la pantalla bloqueada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau réglage : Utiliser les boutons sans déverrouiller vous permet de répondre depuis l’écran verrouillé."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuova impostazione: Usa i pulsanti senza sbloccare ti permette di rispondere dalla schermata di blocco."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieuwe instelling: met Knoppen gebruiken zonder ontgrendelen antwoord je vanaf het toegangsscherm."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nowe ustawienie: Używaj przycisków bez odblokowania pozwala odpowiadać z ekranu blokady."
+          }
+        }
+      }
+    },
+    "Send feedback from Settings, or shake your device to open the form.": {
+      "comment": "What's New 1.28.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send feedback from Settings, or shake your device to open the form."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sende Feedback in den Einstellungen, oder schüttle dein Gerät, um das Formular zu öffnen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía comentarios desde Ajustes, o agita el dispositivo para abrir el formulario."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyez un avis depuis Réglages, ou secouez votre appareil pour ouvrir le formulaire."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invia un feedback da Impostazioni, oppure scuoti il dispositivo per aprire il modulo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stuur feedback via Instellingen, of schud je apparaat om het formulier te openen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyślij opinię w Ustawieniach albo potrząśnij urządzeniem, aby otworzyć formularz."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

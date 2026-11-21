@@ -11,6 +11,15 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.28.0", bullets: [
+            String(localized: "Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back."),
+            String(localized: "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity."),
+            String(localized: "Waiting on you lists the newest question first."),
+            String(localized: "Plain buttons can be tapped again, and an answered question shows the answer you chose."),
+            String(localized: "Share a topic, a message or a file, or copy a topic's curl or ntf command."),
+            String(localized: "Send feedback from Settings, or shake your device to open the form."),
+            String(localized: "New setting: Use buttons without unlocking lets you answer from the lock screen.")
+        ]),
         ReleaseNotes(version: "1.27.0", bullets: [
             String(localized: "Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app."),
             String(localized: "See which agent is asking, with its name and picture in the app and in notifications."),
