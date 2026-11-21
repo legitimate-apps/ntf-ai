@@ -125,17 +125,6 @@ enum LaunchExperiencePolicy {
     }
 
     static let minimumInstallAge: TimeInterval = 3 * 24 * 60 * 60
-
-    /// Ask only someone for whom delivery demonstrably works: banners a push put on screen (polled
-    /// and test messages don't count) on at least two days, three days after install, notifications
-    /// allowed and no topic failing. Never gated on sentiment (App Review 5.6.1); once per version.
-    static func shouldRequestReview(current: String, lastPrompted: String?, presentedCount: Int,
-                                    presentedDays: Int, firstLaunch: Date?, hasSubscriptions: Bool,
-                                    notificationsAuthorized: Bool, topicsHealthy: Bool, now: Date) -> Bool {
-        let oldEnough = firstLaunch.map { now.timeIntervalSince($0) >= minimumInstallAge } ?? hasSubscriptions
-        return presentedCount >= 3 && presentedDays >= 2 && lastPrompted != current
-            && oldEnough && notificationsAuthorized && topicsHealthy
-    }
 }
 
 /// One process session owns notice suppression, even after returning from a topic or switching tabs.
@@ -197,30 +186,6 @@ final class LaunchExperience: ObservableObject {
     func dismissWhatsNew() {
         defaults.set(current, forKey: Self.seenKey)
         entries = []
-    }
-
-    /// Called from the topic list when the app returns to the foreground, a natural pause.
-    @MainActor
-    func requestReview(store: Store) async {
-        guard defaults.string(forKey: Self.reviewKey) != current else { return }
-        let authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-        let delivered = store.presentedDeliveries()
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive }),
-            let window = scene.windows.first(where: { $0.isKeyWindow }),
-            window.rootViewController?.presentedViewController == nil,
-            LaunchExperiencePolicy.shouldRequestReview(current: current,
-                lastPrompted: defaults.string(forKey: Self.reviewKey),
-                presentedCount: delivered.count, presentedDays: delivered.days,
-                firstLaunch: defaults.object(forKey: Self.firstLaunchKey) as? Date,
-                hasSubscriptions: !(store.getSubscriptions() ?? []).isEmpty,
-                notificationsAuthorized: authorization == .authorized,
-                topicsHealthy: Self.topicsHealthy(), now: Date())
-        else { return }
-        defaults.set(current, forKey: Self.reviewKey)
-        Log.d("LaunchExperience", "Requesting App Store review for version \(current)")
-        if #available(iOS 16.0, *) { AppStore.requestReview(in: scene) }
-        else { SKStoreReviewController.requestReview(in: scene) }
     }
 }
 

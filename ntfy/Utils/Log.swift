@@ -57,6 +57,7 @@ struct Log {
     }
     
     private static func log(_ level: LogLevel, _ tag: String, _ message: String, _ other: [Any?]) {
+        RecentLog.shared.append("\(levelStr(level).prefix(1)) \(tag): \(message)")
         #if DEBUG
         print("\(dateStr()) ntfyApp [\(levelStr(level))] \(tag): \(message)")
         for line in formattedMetadata(other) {
@@ -76,6 +77,35 @@ struct Log {
         case .warning: return "WARNING ⚠️"
         case .error: return "ERROR ‼️"
         }
+    }
+}
+
+/// This process's latest log lines, in memory only and never written to disk. Feedback attaches them,
+/// cleaned by `FeedbackScrubber`, only when the person ticks "Include diagnostic logs".
+/// Metadata arguments are not kept: they can hold message content.
+final class RecentLog {
+    static let shared = RecentLog()
+    static let capacity = 400
+    static let maximumLineLength = 300
+    private var lines: [String] = []
+    private let lock = NSLock()
+    private let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+
+    func append(_ line: String) {
+        lock.lock(); defer { lock.unlock() }
+        lines.append(formatter.string(from: Date()) + " " + String(line.prefix(Self.maximumLineLength)))
+        if lines.count > Self.capacity { lines.removeFirst(lines.count - Self.capacity) }
+    }
+
+    func snapshot() -> [String] {
+        lock.lock(); defer { lock.unlock() }
+        return lines
     }
 }
 

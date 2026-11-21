@@ -7281,29 +7281,6 @@ final class LaunchExperiencePolicyTests: XCTestCase {
         XCTAssertTrue(missing.recordNow)
     }
 
-    func testReviewEligibilityNeedsPushDeliveredMessagesOnTwoDaysAndThreeDayInstall() {
-        func eligible(presented: Int = 3, days: Int = 2, prompted: String? = nil,
-                      age: TimeInterval? = 259200, hasSubscriptions: Bool = true,
-                      authorized: Bool = true, healthy: Bool = true) -> Bool {
-            LaunchExperiencePolicy.shouldRequestReview(current: current, lastPrompted: prompted,
-                presentedCount: presented, presentedDays: days, firstLaunch: age.map { now.addingTimeInterval(-$0) },
-                hasSubscriptions: hasSubscriptions, notificationsAuthorized: authorized, topicsHealthy: healthy, now: now)
-        }
-        XCTAssertTrue(eligible())
-        XCTAssertFalse(eligible(presented: 0, days: 0), "polled-only messages never qualify")
-        XCTAssertFalse(eligible(presented: 2))
-        XCTAssertFalse(eligible(presented: 30, days: 1), "one busy day is not two days of working delivery")
-        XCTAssertFalse(eligible(prompted: current), "once per version")
-        XCTAssertTrue(eligible(prompted: "1.16.0"))
-        XCTAssertFalse(eligible(age: 259199))
-        XCTAssertFalse(eligible(age: 172800), "the old two-day age no longer suffices")
-        XCTAssertFalse(eligible(age: -1))
-        XCTAssertTrue(eligible(age: nil)) // Existing subscriber before first-launch tracking.
-        XCTAssertFalse(eligible(age: nil, hasSubscriptions: false))
-        XCTAssertFalse(eligible(authorized: false), "denied notifications never qualify")
-        XCTAssertFalse(eligible(healthy: false))
-    }
-
     func testPresentedDeliveriesCountOnlyBannersNotPolledOrTestMessagesByDistinctDay() throws {
         let sub = Store.shared.saveSubscription(baseUrl: "https://review.invalid", topic: "review-gate")
         addTeardownBlock { Store.shared.delete(subscription: sub) }

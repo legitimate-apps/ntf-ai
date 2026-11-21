@@ -45,8 +45,13 @@
 		547100000000000000000304 = {isa = PBXBuildFile; fileRef = 547000000000000000000004; };
 		0E90FA4408C923A1B64D200D /* DiagnosticFixtures in Resources */ = {isa = PBXBuildFile; fileRef = 8447874A56896964DD5EA0BF /* DiagnosticFixtures */; };
 		98369CBCCAA2B94F358ABF70 /* DiagnosticReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA0A6167E6918951959B6CD /* DiagnosticReportsView.swift */; };
+		6DDB5D2864182BE65B806543 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97DB6E869EEEE21E2381A6F2 /* FeedbackView.swift */; };
 		E395E64D584757183956EA0B /* DiagnosticReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8AE12640A793214BC049657 /* DiagnosticReportTests.swift */; };
+		97AC855E513C35C6A1F95D0A /* FeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9196C8ECABB8939D33FB5E16 /* FeedbackTests.swift */; };
 		F3359A54F7126EFCC8332441 /* DiagnosticReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = E35B6F3CB1D3DA3B27C97E66 /* DiagnosticReports.swift */; };
+		71BE002A4AED7D7DF3661010 /* ReviewPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9180C71DC2F151AFDA54BF8C /* ReviewPrompt.swift */; };
+		D89241940938B3385F37F5A0 /* FeedbackDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DA5CD1CF5512462A16D590 /* FeedbackDiagnostics.swift */; };
+		4A3CCA9F76E9E15155042434 /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFBD9A9EAEE7117C11B2F729 /* Feedback.swift */; };
 		DDDFAC17B65143878A1319E9 /* FcmTeardownLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E74BB28FBB4650A30BBAEC /* FcmTeardownLedgerTests.swift */; };
 		EE53067E705943E89B31F8DA /* FcmTeardownLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300924C0CFF04C96AC031DE6 /* FcmTeardownLedger.swift */; };
 		01088FE73E3079E35ED33E9C /* NotificationResponseRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1C0B012FF0000100A52946 /* NotificationResponseRelay.swift */; };
@@ -302,9 +307,14 @@
 		547000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/QuietTopicIntegrationTests.swift"; sourceTree = SOURCE_ROOT; };
 		547000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ntfyTests/QuietTopicAlertTests.swift"; sourceTree = SOURCE_ROOT; };
 		5CA0A6167E6918951959B6CD /* DiagnosticReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiagnosticReportsView.swift; sourceTree = "<group>"; };
+		97DB6E869EEEE21E2381A6F2 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		8447874A56896964DD5EA0BF /* DiagnosticFixtures */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = DiagnosticFixtures; sourceTree = "<group>"; };
 		D8AE12640A793214BC049657 /* DiagnosticReportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiagnosticReportTests.swift; sourceTree = "<group>"; };
+		9196C8ECABB8939D33FB5E16 /* FeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackTests.swift; sourceTree = "<group>"; };
 		E35B6F3CB1D3DA3B27C97E66 /* DiagnosticReports.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiagnosticReports.swift; sourceTree = "<group>"; };
+		9180C71DC2F151AFDA54BF8C /* ReviewPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPrompt.swift; sourceTree = "<group>"; };
+		A7DA5CD1CF5512462A16D590 /* FeedbackDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackDiagnostics.swift; sourceTree = "<group>"; };
+		BFBD9A9EAEE7117C11B2F729 /* Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback.swift; sourceTree = "<group>"; };
 		10E74BB28FBB4650A30BBAEC /* FcmTeardownLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmTeardownLedgerTests.swift; sourceTree = "<group>"; };
 		300924C0CFF04C96AC031DE6 /* FcmTeardownLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmTeardownLedger.swift; sourceTree = "<group>"; };
         A124DA7E0000000000000001 = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Model 10.xcdatamodel"; sourceTree = "<group>"; };
@@ -497,6 +507,7 @@
 			isa = PBXGroup;
 			children = (
 				5CA0A6167E6918951959B6CD /* DiagnosticReportsView.swift */,
+				97DB6E869EEEE21E2381A6F2 /* FeedbackView.swift */,
 				2939B20F2F8F293C00A52946 /* AboutView.swift */,
 				2E1C0A012FF0000100A52946 /* LicensesView.swift */,
 				18A28C5B2FBCF00000A52946 /* AttachmentAutoDownloadView.swift */,
@@ -683,6 +694,9 @@
 			isa = PBXGroup;
 			children = (
 				E35B6F3CB1D3DA3B27C97E66 /* DiagnosticReports.swift */,
+				9180C71DC2F151AFDA54BF8C /* ReviewPrompt.swift */,
+				A7DA5CD1CF5512462A16D590 /* FeedbackDiagnostics.swift */,
+				BFBD9A9EAEE7117C11B2F729 /* Feedback.swift */,
 				BA1180000000000000000001 /* ServerCapabilities.swift */,
 				9474F20E283326C500CDE4DD /* ApiService.swift */,
 				94CD1969283E666900973B93 /* EmojiManager.swift */,
@@ -744,6 +758,7 @@
 				CA1230000000000000000001 /* NetworkCatchUpTests.swift */,
 				CA1230000000000000000002 /* RecoveryPollingTests.swift */,
 				D8AE12640A793214BC049657 /* DiagnosticReportTests.swift */,
+				9196C8ECABB8939D33FB5E16 /* FeedbackTests.swift */,
 				8447874A56896964DD5EA0BF /* DiagnosticFixtures */,
 				C12100000000000000000002 /* ComposeTests.swift */,
                 C12200000000000000000013 /* ShortcutsPublishTests.swift */,
@@ -975,7 +990,11 @@
 				729248E8E1BB5BEEC70AAFF9,
 				70C0A426085ED8D1F7D716AF,
 				F3359A54F7126EFCC8332441 /* DiagnosticReports.swift in Sources */,
+				71BE002A4AED7D7DF3661010 /* ReviewPrompt.swift in Sources */,
+				D89241940938B3385F37F5A0 /* FeedbackDiagnostics.swift in Sources */,
+				4A3CCA9F76E9E15155042434 /* Feedback.swift in Sources */,
 				98369CBCCAA2B94F358ABF70 /* DiagnosticReportsView.swift in Sources */,
+				6DDB5D2864182BE65B806543 /* FeedbackView.swift in Sources */,
 				546100000000000000000000 /* TopicSound.swift in Sources */,
 				547100000000000000000000 /* QuietTopicAlerts.swift in Sources */,
 				546100000000000000000100 /* TopicSoundImporter.swift in Sources */,
@@ -1164,6 +1183,7 @@
 				BA7FAEB5727645FB9699BDF1,
 				A12940000000000000000004,
 				E395E64D584757183956EA0B /* DiagnosticReportTests.swift in Sources */,
+				97AC855E513C35C6A1F95D0A /* FeedbackTests.swift in Sources */,
 				546100000000000000000303 /* TopicSoundTests.swift in Sources */,
                 A124DA7E0000000000000004 /* SubscriptionDateTests.swift in Sources */,
 				A12700000000000000000001 /* NotificationTestBootstrap.swift in Sources */,

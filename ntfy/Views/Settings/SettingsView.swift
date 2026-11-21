@@ -58,6 +58,7 @@ struct SettingsView: View {
                         ServerHeadersView(defaultBaseUrl: store.getDefaultBaseUrl())
                     }
                 }
+                FeedbackSettingsSection()
                 Section(header: Text(String(localized: "About"))) {
                     AboutView()
                 }

@@ -63,6 +63,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         Log.d(tag, "Launching AppDelegate")
+        ReviewPrompt.shared.recordLaunch()
 
         // When the app is launched only as the unit-test host, skip Firebase +
         // remote-notification registration: they crash the test runner during
@@ -534,6 +535,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             }
         }
         let muted = Store.shared.isNotificationMuted(userInfo: userInfo)
+        ReviewPrompt.shared.noteGoodMoment()
         completionHandler(muted || notification.request.content.sound == nil ? [.list] : [.banner, .sound])
     }
     
@@ -545,6 +547,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         Log.d(tag, "Notification received via userNotificationCenter(didReceive)", userInfo)
+        ReviewPrompt.shared.noteGoodMoment()
         handleNotificationResponse(
             userInfo: userInfo,
             actionIdentifier: response.actionIdentifier,

@@ -46,6 +46,8 @@ struct AppMain: App {
                     // Catch up once per foreground transition. Returning to the topic list or
                     // switching tabs does not poll again; explicit refresh is available there.
                     NetworkCatchUp.shared.activate()
+                    // Feedback written while offline goes out now.
+                    FeedbackSender.shared.flush()
                     // Self-heal a desynced device (ntfy#1305). Before this, a
                     // topic whose FCM binding failed stayed dead until the user
                     // reinstalled the app — which is exactly what the upstream
