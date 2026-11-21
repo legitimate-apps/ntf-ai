@@ -32321,54 +32321,6 @@
         }
       }
     },
-    "You replied · %@": {
-      "extractionState": "manual",
-      "comment": "Receipt: the time",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You replied · %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast geantwortet · %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respondiste · %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hai risposto · %@"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odpowiedziano · %@"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je hebt geantwoord · %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez répondu · %@"
-          }
-        }
-      }
-    },
     "Waiting %@": {
       "extractionState": "manual",
       "comment": "How long an agent has waited, e.g. 12 minutes",
@@ -33218,54 +33170,6 @@
         }
       }
     },
-    "You answered %@ · %@": {
-      "extractionState": "manual",
-      "comment": "Receipt: the answer button's label, then the time",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You answered %@ · %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast %@ geantwortet · %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respondiste %@ · %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hai risposto %@ · %@"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odpowiedziano: %@ · %@"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je antwoordde %@ · %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez répondu %@ · %@"
-          }
-        }
-      }
-    },
     "Agent got it · %@": {
       "extractionState": "manual",
       "comment": "Receipt: the agent confirmed it got the answer; the time",
@@ -33310,54 +33214,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "L'agent l'a reçu · %@"
-          }
-        }
-      }
-    },
-    "Agent got it · %@ · %@": {
-      "extractionState": "manual",
-      "comment": "List card receipt: the answer, then the time of the agent's confirmation",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent got it · %@ · %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent hat es erhalten · %@ · %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El agente lo recibió · %@ · %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'agente l'ha ricevuto · %@ · %@"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent otrzymał · %@ · %@"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agent heeft het ontvangen · %@ · %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'agent l'a reçu · %@ · %@"
           }
         }
       }
@@ -33502,102 +33358,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afficher les confirmations de l'agent"
-          }
-        }
-      }
-    },
-    "You answered %@": {
-      "comment": "Receipt at large text sizes: the answer button's label (the time follows on its own line)",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You answered %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast %@ geantwortet"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respondiste %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hai risposto %@"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odpowiedziano: %@"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je antwoordde %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez répondu %@"
-          }
-        }
-      }
-    },
-    "You replied": {
-      "comment": "Receipt at large text sizes (the time follows on its own line)",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You replied"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du hast geantwortet"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respondiste"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hai risposto"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odpowiedziano"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je hebt geantwoord"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous avez répondu"
           }
         }
       }
@@ -34265,6 +34025,342 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rozwinięte"
+          }
+        }
+      }
+    },
+    "Sent · %@": {
+      "comment": "An agent's question, answered: the server took the answer; the time",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesendet · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviado · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyé · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviato · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verstuurd · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wysłano · %@"
+          }
+        }
+      }
+    },
+    "Reply sent": {
+      "comment": "An agent's question, answered with a written reply (large text sizes: the time follows on its own line)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply sent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwort gesendet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respuesta enviada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réponse envoyée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Risposta inviata"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwoord verstuurd"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedź wysłana"
+          }
+        }
+      }
+    },
+    "Reply sent · %@": {
+      "comment": "An agent's question, answered with a written reply; the time",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply sent · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwort gesendet · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respuesta enviada · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réponse envoyée · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Risposta inviata · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antwoord verstuurd · %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpowiedź wysłana · %@"
+          }
+        }
+      }
+    },
+    "Your answer: %@": {
+      "comment": "VoiceOver: the answer button the person chose on an agent's question",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your answer: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Antwort: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu respuesta: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre réponse : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua risposta: %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jouw antwoord: %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja odpowiedź: %@"
+          }
+        }
+      }
+    },
+    "Your reply: %@": {
+      "comment": "VoiceOver: the written reply the person sent to an agent's question",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your reply: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Antwort: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu respuesta: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre réponse : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La tua risposta: %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jouw antwoord: %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twoja odpowiedź: %@"
+          }
+        }
+      }
+    },
+    "%@ didn't go through. Try again.": {
+      "comment": "A button on an ordinary message (not an agent's question) whose request failed: the button's label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ didn't go through. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ hat nicht geklappt. Versuch es noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no se completó. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » n’a pas abouti. Réessayez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» non è andato a buon fine. Riprova."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘%@’ is niet gelukt. Probeer het opnieuw."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@” nie powiodło się. Spróbuj ponownie."
+          }
+        }
+      }
+    },
+    "Didn't go through. Try again.": {
+      "comment": "A button on an ordinary message (not an agent's question) whose request failed",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't go through. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat nicht geklappt. Versuch es noch einmal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se completó. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N’a pas abouti. Réessayez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è andato a buon fine. Riprova."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niet gelukt. Probeer het opnieuw."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie powiodło się. Spróbuj ponownie."
           }
         }
       }

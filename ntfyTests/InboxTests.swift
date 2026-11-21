@@ -663,10 +663,38 @@ final class AgentAckTests: XCTestCase {
         XCTAssertNotNil(try receipt(shows: true).agent)
     }
 
-    // VERDICT-ack-48 M1: green means the agent got it; your own answer wears the up-arrow.
+    // VERDICT-ack-48 M1: green means the agent got it; your chosen answer wears a plain check in
+    // its own Forest, never the agent's filled green one.
     func testYourAnswerNeverWearsTheAgentsCheck() {
-        XCTAssertEqual(AnswerReceiptView.answeredIcon, "arrow.up.circle.fill")
-        XCTAssertNotEqual(AnswerReceiptView.answeredIcon, "checkmark.circle.fill")
+        XCTAssertEqual(AnsweredView.choiceIcon, "checkmark")
+        XCTAssertEqual(AnsweredView.agentIcon, "checkmark.circle.fill")
+        XCTAssertNotEqual(AnsweredView.choiceIcon, AnsweredView.agentIcon)
+    }
+
+    // 2026-11-18: answered here, the chosen answer and "Sent"; then the agent's word with its note.
+    func testTheAnsweredStateSaysEachThingOnce() throws {
+        save(question())
+        let row = try XCTUnwrap(rows.first)
+        let key = try XCTUnwrap(AnswerKey(notification: row))
+        let answeredAt = now.addingTimeInterval(-120)
+        log.record(key, AnswerEntry(kind: .tap, label: "Lock", text: nil, at: answeredAt, ok: true))
+        XCTAssertEqual(AnswerSummary(receipt: try receipt()), AnswerSummary(choice: .picked("Lock"), statuses: [.sent(answeredAt)]))
+        save(ack("a-1", "Locking it now", age: 60))
+        let summary = AnswerSummary(receipt: try receipt())
+        XCTAssertEqual(summary.choice, .picked("Lock"))
+        XCTAssertEqual(summary.statuses.count, 2)
+        XCTAssertEqual(summary.statuses.first, .sent(answeredAt))
+        guard case .agentGot(_, let note) = summary.statuses.last else { return XCTFail("the agent's word comes last") }
+        XCTAssertEqual(note, "Locking it now")
+    }
+
+    // A written reply keeps its words: "Reply sent", with the text as the answer.
+    func testAWrittenReplyKeepsItsText() throws {
+        save(question())
+        let key = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first)))
+        let at = now.addingTimeInterval(-30)
+        log.record(key, AnswerEntry(kind: .reply, label: "", text: "After lunch", at: at, ok: true))
+        XCTAssertEqual(AnswerSummary(receipt: try receipt()), AnswerSummary(choice: .replied("After lunch"), statuses: [.replySent(at)]))
     }
 
     // iPad check 48: an ack the extension records must redraw an open page in the app. Two logs
@@ -685,8 +713,9 @@ final class AgentAckTests: XCTestCase {
 
     // 48b re-check: a long agent note was cut at 4 lines with no other place to read it.
     func testTheAgentsNoteIsNeverCutButYourReplyIs() {
-        XCTAssertNil(AgentReceiptTimeline.detailLineLimit(id: "receipt-agent"))
-        XCTAssertEqual(AgentReceiptTimeline.detailLineLimit(id: "receipt-you"), 4)
+        XCTAssertNil(AnsweredView.noteLineLimit(.page))
+        XCTAssertNotNil(AnsweredView.noteLineLimit(.card))
+        XCTAssertGreaterThanOrEqual(AnsweredView.replyLineLimit(.page), 4)
     }
 
     // M2: answered on another device or by a compose reply, the page still names the answer.

@@ -11139,6 +11139,66 @@ final class AnswerButtonTests: XCTestCase {
         state = AnswerState(entry: entry(.reply, "", ok: false, ago: 0.1, now: now), sendingActionId: nil)
         XCTAssertEqual(state.replyPhase(replyActionId: nil, now: now), .failed)
     }
+
+    /// Operator, 2026-11-18: a plain message's button shows its check, then comes back to be pressed
+    /// again; it never turns into a receipt. Its check lasts until the executor would run it again.
+    func testARepeatableButtonComesBackAfterItsCheck() {
+        let now = Date()
+        let state = AnswerState(entry: entry(.tap, "Toggle light", ok: true, ago: 0.3, now: now), sendingActionId: nil, locks: false)
+        XCTAssertEqual(state.sentLabel(now: now), "Toggle light")
+        XCTAssertGreaterThanOrEqual(AnswerState.hold(locks: false), ActionExecutor.repeatTapWindow,
+                                    "back any sooner and a second press is dropped as a double tap")
+        XCTAssertEqual(AnswerState.hold(locks: true), AnswerState.sentHold)
+        let later = now.addingTimeInterval(AnswerState.hold(locks: false))
+        XCTAssertNil(state.sentLabel(now: later), "the check has gone: the buttons are idle")
+        XCTAssertFalse(state.showsReceipt(now: later))
+        XCTAssertFalse(state.showsReceipt(now: now.addingTimeInterval(86_400)))
+        let failed = AnswerState(entry: entry(.tap, "Toggle light", ok: false, ago: 0.1, now: now), sendingActionId: nil, locks: false)
+        XCTAssertEqual(failed.failedLabel, "Toggle light")
+    }
+
+    /// The banner path decides from the message alone: only an agent's or a typed question locks.
+    func testOnlyQuestionsLockAfterAnswer() {
+        let http = Action(id: "h", action: "http", label: "Restart", url: "https://example.com/restart", method: "POST",
+                          headers: nil, body: nil, clear: nil)
+        XCTAssertFalse(AgentQuestion.locksAfterAnswer(tags: [], actions: [http]))
+        XCTAssertFalse(AgentQuestion.locksAfterAnswer(tags: ["warning", "skull"], actions: [http]))
+        XCTAssertTrue(AgentQuestion.locksAfterAnswer(tags: ["agent"], actions: [http]))
+        XCTAssertTrue(AgentQuestion.locksAfterAnswer(tags: ["Agent"], actions: [http]))
+    }
+
+    /// A failure on the latest press of a repeatable button replaces an earlier success; on an
+    /// agent's question the agent already has the answer, so the success stays.
+    func testOnlyARepeatableFailureReplacesASuccess() {
+        let suite = "answerlog-repeat-\(UUID().uuidString)"
+        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let log = AnswerLog(defaults: UserDefaults(suiteName: suite)!)
+        let now = Date()
+        let plain = AnswerKey(baseUrl: "https://a.example", topic: "t", sequence: "plain")
+        let question = AnswerKey(baseUrl: "https://a.example", topic: "t", sequence: "question")
+        for (key, repeatable) in [(plain, true), (question, false)] {
+            log.record(key, entry(.tap, "Go", ok: true, ago: 10, now: now), repeatable: repeatable)
+            log.record(key, entry(.tap, "Go", ok: false, ago: 1, now: now), repeatable: repeatable)
+        }
+        XCTAssertEqual(log.entry(for: plain)?.ok, false)
+        XCTAssertEqual(log.entry(for: question)?.ok, true)
+    }
+
+    /// The answered state (2026-11-18): the chosen answer, then what happened to it, each said once.
+    func testAnsweredStateWords() {
+        let at = Date(timeIntervalSince1970: 1_800_000_000)
+        let time = Notification.shortTime(for: at)
+        XCTAssertEqual(AnswerSummary.text(.sent(at)), "Sent · \(time)")
+        XCTAssertEqual(AnswerSummary.text(.replySent(at)), "Reply sent · \(time)")
+        XCTAssertEqual(AnswerSummary.text(.agentGot(at, note: "Locking it")), "Agent got it · \(time)")
+        XCTAssertEqual(AnswerSummary.title(.sent(at)), "Sent")
+        XCTAssertEqual(AnswerSummary.spokenChoice(.picked("Approve")), "Your answer: Approve")
+        XCTAssertEqual(AnswerSummary.spokenChoice(.replied("Ship it")), "Your reply: Ship it")
+        XCTAssertEqual(AnswerSummary.spokenChoice(.named("Lock", at: nil)), "Answered Lock")
+        for status in [AnswerSummary.Status.sent(at), .replySent(at), .agentGot(at, note: nil)] {
+            XCTAssertFalse(AnswerSummary.text(status).contains("You answered"), "never a copy of the button just pressed")
+        }
+    }
 }
 
 /// Design review fixes on the answer buttons (DESIGN-REVIEW.md, 2026-11-15).
@@ -11181,10 +11241,13 @@ final class AnswerButtonReviewTests: XCTestCase {
         XCTAssertNil(MessagePageView.prominentAnswer(firstAnswerId: "approve", replyTyped: true))
     }
 
-    /// F3: the failed line names the answer that didn't get through.
+    /// F3: the failed line names the answer that didn't get through. A plain message's button has
+    /// no agent, so its line doesn't name one.
     func testFailedLineNamesTheAnswer() {
-        XCTAssertEqual(AnswerReceiptView.failedText("Approve"), "Approve didn't reach the agent. Try again.")
-        XCTAssertEqual(AnswerReceiptView.failedText(nil), "Didn't reach the agent. Try again.")
-        XCTAssertEqual(AnswerReceiptView.failedText(""), "Didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerFailedLine.failedText("Approve"), "Approve didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerFailedLine.failedText(nil), "Didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerFailedLine.failedText(""), "Didn't reach the agent. Try again.")
+        XCTAssertEqual(AnswerFailedLine.failedText("Toggle light", toAgent: false), "Toggle light didn't go through. Try again.")
+        XCTAssertEqual(AnswerFailedLine.failedText(nil, toAgent: false), "Didn't go through. Try again.")
     }
 }

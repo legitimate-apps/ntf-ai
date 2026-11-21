@@ -1335,7 +1335,7 @@ extension NavigationPilotUITests {
         guard reply.exists else { return }
         reply.tap(); app.typeText("Locked it from the app, thanks"); pause(); shot("agent-reply-typing")
         app.buttons["reply-send"].firstMatch.tap()
-        let receipt = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'You replied'")).firstMatch
+        let receipt = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Reply sent'")).firstMatch
         XCTAssertTrue(receipt.waitForExistence(timeout: 5), "the typed answer is recorded as a reply")
         pause(0.5); shot("agent-reply-sent")
     }

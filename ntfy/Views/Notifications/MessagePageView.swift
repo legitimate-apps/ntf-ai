@@ -215,7 +215,7 @@ struct MessagePageView: View {
     private var hasAnswerArea: Bool {
         if isSettled {
             let receipt = receipt
-            return receipt.answer != nil || receipt.agent != nil || receipt.showsClosed || !links.isEmpty
+            return !AnswerSummary(receipt: receipt).isEmpty || receipt.showsClosed || !links.isEmpty
         }
         return !items.isEmpty || replyAction != nil || offersAgentReply || hasStatusLine
     }
@@ -227,14 +227,14 @@ struct MessagePageView: View {
                 let receipt = receipt
                 if receipt.showsClosed {
                     ReceiptClosedLine(receipt: receipt, font: .subheadline)
-                } else if receipt.answer != nil || receipt.agent != nil {
-                    AgentReceiptTimeline(receipt: receipt)
+                } else if !AnswerSummary(receipt: receipt).isEmpty {
+                    AnsweredView(summary: AnswerSummary(receipt: receipt), place: .page)
                 }
                 if !links.isEmpty {
                     ActionBar(items: links, run: run)
                 }
             } else {
-                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
+                if state.failed { AnswerFailedLine(failedLabel: state.failedLabel, toAgent: state.locks) }
                 if hasStatusLine {
                     AskStatusLine(notification: notification, detection: detection)
                         .frame(maxWidth: .infinity, alignment: .leading)

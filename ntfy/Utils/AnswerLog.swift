@@ -101,18 +101,22 @@ final class AnswerLog: ObservableObject {
         onMain { self.sending[key.id] = actionId }
     }
 
-    /// A failure never replaces an earlier success on the same version: the agent already has that answer.
-    func record(_ key: AnswerKey, _ entry: AnswerEntry) {
+    /// On an agent's question a failure never replaces an earlier success on the same version: the
+    /// agent already has that answer. A `repeatable` button (any message that isn't an agent's
+    /// question: "Toggle light", "Restart service") runs every time it is pressed, so its latest
+    /// press is the one that counts, failed or not.
+    func record(_ key: AnswerKey, _ entry: AnswerEntry, repeatable: Bool = false) {
         var entry = entry
         if entry.messageId == nil { entry.messageId = key.version }
         onMain {
             self.sending[key.id] = nil
-            if let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
+            if !repeatable, let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
             self.entries[key.id] = entry
             self.save()
-            // The button shows its check for a moment; then the views redraw to the receipt.
+            // The button shows its check for a moment; then the views redraw: to the answered state
+            // on a question, back to the buttons on any other message.
             if entry.ok && entry.kind != .dismissed {
-                DispatchQueue.main.asyncAfter(deadline: .now() + AnswerState.sentHold + 0.05) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + AnswerState.hold(locks: !repeatable) + 0.05) { [weak self] in
                     self?.objectWillChange.send()
                 }
             }
