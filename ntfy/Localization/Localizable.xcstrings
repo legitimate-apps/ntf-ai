@@ -7615,53 +7615,6 @@
         }
       }
     },
-    "For instant delivery from your own server, add \"%@\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using %@ stops instant delivery to the official ntfy iOS app on that server. See %@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "For instant delivery from your own server, add \"%@\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using %@ stops instant delivery to the official ntfy iOS app on that server. See %@."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Für sofortige Zustellung von deinem eigenen Server füge „%@“ zu dessen Konfiguration hinzu. Sonst können Nachrichten deutlich verspätet ankommen. Ein Server hat nur einen Upstream. Mit %@ endet dort die sofortige Zustellung an die offizielle ntfy-iOS-App. Siehe %@."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para entrega instantánea desde tu servidor, añade «%@» a su configuración. De lo contrario, los mensajes pueden tardar mucho en llegar. Un servidor solo tiene un upstream; usar %@ desactiva la entrega instantánea a la app oficial de ntfy para iOS en ese servidor. Consulta %@."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Per la consegna istantanea dal tuo server, aggiungi '%@' alla configurazione. Senza, i messaggi possono arrivare con molto ritardo. Un server ha un solo upstream; usando %@ si interrompe la consegna istantanea all'app ntfy iOS ufficiale su quel server. Vedi %@."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aby otrzymywać wiadomości natychmiast z własnego serwera, dodaj „%@” do jego konfiguracji. Bez tego mogą docierać ze znacznym opóźnieniem. Serwer ma jeden serwer nadrzędny. Użycie %@ wyłącza natychmiastowe dostarczanie do oficjalnej aplikacji ntfy na iOS z tego serwera. Zobacz %@."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voeg voor directe bezorging via je eigen server '%@' toe aan de configuratie. Zonder dit kunnen berichten veel later aankomen. Een server heeft één upstream; met %@ stopt directe bezorging aan de officiële ntfy iOS-app op die server. Zie %@."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pour la réception instantanée depuis votre serveur, ajoutez « %@ » à sa configuration. Sinon, les messages peuvent arriver avec un retard important. Un serveur n’a qu’un relais amont : utiliser %@ désactive la réception instantanée dans l’app iOS officielle de ntfy pour ce serveur. Voir %@."
-          }
-        }
-      }
-    },
     "For self-hosted HTTPS topics, Settings → Notification status can check whether ntfy-me.com receives forwarded wake-ups. It asks before sending one visible test message. This checks forwarding, not delivery to your phone.": {
       "extractionState": "manual",
       "localizations": {
@@ -10905,53 +10858,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucun message pour le moment"
-          }
-        }
-      }
-    },
-    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url: https://ntfy-me.com, the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url: https://ntfy-me.com, the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url: https://ntfy-me.com, die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url: https://ntfy-me.com, el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url: https://ntfy-me.com, il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url: https://ntfy-me.com, kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url: https://ntfy-me.com, de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url: https://ntfy-me.com, la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
           }
         }
       }
@@ -19351,53 +19257,6 @@
         }
       }
     },
-    "This relay does not offer an automatic check. On your server, check upstream-base-url: https://ntfy-me.com, its canonical base-url, and outbound HTTPS. No automatic result is available.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url: https://ntfy-me.com, its canonical base-url, and outbound HTTPS. No automatic result is available."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url: https://ntfy-me.com, seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url: https://ntfy-me.com, su base-url canónico y HTTPS saliente. No hay resultado automático."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url: https://ntfy-me.com, il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url: https://ntfy-me.com, kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url: https://ntfy-me.com, de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url: https://ntfy-me.com, sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
-          }
-        }
-      }
-    },
     "This sends one ordinary test message to this topic, visible to everyone subscribed. It uses your topic server's credentials and encryption settings. The relay receives only the topic hash, without your message or credentials.": {
       "extractionState": "manual",
       "localizations": {
@@ -19817,53 +19676,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les noms de sujet ne peuvent contenir que des lettres, chiffres, tirets et tirets bas, jusqu’à 64 caractères."
-          }
-        }
-      }
-    },
-    "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to %@. See %@.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to %@. See %@."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Themen auf ntfy.sh haben in dieser App keine sofortigen Banner. Nachrichten erscheinen beim Öffnen oder Aktualisieren. Für Banner ziehe dein Thema nach %@ um. Siehe %@."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los tópicos de ntfy.sh no muestran avisos instantáneos en esta app. Los mensajes aparecen al abrirla o actualizar. Para recibir avisos, mueve el tópico a %@. Consulta %@."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gli argomenti su ntfy.sh non hanno banner istantanei in questa app. I messaggi compaiono aprendo l'app o aggiornando. Per i banner, sposta l'argomento su %@. Vedi %@."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy na ntfy.sh nie mają natychmiastowych banerów w tej aplikacji. Wiadomości pojawiają się po jej otwarciu lub odświeżeniu. Aby mieć banery, przenieś temat na %@. Zobacz %@."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpen op ntfy.sh hebben in deze app geen directe stroken. Berichten verschijnen wanneer je de app opent of vernieuwt. Verplaats je onderwerp naar %@ voor stroken. Zie %@."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les sujets sur ntfy.sh n’ont pas de bannières instantanées dans cette app. Les messages apparaissent à l’ouverture de l’app ou à l’actualisation. Pour les bannières, déplacez votre sujet vers %@. Voir %@."
           }
         }
       }
@@ -31354,53 +31166,6 @@
         }
       }
     },
-    "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die upstream-base-url deines Servers muss %@ sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El upstream-base-url del servidor debe ser %@. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'upstream-base-url del tuo server deve essere %@. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wartość upstream-base-url Twojego serwera musi wynosić %@. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De upstream-base-url van je server moet %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La valeur upstream-base-url de votre serveur doit être %@. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
-          }
-        }
-      }
-    },
     "Send test": {
       "extractionState": "manual",
       "localizations": {
@@ -36303,6 +36068,1134 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wyślij opinię w Ustawieniach albo potrząśnij urządzeniem, aby otworzyć formularz."
+          }
+        }
+      }
+    },
+    "Instant banners for ntfy.sh and other servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant banners for ntfy.sh and other servers"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sofortige Banner für ntfy.sh und andere Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avisos instantáneos para ntfy.sh y otros servidores"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banner istantanei per ntfy.sh e altri server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natychmiastowe banery dla ntfy.sh i innych serwerów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Directe stroken voor ntfy.sh en andere servers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bannières instantanées pour ntfy.sh et d’autres serveurs"
+          }
+        }
+      }
+    },
+    "Topics on ntfy.sh get instant banners: %@ watches them for this device and keeps no message text. You can turn this off in Settings. See %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics on ntfy.sh get instant banners: %@ watches them for this device and keeps no message text. You can turn this off in Settings. See %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen auf ntfy.sh bekommen sofortige Banner: %@ beobachtet sie für dieses Gerät und speichert keinen Nachrichtentext. Du kannst das in den Einstellungen ausschalten. Siehe %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los tópicos de ntfy.sh reciben avisos instantáneos: %@ los vigila para este dispositivo y no guarda el texto de los mensajes. Puedes desactivarlo en Ajustes. Consulta %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli argomenti su ntfy.sh ricevono banner istantanei: %@ li osserva per questo dispositivo e non conserva il testo dei messaggi. Puoi disattivarlo in Impostazioni. Vedi %@."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy na ntfy.sh dostają natychmiastowe banery: %@ obserwuje je dla tego urządzenia i nie przechowuje treści wiadomości. Możesz to wyłączyć w Ustawieniach. Zobacz %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen op ntfy.sh krijgen directe stroken: %@ houdt ze in de gaten voor dit apparaat en bewaart geen berichttekst. Je kunt dit uitzetten in Instellingen. Zie %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sujets sur ntfy.sh reçoivent des bannières instantanées : %@ les surveille pour cet appareil et ne conserve aucun texte de message. Vous pouvez désactiver cela dans Réglages. Voir %@."
+          }
+        }
+      }
+    },
+    "Instant banners for ntfy.sh and other servers is off in Settings, so messages on ntfy.sh appear only when you open the app or refresh. See %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant banners for ntfy.sh and other servers is off in Settings, so messages on ntfy.sh appear only when you open the app or refresh. See %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Sofortige Banner für ntfy.sh und andere Server“ ist in den Einstellungen aus, daher erscheinen Nachrichten auf ntfy.sh nur beim Öffnen der App oder beim Aktualisieren. Siehe %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Avisos instantáneos para ntfy.sh y otros servidores» está desactivado en Ajustes, así que los mensajes de ntfy.sh solo aparecen al abrir la app o actualizar. Consulta %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Banner istantanei per ntfy.sh e altri server» è disattivato in Impostazioni, quindi i messaggi su ntfy.sh compaiono solo aprendo l'app o aggiornando. Vedi %@."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcja „Natychmiastowe banery dla ntfy.sh i innych serwerów” jest wyłączona w Ustawieniach, więc wiadomości z ntfy.sh pojawiają się dopiero po otwarciu aplikacji lub odświeżeniu. Zobacz %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'Directe stroken voor ntfy.sh en andere servers' staat uit in Instellingen, dus berichten op ntfy.sh verschijnen pas wanneer je de app opent of vernieuwt. Zie %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Bannières instantanées pour ntfy.sh et d’autres serveurs » est désactivé dans Réglages : les messages sur ntfy.sh n’apparaissent qu’à l’ouverture de l’app ou à l’actualisation. Voir %@."
+          }
+        }
+      }
+    },
+    "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für sofortige Banner von deinem eigenen Server setze upstream-base-url auf https://ntfy.sh, die übliche Einstellung, mit der auch die offizielle ntfy-App weiter funktioniert, oder auf %@. Ohne Upstream kommen Nachrichten beim Aktualisieren an. Siehe %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para recibir avisos instantáneos desde tu servidor, pon upstream-base-url en https://ntfy.sh, el valor habitual, con el que la app oficial de ntfy también sigue funcionando, o en %@. Sin upstream, los mensajes llegan al actualizar. Consulta %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per i banner istantanei dal tuo server, imposta upstream-base-url su https://ntfy.sh, il valore abituale, che fa funzionare anche l'app ntfy ufficiale, oppure su %@. Senza upstream, i messaggi arrivano quando aggiorni. Vedi %@."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby mieć natychmiastowe banery z własnego serwera, ustaw upstream-base-url na https://ntfy.sh (zwykłe ustawienie, przy którym działa też oficjalna aplikacja ntfy) albo na %@. Bez serwera nadrzędnego wiadomości docierają po odświeżeniu. Zobacz %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voor directe stroken van je eigen server zet je upstream-base-url op https://ntfy.sh, de gebruikelijke instelling, waarmee de officiële ntfy-app ook blijft werken, of op %@. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour des bannières instantanées depuis votre serveur, réglez upstream-base-url sur https://ntfy.sh, le réglage habituel, qui laisse aussi fonctionner l’app ntfy officielle, ou sur %@. Sans relais amont, les messages arrivent à l’actualisation. Voir %@."
+          }
+        }
+      }
+    },
+    "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für sofortige Banner von deinem eigenen Server setze upstream-base-url auf %@. https://ntfy.sh, die übliche Einstellung, funktioniert nur, solange „Sofortige Banner für ntfy.sh und andere Server“ in den Einstellungen an ist. Ohne Upstream kommen Nachrichten beim Aktualisieren an. Siehe %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para recibir avisos instantáneos desde tu servidor, pon upstream-base-url en %@. https://ntfy.sh, el valor habitual, solo funciona mientras «Avisos instantáneos para ntfy.sh y otros servidores» esté activado en Ajustes. Sin upstream, los mensajes llegan al actualizar. Consulta %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per i banner istantanei dal tuo server, imposta upstream-base-url su %@. https://ntfy.sh, il valore abituale, funziona solo se «Banner istantanei per ntfy.sh e altri server» è attivo in Impostazioni. Senza upstream, i messaggi arrivano quando aggiorni. Vedi %@."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aby mieć natychmiastowe banery z własnego serwera, ustaw upstream-base-url na %@. https://ntfy.sh, zwykłe ustawienie, działa tylko wtedy, gdy opcja „Natychmiastowe banery dla ntfy.sh i innych serwerów” jest włączona w Ustawieniach. Bez serwera nadrzędnego wiadomości docierają po odświeżeniu. Zobacz %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voor directe stroken van je eigen server zet je upstream-base-url op %@. https://ntfy.sh, de gebruikelijke instelling, werkt alleen zolang 'Directe stroken voor ntfy.sh en andere servers' aan staat in Instellingen. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour des bannières instantanées depuis votre serveur, réglez upstream-base-url sur %@. https://ntfy.sh, le réglage habituel, ne fonctionne que si « Bannières instantanées pour ntfy.sh et d’autres serveurs » est activé dans Réglages. Sans relais amont, les messages arrivent à l’actualisation. Voir %@."
+          }
+        }
+      }
+    },
+    "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ beobachtet deine Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht kommt. Der Dienst erfährt die Namen dieser Themen und sieht ihre Nachrichten im Vorbeigehen, speichert aber keinen Nachrichtentext. Bei deinem eigenen Server erfährt er nur einen Hash jeder Themenadresse. Themen, die auf ntfy.sh eine Anmeldung brauchen, werden nicht beobachtet. Wenn aus, zeigen Themen auf ntfy.sh und Server mit Upstream ntfy.sh neue Nachrichten erst beim Öffnen der App oder beim Aktualisieren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vigila tus tópicos de ntfy.sh y despierta este dispositivo cuando llega un mensaje. Conoce los nombres de esos tópicos y ve sus mensajes al pasar, pero no guarda el texto. De tu propio servidor solo conoce un hash de la dirección de cada tópico. Los tópicos que requieren inicio de sesión en ntfy.sh no se vigilan. Si lo desactivas, los tópicos de ntfy.sh y los servidores con upstream ntfy.sh muestran mensajes nuevos solo al abrir la app o actualizar."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ osserva i tuoi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio. Conosce i nomi di quegli argomenti e ne vede i messaggi di passaggio, ma non conserva il testo. Per il tuo server conosce solo un hash dell'indirizzo di ogni argomento. Gli argomenti che su ntfy.sh richiedono un accesso non vengono osservati. Se disattivato, gli argomenti su ntfy.sh e i server con upstream ntfy.sh mostrano i nuovi messaggi solo aprendo l'app o aggiornando."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ obserwuje Twoje tematy na ntfy.sh i budzi to urządzenie, gdy przyjdzie wiadomość. Poznaje nazwy tych tematów i widzi ich wiadomości w przelocie, ale nie przechowuje treści. W przypadku własnego serwera poznaje tylko skrót (hash) adresu każdego tematu. Tematy wymagające logowania na ntfy.sh nie są obserwowane. Po wyłączeniu tematy na ntfy.sh i serwery z serwerem nadrzędnym ntfy.sh pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ houdt je onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt. Het kent de namen van die onderwerpen en ziet hun berichten voorbijkomen, maar bewaart geen berichttekst. Van je eigen server kent het alleen een hash van elk onderwerpadres. Onderwerpen waarvoor je op ntfy.sh moet inloggen, worden niet gevolgd. Staat dit uit, dan tonen onderwerpen op ntfy.sh en servers met upstream ntfy.sh nieuwe berichten pas wanneer je de app opent of vernieuwt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ surveille vos sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message. Il connaît le nom de ces sujets et voit passer leurs messages, mais n’en conserve aucun texte. Pour votre propre serveur, il ne connaît qu’un hachage de l’adresse de chaque sujet. Les sujets qui demandent une connexion sur ntfy.sh ne sont pas surveillés. Désactivé, les sujets sur ntfy.sh et les serveurs dont le relais amont est ntfy.sh n’affichent les nouveaux messages qu’à l’ouverture de l’app ou à l’actualisation."
+          }
+        }
+      }
+    },
+    "ntfy.sh topics watched": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ntfy.sh topics watched"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beobachtete Themen auf ntfy.sh"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos de ntfy.sh vigilados"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti ntfy.sh osservati"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obserwowane tematy na ntfy.sh"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gevolgde onderwerpen op ntfy.sh"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets ntfy.sh surveillés"
+          }
+        }
+      }
+    },
+    "Other servers' topics watched": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other servers' topics watched"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beobachtete Themen anderer Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tópicos de otros servidores vigilados"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argomenti di altri server osservati"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obserwowane tematy innych serwerów"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gevolgde onderwerpen van andere servers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujets d’autres serveurs surveillés"
+          }
+        }
+      }
+    },
+    "Last registration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last registration"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Registrierung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Último registro"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultima registrazione"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ostatnia rejestracja"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laatste registratie"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernier enregistrement"
+          }
+        }
+      }
+    },
+    "Bridge connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bridge connection"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung der Brücke"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conexión del puente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connessione del ponte"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Połączenie mostu"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinding van de brug"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion du pont"
+          }
+        }
+      }
+    },
+    "Checking…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geprüft …"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica in corso…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdzanie…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controleren…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification…"
+          }
+        }
+      }
+    },
+    "Accepted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepted"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angenommen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptado"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accettata"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przyjęto"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geaccepteerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceptée"
+          }
+        }
+      }
+    },
+    "Rejected by the server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected by the server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vom Server abgelehnt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechazado por el servidor"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rifiutata dal server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odrzucono przez serwer"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geweigerd door de server"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refusée par le serveur"
+          }
+        }
+      }
+    },
+    "Rate limited, will retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate limited, will retry"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ratenlimit, neuer Versuch folgt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite de solicitudes, se reintentará"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite di richieste, nuovo tentativo in seguito"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limit żądań, ponowna próba później"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limiet bereikt, wordt opnieuw geprobeerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite de requêtes, nouvel essai prévu"
+          }
+        }
+      }
+    },
+    "Bridge full, will retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bridge full, will retry"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brücke voll, neuer Versuch folgt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puente lleno, se reintentará"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponte pieno, nuovo tentativo in seguito"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Most pełny, ponowna próba później"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brug vol, wordt opnieuw geprobeerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pont saturé, nouvel essai prévu"
+          }
+        }
+      }
+    },
+    "Server error, will retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server error, will retry"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serverfehler, neuer Versuch folgt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error del servidor, se reintentará"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Errore del server, nuovo tentativo in seguito"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Błąd serwera, ponowna próba później"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serverfout, wordt opnieuw geprobeerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur du serveur, nouvel essai prévu"
+          }
+        }
+      }
+    },
+    "No connection, will retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connection, will retry"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Verbindung, neuer Versuch folgt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin conexión, se reintentará"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessuna connessione, nuovo tentativo in seguito"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak połączenia, ponowna próba później"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen verbinding, wordt opnieuw geprobeerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de connexion, nouvel essai prévu"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connesso"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Połączono"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbonden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté"
+          }
+        }
+      }
+    },
+    "Reconnecting to ntfy.sh": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting to ntfy.sh"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindet neu mit ntfy.sh"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconectando con ntfy.sh"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riconnessione a ntfy.sh"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowne łączenie z ntfy.sh"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opnieuw verbinden met ntfy.sh"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnexion à ntfy.sh"
+          }
+        }
+      }
+    },
+    "Couldn't check": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't check"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfung nicht möglich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile verificare"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie udało się sprawdzić"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kon niet controleren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification impossible"
+          }
+        }
+      }
+    },
+    "%@, %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), su base-url canónico y HTTPS saliente. No hay resultado automático."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe stroken aan in Instellingen, of https://ntfy-me.com), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
+          }
+        }
+      }
+    },
+    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe stroken aan in Instellingen, of https://ntfy-me.com), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
+          }
+        }
+      }
+    },
+    "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die upstream-base-url deines Servers muss https://ntfy.sh (mit sofortigen Bannern in den Einstellungen) oder %@ sein. Seine konfigurierte base-url muss exakt der Serveradresse dieses Abos entsprechen, einschließlich Schema, Port, Pfad und Schreibweise. Der Relay-Server speichert nur die letzten Annahmezeiten (bis zu 2 Minuten). Er meldet keine Zustellung an das Gerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El upstream-base-url del servidor debe ser https://ntfy.sh (con los avisos instantáneos activados en Ajustes) o %@. Su base-url debe coincidir exactamente con la dirección usada en esta suscripción, incluido esquema, puerto, ruta y escritura. El relay solo conserva horas de aceptación recientes (hasta 2 minutos); no informa de la entrega al dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'upstream-base-url del tuo server deve essere https://ntfy.sh (con i banner istantanei attivi in Impostazioni) oppure %@. Il base-url configurato deve corrispondere esattamente all'indirizzo del server usato per l'iscrizione, inclusi protocollo, porta, percorso e grafia. Il relay conserva solo gli orari di accettazione recenti (fino a 2 minuti) e non segnala la consegna al dispositivo."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartość upstream-base-url Twojego serwera musi wynosić https://ntfy.sh (z włączonymi natychmiastowymi banerami w Ustawieniach) albo %@. Skonfigurowany base-url musi dokładnie odpowiadać adresowi serwera użytemu w tej subskrypcji, łącznie ze schematem, portem, ścieżką i pisownią. Serwer pośredniczący zachowuje tylko ostatnie czasy przyjęcia (do 2 minut). Nie potwierdza dostarczenia na urządzenie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De upstream-base-url van je server moet https://ntfy.sh (met directe stroken aan in Instellingen) of %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La valeur upstream-base-url de votre serveur doit être https://ntfy.sh (avec les bannières instantanées activées dans Réglages) ou %@. Sa valeur base-url doit correspondre exactement à l’adresse de serveur de cet abonnement : protocole, port, chemin et orthographe compris. Le relais ne conserve que les heures de prise en charge récentes (jusqu’à 2 minutes) ; il ne confirme pas la réception sur l’appareil."
           }
         }
       }

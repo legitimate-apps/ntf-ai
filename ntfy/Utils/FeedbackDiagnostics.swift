@@ -248,7 +248,8 @@ enum FeedbackDiagnostics {
             "shake_to_send_feedback": FeedbackSettings.shakeEnabled(),
             "quiet_hours_set": defaults.object(forKey: QuietHours.key) != nil
                 || (UserDefaults(suiteName: Store.appGroup)?.object(forKey: QuietHours.key) != nil),
-            "custom_default_server": serverType(store.getDefaultBaseUrl()) == "other"
+            "custom_default_server": serverType(store.getDefaultBaseUrl()) == "other",
+            "ntfy_sh_bridge": Config.ntfyShBridgeEnabled
         ]
         let notificationState: [String: String] = [
             "authorization": describe(notificationSettings.authorizationStatus),
@@ -256,7 +257,9 @@ enum FeedbackDiagnostics {
             "sound": describe(notificationSettings.soundSetting),
             "badge": describe(notificationSettings.badgeSetting),
             "lock_screen": describe(notificationSettings.lockScreenSetting),
-            "notification_center": describe(notificationSettings.notificationCenterSetting)
+            "notification_center": describe(notificationSettings.notificationCenterSetting),
+            // Counts and the last outcome only: never topic names, hashes or the device id.
+            "ntfy_sh_bridge": NtfyShBridge.shared.diagnosticSummary
         ]
         let storeURL = context.persistentStoreCoordinator?.persistentStores.first?.url
         let storeBytes = ["", "-wal", "-shm"].reduce(0) { total, suffix in

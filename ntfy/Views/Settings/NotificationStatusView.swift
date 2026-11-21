@@ -55,6 +55,7 @@ struct NotificationStatusView: View {
             NotificationStatusRow(title: DeliveryHealthCopy.pushRegistration, value:
                       delegate.hasPushRegistration ? DeliveryHealthCopy.registered : DeliveryHealthCopy.waiting)
             NotificationStatusRow(title: DeliveryHealthCopy.pendingTopics, value: String(pendingCount))
+            NtfyShBridgeStatusRows(bridge: NtfyShBridge.shared, subscriptionCount: subscriptions.subscriptions.count)
             ForEach(delegate.notificationSwitches.warnings(), id: \.self, content: warningRow)
             if delegate.notificationAuthorizationStatus == .notDetermined {
                 Button(DeliveryHealthCopy.allowNotifications) {
@@ -149,6 +150,40 @@ struct NotificationStatusView: View {
 }
 
 
+/// What the ntfy.sh bridge watches for this device and whether it is live, so a user (or a
+/// feedback report's reader) can see why ntfy.sh and upstream-ntfy.sh banners do or don't come.
+struct NtfyShBridgeStatusRows: View {
+    @ObservedObject var bridge: NtfyShBridge
+    /// Re-reads the watch set when topics are added or removed while the screen is open.
+    let subscriptionCount: Int
+    @AppStorage(Config.ntfyShBridgeKey, store: NtfyShBridge.defaults) private var enabled = true
+    @State private var status: NtfyShBridge.Status?
+    @State private var checked = false
+
+    var body: some View {
+        let set = bridge.subscribedSet()
+        NotificationStatusRow(title: NtfyShBridgeCopy.settingTitle, value: enabled ? NtfyShBridgeCopy.on : NtfyShBridgeCopy.off)
+        if enabled {
+            NotificationStatusRow(title: NtfyShBridgeCopy.ntfyShTopics, value: String(set.ntfyShTopics.count))
+            NotificationStatusRow(title: NtfyShBridgeCopy.otherTopics, value: String(set.hashes.count))
+            NotificationStatusRow(title: NtfyShBridgeCopy.lastRegistration, value: NtfyShBridgeCopy.lastRegistration(bridge.record))
+            if !set.isEmpty {
+                NotificationStatusRow(title: NtfyShBridgeCopy.connection,
+                                      value: status.map(NtfyShBridgeCopy.status) ?? NtfyShBridgeCopy.checking)
+                    .onAppear(perform: check)
+            }
+        }
+    }
+
+    private func check() {
+        guard !checked else { return }
+        checked = true
+        bridge.sync(reason: "status screen opened") {
+            bridge.fetchStatus { status = $0 }
+        }
+    }
+}
+
 /// Consent is local to a selected topic. The relay API never sees this message or its credentials.
 struct RelayTopicCheckView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -222,7 +257,7 @@ struct RelayCheckContentView: View {
                 }
             }
             Section(header: Text(String(localized: "Server setup"))) {
-                Text(String(localized: "Your server's upstream-base-url must be \(normalizeBaseUrl(Config.appBaseUrl)). Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
+                Text(String(localized: "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or \(normalizeBaseUrl(Config.appBaseUrl)). Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
                     .font(.footnote).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

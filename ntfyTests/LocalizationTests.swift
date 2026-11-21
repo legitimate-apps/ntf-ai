@@ -98,7 +98,7 @@ final class LocalizationTests: XCTestCase {
             "The encryption password is unavailable. Unlock your device or set the topic password again. Nothing was sent.",
             "This topic is end-to-end encrypted, but its password can't be read right now, so the test message would go out unencrypted. Try again after unlocking your device, or set the password again.",
             "With a password, messages are encrypted by whoever sends them, in transit and on the server: the server, Google and Apple see only ciphertext. Once they arrive they are stored readable on this device. The password stays on this device only and isn't backed up, so a restored or new device needs it entered again. Senders need the same password; see \"How to send encrypted messages\".",
-            "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
+            "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
             "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
             "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent.",
             "Topics could not be read. Unlock your device and open NTF-AI, then try again.",
@@ -156,7 +156,6 @@ final class LocalizationTests: XCTestCase {
         let historicalOrProductNames: Set<String> = [
             "Priority 4 and 5 messages can now break through Focus and the Notification Summary when Time Sensitive notifications are allowed in iOS and Focus settings.",
             "Notification status now shows iOS settings that hide or delay alerts.",
-            "For instant delivery from your own server, add \"%@\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using %@ stops instant delivery to the official ntfy iOS app on that server. See %@.",
         ]
         XCTAssertTrue(historicalOrProductNames.isSubset(of: Set(strings.keys)))
         let ios = try NSRegularExpression(pattern: #"\biOS\b"#)

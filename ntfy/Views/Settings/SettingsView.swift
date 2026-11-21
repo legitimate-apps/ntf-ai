@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
     @AppStorage(AgentReminder.settingKey, store: AgentAck.defaults) private var agentReminders = true
     @AppStorage(LockScreenButtons.key, store: LockScreenButtons.defaults) private var buttonsWithoutUnlocking = false
+    @AppStorage(Config.ntfyShBridgeKey, store: NtfyShBridge.defaults) private var ntfyShBridge = true
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -33,6 +34,13 @@ struct SettingsView: View {
                 ) {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
+                }
+                Section(footer: Text(NtfyShBridgeCopy.settingFooter)) {
+                    Toggle(NtfyShBridgeCopy.settingTitle, isOn: $ntfyShBridge)
+                        .accessibilityIdentifier("settings-ntfysh-bridge")
+                        .onChange(of: ntfyShBridge) { on in
+                            NtfyShBridge.shared.sync(reason: on ? "setting turned on" : "setting turned off")
+                        }
                 }
                 // On a Mac every button opens the app, so there is nothing to allow.
                 if !ProcessInfo.processInfo.isiOSAppOnMac {
@@ -80,11 +88,13 @@ struct SettingsView: View {
                 onSave: { baseUrl, username, credential in
                     guard let credential else { return false }
                     let saved = store.saveUser(baseUrl: baseUrl, credential: credential)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if saved { userDialog = nil }
                     return saved
                 },
                 onDelete: { user in
                     let deleted = store.delete(user: user)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if deleted { userDialog = nil }
                     return deleted
                 },

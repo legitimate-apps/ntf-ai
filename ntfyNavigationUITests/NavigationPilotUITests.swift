@@ -295,6 +295,42 @@ final class NavigationPilotUITests: XCTestCase {
         captureAX("lockscreen-buttons-on")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
     }
+    /// The ntfy.sh bridge: its Settings toggle and disclosure, its Notification status rows, and the
+    /// add-topic footers for ntfy.sh and for a self-hosted server.
+    func testCaptureNtfyShBridge() {
+        launchList()
+        tab("Settings")
+        let toggle = app.switches["settings-ntfysh-bridge"]
+        for _ in 0..<8 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "1", "on by default")
+        app.swipeUp(velocity: .slow)
+        if !toggle.isHittable { app.swipeDown(velocity: .slow) }
+        captureAX("bridge-setting")
+        let watched = app.staticTexts["ntfy.sh topics watched"].firstMatch
+        for _ in 0..<8 { if watched.exists && watched.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(watched.exists)
+        captureAX("bridge-status")
+        tab("Topics")
+        tapEither("Add topic", "Add")
+        XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 5))
+        let other = app.switches["Use another server"].firstMatch
+        for _ in 0..<4 where !other.exists || !other.isHittable { app.collectionViews.firstMatch.swipeUp() }
+        other.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let server = app.textFields["subscription-server-url"].firstMatch
+        XCTAssertTrue(server.waitForExistence(timeout: 3))
+        server.tap()
+        app.typeText("https://ntfy.sh")
+        app.navigationBars["Add topic"].tap()
+        captureAX("add-footer-ntfysh")
+        server.tap()
+        server.press(forDuration: 1.0)
+        if app.menuItems["Select All"].waitForExistence(timeout: 2) { app.menuItems["Select All"].tap() }
+        app.typeText("https://ntfy.example.com")
+        app.navigationBars["Add topic"].tap()
+        captureAX("add-footer-selfhosted")
+        app.buttons["Cancel"].tap()
+    }
     func testCaptureSavedUserRow() {
         app.launch()
         openTopics()

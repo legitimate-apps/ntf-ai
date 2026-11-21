@@ -6374,11 +6374,12 @@ final class ntfyTests: XCTestCase {
 /// so every command the app shows must carry the full URL.
 final class NewcomerSetupTests: XCTestCase {
 
+    // The bridge is on by default, so these are its "on" sentences (NtfyShBridgeTests covers "off").
     private var ntfyShHint: String {
-        String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \("ntf-ai.app"). See \("https://ntf-ai.app/docs/migrate").")
+        String(localized: "Topics on ntfy.sh get instant banners: \("ntfy-me.com") watches them for this device and keeps no message text. You can turn this off in Settings. See \("https://ntf-ai.app/docs/migrate").")
     }
     private var ownServerHint: String {
-        String(localized: "For instant delivery from your own server, add \"\("upstream-base-url: https://ntfy-me.com")\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \("ntfy-me.com") stops instant delivery to the official ntfy iOS app on that server. See \("https://ntf-ai.app/docs/self-hosting").")
+        String(localized: "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to \("https://ntfy-me.com"). With no upstream, messages arrive when you refresh. See \("https://ntf-ai.app/docs/self-hosting").")
     }
     private var builtInFooter: String {
         String(localized: "New topics use \(Config.appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \("ntf-ai.app"); the same topic name on ntfy.sh is a different topic.")

@@ -61,7 +61,7 @@ final class FcmSubscriptionReconciler {
     /// every install that predates it, which is treated as "changed".
     static let defaultsKeyBindingsAppBaseUrl = "fcmBindingsAppBaseUrl"
 
-    static let shared = FcmSubscriptionReconciler(store: Store.shared)
+    static let shared = FcmSubscriptionReconciler(store: Store.shared, bridge: .shared)
 
     private let store: Store
     private let subscriber: FcmTopicSubscriber
@@ -75,6 +75,8 @@ final class FcmSubscriptionReconciler {
     let teardownLedger: FcmTeardownLedger
     private let now: () -> Date
     private let teardownLiveness: (() -> Set<String>?)?
+    /// Registers the ntfy.sh watch set on the same triggers (nil in tests that only exercise FCM).
+    let bridge: NtfyShBridge?
     private var teardownsInFlight: [String: (request: UUID, started: Date)] = [:]
     static let teardownTimeout: TimeInterval = 120
 
@@ -82,8 +84,10 @@ final class FcmSubscriptionReconciler {
          subscriber: FcmTopicSubscriber = FirebaseTopicSubscriber(),
          defaults: UserDefaults = UserDefaults(suiteName: Store.appGroup) ?? .standard,
          now: @escaping () -> Date = Date.init,
-         teardownLiveness: (() -> Set<String>?)? = nil) {
+         teardownLiveness: (() -> Set<String>?)? = nil,
+         bridge: NtfyShBridge? = nil) {
         self.store = store
+        self.bridge = bridge
         self.subscriber = subscriber
         self.defaults = defaults
         self.now = now
@@ -145,6 +149,9 @@ final class FcmSubscriptionReconciler {
     /// a return. Callers do not need to know whether the APNs token has landed —
     /// if it hasn't, this no-ops and the APNs callback drives the retry.
     func reconcile(reason: String, completion: (() -> Void)? = nil) {
+        // The bridge needs no APNs token to register, and every trigger that can change the
+        // subscription set (subscribe, unsubscribe, migrations, foreground, token arrival) lands here.
+        bridge?.sync(reason: reason)
         guard subscriber.hasApnsToken else {
             // Not an error: `didReceiveRegistrationToken` routinely beats
             // `didRegisterForRemoteNotifications...`. Whichever lands second

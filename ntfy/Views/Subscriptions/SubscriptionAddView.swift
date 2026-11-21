@@ -572,7 +572,8 @@ enum SubscriptionAddServer {
 /// Shared by single-topic subscribe and account imports; server-specific delivery guidance wins.
 enum SubscriptionPermissionCopy {
     static func message(baseUrl: String, topicURL: String, topicCount: Int) -> String {
-        if let hint = Config.ntfyShDeliveryHint(baseUrl: baseUrl) { return hint }
+        // With the bridge on, ntfy.sh topics get lock-screen banners like any other, so ask as usual.
+        if !Config.ntfyShBridgeEnabled, let hint = Config.ntfyShDeliveryHint(baseUrl: baseUrl, bridgeOn: false) { return hint }
         if topicCount > 1 {
             return String(localized: "Allow notifications so messages sent to the topics you added show up on your lock screen, even when the app is closed. You'll be asked for permission next.")
         }

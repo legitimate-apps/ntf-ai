@@ -37,10 +37,21 @@ enum Config {
         "upstream-base-url: \(normalizeBaseUrl(appBaseUrl))"
     }
 
-    /// ntfy.sh pushes to the official app's Firebase project, not this app's.
-    static func ntfyShDeliveryHint(baseUrl: String) -> String? {
+    /// The "Instant banners for ntfy.sh and other servers" setting (`NtfyShBridge`), on by default.
+    /// Read here because Config also compiles into the extensions, which don't carry the bridge.
+    static let ntfyShBridgeKey = "ntfyShBridgeEnabled"
+    static var ntfyShBridgeEnabled: Bool {
+        (UserDefaults(suiteName: appGroupId) ?? .standard).object(forKey: ntfyShBridgeKey) as? Bool ?? true
+    }
+
+    /// ntfy.sh pushes to the official app's Firebase project, not this app's, so banners for its
+    /// topics come through the bridge (`NtfyShBridge`): on by default, and the copy says what it shares.
+    static func ntfyShDeliveryHint(baseUrl: String, bridgeOn: Bool = ntfyShBridgeEnabled) -> String? {
         guard URL(string: normalizeBaseUrl(baseUrl))?.host?.lowercased() == "ntfy.sh" else { return nil }
-        return String(localized: "Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to \(shortUrl(url: normalizeBaseUrl(appBaseUrl))). See \(migrateUrl).")
+        if bridgeOn {
+            return String(localized: "Topics on ntfy.sh get instant banners: \(normalizeBaseUrl(appBaseUrl).replacingOccurrences(of: "https://", with: "")) watches them for this device and keeps no message text. You can turn this off in Settings. See \(migrateUrl).")
+        }
+        return String(localized: "Instant banners for ntfy.sh and other servers is off in Settings, so messages on ntfy.sh appear only when you open the app or refresh. See \(migrateUrl).")
     }
 
     static func subscriptionServerFooter(baseUrl: String, useAnother: Bool) -> String {
@@ -68,8 +79,14 @@ enum Config {
         return String(localized: "When subscribing to new topics, this server will be used as a default. Leave it empty to use \(appServerDescription). \(deliveryHint)")
     }
 
-    static var selfHostedDeliveryHint: String {
-        String(localized: "For instant delivery from your own server, add \"\(upstreamConfigLine)\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using \(normalizeBaseUrl(appBaseUrl).replacingOccurrences(of: "https://", with: "")) stops instant delivery to the official ntfy iOS app on that server. See \(selfHostingUrl).")
+    static var selfHostedDeliveryHint: String { selfHostedDeliveryHint(bridgeOn: ntfyShBridgeEnabled) }
+
+    static func selfHostedDeliveryHint(bridgeOn: Bool) -> String {
+        let appServer = normalizeBaseUrl(appBaseUrl)
+        if bridgeOn {
+            return String(localized: "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to \(appServer). With no upstream, messages arrive when you refresh. See \(selfHostingUrl).")
+        }
+        return String(localized: "For instant banners from your own server, set upstream-base-url to \(appServer). https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See \(selfHostingUrl).")
     }
 
     static var build: String {

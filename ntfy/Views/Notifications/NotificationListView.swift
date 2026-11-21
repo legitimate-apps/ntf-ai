@@ -206,10 +206,12 @@ struct NotificationListView: View {
                 onSave: { baseUrl, _, credential in
                     guard let credential, store.saveUser(baseUrl: baseUrl, credential: credential) else { return false }
                     showUserEditor = false
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     Task { _ = await pollOnce() }
                     return true
                 }, onDelete: { user in
                     let deleted = store.delete(user: user)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if deleted { showUserEditor = false }
                     return deleted
                 }, onCancel: { showUserEditor = false })

@@ -67,6 +67,7 @@
 		118B00010000000000000006 /* TopicQRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118B00010000000000000005 /* TopicQRCode.swift */; };
 		118BEEF00000000000000001 /* RelayCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118CAFE00000000000000001 /* RelayCheck.swift */; };
 		118BEEF00000000000000002 /* RelayCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118CAFE00000000000000002 /* RelayCheckTests.swift */; };
+		B71D6E0000000000000000B2 /* NtfyShBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D6E0000000000000000B1 /* NtfyShBridgeTests.swift */; };
 		123B00000000000000000002 /* ManagedConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123A00000000000000000002 /* ManagedConfigurationTests.swift */; };
 		12AC5FD71685570DA7A729D3 /* ntfyShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8E02FCB6B166A5F5F2F5718E /* ntfyShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		18A28C5C2FBCF00000A52946 /* AttachmentAutoDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A28C5B2FBCF00000A52946 /* AttachmentAutoDownloadView.swift */; };
@@ -158,6 +159,7 @@
 		94A3F7CA28386B2100C48E79 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A3F7C928386B2100C48E79 /* Config.swift */; };
 		94A3F7CB28386B2100C48E79 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A3F7C928386B2100C48E79 /* Config.swift */; };
 		94A3F7D1283734D900C48E79 /* FcmSubscriptionReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A3F7D0283734D900C48E79 /* FcmSubscriptionReconciler.swift */; };
+		B71D6E0000000000000000A2 /* NtfyShBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D6E0000000000000000A1 /* NtfyShBridge.swift */; };
 		94B736D7284AF9BE003D69FB /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B736D6284AF9BE003D69FB /* MainView.swift */; };
 		94CD1966283E662900973B93 /* emojis.json in Resources */ = {isa = PBXBuildFile; fileRef = 94CD1965283E662900973B93 /* emojis.json */; };
 		94CD1967283E662900973B93 /* emojis.json in Resources */ = {isa = PBXBuildFile; fileRef = 94CD1965283E662900973B93 /* emojis.json */; };
@@ -328,6 +330,7 @@
 		118B00010000000000000005 /* TopicQRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicQRCode.swift; sourceTree = "<group>"; };
 		118CAFE00000000000000001 /* RelayCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayCheck.swift; sourceTree = "<group>"; };
 		118CAFE00000000000000002 /* RelayCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayCheckTests.swift; sourceTree = "<group>"; };
+		B71D6E0000000000000000B1 /* NtfyShBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NtfyShBridgeTests.swift; sourceTree = "<group>"; };
 		123A00000000000000000002 /* ManagedConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedConfigurationTests.swift; sourceTree = "<group>"; };
 		18A28C5B2FBCF00000A52946 /* AttachmentAutoDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentAutoDownloadView.swift; sourceTree = "<group>"; };
 		1ECED713042427E5769135C1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -403,6 +406,7 @@
 		123A00000000000000000001 /* ManagedConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedConfiguration.swift; sourceTree = "<group>"; };
 		94A3F7C928386B2100C48E79 /* Config.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		94A3F7D0283734D900C48E79 /* FcmSubscriptionReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmSubscriptionReconciler.swift; sourceTree = "<group>"; };
+		B71D6E0000000000000000A1 /* NtfyShBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NtfyShBridge.swift; sourceTree = "<group>"; };
 		94B736D6284AF9BE003D69FB /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		94CD1965283E662900973B93 /* emojis.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = emojis.json; sourceTree = "<group>"; };
 		94CD1969283E666900973B93 /* EmojiManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmojiManager.swift; sourceTree = "<group>"; };
@@ -671,6 +675,7 @@
 				123A00000000000000000001 /* ManagedConfiguration.swift */,
 				6DF78FBEBA7B4D7894873214 /* PollCoordinator.swift */,
 				94A3F7D0283734D900C48E79 /* FcmSubscriptionReconciler.swift */,
+				B71D6E0000000000000000A1 /* NtfyShBridge.swift */,
 				300924C0CFF04C96AC031DE6 /* FcmTeardownLedger.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* RetiredDefaultServerMigration.swift */,
 				E270080F2AF0F64B006E33BA /* SubscriptionsObservable.swift */,
@@ -781,6 +786,7 @@
 				A18000010000000000000002 /* RetentionTests.swift */,
 				F11900000000000000000013 /* TopicMuteTests.swift */,
 				118CAFE00000000000000002 /* RelayCheckTests.swift */,
+				B71D6E0000000000000000B1 /* NtfyShBridgeTests.swift */,
 				123A00000000000000000002 /* ManagedConfigurationTests.swift */,
 				C11800010000000000000005 /* ClearThroughTests.swift */,
 				2E1C0A052FF0000100A52946 /* LicensesTests.swift */,
@@ -1034,6 +1040,7 @@
 				123B00000000000000000001 /* ManagedConfiguration.swift in Sources */,
 				7C6C8829170C43C2A5BA01C5 /* PollCoordinator.swift in Sources */,
 				94A3F7D1283734D900C48E79 /* FcmSubscriptionReconciler.swift in Sources */,
+				B71D6E0000000000000000A2 /* NtfyShBridge.swift in Sources */,
 				EE53067E705943E89B31F8DA /* FcmTeardownLedger.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* RetiredDefaultServerMigration.swift in Sources */,
 				9474F1D2282F2D2C00CDE4DD /* AppDelegate.swift in Sources */,
@@ -1207,6 +1214,7 @@
 				F11900000000000000000004 /* TopicMuteTests.swift in Sources */,
 				F11900000000000000000005 /* NotificationService.swift in Sources */,
 				118BEEF00000000000000002 /* RelayCheckTests.swift in Sources */,
+				B71D6E0000000000000000B2 /* NtfyShBridgeTests.swift in Sources */,
 				123B00000000000000000002 /* ManagedConfigurationTests.swift in Sources */,
 				C11800010000000000000004 /* ClearThroughTests.swift in Sources */,
 				2E1C0A062FF0000100A52946 /* LicensesTests.swift in Sources */,
