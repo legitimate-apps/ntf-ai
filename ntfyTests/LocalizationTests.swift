@@ -455,9 +455,31 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testVersion129ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.29.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.29.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 3)
+        let expected: [String: [String]] = [
+            "en": ["Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.", "Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too.", "You can turn this off anytime in Settings."],
+            "de": ["Themen auf ntfy.sh bekommen jetzt sofortige Banner: ntfy-me.com beobachtet sie und weckt dein Gerät, wenn eine Nachricht ankommt.", "Dein eigener ntfy-Server bekommt sofortige Banner mit der üblichen Einstellung upstream-base-url: https://ntfy.sh, und die offizielle ntfy-App funktioniert weiter.", "Du kannst das jederzeit in den Einstellungen ausschalten."],
+            "es": ["Los tópicos de ntfy.sh ahora reciben avisos instantáneos: ntfy-me.com los vigila y activa tu dispositivo cuando llega un mensaje.", "Tu propio servidor ntfy recibe avisos instantáneos con su ajuste habitual, upstream-base-url: https://ntfy.sh, y la app oficial de ntfy sigue funcionando.", "Puedes desactivarlo cuando quieras en Ajustes."],
+            "it": ["Gli argomenti su ntfy.sh ora ricevono banner istantanei: ntfy-me.com li osserva e riattiva il dispositivo quando arriva un messaggio.", "Il tuo server ntfy riceve banner istantanei con la sua impostazione abituale, upstream-base-url: https://ntfy.sh, e l’app ufficiale di ntfy continua a funzionare.", "Puoi disattivarlo quando vuoi in Impostazioni."],
+            "pl": ["Tematy na ntfy.sh dostają teraz natychmiastowe banery: ntfy-me.com je obserwuje i budzi urządzenie, gdy przychodzi wiadomość.", "Twój własny serwer ntfy dostaje natychmiastowe banery przy zwykłym ustawieniu upstream-base-url: https://ntfy.sh, a oficjalna aplikacja ntfy nadal działa.", "Możesz to w każdej chwili wyłączyć w Ustawieniach."],
+            "nl": ["Onderwerpen op ntfy.sh krijgen nu directe stroken: ntfy-me.com houdt ze in de gaten en wekt je apparaat als er een bericht binnenkomt.", "Je eigen ntfy-server krijgt directe stroken met de gebruikelijke instelling upstream-base-url: https://ntfy.sh, en de officiële ntfy-app blijft werken.", "Je kunt dit altijd uitzetten in Instellingen."],
+            "fr": ["Les sujets sur ntfy.sh reçoivent désormais des bannières instantanées : ntfy-me.com les surveille et réveille votre appareil à l’arrivée d’un message.", "Votre propre serveur ntfy reçoit des bannières instantanées avec son réglage habituel, upstream-base-url: https://ntfy.sh, et l’app ntfy officielle continue de fonctionner.", "Vous pouvez le désactiver à tout moment dans Réglages."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion128ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.28.0" })
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.28.0", "the newest release leads")
         XCTAssertEqual(release.bullets.count, 7)
         let expected: [String: [String]] = [
             "en": ["Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back.", "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity.", "Waiting on you lists the newest question first.", "Plain buttons can be tapped again, and an answered question shows the answer you chose.", "Share a topic, a message or a file, or copy a topic's curl or ntf command.", "Send feedback from Settings, or shake your device to open the form.", "New setting: Use buttons without unlocking lets you answer from the lock screen."],
