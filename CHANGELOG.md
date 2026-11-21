@@ -4,6 +4,14 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## 1.27.0
+
+- Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app.
+- See which agent is asking, with its name and picture in the app and in notifications.
+- Questions with a deadline show the time left, and an agent can withdraw a question it no longer needs.
+- Agent reminders: an unanswered question can alert you again, or remind you silently.
+- Answer buttons are easier to read in light and dark mode.
+
 ## 1.26.0
 
 - The app is now NTF-AI. Same app, same topics, same settings.
