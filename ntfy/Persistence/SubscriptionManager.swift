@@ -94,12 +94,12 @@ struct SubscriptionManager {
                 store.delete(subscription: subscription)
                 return
             }
-            guard let intent = reconciler.prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else {
+            guard let intents = reconciler.prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else {
                 Log.w(tag, "Not deleting subscription because its FCM teardown intent could not be recorded")
                 return
             }
             guard store.delete(subscription: subscription) else {
-                reconciler.teardownLedger.remove(intent)
+                reconciler.teardownLedger.rollback(intents)
                 // The row is still there, so the user still has this subscription. Tearing down its
                 // FCM binding now would split the two states: the row returns on the next refresh
                 // or relaunch, still reading `fcmSubscribed = true`, so reconciliation skips it and

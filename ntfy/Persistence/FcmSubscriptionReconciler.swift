@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 import FirebaseMessaging
 
@@ -199,11 +200,21 @@ final class FcmSubscriptionReconciler {
             }))
         }
 
-        for subscription in store.getSubscriptionsPendingFcmSubscribe() {
-            guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { continue }
-            let name = firebaseTopic(baseUrl: baseUrl, topic: topic)
+        let pending: [(id: NSManagedObjectID, name: String)] = store.context.performAndWait {
+            store.getSubscriptionsPendingFcmSubscribe().compactMap { subscription in
+                guard !subscription.objectID.isTemporaryID,
+                      let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return nil }
+                return (subscription.objectID, firebaseTopic(baseUrl: baseUrl, topic: topic))
+            }
+        }
+        for (id, name) in pending {
             work.append((name, { [weak self] in
-                self?.store.setFcmSubscribed(subscription, true)
+                // withCurrentFcmGeneration runs this closure on the store's context.
+                guard let store = self?.store,
+                      let row = try? store.context.existingObject(with: id) as? Subscription,
+                      !row.isDeleted, let baseUrl = row.baseUrl, let topic = row.topic,
+                      firebaseTopic(baseUrl: baseUrl, topic: topic) == name else { return }
+                store.setFcmSubscribed(row, true)
             }))
         }
 
@@ -364,8 +375,14 @@ final class FcmSubscriptionReconciler {
         let snapshot = teardownLedger.entries
         guard !snapshot.isEmpty else { return }
         guard let needed = teardownLiveness.map({ $0() }) ?? namesNeededBySubscriptions() else { return }
+        let retainedAliases = snapshot.contains { $0.waitsForAliasDeletion == true }
+            ? subscriptionPairs().map { Set($0.map { legacyTopicHash(baseUrl: $0.baseUrl, topic: $0.topic) }) }
+            : nil
 
         for entry in snapshot {
+            if entry.waitsForAliasDeletion == true {
+                guard let retainedAliases, !retainedAliases.contains(entry.name) else { continue }
+            }
             if needed.contains(entry.name) {
                 lock.lock()
                 let requestPending = teardownsInFlight[entry.name] != nil
@@ -435,19 +452,22 @@ final class FcmSubscriptionReconciler {
         return names
     }
 
-    /// Write ahead of deleting the subscription row. If the save fails, retire only this intent.
-    func prepareUnsubscribe(baseUrl: String, topic: String) -> FcmTeardownLedger.Entry? {
+    /// Write the complete set before deleting the row. The caller can restore any prior
+    /// retry work if the Core Data save fails.
+    func prepareUnsubscribe(baseUrl: String, topic: String) -> [FcmTeardownLedger.Change]? {
+        let canonical = firebaseTopic(baseUrl: baseUrl, topic: topic)
         // A row deleted before the 1.30 rename ran may still be bound under its old name.
         let legacy = legacyTopicHash(baseUrl: baseUrl, topic: topic)
-        if normalizeBaseUrl(baseUrl) != normalizeBaseUrl(Config.appBaseUrl), legacy != topicHash(baseUrl: baseUrl, topic: topic) {
-            _ = teardownLedger.record(legacy, obsolete: true)
+        var intents = [(name: canonical, obsolete: false, waitsForAliasDeletion: false)]
+        if normalizeBaseUrl(baseUrl) != normalizeBaseUrl(Config.appBaseUrl), legacy != canonical {
+            intents.append((legacy, true, true))
         }
-        return teardownLedger.record(firebaseTopic(baseUrl: baseUrl, topic: topic))
+        return teardownLedger.recordChanges(intents)
     }
 
     /// Also used by direct callers after deleting their row.
     func unsubscribe(baseUrl: String, topic: String) {
-        guard let entry = prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else { return }
+        guard let entry = prepareUnsubscribe(baseUrl: baseUrl, topic: topic)?.first?.entry else { return }
         dispatchTeardown(entry)
     }
 

@@ -17,6 +17,9 @@ final class FcmTeardownLedger {
         var attempts = 0
         var lastAttempt: Date?
         let obsolete: Bool
+        // A write-ahead delete can be interrupted before its Core Data save. An old alias hash
+        // still belongs to that row until deletion or the independent naming migration.
+        var waitsForAliasDeletion: Bool?
 
         var retryDelay: TimeInterval {
             min(3600, 30 * pow(2, Double(min(max(attempts - 1, 0), 7))))
@@ -112,21 +115,37 @@ final class FcmTeardownLedger {
     }
 
     func recordChange(_ name: String, obsolete: Bool) -> Change? {
+        recordChanges([(name, obsolete, false)])?.first
+    }
+
+    func recordChanges(_ intents: [(name: String, obsolete: Bool, waitsForAliasDeletion: Bool)]) -> [Change]? {
         Self.lock.lock(); defer { Self.lock.unlock() }
         var state = read()
-        let entry = Entry(name: name, id: UUID(), created: now(), obsolete: obsolete)
-        let change = Change(entry: entry, previous: state.entries[name])
-        state.entries[name] = entry
-        return write(state) ? change : nil
+        let changes = intents.map { intent in
+            let previous = state.entries[intent.name]
+            // A naming migration may already have made this legacy name obsolete.
+            let alreadyObsolete = previous?.obsolete == true && previous?.waitsForAliasDeletion != true
+            let entry = Entry(name: intent.name, id: UUID(), created: now(), obsolete: intent.obsolete,
+                              waitsForAliasDeletion: intent.waitsForAliasDeletion && !alreadyObsolete ? true : nil)
+            let change = Change(entry: entry, previous: previous)
+            state.entries[intent.name] = entry
+            return change
+        }
+        return write(state) ? changes : nil
     }
 
     /// A failed migration may restore prior retry work, but cannot overwrite a newer intent.
     func rollback(_ change: Change) {
+        rollback([change])
+    }
+
+    func rollback(_ changes: [Change]) {
         Self.lock.lock(); defer { Self.lock.unlock() }
         var state = read()
-        guard state.entries[change.entry.name]?.id == change.entry.id else { return }
-        state.entries[change.entry.name] = change.previous
-        write(state)
+        let current = changes.filter { state.entries[$0.entry.name]?.id == $0.entry.id }
+        guard !current.isEmpty else { return }
+        for change in current { state.entries[change.entry.name] = change.previous }
+        if !write(state) { report("Could not roll back FCM teardown intents") }
     }
 
     /// Every retirement, including liveness and rollback, compares durable intent identity.
