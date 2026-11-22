@@ -37343,6 +37343,54 @@
           }
         }
       }
+    },
+    "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again.": {
+      "comment": "Subscribe error for a server on the local network when iOS refused the connection because Local Network access isn't allowed yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI konnte diesen Server in deinem lokalen Netzwerk nicht erreichen. Erlaube den Zugriff auf das lokale Netzwerk, wenn danach gefragt wird, oder aktiviere „Lokales Netzwerk“ unter Einstellungen > NTF-AI, und tippe dann erneut auf „Abonnieren“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI no pudo conectar con este servidor de tu red local. Permite el acceso a la red local cuando se te pida, o activa Red local en Ajustes > NTF-AI, y luego toca Suscribirse de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI n’a pas pu joindre ce serveur sur votre réseau local. Autorisez l’accès au réseau local lorsque cela vous est demandé, ou activez Réseau local dans Réglages > NTF-AI, puis touchez à nouveau S’abonner."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI non è riuscita a raggiungere questo server nella tua rete locale. Consenti l’accesso alla rete locale quando richiesto, oppure attiva Rete locale in Impostazioni > NTF-AI, poi tocca di nuovo Iscriviti."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI kon deze server in je lokale netwerk niet bereiken. Sta toegang tot het lokale netwerk toe als daarom wordt gevraagd, of zet Lokaal netwerk aan in Instellingen > NTF-AI, en tik dan opnieuw op Abonneren."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI nie może połączyć się z tym serwerem w Twojej sieci lokalnej. Zezwól na dostęp do sieci lokalnej, gdy pojawi się prośba, lub włącz Sieć lokalna w Ustawienia > NTF-AI, a następnie ponownie stuknij Subskrybuj."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

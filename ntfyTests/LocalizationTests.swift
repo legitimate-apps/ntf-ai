@@ -455,6 +455,36 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testLocalNetworkPermissionAndSubscribeHintResolveInEveryBundledLanguage() throws {
+        let key = "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again."
+        let hint: [String: String] = [
+            "de": "NTF-AI konnte diesen Server in deinem lokalen Netzwerk nicht erreichen. Erlaube den Zugriff auf das lokale Netzwerk, wenn danach gefragt wird, oder aktiviere „Lokales Netzwerk“ unter Einstellungen > NTF-AI, und tippe dann erneut auf „Abonnieren“.",
+            "en": "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again.",
+            "es": "NTF-AI no pudo conectar con este servidor de tu red local. Permite el acceso a la red local cuando se te pida, o activa Red local en Ajustes > NTF-AI, y luego toca Suscribirse de nuevo.",
+            "fr": "NTF-AI n’a pas pu joindre ce serveur sur votre réseau local. Autorisez l’accès au réseau local lorsque cela vous est demandé, ou activez Réseau local dans Réglages > NTF-AI, puis touchez à nouveau S’abonner.",
+            "it": "NTF-AI non è riuscita a raggiungere questo server nella tua rete locale. Consenti l’accesso alla rete locale quando richiesto, oppure attiva Rete locale in Impostazioni > NTF-AI, poi tocca di nuovo Iscriviti.",
+            "nl": "NTF-AI kon deze server in je lokale netwerk niet bereiken. Sta toegang tot het lokale netwerk toe als daarom wordt gevraagd, of zet Lokaal netwerk aan in Instellingen > NTF-AI, en tik dan opnieuw op Abonneren.",
+            "pl": "NTF-AI nie może połączyć się z tym serwerem w Twojej sieci lokalnej. Zezwól na dostęp do sieci lokalnej, gdy pojawi się prośba, lub włącz Sieć lokalna w Ustawienia > NTF-AI, a następnie ponownie stuknij Subskrybuj."
+        ]
+        let permission: [String: String] = [
+            "de": "NTF-AI verbindet sich nur mit ntfy-Servern",
+            "en": "NTF-AI connects to ntfy servers on your local network",
+            "es": "NTF-AI se conecta a servidores ntfy",
+            "fr": "NTF-AI se connecte aux serveurs ntfy",
+            "it": "NTF-AI si collega ai server ntfy",
+            "nl": "NTF-AI maakt alleen verbinding met ntfy-servers",
+            "pl": "NTF-AI łączy się z serwerami ntfy"
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(hint.keys))
+        for (language, text) in hint {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), text, language)
+            let purpose = bundle.localizedString(forKey: "NSLocalNetworkUsageDescription", value: nil, table: "InfoPlist")
+            XCTAssertTrue(purpose.hasPrefix(try XCTUnwrap(permission[language])), language)
+        }
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription"), "iOS shows (null) in the Local Network prompt without it")
+    }
+
     func testVersion129ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.29.0" })
         XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.29.0", "the newest release leads")

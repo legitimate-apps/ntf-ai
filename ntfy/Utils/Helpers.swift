@@ -42,6 +42,33 @@ enum HostedServer {
     }
 }
 
+/// iOS blocks connections to a server on the local network until the user allows Local Network
+/// access, and the refused request fails as "The Internet connection appears to be offline."
+/// For such a server, say what to do instead of reporting a false offline state.
+enum LocalNetworkHint {
+    static func isLocalHost(_ baseUrl: String) -> Bool {
+        guard let host = URLComponents(string: baseUrl)?.host?.lowercased(), !host.isEmpty else { return false }
+        if host == "localhost" { return false }
+        if !host.contains(".") && !host.contains(":") { return true }
+        for suffix in [".local", ".lan", ".home", ".home.arpa", ".internal"] where host.hasSuffix(suffix) { return true }
+        let octets = host.split(separator: ".").compactMap { UInt8($0) }
+        if octets.count == 4 && host.split(separator: ".").count == 4 {
+            switch (octets[0], octets[1]) {
+            case (10, _), (192, 168), (169, 254): return true
+            case (172, let b) where (16...31).contains(b): return true
+            default: return false
+            }
+        }
+        let v6 = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return v6.contains(":") && (v6.hasPrefix("fe80:") || v6.hasPrefix("fc") || v6.hasPrefix("fd"))
+    }
+
+    static func message(for error: Error, baseUrl: String) -> String? {
+        guard (error as? URLError)?.code == .notConnectedToInternet, isLocalHost(baseUrl) else { return nil }
+        return String(localized: "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again.")
+    }
+}
+
 func topicUrl(baseUrl: String, topic: String) -> String {
     return "\(normalizeBaseUrl(baseUrl))/\(topic)"
 }

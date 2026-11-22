@@ -48,6 +48,54 @@
           }
         }
       }
+    },
+    "NSLocalNetworkUsageDescription": {
+      "extractionState": "manual",
+      "comment": "Local network permission shown by iOS when the user subscribes to a self-hosted ntfy server on their LAN.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI connects to ntfy servers on your local network, such as one you run at home, only when you subscribe to them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI verbindet sich nur mit ntfy-Servern in deinem lokalen Netzwerk, etwa einem, den du zu Hause betreibst, wenn du sie abonnierst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI se conecta a servidores ntfy de tu red local, como uno que tengas en casa, solo cuando te suscribes a ellos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI se connecte aux serveurs ntfy de votre réseau local, comme celui que vous hébergez chez vous, uniquement lorsque vous vous y abonnez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI si collega ai server ntfy della tua rete locale, come quello che gestisci a casa, solo quando ti iscrivi."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI maakt alleen verbinding met ntfy-servers in je lokale netwerk, zoals een server die je thuis draait, als je je erop abonneert."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI łączy się z serwerami ntfy w Twojej sieci lokalnej, na przykład z serwerem, który prowadzisz w domu, tylko gdy je subskrybujesz."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

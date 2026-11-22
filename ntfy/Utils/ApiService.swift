@@ -332,7 +332,7 @@ class ApiService {
         runOneShot(request, timeout: 10, baseUrl: baseUrl, session: session) { (data, response, error) in
             if let error = error {
                 Log.e(self.tag, "Error checking auth: \(error)")
-                completionHandler(.Error(error.localizedDescription))
+                completionHandler(.Error(LocalNetworkHint.message(for: error, baseUrl: baseUrl) ?? error.localizedDescription))
             } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
                 if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
                     // ntfy's errHTTP envelope distinguishes its own refusal from an HTML,

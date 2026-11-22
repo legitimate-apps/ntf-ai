@@ -363,4 +363,24 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertFalse(keys.contains("Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to %@. See %@."))
         XCTAssertFalse(keys.contains { $0.hasPrefix("For instant delivery from your own server, add") })
     }
+
+    func testLocalNetworkHostsAreRecognized() {
+        for url in ["http://192.168.1.20:8080", "http://192.168.1.5", "https://172.20.0.2", "http://169.254.3.4",
+                    "http://ntfy.local", "http://nas.lan", "http://server.home.arpa", "http://nas", "http://[fd12:3456::1]:80", "http://[fe80::1]"] {
+            XCTAssertTrue(LocalNetworkHint.isLocalHost(url), url)
+        }
+        for url in ["https://ntfy.sh", "https://ntfy-me.com", "http://172.32.0.1", "http://8.8.8.8", "http://localhost:8080",
+                    "https://ntfy.example.com", "http://100.64.0.1", "not a url"] {
+            XCTAssertFalse(LocalNetworkHint.isLocalHost(url), url)
+        }
+    }
+
+    func testOfflineErrorFromLocalServerExplainsLocalNetworkAccess() {
+        let offline = URLError(.notConnectedToInternet)
+        let hint = LocalNetworkHint.message(for: offline, baseUrl: "http://192.168.1.20:8080")
+        XCTAssertNotNil(hint)
+        XCTAssertTrue(hint?.contains("Local Network") ?? false)
+        XCTAssertNil(LocalNetworkHint.message(for: offline, baseUrl: "https://ntfy.sh"), "a public server keeps the real offline error")
+        XCTAssertNil(LocalNetworkHint.message(for: URLError(.timedOut), baseUrl: "http://192.168.1.20:8080"), "only the refused-connection error gets the hint")
+    }
 }
