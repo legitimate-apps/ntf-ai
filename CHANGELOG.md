@@ -4,6 +4,22 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## 1.29.0
+
+- Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.
+- Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too.
+- You can turn this off anytime in Settings.
+
+## 1.28.0
+
+- Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back.
+- Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity.
+- Waiting on you lists the newest question first.
+- Plain buttons can be tapped again, and an answered question shows the answer you chose.
+- Share a topic, a message or a file, or copy a topic's curl or ntf command.
+- Send feedback from Settings, or shake your device to open the form.
+- New setting: Use buttons without unlocking lets you answer from the lock screen.
+
 ## 1.27.0
 
 - Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app.
