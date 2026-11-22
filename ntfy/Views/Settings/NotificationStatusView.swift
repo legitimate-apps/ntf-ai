@@ -168,11 +168,14 @@ struct NtfyShBridgeStatusRows: View {
         ForEach(report.groups, id: \.server) { group in
             NotificationStatusRow(title: Self.serverLabel(group.server),
                                   value: enabled ? NtfyShBridgeCopy.watching(group.watching) : NtfyShBridgeCopy.off)
-            ForEach(group.held.prefix(Self.maxHeldRows), id: \.topic) { held in
-                heldRow(topic: held.topic, hold: held.hold)
+            if let hold = group.serverWide {
+                heldRow(topic: nil, hold: hold).accessibilityIdentifier("bridge-held-server-\(Self.serverLabel(group.server))")
             }
-            if group.held.count > Self.maxHeldRows {
-                Text(String(localized: "And \(group.held.count - Self.maxHeldRows) more")).font(.subheadline).foregroundColor(.secondary)
+            ForEach(group.topicHeld.prefix(Self.maxHeldRows), id: \.topic) { held in
+                heldRow(topic: held.topic, hold: held.hold).accessibilityIdentifier("bridge-held-\(held.topic)")
+            }
+            if group.topicHeld.count > Self.maxHeldRows {
+                Text(String(localized: "And \(group.topicHeld.count - Self.maxHeldRows) more")).font(.subheadline).foregroundColor(.secondary)
             }
         }
         if enabled {
@@ -191,17 +194,18 @@ struct NtfyShBridgeStatusRows: View {
         server.replacingOccurrences(of: "https://", with: "")
     }
 
-    private func heldRow(topic: String, hold: NtfyShBridge.TopicHold) -> some View {
+    /// One topic and its reason, or (topic nil) a reason that holds for every topic on the server.
+    private func heldRow(topic: String?, hold: NtfyShBridge.TopicHold) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(topic)
-                Text(NtfyShBridgeCopy.reason(hold)).font(.subheadline).foregroundColor(.secondary)
+                if let topic { Text(topic) }
+                Text(NtfyShBridgeCopy.reason(hold)).font(topic == nil ? .body : .subheadline)
+                    .foregroundColor(topic == nil ? .primary : .secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("bridge-held-\(topic)")
     }
 
     private func check() {

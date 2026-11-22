@@ -302,7 +302,13 @@ final class NtfyShBridgeTests: XCTestCase {
         wakes.recordWake(hash: garage)
         XCTAssertEqual(bridge.report(wakes: wakes).groups[1].held, [])
         bridge.setEnabled(false)
-        XCTAssertTrue(bridge.report(wakes: wakes).groups.flatMap(\.held).allSatisfy { $0.hold == .bridgeOff || $0.hold == .invalidName })
+        let off = bridge.report(wakes: wakes)
+        XCTAssertTrue(off.groups.flatMap(\.held).allSatisfy { $0.hold == .bridgeOff || $0.hold == .invalidName })
+        // Off is said once per server, not once per topic.
+        XCTAssertEqual(off.groups.map(\.serverWide), [.bridgeOff, .bridgeOff])
+        XCTAssertTrue(off.groups.flatMap(\.topicHeld).allSatisfy { $0.hold == .invalidName })
+        XCTAssertNil(report.groups[0].serverWide)
+        XCTAssertEqual(report.groups[1].topicHeld, report.groups[1].held)
     }
 
     // MARK: Users who never open the app (A3)

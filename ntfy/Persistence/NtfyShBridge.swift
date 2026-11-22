@@ -498,6 +498,10 @@ final class NtfyShBridge: ObservableObject {
         case needsLogin, checkingAccess, invalidName, overCap, bridgeOff, bridgeUnavailable
         /// Self-hosted: no wake-up seen for recent messages; `address` is the one used in the app.
         case notSetUp(address: String)
+
+        /// The setting is off or the bridge can't take the list: true of every topic on the server,
+        /// so the status screen says it once instead of once per topic.
+        var isServerWide: Bool { self == .bridgeOff || self == .bridgeUnavailable }
     }
 
     /// Why a subscription does or doesn't get instant banners through the bridge.
@@ -539,6 +543,10 @@ final class NtfyShBridge: ObservableObject {
             let server: String
             var watching: Int
             var held: [Held]
+            /// The server-wide reason, if any (shown once).
+            var serverWide: TopicHold? { held.first { $0.hold.isServerWide }?.hold }
+            /// Topics held for a reason of their own.
+            var topicHeld: [Held] { held.filter { !$0.hold.isServerWide } }
         }
         var groups: [Group]
     }
