@@ -85,6 +85,9 @@
 		2968F2AD2FBA530200480665 /* AttachmentProgressState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2968F2AC2FBA530200480665 /* AttachmentProgressState.swift */; };
 		2968F2AE2FBA530200480665 /* AttachmentProgressState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2968F2AC2FBA530200480665 /* AttachmentProgressState.swift */; };
 		29AA10022FC0000100F927E4 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA10012FC0000100F927E4 /* CredentialStore.swift */; };
+		29AB30022FC0000100F927E4 /* SharedStateFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AB30012FC0000100F927E4 /* SharedStateFile.swift */; };
+		29AB30032FC0000100F927E4 /* SharedStateFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AB30012FC0000100F927E4 /* SharedStateFile.swift */; };
+		29AB30042FC0000100F927E4 /* SharedStateFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AB30012FC0000100F927E4 /* SharedStateFile.swift */; };
 		29AA10032FC0000100F927E4 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA10012FC0000100F927E4 /* CredentialStore.swift */; };
 		29B4EB062FD7C5C1005CA516 /* CriticalAlertsSettingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B4EB052FD7C5C1005CA516 /* CriticalAlertsSettingView.swift */; };
 		29C6D8312FBD1B750057C9AC /* DownloadDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C6D8302FBD1B750057C9AC /* DownloadDelegate.swift */; };
@@ -346,6 +349,7 @@
 		2939B2142F8F293C00A52946 /* UserTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTableView.swift; sourceTree = "<group>"; };
 		2968F2AC2FBA530200480665 /* AttachmentProgressState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentProgressState.swift; sourceTree = "<group>"; };
 		29AA10012FC0000100F927E4 /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
+		29AB30012FC0000100F927E4 /* SharedStateFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStateFile.swift; sourceTree = "<group>"; };
 		29B4EB052FD7C5C1005CA516 /* CriticalAlertsSettingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CriticalAlertsSettingView.swift; sourceTree = "<group>"; };
 		29C6D8302FBD1B750057C9AC /* DownloadDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadDelegate.swift; sourceTree = "<group>"; };
 		29E841982FB417E400F927E4 /* SubscriptionAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAddView.swift; sourceTree = "<group>"; };
@@ -721,6 +725,7 @@
 				2E1C0A032FF0000100A52946 /* OpenSourceLicenses.swift */,
 				29E8419D2FB417EA00F927E4 /* AttachmentFileStore.swift */,
 				29AA10012FC0000100F927E4 /* CredentialStore.swift */,
+				29AB30012FC0000100F927E4 /* SharedStateFile.swift */,
 				9474F216283531A200CDE4DD /* Log.swift */,
 				29C6D8302FBD1B750057C9AC /* DownloadDelegate.swift */,
 				94867142283EC9950093C7A4 /* Actions.swift */,
@@ -1092,6 +1097,7 @@
 				29E841A82FB417EA00F927E4 /* NotificationAttachmentImageView.swift in Sources */,
 				29E841A92FB417EA00F927E4 /* AttachmentFileStore.swift in Sources */,
 				29AA10022FC0000100F927E4 /* CredentialStore.swift in Sources */,
+				29AB30022FC0000100F927E4 /* SharedStateFile.swift in Sources */,
 				29E841AA2FB417EA00F927E4 /* NotificationAttachmentSectionView.swift in Sources */,
 				29E841AB2FB417EA00F927E4 /* NotificationListView.swift in Sources */,
 				C12100000000000000000003 /* ComposeSheetView.swift in Sources */,
@@ -1134,6 +1140,7 @@
 				29C6D8322FBD1B750057C9AC /* DownloadDelegate.swift in Sources */,
 				29F001032FB560E300F927E4 /* AttachmentFileStore.swift in Sources */,
 				29AA10032FC0000100F927E4 /* CredentialStore.swift in Sources */,
+				29AB30032FC0000100F927E4 /* SharedStateFile.swift in Sources */,
 				9474F2062831D73C00CDE4DD /* ntfy.xcdatamodeld in Sources */,
 				94A3F7CB28386B2100C48E79 /* Config.swift in Sources */,
 				948671482841B1430093C7A4 /* NotificationContent.swift in Sources */,
@@ -1171,6 +1178,7 @@
 				34A49F7842454D470B4862AA /* DownloadDelegate.swift in Sources */,
 				B1538EC09C3A023DD1E16FAD /* AttachmentFileStore.swift in Sources */,
 				604B486407EB2C6E939706C8 /* CredentialStore.swift in Sources */,
+				29AB30042FC0000100F927E4 /* SharedStateFile.swift in Sources */,
 				FD8D93D0550469EBF7F604E3 /* ntfy.xcdatamodeld in Sources */,
 				7A140C48C78E5DE9316171CE /* Config.swift in Sources */,
 				E05481B9D7778173A51BCA78 /* NotificationContent.swift in Sources */,

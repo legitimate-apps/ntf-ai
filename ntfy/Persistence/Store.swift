@@ -57,7 +57,10 @@ class Store: ObservableObject {
     private static let sharedDefaults = UserDefaults(suiteName: Store.appGroup)!
     /// Alerts claimed for a message before its row exists (the extension's fallback for a
     /// poll_request): "<topic URL>#<message id>" to the claim time, kept a week.
-    private let presentationClaims: UserDefaults
+    /// Claims by delivery key (`claimKey`), in their own app-group file (review-130b D).
+    private let presentationClaims: SharedStateFile<[String: Date]>
+    /// Where 1.29 kept them; read until the first write moves them.
+    private let legacyPresentationClaims: UserDefaults
     private static let presentationClaimsKey = "presentationClaimsBeforeRow"
     private static let presentationClaimLifetime: TimeInterval = 7 * 24 * 60 * 60
     private static let sharedDefaultsKeyCriticalAlertsAuthorized = "criticalAlertsAuthorized"
@@ -158,7 +161,14 @@ class Store: ObservableObject {
     ) {
         self.observesPersistentChanges = !inMemory
         self.credentialStore = credentialStore
-        self.presentationClaims = inMemory ? UserDefaults(suiteName: "ntfy.presentationClaims.\(UUID().uuidString)") ?? .standard : Store.sharedDefaults
+        self.legacyPresentationClaims = inMemory ? UserDefaults(suiteName: "ntfy.presentationClaims.\(UUID().uuidString)") ?? .standard : Store.sharedDefaults
+        if inMemory {
+            let directory = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ntfy.claims.\(UUID().uuidString)")
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            self.presentationClaims = SharedStateFile(name: Store.presentationClaimsFile, directory: directory)
+        } else {
+            self.presentationClaims = SharedStateFile(name: Store.presentationClaimsFile)
+        }
         self.topicSecrets = topicSecrets
         let fileManager = FileManager.default
         let appGroupContainerURL = inMemory
@@ -546,7 +556,7 @@ class Store: ObservableObject {
                 subscription.topic.map { topicUrl(baseUrl: baseUrl, topic: $0) }
             }
             let claimTopicUrl = subscription.baseUrl.flatMap { baseUrl in
-                subscription.topic.map { topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: $0) }
+                subscription.topic.map { Store.claimTopicUrl(baseUrl: baseUrl, topic: $0) }
             }
             let soundIdentity = subscription.objectID.uriRepresentation().absoluteString
             context.delete(subscription)
@@ -743,41 +753,70 @@ class Store: ObservableObject {
 
     /// Called by both alert delivery paths, including a full-order reconciliation.
     func recordPresentation(message: Message, baseUrl: String) {
+        // Every alert also lands in the claims file, so the extension's expiry can tell from that
+        // file alone, without Core Data, that this message was alerted (review-130b #5).
+        recordClaimBeforeRow(message: message, baseUrl: baseUrl)
         context.performAndWait {
             guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: message.topic) else { return }
             let request = Notification.fetchRequest()
             request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, message.id)
             if ((try? context.count(for: request)) ?? 0) > 0 {
                 markPresented(id: message.id, on: subscription)
-            } else {
-                // No row yet (the extension's fallback for a poll_request it couldn't fetch, or is
-                // still fetching): remember the claim by id so a later poll doesn't alert again.
-                recordClaimBeforeRow(message: message, baseUrl: baseUrl)
             }
+            // No row yet (the extension's fallback for a poll_request it couldn't fetch, or is
+            // still fetching): the claim above keeps a later poll from alerting it again.
         }
     }
 
+    static let presentationClaimsFile = "ntfai-presentation-claims.json"
+
+    /// The delivery's identity, not the row's: every spelling of ntfy.sh is one origin, so alias rows
+    /// for the same topic share one claim per message (review-130b D).
+    static func claimTopicUrl(baseUrl: String, topic: String) -> String {
+        topicUrl(baseUrl: NtfyShAddress.canonicalize(baseUrl) ?? normalizeBaseUrl(baseUrl), topic: topic)
+    }
+
     private static func claimKey(message: Message, baseUrl: String) -> String {
-        topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: message.topic) + "#" + message.id
+        claimTopicUrl(baseUrl: baseUrl, topic: message.topic) + "#" + message.id
+    }
+
+    private func legacyClaims() -> [String: Date] {
+        (legacyPresentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+    }
+
+    /// Every claim writer and removal is one read-modify-write of the claims file under its lock.
+    /// Returns false when the lock or the write failed (nothing changed).
+    @discardableResult
+    private func updateClaims(_ change: (inout [String: Date]) -> Void) -> Bool {
+        let legacy = legacyClaims()
+        let now = Date()
+        let saved: Bool? = presentationClaims.update { stored in
+            var claims = stored ?? legacy
+            let before = claims
+            claims = claims.filter { now.timeIntervalSince($0.value) < Self.presentationClaimLifetime }
+            change(&claims)
+            let write = claims != before || stored == nil
+            if write { stored = claims }
+            return (write, true)
+        }
+        if saved == true, !legacy.isEmpty { legacyPresentationClaims.removeObject(forKey: Self.presentationClaimsKey) }
+        return saved == true
     }
 
     private func recordClaimBeforeRow(message: Message, baseUrl: String) {
-        let now = Date()
-        var claims = (presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
-        claims = claims.filter { now.timeIntervalSince($0.value) < Self.presentationClaimLifetime }
-        claims[Self.claimKey(message: message, baseUrl: baseUrl)] = now
-        presentationClaims.set(claims, forKey: Self.presentationClaimsKey)
+        let key = Self.claimKey(message: message, baseUrl: baseUrl)
+        if !updateClaims({ $0[key] = Date() }) {
+            Log.w(Store.tag, "Cannot record a presentation claim; a later poll may alert this message again")
+        }
     }
 
     /// The claims belong to the topic like its rows do, so an unsubscribe drops them with the rows.
     private func forgetClaimsBeforeRow(topicUrl: String) {
-        guard let claims = presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date] else { return }
-        let kept = claims.filter { !$0.key.hasPrefix(topicUrl + "#") }
-        if kept.count != claims.count { presentationClaims.set(kept, forKey: Self.presentationClaimsKey) }
+        updateClaims { claims in claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }
     }
 
     func hasClaimBeforeRow(message: Message, baseUrl: String) -> Bool {
-        let claims = (presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+        let claims = presentationClaims.read() ?? legacyClaims()
         guard let at = claims[Self.claimKey(message: message, baseUrl: baseUrl)] else { return false }
         return Date().timeIntervalSince(at) < Self.presentationClaimLifetime
     }
@@ -898,6 +937,46 @@ class Store: ObservableObject {
         }
         Self.alertQueue.async(execute: attempt)
         return { Self.alertQueue.async { finish() } }
+    }
+
+    enum ExpiryClaim: Equatable {
+        /// Nobody had alerted the message: it is claimed now, and the fallback may sound.
+        case claimed
+        /// It was alerted or claimed already.
+        case alreadyAlerted
+        /// Another process holds the alert lock (it may be alerting this message), or the claim
+        /// couldn't be written: the fallback is passive.
+        case contended
+    }
+
+    /// The extension's expiry with no claim settled (review-130b #5). Never waits: the alert lock
+    /// is tried once, and the claim goes to the claims file under a short lock, not Core Data.
+    func claimAtExpiry(message: Message, baseUrl: String) -> ExpiryClaim {
+        let url = container.persistentStoreDescriptions.first?.url
+        var release: () -> Void = {}
+        if url?.path == "/dev/null" {
+            guard memoryAlertLock.wait(timeout: .now()) == .success else { return .contended }
+            release = { self.memoryAlertLock.signal() }
+        } else if let url {
+            let descriptor = open(url.appendingPathExtension("alerts.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+            guard descriptor >= 0, flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                if descriptor >= 0 { close(descriptor) }
+                return .contended
+            }
+            release = { flock(descriptor, LOCK_UN); close(descriptor) }
+        }
+        defer { release() }
+        let key = Self.claimKey(message: message, baseUrl: baseUrl)
+        var had = false
+        let saved: Bool? = presentationClaims.update(timeout: 0.3) { stored in
+            var claims = stored ?? legacyClaims()
+            if let at = claims[key], Date().timeIntervalSince(at) < Self.presentationClaimLifetime { had = true; return (false, true) }
+            claims[key] = Date()
+            stored = claims
+            return (true, true)
+        }
+        if had { return .alreadyAlerted }
+        return saved == true ? .claimed : .contended
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.

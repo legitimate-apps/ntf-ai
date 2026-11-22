@@ -132,6 +132,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
 
         startBadgeSync()
         observeRelayedNotificationResponses()
+        // Screens showing bridge state re-read when the extension writes it, and on activation.
+        BridgeStateSignal.observeOtherProcesses()
 
         return true
     }
@@ -159,6 +161,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         ) { [weak self] _ in
             self?.handleRelayedNotificationResponses()
             QuietTopicAlerts.shared.refreshQuietHours()
+            BridgeStateSignal.postInProcess()
         }
         handleRelayedNotificationResponses()
     }
@@ -321,12 +324,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     /// Executed when a background notification arrives on the "~poll" topic. This is used to trigger polling of local topics.
     /// See https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/pushing_background_updates_to_your_app
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // iOS gives this callback 30 seconds. The deadline and its watchdog start here, before any
+        // store work, on a monotonic clock and off the main queue, and the completion runs exactly
+        // once, by then at the latest (review-130b #2).
+        let finish = BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.budget, completion: completionHandler)
         Log.d(tag, "Background notification received", userInfo)
         
         var wakeManager = SubscriptionManager(store: Store.shared)
         wakeManager.fetch = { ApiService.shared.poll($0, timeout: 8, completionHandler: $1) }
         if wakeManager.handleSilentWake(userInfo: userInfo, completion: { succeeded in
-            completionHandler(succeeded ? .newData : .failed)
+            finish.complete(succeeded ? .newData : .failed)
         }) { return }
 
         if let message = Message.from(userInfo: userInfo), message.isControl {
@@ -334,14 +341,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             let result = Store.shared.ingest(pushedMessage: message, baseUrl: baseUrl, topic: message.topic)
             if case .reconcile(let request) = result {
                 ApiService.shared.poll(request, timeout: 8) { messages, _ in
-                    guard let messages else { completionHandler(.failed); return }
+                    guard let messages else { finish.complete(.failed); return }
                     let presentations = Store.shared.save(notificationsFromMessages: messages, polledWith: request) ?? []
                     self.showNotificationsSequentially(baseUrl: baseUrl, messages: presentations) {
-                        completionHandler(.newData)
+                        finish.complete(.newData)
                     }
                 }
             } else {
-                completionHandler(result == nil ? .noData : .newData)
+                finish.complete(result == nil ? .noData : .newData)
             }
             return
         }
@@ -349,7 +356,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         // Exit out early if this message is not expected
         let topic = userInfo["topic"] as? String ?? ""
         if topic != pollTopic {
-            completionHandler(.noData)
+            finish.complete(.noData)
             return
         }
 
@@ -358,13 +365,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         let subscriptionManager = SubscriptionManager(store: store)
         let subscriptions = store.getSubscriptions() ?? []
         guard !subscriptions.isEmpty else {
-            completionHandler(.noData)
+            finish.complete(.noData)
             return
         }
 
-        // iOS gives this callback 30 seconds. Everything shares one deadline from entry and the
-        // completion runs exactly once, by then at the latest (review-130 #2).
-        let finish = BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.budget, completion: completionHandler)
         let group = DispatchGroup()
         subscriptions.forEach { subscription in
             group.enter()
@@ -382,10 +386,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         }
         group.notify(queue: .main) {
             // ntfy-me.com sends this wake-up about every 20 minutes, so it also keeps the bridge's
-            // registration alive for someone who never opens the app (the server forgets a device
-            // 30 days after its last POST). After the polls, with whatever time is left: sync is a
-            // no-op unless the set changed or the record is a day old, starts no request it
-            // couldn't finish by the deadline, and honours the server's Retry-After.
+            // registration alive (and its ntfy.sh access rechecks current) for someone who never
+            // opens the app. The content is done whatever the bridge does: maintenance runs only
+            // with enough of the budget left, its requests are cancelled at the deadline, and the
+            // wake completes when it ends or at the deadline, whichever is first.
+            guard finish.admitsMaintenance else {
+                Log.d(self.tag, "Background wake: no time left for bridge maintenance")
+                finish.complete()
+                return
+            }
             NtfyShBridge.shared.sync(reason: "background wake", deadline: finish.deadlineDate) { finish.complete() }
         }
     }
@@ -690,36 +699,53 @@ enum FirebaseLogPolicy {
 }
 
 /// A background wake's completion: called exactly once, when the work finishes or at the
-/// deadline, whichever comes first. Later calls do nothing.
+/// deadline, whichever comes first. Later calls do nothing. The deadline is monotonic (system
+/// uptime) and its watchdog runs off the main queue, so a slow store open or a busy main thread
+/// can't push the completion past the system's limit.
 final class BackgroundWakeCompletion {
     /// Under the 30 seconds iOS gives a background notification, with room for the handoff.
     static let budget: TimeInterval = 25
+    /// Bridge maintenance starts only with at least this much of the budget left.
+    static let maintenanceMinimum: TimeInterval = 8
 
-    let deadlineDate: Date
+    private let deadlineUptime: TimeInterval
+    private let uptime: () -> TimeInterval
     private let lock = NSLock()
     private var completion: ((UIBackgroundFetchResult) -> Void)?
     private var newData = false
 
-    init(deadline: TimeInterval, now: Date = Date(),
-         schedule: (TimeInterval, @escaping () -> Void) -> Void = { delay, work in DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work) },
+    init(deadline: TimeInterval, uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         schedule: (TimeInterval, @escaping () -> Void) -> Void = { delay, work in
+             DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay, execute: work)
+         },
          completion: @escaping (UIBackgroundFetchResult) -> Void) {
-        self.deadlineDate = now.addingTimeInterval(deadline)
+        self.uptime = uptime
+        self.deadlineUptime = uptime() + deadline
         self.completion = completion
         // Held strongly until the deadline: the completion must run even if nothing else does.
         schedule(deadline) {
-            if self.completion != nil { Log.w("BackgroundWake", "Deadline reached; completing the background wake") }
+            if self.isPending { Log.w("BackgroundWake", "Deadline reached; completing the background wake") }
             self.complete()
         }
     }
 
+    /// Seconds left before the deadline (never negative).
+    var remaining: TimeInterval { max(0, deadlineUptime - uptime()) }
+    /// The deadline as a date for request budgeting.
+    var deadlineDate: Date { Date().addingTimeInterval(remaining) }
+    var admitsMaintenance: Bool { isPending && remaining >= Self.maintenanceMinimum }
+
+    var isPending: Bool { lock.lock(); defer { lock.unlock() }; return completion != nil }
+
     func noteNewData() { lock.lock(); newData = true; lock.unlock() }
 
-    func complete() {
+    /// Completes with `result`, or with new data / no data as noted.
+    func complete(_ result: UIBackgroundFetchResult? = nil) {
         lock.lock()
         let completion = self.completion
         self.completion = nil
-        let result: UIBackgroundFetchResult = newData ? .newData : .noData
+        let outcome: UIBackgroundFetchResult = result ?? (newData ? .newData : .noData)
         lock.unlock()
-        completion?(result)
+        completion?(outcome)
     }
 }

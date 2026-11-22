@@ -162,7 +162,7 @@ struct NtfyShBridgeStatusRows: View {
     /// Bumped when the bridge, the access cache or a wake check changes in any process.
     @State private var revision = 0
     @State private var expanded = Set<String>()
-    @State private var armed = Set<String>()
+    @State private var visible = false
 
     var body: some View {
         let _ = revision
@@ -197,11 +197,12 @@ struct NtfyShBridgeStatusRows: View {
             if !set.isEmpty {
                 NotificationStatusRow(title: NtfyShBridgeCopy.connection,
                                       value: status.map(NtfyShBridgeCopy.status) ?? NtfyShBridgeCopy.checking)
-                    .onAppear(perform: check)
+                    .onAppear { visible = true; check() }
+                    .onDisappear { visible = false }
+                Text(NtfyShBridgeCopy.renewalNote).font(.footnote).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("bridge-renewal-note")
             }
-            Text(NtfyShBridgeCopy.renewalNote).font(.footnote).foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("bridge-renewal-note")
         }
     }
 
@@ -227,12 +228,13 @@ struct NtfyShBridgeStatusRows: View {
         .accessibilityElement(children: .combine)
         if let topic, hold.offersCheckAgain {
             let hash = topicHash(baseUrl: server, topic: topic)
-            if armed.contains(hash) || SelfHostedWakeCheck.shared.isArmed(hash: hash) {
+            // Driven by the stored check (review-130b #8): it clears when the check completes, the
+            // topic is removed, or the arm times out.
+            if SelfHostedWakeCheck.shared.isArmed(hash: hash) {
                 Text(NtfyShBridgeCopy.checkArmed).font(.footnote).foregroundColor(.secondary)
             } else {
                 Button(NtfyShBridgeCopy.checkAgain) {
-                    armed.insert(hash)
-                    NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge) { status = $0 }
+                    NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge) { show($0) }
                 }
                 .accessibilityIdentifier("bridge-check-again-\(topic)")
             }
@@ -243,7 +245,18 @@ struct NtfyShBridgeStatusRows: View {
         guard !checked else { return }
         checked = true
         bridge.sync(reason: "status screen opened") {
-            bridge.fetchStatus { status = $0 }
+            bridge.fetchStatus { show($0) }
+        }
+    }
+
+    /// A read skipped for the server's pause says so and runs again when the pause ends, while
+    /// the screen is open (review-130b #7).
+    private func show(_ next: NtfyShBridge.Status) {
+        status = next
+        guard case .waiting(let until) = next else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, until.timeIntervalSinceNow + 1)) {
+            guard visible else { return }
+            bridge.fetchStatus { show($0) }
         }
     }
 }

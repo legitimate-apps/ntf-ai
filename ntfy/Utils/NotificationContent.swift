@@ -60,7 +60,9 @@ enum SingleMessagePoll {
                     cutoff: Schedule? = nil,
                     fetch: @escaping Fetch,
                     completion: @escaping (_ message: Message?, _ error: Error?, _ attempts: Int) -> Void) {
-        let lock = NSLock()
+        // Recursive: a read starts under the lock (so the cutoff can't fire between the last check
+        // and the start, review-130b #5), and a fetch may answer synchronously.
+        let lock = NSRecursiveLock()
         var done = false
         var cancel: (() -> Void)?
         var attempts = 0
@@ -80,10 +82,12 @@ enum SingleMessagePoll {
             let remaining = deadline - clock()
             guard remaining >= minimumRead else { complete(nil, index == 0 ? URLError(.timedOut) : PollEmptyResult()); return }
             lock.lock()
-            guard !done else { lock.unlock(); return }
+            defer { lock.unlock() }
+            guard !done else { return }
+            let left = deadline - clock()
+            guard left >= minimumRead else { complete(nil, index == 0 ? URLError(.timedOut) : PollEmptyResult()); return }
             attempts = index + 1
-            lock.unlock()
-            let handle = fetch(remaining) { message, error in
+            let handle = fetch(left) { message, error in
                 guard clock() <= deadline else { complete(nil, URLError(.timedOut)); return }
                 if let message { complete(message, nil); return }
                 guard error is PollEmptyResult else { complete(nil, error); return }
@@ -92,10 +96,8 @@ enum SingleMessagePoll {
                 guard clock() + delays[index] + minimumRead <= deadline else { complete(nil, error); return }
                 schedule(delays[index]) { attempt(index + 1) }
             }
-            lock.lock()
-            if done { lock.unlock(); handle?(); return }
+            if done { handle?(); return }
             cancel = handle
-            lock.unlock()
         }
         attempt(0)
     }

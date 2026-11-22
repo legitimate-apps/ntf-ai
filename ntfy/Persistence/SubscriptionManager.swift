@@ -107,6 +107,8 @@ struct SubscriptionManager {
                 Log.w(tag, "Not tearing down FCM for \(topic): the subscription failed to delete")
                 return
             }
+            // A pending "Check again" on this topic ends with it (review-130b #8).
+            SelfHostedWakeCheck.shared.forget(hash: topicHash(baseUrl: baseUrl, topic: topic))
             reconciler.reconcile(reason: "subscription removed")
         }
     }
@@ -180,6 +182,7 @@ struct SubscriptionManager {
         guard bridge.isAdmitted(hash: hash) else { return }
         check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
                                    messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)),
+                                   admitted: { bridge.isAdmitted(hash: hash) },
                                    evidence: { bridge.forwardingEvidence(hash: hash) })
     }
 

@@ -65,6 +65,18 @@ enum TopicSecretRead<Value: Equatable>: Equatable {
 
 /// A successful empty dictionary means no headers are stored. A failure means storage could not be
 /// read and callers that edit credentials must preserve their current state.
+extension Foundation.Notification.Name {
+    /// A server login or custom header was saved or removed in this process. The ntfy.sh bridge
+    /// re-evaluates which names it may send (review-130b #4).
+    static let serverCredentialsChanged = Foundation.Notification.Name("serverCredentialsChanged")
+}
+
+enum ServerCredentialChange {
+    static func announce() {
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .serverCredentialsChanged, object: nil) }
+    }
+}
+
 enum HTTPHeadersReadResult: Equatable {
     case success([String: String])
     case failure
@@ -277,6 +289,7 @@ final class KeychainCredentialStore: CredentialStoring, TopicSecretStoring {
         valueDescription: String,
         accessibility: CFString = kSecAttrAccessibleAfterFirstUnlock
     ) -> Bool {
+        defer { ServerCredentialChange.announce() }
         var attributes = Self.query(service: service, baseUrl: baseUrl)
         // Available whenever the device has been unlocked once — the NSE runs while the screen is
         // locked, so kSecAttrAccessibleWhenUnlocked would make pushes fail to authenticate.
@@ -342,6 +355,7 @@ final class KeychainCredentialStore: CredentialStoring, TopicSecretStoring {
     }
 
     private func delete(service: String, baseUrl: String) -> Bool {
+        defer { ServerCredentialChange.announce() }
         let status = SecItemDelete(Self.query(service: service, baseUrl: baseUrl) as CFDictionary)
         return status == errSecSuccess || status == errSecItemNotFound
     }

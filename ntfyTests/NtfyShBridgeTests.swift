@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 import UIKit
+import SwiftUI
 import UserNotifications
 @testable import ntfy
 
@@ -9,7 +10,7 @@ private final class BridgeStubProtocol: URLProtocol {
     struct Sent { let request: URLRequest; let body: Data? }
     static var sent: [Sent] = []
     static var reply: (URLRequest) -> Result<(Int, [String: String], String), URLError> = { _ in
-        .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+        .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -48,7 +49,17 @@ private final class NoApnsSubscriber: FcmTopicSubscriber {
     func unsubscribe(fromTopic topic: String, completion: @escaping (Error?) -> Void) { completion(nil) }
 }
 
+/// A fresh directory for a bridge's shared state files, so tests never touch the app group's.
+enum BridgeTestState {
+    static func directory() -> URL {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("bridge-state-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+}
+
 final class NtfyShBridgeTests: XCTestCase {
+    private var stateDirectory: URL!
     private var store: Store!
     private var defaults: UserDefaults!
     private var suite = ""
@@ -60,8 +71,9 @@ final class NtfyShBridgeTests: XCTestCase {
         store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
         suite = "NtfyShBridgeTests.\(UUID())"
         defaults = UserDefaults(suiteName: suite)
+        stateDirectory = BridgeTestState.directory()
         BridgeStubProtocol.sent = []
-        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1800000000}"#)) }
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
         bridge = makeBridge()
     }
 
@@ -74,7 +86,7 @@ final class NtfyShBridgeTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [BridgeStubProtocol.self]
         return NtfyShBridge(store: store, defaults: defaults, session: URLSession(configuration: config),
-                            appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock })
+                            appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock }, stateDirectory: stateDirectory)
     }
 
     private func sync(_ reason: String = "test") {
@@ -228,7 +240,7 @@ final class NtfyShBridgeTests: XCTestCase {
         BridgeStubProtocol.reply = { request in
             if request.url?.path == "/mine/auth" { return .success((403, [:], #"{"code":40301}"#)) }
             if request.url?.path == "/alerts/auth" { return .success((200, [:], #"{"success":true}"#)) }
-            return .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+            return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
         }
         sync()
         let probes = BridgeStubProtocol.sent.filter { $0.request.url?.path.hasSuffix("/auth") == true }
@@ -274,20 +286,21 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertEqual(probes(), 2)
     }
 
-    /// The server's own `unwatchable` list (S1) names topics it couldn't read anonymously.
-    func testUnwatchableFromThePostAndStatusIsShownAsNeedsLogin() {
+    /// The server's own `unwatchable` list (S1) names topics it couldn't watch. Since fix round 2
+    /// (review-130b #12) that reads as a refusal, not as "needs a login": the cause isn't given.
+    func testUnwatchableFromThePostAndStatusIsShownAsRefused() {
         _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "phil")
-        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0,"expires":1800000000,"unwatchable":["phil"]}"#)) }
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0,"expires":1900000000,"unwatchable":["phil"]}"#)) }
         sync()
         XCTAssertEqual(bridge.currentRecord.unwatchable, ["phil"])
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .held(.needsLogin))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .held(.refused))
         BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"connected":true,"unwatchable":[]}"#)) }
         let done = expectation(description: "status")
         bridge.fetchStatus { _ in done.fulfill() }
         wait(for: [done], timeout: 5)
         XCTAssertEqual(bridge.currentRecord.unwatchable, [])
         // review-130 #4: the refusal is cached, so it stays out until a fresh anonymous 200.
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .held(.needsLogin))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .held(.refused))
         clock = clock.addingTimeInterval(25 * 3600)
         BridgeStubProtocol.reply = { request in
             request.url?.path == "/phil/auth" ? .success((200, [:], "{}")) : .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
@@ -356,7 +369,8 @@ final class NtfyShBridgeTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [BridgeStubProtocol.self]
         return NtfyShBridge(store: store, defaults: defaults, session: URLSession(configuration: config),
-                            appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock }, isExtension: true)
+                            appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock },
+                            stateDirectory: stateDirectory, isExtension: true)
     }
 
     private func renew(_ bridge: NtfyShBridge) {
@@ -430,12 +444,12 @@ final class NtfyShBridgeTests: XCTestCase {
     /// Red on 0c3563e: two processes could each make an install ID.
     func testTwoCreatorsRacingMakeOneInstallId() {
         let path = NSTemporaryDirectory() + "bridge-lock-\(UUID()).lock"
-        let first = NtfyShBridge(store: store, defaults: defaults, network: false, lock: SharedFileLock(path: path))
-        let second = NtfyShBridge(store: store, defaults: defaults, network: false, lock: SharedFileLock(path: path))
+        let first = NtfyShBridge(store: store, defaults: defaults, network: false, lock: SharedFileLock(path: path), stateDirectory: stateDirectory)
+        let second = NtfyShBridge(store: store, defaults: defaults, network: false, lock: SharedFileLock(path: path), stateDirectory: stateDirectory)
         var ids = [String](repeating: "", count: 64)
         let idsLock = NSLock()
         DispatchQueue.concurrentPerform(iterations: 64) { i in
-            let id = (i % 2 == 0 ? first : second).deviceId
+            let id = (i % 2 == 0 ? first : second).deviceId ?? "lock timed out"
             idsLock.lock(); ids[i] = id; idsLock.unlock()
         }
         XCTAssertEqual(Set(ids).count, 1)
@@ -446,13 +460,16 @@ final class NtfyShBridgeTests: XCTestCase {
     /// (another process or a rerun had started since).
     func testAReplyToAnOlderRegistrationIsDropped() throws {
         save("https://ntfy.sh", "a")
-        let defaults = self.defaults!
+        let file = bridge.recordFile
         BridgeStubProtocol.reply = { _ in
             // A newer registration starts elsewhere while this one is on the wire.
-            var record = (defaults.data(forKey: NtfyShBridge.recordKey).flatMap { try? JSONDecoder().decode(BridgeRecord.self, from: $0) }) ?? BridgeRecord()
-            record.revision = (record.revision ?? 0) + 1
-            defaults.set(try! JSONEncoder().encode(record), forKey: NtfyShBridge.recordKey)
-            return .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+            file.update { record -> (write: Bool, result: Void) in
+                var next = record ?? BridgeRecord()
+                next.revision = (next.revision ?? 0) + 1
+                record = next
+                return (true, ())
+            }
+            return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
         }
         sync()
         XCTAssertNil(bridge.currentRecord.acceptedSignature, "an obsolete reply records nothing")
@@ -481,7 +498,7 @@ final class NtfyShBridgeTests: XCTestCase {
         save("https://ntfy.sh", "a")
         sync()
         BridgeStubProtocol.reply = { request in
-            request.httpMethod == "GET" ? .success((404, [:], "")) : .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+            request.httpMethod == "GET" ? .success((404, [:], "")) : .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
         }
         let status = expectation(description: "status")
         bridge.fetchStatus { XCTAssertEqual($0, .unknownDevice); status.fulfill() }
@@ -497,7 +514,7 @@ final class NtfyShBridgeTests: XCTestCase {
         let down = expectation(description: "down")
         bridge.fetchStatus { _ in down.fulfill() }
         wait(for: [down], timeout: 5)
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: true), .held(.reconnecting))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: true), .held(.upstreamPending))
     }
 
     // MARK: Protected names (review-130 #4)
@@ -519,32 +536,46 @@ final class NtfyShBridgeTests: XCTestCase {
         save("https://ntfy.sh", "a_q7x")
         BridgeStubProtocol.reply = { request in
             request.url?.path.hasSuffix("/auth") == true ? .success((200, [:], "{}"))
-                : .success((200, [:], #"{"watching":0,"expires":1800000000,"unwatchable":["a_q7x"]}"#))
+                : .success((200, [:], #"{"watching":0,"expires":1900000000,"unwatchable":["a_q7x"]}"#))
         }
         sync()
-        XCTAssertEqual(bridge.access["a_q7x"]?.state, .protected)
+        // Red on 15669a0 (review-130b #12): any refusal read as "needs a login".
+        XCTAssertEqual(bridge.access["a_q7x"]?.state, .refused)
         XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.needsLogin))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.refused))
     }
 
     /// Red on 0c3563e: a 200 cached for a week kept a name in the set after it was made private.
-    /// Older than a day it is checked again first; a name the server already holds stays meanwhile.
-    func testAPositiveOlderThanADayIsRecheckedBeforeItIsSent() throws {
+    /// Red on 15669a0 (review-130b #4): a name the server already held stayed in every full
+    /// replacement while its recheck was outstanding, with no bound. Now, with a login, a 200 is
+    /// sendable for 36 hours (rechecked from 24), and past that the name is held, accepted or not.
+    func testAPositiveIsSendableFor36HoursThenHeldUntilRechecked() throws {
         _ = store.saveUser(baseUrl: "https://ntfy.sh", username: "u", password: "p")
         save("https://ntfy.sh", "a_q7x")
         save("https://ntfy.sh", "b_q7x")
         sync()
         XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, ["a_q7x", "b_q7x"])
+        let subs: [(baseUrl: String, topic: String, hasLogin: Bool)] = [("https://ntfy.sh", "a_q7x", true)]
+        let checked = clock
+        func at(_ hours: Double) -> BridgeWatchSet {
+            BridgeWatchSet.compute(subscriptions: subs, access: ["a_q7x": NtfyShAccess(state: .open, checked: checked)],
+                                   now: checked.addingTimeInterval(hours * 3600), appBaseUrl: "https://ntfy-me.com")
+        }
+        XCTAssertEqual(at(23).needsProbe, [])
+        XCTAssertEqual(at(25).ntfyShTopics, ["a_q7x"], "inside 36 h: still sent")
+        XCTAssertEqual(at(25).needsProbe, ["a_q7x"], "from 24 h: rechecked")
+        XCTAssertEqual(at(35.9).ntfyShTopics, ["a_q7x"])
+        XCTAssertEqual(at(36.1).ntfyShTopics, [], "past 36 h: never sent on an old answer")
+        XCTAssertEqual(at(36.1).held.map(\.hold), [.checkingAccess])
+        XCTAssertEqual(at(36.1).needsProbe, ["a_q7x"])
+        // Without a login nothing is withheld: ntfy.sh's own answer decides.
+        let anonymous = BridgeWatchSet.compute(subscriptions: [("https://ntfy.sh", "a_q7x", false)], access: [:],
+                                               now: clock, appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(anonymous.ntfyShTopics, ["a_q7x"])
         clock += 2 * 24 * 3600
-        let stale = BridgeWatchSet.compute(subscriptions: [("https://ntfy.sh", "a_q7x", true), ("https://ntfy.sh", "c_q7x", true)],
-                                           access: bridge.access.merging(["c_q7x": NtfyShAccess(state: .open, checked: clock.addingTimeInterval(-2 * 24 * 3600))]) { $1 },
-                                           accepted: ["t:a_q7x"], now: clock, appBaseUrl: "https://ntfy-me.com")
-        XCTAssertEqual(stale.needsProbe, ["a_q7x", "c_q7x"])
-        XCTAssertEqual(stale.ntfyShTopics, ["a_q7x"], "accepted: stays while its recheck is outstanding")
-        XCTAssertEqual(stale.held.map(\.topic), ["c_q7x"], "never accepted: waits for the recheck")
         // The recheck says private now: it goes.
         BridgeStubProtocol.reply = { request in
-            request.url?.path == "/a_q7x/auth" ? .success((401, [:], "")) : .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+            request.url?.path == "/a_q7x/auth" ? .success((401, [:], "")) : .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
         }
         sync()
         XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["b_q7x"])
@@ -559,12 +590,14 @@ final class NtfyShBridgeTests: XCTestCase {
             case "/a_q7x/auth": return .success((200, [:], ""))
             case "/b_q7x/auth": return .success((429, ["Retry-After": "600"], ""))
             case "/c_q7x/auth": return .success((200, [:], ""))
-            default: return .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+            default: return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
             }
         }
         sync()
         XCTAssertEqual(bridge.access["a_q7x"]?.state, .open)
-        XCTAssertNil(bridge.access["b_q7x"])
+        // Since fix round 2 (review-130b #4) a rate-limited check is recorded as a failure: with a
+        // login saved, the name then waits for a fresh 200.
+        XCTAssertEqual(bridge.access["b_q7x"]?.state, .unknown)
         XCTAssertNil(bridge.access["c_q7x"], "stopped at the 429")
         XCTAssertEqual(bridge.probeBlockedUntil, clock.addingTimeInterval(600))
         XCTAssertEqual(try? lastBody()["ntfy_sh_topics"] as? [String], ["a_q7x"])
@@ -629,7 +662,11 @@ final class NtfyShBridgeTests: XCTestCase {
                                         schedule: { _, work in work() }, now: { [unowned self] in self.clock })
         XCTAssertNil(wakes.plan(hash: topicHash(baseUrl: "https://home.example", topic: "g"), messageTime: clock))
         let status = expectation(description: "status")
-        bridge.fetchStatus { XCTAssertEqual($0, .unavailable); status.fulfill() }
+        // Since fix round 2 (review-130b #7) it says when it will ask again, not "Couldn't check".
+        bridge.fetchStatus { result in
+            if case .waiting = result {} else { XCTFail("\(result)") }
+            status.fulfill()
+        }
         wait(for: [status], timeout: 5)
         XCTAssertEqual(BridgeStubProtocol.sent.count, sent, "nor the status read")
         clock += 24 * 3600 + 1
@@ -652,7 +689,7 @@ final class NtfyShBridgeTests: XCTestCase {
         clock += 30
         sync()
         XCTAssertEqual(BridgeStubProtocol.sent.count, sent, "inside the backoff")
-        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1800000000}"#)) }
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
         let user = expectation(description: "user")
         bridge.sync(reason: "setting", userInitiated: true) { user.fulfill() }
         wait(for: [user], timeout: 5)
@@ -770,7 +807,7 @@ final class NtfyShBridgeTests: XCTestCase {
         sync()
         XCTAssertEqual(bridge.record.lastOutcome, .full)
         clock += 61
-        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1800000000}"#)) }
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
         sync()
         XCTAssertEqual(BridgeStubProtocol.sent.count, 3)
         XCTAssertEqual(bridge.record.lastOutcome, .ok)
@@ -816,14 +853,14 @@ final class NtfyShBridgeTests: XCTestCase {
         BridgeStubProtocol.reply = { request in
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/v1/ntfai/watch")
-            return .success((200, [:], #"{"watching":2,"expires":1800000000,"connected":true}"#))
+            return .success((200, [:], #"{"watching":2,"expires":1900000000,"connected":true}"#))
         }
         _ = bridge.deviceId
         var statuses: [NtfyShBridge.Status] = []
         let first = expectation(description: "status")
         bridge.fetchStatus { statuses.append($0); first.fulfill() }
         wait(for: [first], timeout: 5)
-        XCTAssertEqual(BridgeStubProtocol.sent.last?.request.url?.query, "device=\(bridge.deviceId)")
+        XCTAssertEqual(BridgeStubProtocol.sent.last?.request.url?.query, "device=\(bridge.deviceId ?? "none")")
         BridgeStubProtocol.reply = { _ in .success((404, [:], "")) }
         let second = expectation(description: "unknown")
         bridge.fetchStatus { statuses.append($0); second.fulfill() }
@@ -831,12 +868,12 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertEqual(statuses, [.connected(watching: 2), .unknownDevice])
     }
 
-    func testDiagnosticSummaryHasNoTopicNamesOrDeviceId() {
+    func testDiagnosticSummaryHasNoTopicNamesOrDeviceId() throws {
         _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "secret_topic_name")
         sync()
         let summary = bridge.diagnosticSummary
         XCTAssertFalse(summary.contains("secret_topic_name"))
-        XCTAssertFalse(summary.contains(bridge.deviceId))
+        XCTAssertFalse(summary.contains(try XCTUnwrap(bridge.deviceId)))
         XCTAssertTrue(summary.contains("sent 1t/0h, last ok (200)"), summary)
     }
 
@@ -872,28 +909,29 @@ final class NtfyShBridgeTests: XCTestCase {
         "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@.",
         "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@.",
         "Instant banners for ntfy.sh and other servers",
-        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. With a login saved, NTF-AI checks each ntfy.sh topic with ntfy.sh without it first and sends only topics anyone can read. A topic made private later is dropped at its next check, within about a day. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.",
-        "Instant banners start once NTF-AI has been opened after installing or updating. NTF-AI keeps this device's list current in the background when the system allows it, which isn't guaranteed; if banners stop, open NTF-AI.",
-        "A server whose upstream is %@ still wakes this device.",
+        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first checks each ntfy.sh topic with ntfy.sh without sending them and sends only topics anyone can read. It checks again when NTF-AI next runs, about once a day: a topic made private is dropped then, and one it can't check is held back. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.",
+        "For these topics, opening the app lets it set up or repair banners. NTF-AI also keeps this device's list current in the background when the system allows it, which isn't guaranteed.",
+        "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
         "Instant banners", "Watching %lld", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
-        "Checking with ntfy.sh whether anyone can read this topic. Until then, new messages show when you open the app.",
+        "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.",
+        "ntfy.sh didn't let NTF-AI check this topic, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.",
         "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.",
         "Over the limit of 100 topics per list, so new messages show when you open the app.",
         "Instant banners through ntfy.sh are off in Settings. Messages that would come through ntfy.sh show when you open the app.",
         "Removing this device's topics from %@. NTF-AI tries again the next time it runs.",
         "%@ couldn't take this device's list. NTF-AI tries again the next time it runs. Until then, messages that would come through ntfy.sh show when you open the app.",
-        "Being added to what %@ watches. Instant banners start once it accepts the list.",
+        "Being added to what %@ watches. Once it accepts the list, a message to this topic can wake this device.",
         "%@ no longer has this device's list. NTF-AI sends it again the next time it runs; if banners don't return, open NTF-AI.",
-        "%@ is reconnecting to ntfy.sh. Until it is back, new messages show when you open the app.",
+        "%@ isn't watching ntfy.sh for this device right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, new messages show when you open the app.",
         "This device hasn't finished push setup for this topic yet. Until then, new messages show when you open the app.",
         "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly %@. Check again to test with the next message.",
-        "Check again", "The next message from this server will be checked.", "Pending", "Unavailable, will retry",
-        "This message is no longer on %@, or the server doesn't keep messages.",
+        "Check again", "NTF-AI checks the next message from this server that arrives within a day.", "Pending", "Unavailable, will retry",
+        "This message isn't available from %@ right now. It may have expired, the server may not keep messages, or it may not have arrived there yet.",
         "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.",
         "Last registration", "Never", "Bridge connection",
         "Checking…", "Accepted", "Rejected by the server", "Rate limited, will retry", "Bridge full, will retry",
-        "Server error, will retry", "No connection, will retry", "Connected", "Reconnecting to ntfy.sh",
+        "Server error, will retry", "No connection, will retry", "Connected", "Not watching ntfy.sh right now", "Will check again shortly", "Watch limit reached, will retry",
         "Not registered yet", "Couldn't check", "%@, %@", "On", "Off",
         "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.",
         "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.",
@@ -925,10 +963,18 @@ final class NtfyShBridgeTests: XCTestCase {
         for retired in ["And %lld more", "Needs a login on ntfy.sh, so new messages show when you open the app.",
                         "Checking whether anyone can read this topic on ntfy.sh. Until then, new messages show when you open the app.",
                         "Instant banners for ntfy.sh and other servers is off in Settings, so new messages show when you open the app.",
-                        "%@ is busy or unreachable and will retry on its own. Until then, new messages show when you open the app."] {
+                        "%@ is busy or unreachable and will retry on its own. Until then, new messages show when you open the app.",
+                        // Retired in fix round 2 (review-130b #10, #11, #12).
+                        "Reconnecting to ntfy.sh", "%@ is reconnecting to ntfy.sh. Until it is back, new messages show when you open the app.",
+                        "A server whose upstream is %@ still wakes this device.", "The next message from this server will be checked.",
+                        "This message is no longer on %@, or the server doesn't keep messages.",
+                        "Being added to what %@ watches. Instant banners start once it accepts the list.",
+                        "Checking with ntfy.sh whether anyone can read this topic. Until then, new messages show when you open the app.",
+                        "Instant banners start once NTF-AI has been opened after installing or updating. NTF-AI keeps this device's list current in the background when the system allows it, which isn't guaranteed; if banners stop, open NTF-AI."] {
             XCTAssertFalse(keys.contains(retired), retired)
         }
         XCTAssertFalse(keys.contains { $0.hasPrefix("%@ watches your ntfy.sh topics") })
+        XCTAssertFalse(keys.contains { $0.contains("within about a day") })
     }
 
     func testLocalNetworkHostsAreRecognized() {
@@ -1063,7 +1109,7 @@ final class SingleMessagePollTests: XCTestCase {
         let content = UNMutableNotificationContent()
         let missing = NotificationHealth.fetchFailureContent(content, topic: "alerts", missingOn: "home.example")
         XCTAssertEqual(missing.body, DeliveryHealthCopy.missingMessage(server: "home.example"))
-        XCTAssertEqual(missing.body, String(localized: "This message is no longer on \("home.example"), or the server doesn't keep messages."))
+        XCTAssertEqual(missing.body, String(localized: "This message isn't available from \("home.example") right now. It may have expired, the server may not keep messages, or it may not have arrived there yet."))
         let network = NotificationHealth.fetchFailureContent(content, topic: "alerts")
         XCTAssertEqual(network.body, DeliveryHealthCopy.fetchFailure(topic: "alerts"))
     }
@@ -1227,7 +1273,8 @@ final class SelfHostedWakeCheckTests: XCTestCase {
     func testOnlyPolledSelfHostedMessagesTheBridgeHoldsAreChecked() throws {
         let m = Message(id: "m", time: Int64(clock.timeIntervalSince1970) - 2, event: "message", topic: "garage")
         let bridge = NtfyShBridge(store: Store(inMemory: true, credentialStore: InMemoryCredentialStore()), defaults: defaults,
-                                  network: false, appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock })
+                                  network: false, appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock },
+                                  stateDirectory: BridgeTestState.directory())
         for server in ["https://ntfy.sh", "https://ntfy-me.com", base] {
             SubscriptionManager.checkWakeUps(baseUrl: server, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com")
         }
@@ -1235,7 +1282,7 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         var record = BridgeRecord()
         record.acceptedSignature = "t:|h:" + garageHash
         record.lastOutcome = .ok
-        defaults.set(try JSONEncoder().encode(record), forKey: NtfyShBridge.recordKey)
+        bridge.recordFile.update { stored -> (write: Bool, result: Void) in stored = record; return (true, ()) }
         SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com")
         XCTAssertEqual(sent.count, 1)
         XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 1, "no confirmed connection: weak")
@@ -1331,5 +1378,523 @@ extension PresentationClaimTests {
         XCTAssertTrue(store.hasClaimBeforeRow(message: message, baseUrl: "https://home.example"))
         XCTAssertTrue(store.delete(subscription: row))
         XCTAssertFalse(store.hasClaimBeforeRow(message: message, baseUrl: "https://home.example"))
+    }
+}
+
+// MARK: - 1.30 fix round 2 (review-130b)
+
+extension NtfyShBridgeTests {
+    private func spin(_ seconds: TimeInterval = 0.2) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
+
+    private var watchPosts: Int {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "POST" && $0.request.url?.path == "/v1/ntfai/watch" }.count
+    }
+
+    private func stubSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BridgeStubProtocol.self]
+        return URLSession(configuration: config)
+    }
+
+    private func until(_ timeout: TimeInterval = 3, _ condition: () -> Bool) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < end { spin(0.05) }
+        return condition()
+    }
+
+    // A: observer recursion
+
+    /// Red on 15669a0 (review-130b A): `reload()` posted the notification that the status screen
+    /// and Topic details answer with `reload()`.
+    func testReloadNeverPostsTheChangeNotification() {
+        save("https://ntfy.sh", "a")
+        sync()
+        spin()
+        var posts = 0
+        let token = NotificationCenter.default.addObserver(forName: .ntfyShBridgeStateChanged, object: nil, queue: nil) { _ in posts += 1 }
+        defer { NotificationCenter.default.removeObserver(token) }
+        bridge.reload()
+        let other = makeBridge()
+        other.reload()
+        spin()
+        XCTAssertEqual(posts, 0)
+    }
+
+    /// Red on 15669a0 (review-130b A): the first change posted while the screen was open recursed
+    /// until the stack overflowed. Hosted unseeded: a post terminates, and a real change written
+    /// by another writer on the same files (as the extension is) reaches the open screen.
+    func testTheHostedStatusScreenSurvivesAChangeAndShowsIt() {
+        save("https://ntfy.sh", "a")
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UIHostingController(rootView: List { NtfyShBridgeStatusRows(bridge: bridge, subscriptionCount: 1) })
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        spin(0.3)
+        NotificationCenter.default.post(name: .ntfyShBridgeStateChanged, object: nil)
+        spin(0.3)
+        // Another writer registers; the Darwin signal brings the open screen's bridge up to date.
+        BridgeStateSignal.observeOtherProcesses()
+        let other = makeBridge()
+        let done = expectation(description: "other writer")
+        other.sync(reason: "other process") { done.fulfill() }
+        wait(for: [done], timeout: 5)
+        XCTAssertNotNil(other.currentRecord.acceptedSignature)
+        XCTAssertTrue(until { self.bridge.record == other.currentRecord }, "the open screen re-read the other writer's record")
+    }
+
+    // E: unreadable store
+
+    /// Red on 15669a0 (review-130b E): an unreadable store read as no subscriptions, and the empty
+    /// replacement removed every name the server held.
+    func testAnUnreadableStoreSendsNoReplacement() throws {
+        save("https://ntfy.sh", "a")
+        sync()
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a"])
+        let posts = watchPosts
+        bridge.readSubscriptions = { nil }
+        clock += 2 * 24 * 3600
+        sync("store unreadable")
+        XCTAssertEqual(watchPosts, posts, "no replacement from an unreadable store")
+        XCTAssertNotNil(bridge.currentRecord.acceptedSignature)
+        XCTAssertEqual(bridge.subscribedSet(), .empty, "the screens show nothing rather than a guess")
+    }
+
+    // #4: names that may be protected
+
+    /// Red on 15669a0 (review-130b #4): a Keychain read failure read as "no headers", so the name
+    /// went out unchecked. Unknown credentials count as a login, and a failed check withholds it.
+    func testAnUnreadableKeychainCountsAsALogin() throws {
+        let credentials = try XCTUnwrap(store.credentialStore as? InMemoryCredentialStore)
+        credentials.setHeaderReadsFail(true)
+        save("https://ntfy.sh", "a_q7x")
+        BridgeStubProtocol.reply = { request in
+            request.url?.path == "/a_q7x/auth" ? .success((429, [:], "")) : .success((200, [:], #"{"watching":0,"expires":1900000000}"#))
+        }
+        sync()
+        XCTAssertTrue(BridgeStubProtocol.sent.contains { $0.request.url?.path == "/a_q7x/auth" }, "checked first")
+        XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.checkingAccess))
+    }
+
+    /// Red on 15669a0 (review-130b #4): a name the server already held stayed in every
+    /// replacement while its recheck failed. A failed or rate-limited recheck withholds it until a fresh 200.
+    func testAFailedRecheckWithholdsTheNameUntilAFresh200() throws {
+        _ = store.saveUser(baseUrl: "https://ntfy.sh", username: "u", password: "p")
+        save("https://ntfy.sh", "a_q7x")
+        sync()
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a_q7x"])
+        clock += 25 * 3600
+        BridgeStubProtocol.reply = { request in
+            request.url?.path == "/a_q7x/auth" ? .success((429, ["Retry-After": "60"], "")) : .success((200, [:], #"{"watching":0,"expires":1900000000}"#))
+        }
+        sync()
+        XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.checkingAccess))
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], [], "the replacement drops it")
+        clock += 2 * 3600
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
+        sync()
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a_q7x"], "a fresh 200 brings it back")
+    }
+
+    /// Red on 15669a0 (review-130b #4): the last answer saved won, so a check that started before
+    /// the relay's refusal could undo it.
+    func testNewerAccessEvidenceWins() {
+        let refusal = NtfyShAccess(state: .refused, checked: clock)
+        let olderCheck = NtfyShAccess(state: .open, checked: clock.addingTimeInterval(-5))
+        XCTAssertEqual(refusal.merged(with: olderCheck), refusal)
+        XCTAssertEqual(olderCheck.merged(with: refusal), refusal)
+        let failed = NtfyShAccess(state: .unknown, checked: clock.addingTimeInterval(10))
+        XCTAssertEqual(refusal.merged(with: failed).state, .refused, "a failed check isn't evidence")
+        XCTAssertEqual(refusal.merged(with: failed).failedAt, clock.addingTimeInterval(10))
+        XCTAssertFalse(refusal.merged(with: failed).mayCheck(now: clock.addingTimeInterval(20)))
+    }
+
+    /// Red on 15669a0 (review-130b #4): saving, editing or removing a credential changed nothing
+    /// until some later trigger, so a name could go out unchecked meanwhile.
+    func testACredentialChangeReevaluatesTheList() {
+        save("https://ntfy.sh", "a_q7x")
+        let watcher = NtfyShBridge(store: store, defaults: defaults, session: stubSession(), appBaseUrl: "https://ntfy-me.com",
+                                   now: { [unowned self] in self.clock }, stateDirectory: stateDirectory,
+                                   isExtension: false, observesCredentialChanges: true)
+        let done = expectation(description: "first")
+        watcher.sync(reason: "first") { done.fulfill() }
+        wait(for: [done], timeout: 5)
+        XCTAssertFalse(BridgeStubProtocol.sent.contains { $0.request.url?.path == "/a_q7x/auth" }, "no login: no check")
+        _ = store.saveUser(baseUrl: "https://ntfy.sh", username: "u", password: "p")
+        ServerCredentialChange.announce()
+        XCTAssertTrue(until { BridgeStubProtocol.sent.contains { $0.request.url?.path == "/a_q7x/auth" } }, "re-evaluated: now checked")
+        withExtendedLifetime(watcher) {}
+    }
+
+    // #1 and D: shared state
+
+    /// Red on 15669a0 (review-130b #1): the shared lock waited without bound. Now a busy lock skips
+    /// the operation after its timeout, never running it unlocked.
+    func testABusySharedLockSkipsTheOperation() {
+        let path = NSTemporaryDirectory() + "bridge-lock-\(UUID()).lock"
+        let holder = SharedFileLock(path: path)
+        let waiter = SharedFileLock(path: path)
+        let held = expectation(description: "held")
+        let release = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { holder.withLock { held.fulfill(); release.wait() } }
+        wait(for: [held], timeout: 2)
+        let started = Date()
+        var ran = false
+        XCTAssertNil(waiter.withLock(timeout: 0.2) { ran = true })
+        XCTAssertFalse(ran)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1.5)
+        release.signal()
+        XCTAssertNotNil(waiter.withLock(timeout: 2) { ran = true })
+        XCTAssertTrue(ran)
+    }
+
+    /// Red on 15669a0 (review-130b D): a renewal answer was applied to whatever registration was
+    /// current when it landed, so a 40400 for an older one asked a newer one for repair.
+    func testARenewalAnswerForAnOlderRegistrationIsDropped() {
+        let nse = extensionBridge()
+        save("https://ntfy.sh", "a")
+        sync()
+        clock += 8 * 24 * 3600
+        let file = bridge.recordFile
+        BridgeStubProtocol.reply = { _ in
+            file.update { stored -> (write: Bool, result: Void) in
+                var next = stored ?? BridgeRecord()
+                next.revision = (next.revision ?? 0) + 1
+                stored = next
+                return (true, ())
+            }
+            return .success((404, [:], #"{"code":40400,"error":"no such device"}"#))
+        }
+        renew(nse)
+        XCTAssertNil(bridge.currentRecord.repairRequested, "the answer belonged to the registration it replaced")
+        XCTAssertNil(bridge.currentRecord.lastRenewAttempt.flatMap { _ in bridge.currentRecord.renewMissed })
+    }
+
+    /// Red on 15669a0 (review-130b, generic 404): a 404 without S8's code deferred renewal until
+    /// the app next registered, which a banner-only user may never do. Now it retries about daily.
+    func testAGeneric404RenewalIsRetriedAboutOnceADay() {
+        let nse = extensionBridge()
+        save("https://ntfy.sh", "a")
+        sync()
+        clock += 8 * 24 * 3600
+        BridgeStubProtocol.reply = { _ in .success((404, [:], #"{"error":"page not found"}"#)) }
+        renew(nse)
+        XCTAssertEqual(bridge.currentRecord.renewMissed, true)
+        let count = BridgeStubProtocol.sent.count
+        clock += 2 * 3600
+        renew(nse)
+        XCTAssertEqual(BridgeStubProtocol.sent.count, count, "not hourly")
+        clock += NtfyShBridge.renewMissedRetryInterval
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"expires":1900000000}"#)) }
+        renew(nse)
+        XCTAssertEqual(BridgeStubProtocol.sent.count, count + 1, "retried after a day")
+        XCTAssertNil(bridge.currentRecord.renewMissed)
+    }
+
+    // #7: status truth
+
+    /// Red on 15669a0 (review-130b #7): an answer overtaken by a newer status read still landed,
+    /// in the record and on screen.
+    func testAnOvertakenStatusAnswerIsDropped() {
+        save("https://ntfy.sh", "a")
+        sync()
+        let bridge = self.bridge!
+        var first: NtfyShBridge.Status?
+        let second = expectation(description: "newest")
+        var newest: NtfyShBridge.Status?
+        var asked = 0
+        BridgeStubProtocol.reply = { request in
+            guard request.httpMethod == "GET" else { return .success((200, [:], "{}")) }
+            asked += 1
+            if asked == 1 {
+                // A newer read starts while the first is on the wire.
+                bridge.fetchStatus { newest = $0; second.fulfill() }
+                return .success((200, [:], #"{"watching":1,"connected":false}"#))
+            }
+            return .success((200, [:], #"{"watching":1,"connected":true}"#))
+        }
+        bridge.fetchStatus { first = $0 }
+        wait(for: [second], timeout: 5)
+        spin(0.3)
+        XCTAssertEqual(newest, .connected(watching: 1))
+        XCTAssertNil(first, "the overtaken answer never reaches the screen")
+        XCTAssertEqual(bridge.currentRecord.statusConnected, true)
+    }
+
+    /// Red on 15669a0 (review-130b #7): an expired registration still read as watched, and a topic
+    /// on the app's own server read as direct before its push binding was confirmed.
+    func testWatchingRespectsExpiryAndDirectNeedsPush() {
+        save("https://ntfy.sh", "a")
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1800003600}"#)) }
+        sync()
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: true), .watched)
+        clock += 3601
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: true), .held(.notRegistered))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy-me.com", topic: "x", fcmBound: false), .held(.pushNotReady))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy-me.com", topic: "x", fcmBound: true), .direct)
+    }
+
+    /// Red on 15669a0 (review-130b #7): a status read skipped for the cooldown showed
+    /// "Couldn't check" for the rest of the visit. It says when it will ask again.
+    func testAStatusReadInTheCooldownWaits() {
+        save("https://ntfy.sh", "a")
+        sync()
+        NtfyMeHostCooldown.note(status: 429, retryAfter: "120", defaults: defaults, lock: SharedFileLock(path: NSTemporaryDirectory() + "cd-\(UUID()).lock"), now: clock)
+        var status: NtfyShBridge.Status?
+        bridge.fetchStatus { status = $0 }
+        XCTAssertEqual(status, .waiting(until: clock.addingTimeInterval(120)))
+        XCTAssertEqual(NtfyShBridgeCopy.status(.waiting(until: clock)), String(localized: "Will check again shortly"))
+    }
+
+    // #8: forwarding evidence
+
+    /// Red on 15669a0 (review-130b #8): a connected status up to a day old, for any registration,
+    /// made a miss strong. Now it must be within 10 minutes and for the current registration.
+    func testStrongEvidenceNeedsARecentStatusForThisRegistration() {
+        let base = "http://192.168.1.20:8099"
+        save(base, "garage")
+        sync()
+        let hash = topicHash(baseUrl: base, topic: "garage")
+        BridgeStubProtocol.reply = { request in
+            request.httpMethod == "GET" ? .success((200, [:], #"{"watching":1,"connected":true}"#))
+                : .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
+        }
+        let read = expectation(description: "status")
+        bridge.fetchStatus { _ in read.fulfill() }
+        wait(for: [read], timeout: 5)
+        XCTAssertTrue(bridge.forwardingEvidence(hash: hash))
+        clock += 11 * 60
+        XCTAssertFalse(bridge.forwardingEvidence(hash: hash), "over 10 minutes old")
+        clock -= 11 * 60
+        bridge.recordFile.update { stored -> (write: Bool, result: Void) in
+            var next = stored ?? BridgeRecord()
+            next.revision = (next.revision ?? 0) + 1
+            stored = next
+            return (true, ())
+        }
+        XCTAssertFalse(bridge.forwardingEvidence(hash: hash), "read for an earlier registration")
+    }
+
+    // #9: cooldown scope
+
+    /// Red on 15669a0 (review-130b #9): an unrelated success ended a pause the server asked for, and
+    /// a later failure without Retry-After could shorten it.
+    func testTheStrongestCooldownWins() {
+        let lock = SharedFileLock(path: NSTemporaryDirectory() + "cd-\(UUID()).lock")
+        NtfyMeHostCooldown.note(status: 429, retryAfter: "600", defaults: defaults, lock: lock, now: clock)
+        NtfyMeHostCooldown.note(status: 200, retryAfter: nil, defaults: defaults, lock: lock, now: clock.addingTimeInterval(1))
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(defaults, now: clock.addingTimeInterval(2)), clock.addingTimeInterval(600))
+        NtfyMeHostCooldown.note(status: 503, retryAfter: nil, defaults: defaults, lock: lock, now: clock.addingTimeInterval(3))
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(defaults, now: clock.addingTimeInterval(4)), clock.addingTimeInterval(600))
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(defaults, now: clock.addingTimeInterval(4), userInitiated: true),
+                       clock.addingTimeInterval(600), "the server's pause holds even for the user")
+        XCTAssertNil(NtfyMeHostCooldown.blockedUntil(defaults, now: clock.addingTimeInterval(601)))
+    }
+
+    /// Red on 15669a0 (review-130b #9): 42912 (this network's watch admission limit) paused every
+    /// request to the server. It pauses only lists that add entries; removals still go out.
+    func testAdmissionLimitHoldsAdditionsButNotRemovals() throws {
+        save("https://ntfy.sh", "a")
+        sync()
+        let b = save("https://ntfy.sh", "b")
+        BridgeStubProtocol.reply = { _ in .success((429, ["Retry-After": "3600"], #"{"code":42912,"error":"admission limit"}"#)) }
+        sync()
+        XCTAssertEqual(bridge.currentRecord.lastOutcome, .admissionLimited)
+        XCTAssertNil(NtfyMeHostCooldown.blockedUntil(defaults, now: clock), "not a pause for every request")
+        let posts = watchPosts
+        clock += 60
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0,"expires":1900000000}"#)) }
+        sync()
+        XCTAssertEqual(watchPosts, posts, "still adds b: waits")
+        XCTAssertTrue(store.delete(subscription: b))
+        XCTAssertTrue(store.delete(subscription: try XCTUnwrap(store.getSubscription(baseUrl: "https://ntfy.sh", topic: "a"))))
+        sync()
+        XCTAssertEqual(watchPosts, posts + 1, "a removal goes out")
+        XCTAssertNil(bridge.currentRecord.admissionBlockedUntil)
+    }
+
+    // #2: the ~poll wake budget
+
+    /// Red on 15669a0 (review-130b #2): the wake's watchdog ran on main, so a busy main thread
+    /// could push the completion past the system's limit. Maintenance needs enough budget left.
+    func testTheWakeWatchdogFiresWhileMainIsBusy() {
+        let lock = NSLock()
+        var result: UIBackgroundFetchResult?
+        let wake = BackgroundWakeCompletion(deadline: 0.2) { outcome in lock.lock(); result = outcome; lock.unlock() }
+        Thread.sleep(forTimeInterval: 0.6)
+        lock.lock(); let got = result; lock.unlock()
+        XCTAssertEqual(got, .noData)
+        XCTAssertFalse(wake.isPending)
+        XCTAssertFalse(wake.admitsMaintenance)
+        XCTAssertFalse(BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.maintenanceMinimum - 1) { _ in }.admitsMaintenance)
+        XCTAssertTrue(BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.budget) { _ in }.admitsMaintenance)
+    }
+}
+
+extension SelfHostedWakeCheckTests {
+    /// Red on 15669a0 (review-130b #8): "Check again" was view state, so an inconclusive check left
+    /// it armed forever. It clears on any verdict and lapses after a day.
+    func testCheckAgainClearsOnAnyVerdictAndLapses() {
+        let hash = topicHash(baseUrl: "http://192.168.1.20:8099", topic: "garage")
+        check.arm(hash: hash)
+        XCTAssertTrue(check.isArmed(hash: hash))
+        replies = [(500, "")]
+        XCTAssertEqual(check.messageArrivedByPollVerdict(baseUrl: "http://192.168.1.20:8099", topic: "garage", at: clock), .unknown)
+        XCTAssertFalse(check.isArmed(hash: hash), "an inconclusive check ends the arm")
+        check.arm(hash: hash)
+        clock = clock.addingTimeInterval(SelfHostedWakeCheck.armLifetime + 1)
+        XCTAssertFalse(check.isArmed(hash: hash), "lapsed")
+    }
+
+    /// Red on 15669a0 (review-130b #9): the cooldown and admission were checked when a check was
+    /// planned, not when it ran after its wait.
+    func testACheckRechecksTheCooldownWhenItRuns() {
+        var sent = 0
+        let defaults = UserDefaults(suiteName: "SelfHostedWakeCheckTests.dispatch.\(UUID())")!
+        var now = Date(timeIntervalSince1970: 1_800_000_000)
+        let lock = SharedFileLock(path: NSTemporaryDirectory() + "cd-\(UUID()).lock")
+        let check = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", read: { request, done in
+            sent += 1
+            done(Data(#"{"relayed":false}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil), nil)
+        }, schedule: { delay, work in
+            now = now.addingTimeInterval(delay)
+            // The server asks for a pause while the check waits.
+            NtfyMeHostCooldown.note(status: 429, retryAfter: "600", defaults: defaults, lock: lock, now: now)
+            work()
+        }, now: { now })
+        var verdict: SelfHostedWakeCheck.Verdict?? = .none
+        check.messageArrivedByPoll(baseUrl: "http://192.168.1.20:8099", topic: "garage", messageTime: now.addingTimeInterval(-2)) { verdict = .some($0) }
+        XCTAssertEqual(sent, 0)
+        XCTAssertEqual(verdict, .some(nil))
+        var admittedVerdict: SelfHostedWakeCheck.Verdict?? = .none
+        let other = SelfHostedWakeCheck(defaults: UserDefaults(suiteName: "SelfHostedWakeCheckTests.admit.\(UUID())")!, relayBaseUrl: "https://ntfy-me.com",
+                                        read: { _, _ in sent += 1 }, schedule: { _, work in work() }, now: { now })
+        other.messageArrivedByPoll(baseUrl: "http://192.168.1.20:8099", topic: "garage", messageTime: now.addingTimeInterval(-2),
+                                   admitted: { false }) { admittedVerdict = .some($0) }
+        XCTAssertEqual(sent, 0, "no longer admitted when it runs: not asked")
+        XCTAssertEqual(admittedVerdict, .some(nil))
+    }
+}
+
+extension SelfHostedWakeCheck {
+    /// Test helper: one poll arrival with the schedule the test installed; the verdict, if any.
+    func messageArrivedByPollVerdict(baseUrl: String, topic: String, at time: Date) -> Verdict? {
+        var verdict: Verdict?? = .none
+        messageArrivedByPoll(baseUrl: baseUrl, topic: topic, messageTime: time.addingTimeInterval(-2)) { verdict = .some($0) }
+        return verdict ?? nil
+    }
+}
+
+extension PresentationClaimTests {
+    /// Red on 15669a0 (review-130b D): claims were keyed by the row's normalized URL, so two
+    /// spellings of ntfy.sh could each alert the same message.
+    func testAliasRowsShareOneClaim() {
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        let message = Message(id: "m4_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "open")
+        XCTAssertEqual(Store.claimTopicUrl(baseUrl: "http://ntfy.sh", topic: "door"), Store.claimTopicUrl(baseUrl: "https://ntfy.sh/", topic: "door"))
+        store.recordPresentation(message: message, baseUrl: "http://ntfy.sh")
+        XCTAssertTrue(store.hasClaimBeforeRow(message: message, baseUrl: "https://ntfy.sh"))
+        XCTAssertTrue(store.wasAlerted(message: message, baseUrl: "https://ntfy.sh"))
+    }
+
+    /// Red on 15669a0 (review-130b #5): at expiry the extension sounded its fallback without
+    /// claiming the message, so the app's next poll alerted it again; and it ignored an app
+    /// holding the alert lock for it. Now: claim, or stay passive.
+    func testTheExtensionsExpiryClaimsOrStaysPassive() {
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        _ = store.saveSubscription(baseUrl: "https://home.example", topic: "door")
+        let message = Message(id: "m5_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "open")
+        XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example"), .claimed)
+        XCTAssertTrue(store.wasAlerted(message: message, baseUrl: "https://home.example"), "a later app poll stays quiet")
+        XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example"), .alreadyAlerted)
+        // The app is alerting another message: the lock is held, so the fallback is passive.
+        let other = Message(id: "m6_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "x")
+        let holding = expectation(description: "app holds the alert lock")
+        let release = DispatchSemaphore(value: 0)
+        _ = store.deliverAlert(message: other, baseUrl: "https://home.example", delivery: { done in
+            holding.fulfill()
+            DispatchQueue.global().async { release.wait(); done(true) }
+        })
+        wait(for: [holding], timeout: 2)
+        XCTAssertEqual(store.claimAtExpiry(message: other, baseUrl: "https://home.example"), .contended)
+        release.signal()
+    }
+}
+
+final class NotificationBestAttemptTests: XCTestCase {
+    /// Red on 15669a0 (review-130b #5): the best attempt was the live object a running step kept
+    /// changing, so what an expiry handed iOS could change after the handoff.
+    func testTheBestAttemptIsASnapshot() {
+        let content = UNMutableNotificationContent()
+        content.body = "ready"
+        let attempt = NotificationBestAttempt(content)
+        content.body = "changed later"
+        XCTAssertEqual(attempt.content.body, "ready")
+        let read = attempt.content
+        read.body = "changed by a reader"
+        XCTAssertEqual(attempt.content.body, "ready")
+    }
+}
+
+final class NotificationServiceExpiryTests: XCTestCase {
+    private func request(_ id: String, baseUrl: String, topic: String) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = topic
+        content.body = "alive"
+        content.sound = .default
+        content.userInfo = Message(id: id, time: 1_800_000_000, event: "message", topic: topic, message: "alive").toUserInfo()
+        content.userInfo["base_url"] = baseUrl
+        return UNNotificationRequest(identifier: id, content: content, trigger: nil)
+    }
+
+    /// Red on 15669a0 (review-130b #5): the deadline and its watchdog started after the store
+    /// opened, so a slow open pushed the handoff past the system's limit.
+    func testTheDeadlineStartsBeforeTheStoreOpens() {
+        let store = Store(inMemory: true)
+        _ = store.saveSubscription(baseUrl: "https://slow-open.example", topic: "door")
+        let service = NotificationService()
+        service.processingBudget = 0.1
+        service.makeStore = { Thread.sleep(forTimeInterval: 0.6); return store }
+        let started = Date()
+        let lock = NSLock()
+        var handedAt: Date?
+        var calls = 0
+        service.didReceive(request("slow_q7x", baseUrl: "https://slow-open.example", topic: "door")) { _ in
+            lock.lock(); calls += 1; if handedAt == nil { handedAt = Date() }; lock.unlock()
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        lock.lock(); let at = handedAt; let count = calls; lock.unlock()
+        XCTAssertNotNil(at)
+        XCTAssertLessThan(at.map { $0.timeIntervalSince(started) } ?? 99, 0.5, "handed off at the deadline, during the slow open")
+        XCTAssertEqual(count, 1)
+        withExtendedLifetime(service) {}
+    }
+
+    /// Red on 15669a0 (review-130b #5): an expiry before the alert claim settled sounded the
+    /// fallback even while the app held the alert lock and might be alerting the same message.
+    func testExpiryWhileTheAppHoldsTheAlertLockIsPassive() {
+        let store = Store(inMemory: true)
+        let baseUrl = "https://expiry-claim.example"
+        _ = store.saveSubscription(baseUrl: baseUrl, topic: "door")
+        let holding = expectation(description: "app holds the alert lock")
+        let release = DispatchSemaphore(value: 0)
+        let other = Message(id: "held_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "x")
+        _ = store.deliverAlert(message: other, baseUrl: baseUrl, delivery: { done in
+            holding.fulfill()
+            DispatchQueue.global().async { release.wait(); done(true) }
+        })
+        wait(for: [holding], timeout: 2)
+        let service = NotificationService(); service.makeStore = { store }
+        let handed = expectation(description: "handoff")
+        var output: UNNotificationContent?
+        service.didReceive(request("claim_q7x", baseUrl: baseUrl, topic: "door")) { output = $0; handed.fulfill() }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        service.serviceExtensionTimeWillExpire()
+        wait(for: [handed], timeout: 2)
+        XCTAssertNil(output?.sound)
+        XCTAssertEqual(output?.interruptionLevel, .passive)
+        release.signal()
+        withExtendedLifetime(service) {}
     }
 }

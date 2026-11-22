@@ -711,7 +711,6 @@ struct TopicDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     /// Bumped when the bridge, the access cache or a wake check changes in any process.
     @State private var revision = 0
-    @State private var armed = false
 
     private var subscribedValue: String {
         guard let date = subscription.subscribedAt else {
@@ -766,11 +765,12 @@ struct TopicDetailsView: View {
                             .accessibilityIdentifier("topic-instant-banners")
                         if let hold = bannerHold, hold.offersCheckAgain, let baseUrl = subscription.baseUrl, let topic = subscription.topic {
                             let hash = topicHash(baseUrl: baseUrl, topic: topic)
-                            if armed || SelfHostedWakeCheck.shared.isArmed(hash: hash) {
+                            // Driven by the stored check (review-130b #8): it clears when the check
+                            // completes, the topic is removed, or the arm times out.
+                            if SelfHostedWakeCheck.shared.isArmed(hash: hash) {
                                 Text(NtfyShBridgeCopy.checkArmed).font(.footnote).foregroundColor(.secondary)
                             } else {
                                 Button(NtfyShBridgeCopy.checkAgain) {
-                                    armed = true
                                     NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge)
                                 }
                                 .accessibilityIdentifier("topic-check-again")

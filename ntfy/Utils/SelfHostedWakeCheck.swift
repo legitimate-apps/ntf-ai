@@ -27,6 +27,8 @@ final class SelfHostedWakeCheck {
         var weakMisses: Int?
         /// "Check again": the next fresh message is checked whatever the throttles say.
         var armed: Bool?
+        /// When it was armed; an arm no message answered lapses after `armLifetime`.
+        var armedAt: Date?
     }
 
     enum Verdict: Equatable { case relayed, missed, unknown }
@@ -46,6 +48,8 @@ final class SelfHostedWakeCheck {
     static let globalInterval: TimeInterval = 60
     /// A wake-up seen this recently means it works; no check needed.
     static let recentWake: TimeInterval = 6 * 60 * 60
+    /// A "Check again" no fresh message answered lapses after this.
+    static let armLifetime: TimeInterval = 24 * 60 * 60
     static let key = "selfHostedWakeCheck"
     static let globalKey = "selfHostedWakeCheckLast"
 
@@ -109,17 +113,20 @@ final class SelfHostedWakeCheck {
     /// Read-modify-write under the lock the extension also takes, so a wake it records can't be
     /// overwritten by a check result computed before it. `change` returns false to write nothing.
     private func update(_ hash: String, _ change: (inout Entry) -> Bool) {
-        lock.withLock {
+        let changed: Bool = lock.withLock {
             var all = entries
             var entry = all[hash] ?? Entry()
-            guard change(&entry) else { return }
+            guard change(&entry) else { return false }
             all[hash] = entry
-            // Keep the table small: drop topics with nothing to say for a month.
+            // Keep the table small: drop topics with nothing to say for a month. An armed entry
+            // stays (a topic never checked before has nothing else yet).
             let cutoff = now().addingTimeInterval(-30 * 24 * 60 * 60)
-            all = all.filter { ($0.value.lastWake ?? $0.value.lastCheck ?? .distantPast) > cutoff || $0.value.misses > 0 || ($0.value.weakMisses ?? 0) > 0 }
+            all = all.filter { ($0.value.lastWake ?? $0.value.lastCheck ?? .distantPast) > cutoff || $0.value.misses > 0
+                || ($0.value.weakMisses ?? 0) > 0 || $0.value.armed == true }
             if let data = try? JSONEncoder().encode(all) { defaults.set(data, forKey: Self.key) }
-        }
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .ntfyShBridgeStateChanged, object: nil) }
+            return true
+        } ?? false
+        if changed { BridgeStateSignal.announce() }
     }
 
     /// A wake-up for this hash reached the device (the extension calls this for every hashed
@@ -132,18 +139,27 @@ final class SelfHostedWakeCheck {
     /// "Check again": check the next fresh message on this topic even if one ran recently.
     func arm(hash: String) {
         guard Self.isHash(hash) else { return }
-        update(hash) { $0.armed = true; return true }
+        update(hash) { $0.armed = true; $0.armedAt = now(); return true }
     }
 
-    func isArmed(hash: String) -> Bool { entries[hash]?.armed == true }
+    /// Armed and not lapsed. The screens show this, so it clears when the check completes (any
+    /// verdict), the topic is forgotten, or the arm times out (review-130b #8).
+    func isArmed(hash: String) -> Bool {
+        guard let entry = entries[hash], entry.armed == true else { return false }
+        guard let at = entry.armedAt else { return true }
+        let age = now().timeIntervalSince(at)
+        return age >= -Self.slack && age < Self.armLifetime
+    }
 
     /// Forget a topic (unsubscribed).
     func forget(hash: String) {
-        lock.withLock {
+        let removed: Bool = lock.withLock {
             var all = entries
-            guard all.removeValue(forKey: hash) != nil, let data = try? JSONEncoder().encode(all) else { return }
+            guard all.removeValue(forKey: hash) != nil, let data = try? JSONEncoder().encode(all) else { return false }
             defaults.set(data, forKey: Self.key)
-        }
+            return true
+        } ?? false
+        if removed { BridgeStateSignal.announce() }
     }
 
     static func isHash(_ topic: String) -> Bool {
@@ -161,7 +177,7 @@ final class SelfHostedWakeCheck {
         guard age <= Self.maxMessageAge - 1, age > -Self.slack else { return nil }
         guard NtfyMeHostCooldown.blockedUntil(defaults, now: current) == nil else { return nil }
         let entry = entries[hash]
-        let armed = entry?.armed == true
+        let armed = isArmed(hash: hash)
         if !armed {
             if let wake = entry?.lastWake, current.timeIntervalSince(wake) < Self.recentWake,
                entry?.misses == 0, (entry?.weakMisses ?? 0) == 0 { return nil }
@@ -169,13 +185,13 @@ final class SelfHostedWakeCheck {
         }
         processLock.lock(); defer { processLock.unlock() }
         guard !inFlight.contains(hash) else { return nil }
-        let globalFree: Bool = lock.withLock {
+        let globalFree: Bool = lock.withLock { () -> Bool in
             if let last = defaults.object(forKey: Self.globalKey) as? Date, current.timeIntervalSince(last) < Self.globalInterval, last <= current {
                 return false
             }
             defaults.set(current, forKey: Self.globalKey)
             return true
-        }
+        } ?? false
         guard globalFree else { return nil }
         inFlight.insert(hash)
         return max(0, Self.minMessageAge - age)
@@ -185,6 +201,7 @@ final class SelfHostedWakeCheck {
     /// holds the time, never counts a message whose wake-up arrived while it waited or while the
     /// check ran, and counts a miss as strong only when `evidence()` holds as the answer lands.
     func messageArrivedByPoll(baseUrl: String, topic: String, messageTime: Date,
+                              admitted: @escaping () -> Bool = { true },
                               evidence: @escaping () -> Bool = { false }, completion: ((Verdict?) -> Void)? = nil) {
         let hash = topicHash(baseUrl: baseUrl, topic: topic)
         guard read != nil, let delay = plan(hash: hash, messageTime: messageTime) else { completion?(nil); return }
@@ -195,6 +212,11 @@ final class SelfHostedWakeCheck {
                 self.finish(hash); completion?(nil); return
             }
             guard self.now().timeIntervalSince(messageTime) <= Self.maxMessageAge else {
+                self.finish(hash); completion?(nil); return
+            }
+            // Re-checked at dispatch, not only when planned (review-130b #9): a pause the server
+            // asked for meanwhile, the setting turned off or the hash no longer admitted stops it.
+            guard NtfyMeHostCooldown.blockedUntil(self.defaults, now: self.now()) == nil, admitted() else {
                 self.finish(hash); completion?(nil); return
             }
             let asked = self.now()
@@ -209,8 +231,9 @@ final class SelfHostedWakeCheck {
                     case .missed:
                         if strong { entry.misses += 1 } else { entry.weakMisses = (entry.weakMisses ?? 0) + 1 }
                         entry.armed = nil
-                    case .unknown: break
+                    case .unknown: entry.armed = nil
                     }
+                    if entry.armed == nil { entry.armedAt = nil }
                     return true
                 }
                 self.finish(hash)

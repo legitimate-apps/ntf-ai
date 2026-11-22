@@ -64,10 +64,9 @@ class NotificationService: UNNotificationServiceExtension {
 
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         // On a Mac this process can outlive the banner and receive its taps; pass them to the app.
-        NotificationResponseRelay.installInExtensionIfNeeded()
-        NotificationExtensionLifetime.shared.requestStarted()
+        // The deadline, the one-shot gate, the fallback and the watchdog come first, before any store
+        // work (review-130b #5): a slow store open can't delay the handoff past the system's limit.
         deadline = ExtensionDeadline(budget: processingBudget)
-        if self.store == nil { self.store = makeStore() }
         self.deliveryGate = NotificationDeliveryGate { output in
             // Release builds expose only presentation metadata, never message or account content.
             os_log("NSE handoff soundRequested=%{public}d interruptionLevel=%{public}ld",
@@ -83,11 +82,14 @@ class NotificationService: UNNotificationServiceExtension {
             Log.w(self.tag, "Deadline reached; delivering the best attempt")
             if let content = self.bestAttemptContent { self.deliver(content, expiring: true) }
         }
-        quietHours = QuietHours.load()
         presentationMessage = nil
-        alertIdentity = nil
+        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; presentationLock.unlock()
         alertClaim = nil
         self.bestAttemptContent = (fallbackContent(request).mutableCopy() as? UNMutableNotificationContent)
+        NotificationResponseRelay.installInExtensionIfNeeded()
+        NotificationExtensionLifetime.shared.requestStarted()
+        if self.store == nil { self.store = makeStore() }
+        quietHours = QuietHours.load()
 
         if let bestAttemptContent = bestAttemptContent {
             let userInfo = bestAttemptContent.userInfo
@@ -129,6 +131,10 @@ class NotificationService: UNNotificationServiceExtension {
     /// The push exactly as received, unless its text is an end-to-end encrypted body: a server that
     /// sends full messages (not poll requests) puts the JWE in the alert, and every early-exit path
     /// would otherwise show that ciphertext on the lock screen.
+    /// False once this request was handed to iOS: late callbacks (reconcile, attachment, avatar,
+    /// fetch) then stop before any store or presentation work.
+    private var isPending: Bool { deliveryGate?.isPending == true }
+
     private func fallbackContent(_ request: UNNotificationRequest) -> UNNotificationContent {
         UNNotificationContent.encryptionSafeFallback(request.content)
     }
@@ -142,7 +148,9 @@ class NotificationService: UNNotificationServiceExtension {
         if let presentationMessage { final.configureInterruption(message: presentationMessage.message, soundName: presentationMessage.soundName) }
         if !expiring { final.applyTopicMute() }
         let handoff = { (output: UNNotificationContent) -> Bool in
-            guard self.deliveryGate?.deliver(output) == true else {
+            // iOS gets an immutable snapshot: nothing still running can change what it shows.
+            let snapshot = (output.copy() as? UNNotificationContent) ?? output
+            guard self.deliveryGate?.deliver(snapshot) == true else {
                 Log.w(self.tag, "Ignoring late notification delivery after the content handler already fired")
                 return false
             }
@@ -156,8 +164,19 @@ class NotificationService: UNNotificationServiceExtension {
             if let identity = processedIdentity {
                 info["base_url"] = identity.baseUrl; info["topic"] = identity.message.topic
             }
-            let quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
+            var quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
+            let identity = processedIdentity
+            let unresolved = claimedAlert == nil
             presentationLock.unlock()
+            // No claim settled yet (review-130b #5): if the app holds the alert lock, it may be
+            // alerting this message, so this handoff is passive; if no one does, claim the message
+            // first, so a later app poll stays quiet, then sound the fallback.
+            if !quiet, unresolved, let identity, let store {
+                switch store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl) {
+                case .claimed: break
+                case .alreadyAlerted, .contended: quiet = true
+                }
+            }
             if quiet { final.sound = nil; final.interruptionLevel = .passive; final.relevanceScore = 0 }
             _ = handoff(final)
             return
@@ -210,6 +229,7 @@ class NotificationService: UNNotificationServiceExtension {
             content.sound = nil
             content.interruptionLevel = .passive
             content.relevanceScore = 0
+            bestAttemptContent = content
         }
         // Save notification first so attachment downloads can update persistent state. What comes back
         // is the message as stored: decrypted for an end-to-end encrypted topic (or its "Encrypted
@@ -223,6 +243,8 @@ class NotificationService: UNNotificationServiceExtension {
             let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: received.topic, baseUrl: baseUrl, event: received.event)
             bestAttemptContent = placeholder
             ApiService.shared.poll(poll, timeout: deadline.timeout(NotificationServiceTiming.pollTimeout, reserve: 3)) { messages, _ in
+                // Handed off already (expiry): no store or presentation work after it.
+                guard self.isPending else { return }
                 guard let messages else { self.deliver(placeholder); return }
                 guard let presentations = Store.shared.save(notificationsFromMessages: messages, polledWith: poll) else {
                     self.deliver(placeholder)
@@ -321,7 +343,9 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     private func handlePresentation(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool = false) {
-        bestAttemptContent = content
+        // The best attempt stays what it is (a poll_request's ready placeholder, or the push as
+        // received) until `presentClaimed` has formatted this message (review-130b #5).
+        guard isPending else { return }
         // A poll_request claimed its alert before fetching: the row exists now, so mark it.
         if let claim = alertClaim {
             if claim { store?.recordPresentation(message: message, baseUrl: baseUrl) }
@@ -332,6 +356,7 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     private func presentClaimed(_ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool) {
+        guard isPending else { return }
         let user = store?.getBasicUser(baseUrl: baseUrl)
         let displayName = store?.subscriptionDisplayName(baseUrl: baseUrl, topic: message.topic)
         let soundName = store?.topicSoundName(baseUrl: baseUrl, topic: message.topic, library: soundLibrary)
@@ -350,6 +375,7 @@ class NotificationService: UNNotificationServiceExtension {
             user: user,
             timeout: deadline.timeout(reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout)
         ) {
+            guard self.isPending else { return }
             self.presentAsAgent(content, baseUrl: baseUrl, message: message, reconciled: reconciled)
         }
     }
@@ -361,6 +387,7 @@ class NotificationService: UNNotificationServiceExtension {
         guard let name = AgentIdentity.name(tags: message.tags) else { deliver(content); return }
         let conversation = AgentIdentity.conversationIdentifier(topicURL: topicUrl(baseUrl: baseUrl, topic: message.topic), name: name)
         let finish = { (avatar: Data?) in
+            guard self.isPending else { return }
             let shown = AgentIdentity.communicationContent(content, name: name, avatar: avatar, conversation: conversation,
                                                            donate: message.encryption != .decrypted)
             self.bestAttemptContent = (shown.mutableCopy() as? UNMutableNotificationContent) ?? content
@@ -372,6 +399,7 @@ class NotificationService: UNNotificationServiceExtension {
     private func handlePollRequest(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ pollRequest: Message) {
         // The server's mutable alert omits aps.sound. Every fallback needs an explicit policy.
         content.configureInterruption(message: pollRequest)
+        bestAttemptContent = content
         let pollId = pollRequest.pollId ?? pollRequest.id
         let preferredBaseUrl = bestAttemptContent?.userInfo["base_url"] as? String
         guard let subscription = store?.findSubscriptionMatch(
@@ -420,6 +448,7 @@ class NotificationService: UNNotificationServiceExtension {
             ApiService.shared.poll(baseUrl: subscription.baseUrl, topic: subscription.topic, messageId: pollId,
                                    user: user, timeout: timeout, completionHandler: done)
         }) { message, error, attempts in
+            guard self.isPending else { return }
             guard let message = message else {
                 Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), attempts=\(attempts), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
                 let missing = error is PollMissingResult ? shortUrl(url: normalizeBaseUrl(subscription.baseUrl)) : nil

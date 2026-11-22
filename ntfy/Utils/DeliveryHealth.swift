@@ -47,9 +47,9 @@ enum DeliveryHealthCopy {
     static func fetchFailure(topic: String) -> String {
         String(localized: "New message on \(topic). Open the app to load it.")
     }
-    /// Every read said the message isn't there (review-130 #11): the origin dropped it or never kept it.
+    /// Every read said the message isn't there (review-130b #11): possible causes, not a claim it vanished.
     static func missingMessage(server: String) -> String {
-        String(localized: "This message is no longer on \(server), or the server doesn't keep messages.")
+        String(localized: "This message isn't available from \(server) right now. It may have expired, the server may not keep messages, or it may not have arrived there yet.")
     }
     static func authFetchFailure(topic: String) -> String {
         String(localized: "New message on \(topic), but the server refused the sign-in. Open the app to check your user for this server.")
@@ -391,15 +391,18 @@ final class ServerCooldown {
 }
 
 /// Expiry always uses the latest safe presentation, including a successful fetch before attachments.
+/// The extension's best attempt, kept as an immutable snapshot (review-130b #5): code still working
+/// on the content it stored can't change what an expiry hands to iOS. Reads return a fresh copy.
 final class NotificationBestAttempt {
     private let lock = NSLock()
-    private var current: UNMutableNotificationContent
-    init(_ content: UNMutableNotificationContent) { current = content }
+    private var current: UNNotificationContent
+    init(_ content: UNMutableNotificationContent) { current = content.copy() as! UNNotificationContent }
     var content: UNMutableNotificationContent {
-        lock.lock(); defer { lock.unlock() }; return current
+        lock.lock(); defer { lock.unlock() }; return current.mutableCopy() as! UNMutableNotificationContent
     }
     func replace(with content: UNMutableNotificationContent) {
-        lock.lock(); defer { lock.unlock() }; current = content
+        let snapshot = content.copy() as! UNNotificationContent
+        lock.lock(); defer { lock.unlock() }; current = snapshot
     }
 }
 
