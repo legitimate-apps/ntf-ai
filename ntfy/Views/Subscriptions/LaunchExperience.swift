@@ -11,6 +11,12 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.30.0", bullets: [
+            String(localized: "ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."),
+            String(localized: "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too."),
+            String(localized: "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them."),
+            String(localized: "Instant banners keep working even if you rarely open the app.")
+        ]),
         ReleaseNotes(version: "1.29.0", bullets: [
             String(localized: "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives."),
             String(localized: "Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too."),

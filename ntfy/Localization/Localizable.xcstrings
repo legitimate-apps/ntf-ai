@@ -37059,6 +37059,198 @@
         }
       }
     },
+    "ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.": {
+      "comment": "What's New 1.30.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen auf ntfy.sh bekommen sofortige Banner, auch wenn ein Login für ntfy.sh gespeichert ist. Ein Thema, das diesen Login braucht, sagt das, und seine Nachrichten erscheinen, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los tópicos de ntfy.sh reciben avisos instantáneos aunque tengas guardado un inicio de sesión de ntfy.sh. Un tópico que lo necesita lo indica, y sus mensajes aparecen al abrir la app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli argomenti su ntfy.sh ricevono banner istantanei anche con un accesso a ntfy.sh salvato. Un argomento che richiede quell’accesso lo indica, e i suoi messaggi compaiono quando apri l’app."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy na ntfy.sh dostają natychmiastowe banery, nawet gdy zapisano dane logowania do ntfy.sh. Temat, który ich wymaga, informuje o tym, a jego wiadomości pojawiają się po otwarciu aplikacji."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen op ntfy.sh krijgen directe stroken, ook met een opgeslagen login voor ntfy.sh. Een onderwerp dat die login nodig heeft, meldt dat, en de berichten verschijnen als je de app opent."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sujets sur ntfy.sh reçoivent des bannières instantanées même avec des identifiants de connexion ntfy.sh enregistrés. Un sujet qui en a besoin l’indique, et ses messages s’affichent à l’ouverture de l’app."
+          }
+        }
+      }
+    },
+    "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too.": {
+      "comment": "What's New 1.30.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen, die als http://ntfy.sh oder www.ntfy.sh hinzugefügt wurden, bekommen jetzt auch sofortige Banner."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los tópicos añadidos como http://ntfy.sh o www.ntfy.sh también reciben avisos instantáneos."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anche gli argomenti aggiunti come http://ntfy.sh o www.ntfy.sh ricevono banner istantanei."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tematy dodane jako http://ntfy.sh lub www.ntfy.sh też dostają natychmiastowe banery."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onderwerpen die zijn toegevoegd als http://ntfy.sh of www.ntfy.sh krijgen ook directe stroken."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sujets ajoutés en tant que http://ntfy.sh ou www.ntfy.sh reçoivent aussi des bannières instantanées."
+          }
+        }
+      }
+    },
+    "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them.": {
+      "comment": "What's New 1.30.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Benachrichtigungsstatus zeigt jedes Thema ohne sofortige Banner und den Grund, auch einen eigenen Server, der dafür nicht eingerichtet ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estado de notificaciones muestra cada tópico que no recibirá avisos instantáneos y el motivo, incluido un servidor propio que no está configurado para ellos."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stato notifiche elenca ogni argomento che non riceverà banner istantanei e il motivo, compreso un server tuo non configurato per riceverli."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stan powiadomień pokazuje każdy temat, który nie dostanie natychmiastowych banerów, i powód, także własny serwer, który nie jest do tego skonfigurowany."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldingsstatus toont elk onderwerp dat geen directe stroken krijgt en waarom, ook een eigen server die er niet voor is ingesteld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "État des notifications liste chaque sujet qui ne recevra pas de bannières instantanées et pourquoi, y compris un serveur personnel qui n’est pas configuré pour cela."
+          }
+        }
+      }
+    },
+    "Instant banners keep working even if you rarely open the app.": {
+      "comment": "What's New 1.30.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant banners keep working even if you rarely open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sofortige Banner funktionieren weiter, auch wenn du die App selten öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los avisos instantáneos siguen funcionando aunque abras la app pocas veces."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I banner istantanei continuano a funzionare anche se apri l’app di rado."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natychmiastowe banery działają dalej, nawet jeśli rzadko otwierasz aplikację."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Directe stroken blijven werken, ook als je de app zelden opent."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les bannières instantanées continuent de fonctionner même si vous ouvrez rarement l’app."
+          }
+        }
+      }
+    },
     "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.": {
       "comment": "What's New 1.29.0",
       "extractionState": "manual",

@@ -485,9 +485,31 @@ final class LocalizationTests: XCTestCase {
         XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription"), "iOS shows (null) in the Local Network prompt without it")
     }
 
+    func testVersion130ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.30.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.30.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 4)
+        let expected: [String: [String]] = [
+            "en": ["ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.", "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too.", "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them.", "Instant banners keep working even if you rarely open the app."],
+            "de": ["Themen auf ntfy.sh bekommen sofortige Banner, auch wenn ein Login für ntfy.sh gespeichert ist. Ein Thema, das diesen Login braucht, sagt das, und seine Nachrichten erscheinen, wenn du die App öffnest.", "Themen, die als http://ntfy.sh oder www.ntfy.sh hinzugefügt wurden, bekommen jetzt auch sofortige Banner.", "Der Benachrichtigungsstatus zeigt jedes Thema ohne sofortige Banner und den Grund, auch einen eigenen Server, der dafür nicht eingerichtet ist.", "Sofortige Banner funktionieren weiter, auch wenn du die App selten öffnest."],
+            "es": ["Los tópicos de ntfy.sh reciben avisos instantáneos aunque tengas guardado un inicio de sesión de ntfy.sh. Un tópico que lo necesita lo indica, y sus mensajes aparecen al abrir la app.", "Los tópicos añadidos como http://ntfy.sh o www.ntfy.sh también reciben avisos instantáneos.", "Estado de notificaciones muestra cada tópico que no recibirá avisos instantáneos y el motivo, incluido un servidor propio que no está configurado para ellos.", "Los avisos instantáneos siguen funcionando aunque abras la app pocas veces."],
+            "it": ["Gli argomenti su ntfy.sh ricevono banner istantanei anche con un accesso a ntfy.sh salvato. Un argomento che richiede quell’accesso lo indica, e i suoi messaggi compaiono quando apri l’app.", "Anche gli argomenti aggiunti come http://ntfy.sh o www.ntfy.sh ricevono banner istantanei.", "Stato notifiche elenca ogni argomento che non riceverà banner istantanei e il motivo, compreso un server tuo non configurato per riceverli.", "I banner istantanei continuano a funzionare anche se apri l’app di rado."],
+            "pl": ["Tematy na ntfy.sh dostają natychmiastowe banery, nawet gdy zapisano dane logowania do ntfy.sh. Temat, który ich wymaga, informuje o tym, a jego wiadomości pojawiają się po otwarciu aplikacji.", "Tematy dodane jako http://ntfy.sh lub www.ntfy.sh też dostają natychmiastowe banery.", "Stan powiadomień pokazuje każdy temat, który nie dostanie natychmiastowych banerów, i powód, także własny serwer, który nie jest do tego skonfigurowany.", "Natychmiastowe banery działają dalej, nawet jeśli rzadko otwierasz aplikację."],
+            "nl": ["Onderwerpen op ntfy.sh krijgen directe stroken, ook met een opgeslagen login voor ntfy.sh. Een onderwerp dat die login nodig heeft, meldt dat, en de berichten verschijnen als je de app opent.", "Onderwerpen die zijn toegevoegd als http://ntfy.sh of www.ntfy.sh krijgen ook directe stroken.", "Meldingsstatus toont elk onderwerp dat geen directe stroken krijgt en waarom, ook een eigen server die er niet voor is ingesteld.", "Directe stroken blijven werken, ook als je de app zelden opent."],
+            "fr": ["Les sujets sur ntfy.sh reçoivent des bannières instantanées même avec des identifiants de connexion ntfy.sh enregistrés. Un sujet qui en a besoin l’indique, et ses messages s’affichent à l’ouverture de l’app.", "Les sujets ajoutés en tant que http://ntfy.sh ou www.ntfy.sh reçoivent aussi des bannières instantanées.", "État des notifications liste chaque sujet qui ne recevra pas de bannières instantanées et pourquoi, y compris un serveur personnel qui n’est pas configuré pour cela.", "Les bannières instantanées continuent de fonctionner même si vous ouvrez rarement l’app."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion129ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.29.0" })
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.29.0", "the newest release leads")
         XCTAssertEqual(release.bullets.count, 3)
         let expected: [String: [String]] = [
             "en": ["Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.", "Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too.", "You can turn this off anytime in Settings."],
