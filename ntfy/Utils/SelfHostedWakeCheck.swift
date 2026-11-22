@@ -29,6 +29,11 @@ final class SelfHostedWakeCheck {
         var armed: Bool?
         /// When it was armed; an arm no message answered lapses after `armLifetime`.
         var armedAt: Date?
+        /// Since when the bridge has held this hash as seen by a poll: messages from before then
+        /// (a new topic's history, a time the bridge was off) say nothing about forwarding.
+        var watchedSince: Date?
+        /// The newest message already counted from a poll, so none is counted twice.
+        var countedThrough: Date?
     }
 
     enum Verdict: Equatable { case relayed, missed, unknown }
@@ -46,6 +51,9 @@ final class SelfHostedWakeCheck {
     static let checkInterval: TimeInterval = 10 * 60
     /// And at most one check across all topics this often, so many topics can't burst the relay.
     static let globalInterval: TimeInterval = 60
+    /// A check nobody asked for (not armed by "Check again") runs at most this often per install,
+    /// so diagnostics stay well behind content polls and removals in the server's budget.
+    static let passiveInterval: TimeInterval = 10 * 60
     /// A wake-up seen this recently means it works; no check needed.
     static let recentWake: TimeInterval = 6 * 60 * 60
     /// A "Check again" no fresh message answered lapses after this.
@@ -64,18 +72,24 @@ final class SelfHostedWakeCheck {
     private let schedule: Schedule
     private let now: () -> Date
     private let lock: SharedFileLock
+    /// The evidence, in its own app-group file: every read goes to disk, so a wake the extension
+    /// records is seen by the app at once, not through a stale defaults cache (review-130c C7).
+    private let file: SharedStateFile<[String: Entry]>
+    static let fileName = "ntfai-wake-check.json"
     private let processLock = NSLock()
     private var inFlight = Set<String>()
 
     init(defaults: UserDefaults = NtfyShBridge.defaults, relayBaseUrl: String = Config.appBaseUrl, network: Bool = true,
          read: Read? = nil,
          schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) },
-         now: @escaping () -> Date = Date.init, lock: SharedFileLock? = nil) {
+         now: @escaping () -> Date = Date.init, lock: SharedFileLock? = nil,
+         stateDirectory: URL = SharedStateFile<BridgeRecord>.sharedDirectory) {
         self.defaults = defaults
         self.relayBaseUrl = relayBaseUrl
         self.schedule = schedule
         self.now = now
-        self.lock = lock ?? .named(NtfyShBridge.lockName)
+        self.lock = lock ?? .at(stateDirectory, NtfyShBridge.lockName)
+        self.file = SharedStateFile(name: Self.fileName, directory: stateDirectory, lock: self.lock)
         if let read {
             self.read = read
         } else if network {
@@ -96,6 +110,15 @@ final class SelfHostedWakeCheck {
     // MARK: State
 
     var entries: [String: Entry] {
+        switch file.load() {
+        case .value(let entries): return entries
+        case .missing: return legacyEntries
+        case .unreadable: return [:]
+        }
+    }
+
+    /// What 1.30 betas kept in the shared defaults, until the first write moves it to the file.
+    private var legacyEntries: [String: Entry] {
         defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode([String: Entry].self, from: $0) } ?? [:]
     }
 
@@ -113,20 +136,24 @@ final class SelfHostedWakeCheck {
     /// Read-modify-write under the lock the extension also takes, so a wake it records can't be
     /// overwritten by a check result computed before it. `change` returns false to write nothing.
     private func update(_ hash: String, _ change: (inout Entry) -> Bool) {
-        let changed: Bool = lock.withLock {
-            var all = entries
+        let legacy = legacyEntries
+        let changed: Bool = file.update { stored in
+            var all = stored ?? legacy
             var entry = all[hash] ?? Entry()
-            guard change(&entry) else { return false }
+            guard change(&entry) else { return (false, false) }
             all[hash] = entry
             // Keep the table small: drop topics with nothing to say for a month. An armed entry
             // stays (a topic never checked before has nothing else yet).
             let cutoff = now().addingTimeInterval(-30 * 24 * 60 * 60)
-            all = all.filter { ($0.value.lastWake ?? $0.value.lastCheck ?? .distantPast) > cutoff || $0.value.misses > 0
+            all = all.filter { ($0.value.lastWake ?? $0.value.lastCheck ?? $0.value.watchedSince ?? .distantPast) > cutoff || $0.value.misses > 0
                 || ($0.value.weakMisses ?? 0) > 0 || $0.value.armed == true }
-            if let data = try? JSONEncoder().encode(all) { defaults.set(data, forKey: Self.key) }
-            return true
+            stored = all
+            return (true, true)
         } ?? false
-        if changed { BridgeStateSignal.announce() }
+        if changed {
+            defaults.removeObject(forKey: Self.key)
+            BridgeStateSignal.announce()
+        }
     }
 
     /// A wake-up for this hash reached the device (the extension calls this for every hashed
@@ -153,17 +180,63 @@ final class SelfHostedWakeCheck {
 
     /// Forget a topic (unsubscribed).
     func forget(hash: String) {
-        let removed: Bool = lock.withLock {
-            var all = entries
-            guard all.removeValue(forKey: hash) != nil, let data = try? JSONEncoder().encode(all) else { return false }
-            defaults.set(data, forKey: Self.key)
-            return true
+        let legacy = legacyEntries
+        let removed: Bool = file.update { stored in
+            var all = stored ?? legacy
+            guard all.removeValue(forKey: hash) != nil else { return (false, false) }
+            stored = all
+            return (true, true)
         } ?? false
-        if removed { BridgeStateSignal.announce() }
+        if removed {
+            defaults.removeObject(forKey: Self.key)
+            BridgeStateSignal.announce()
+        }
     }
 
     static func isHash(_ topic: String) -> Bool {
         topic.count == 64 && topic.allSatisfy { $0.isHexDigit && !$0.isUppercase }
+    }
+
+    // MARK: Evidence from polls
+
+    /// A message a poll found is counted only once it is this old (younger ones are the relay
+    /// check's, which can still see their forward) and while it is younger than `pollEvidenceAge`.
+    static let pollEvidenceAge: TimeInterval = 12 * 60 * 60
+    /// At most this many messages counted from one poll.
+    static let pollEvidenceLimit = 3
+
+    /// Messages a poll found that no push brought (device check of build 62: the relay check alone
+    /// needed the app open around three fresh messages). A message the extension received is
+    /// already stored, so a poll's new messages are the ones no wake-up delivered. Each one newer
+    /// than the last wake-up and older than `maxMessageAge` counts as a weak miss (no network
+    /// request: ntfy.sh doesn't cache forwarded poll_requests, so there is nothing to look up).
+    /// Weak misses only ever show "No recent forwarding confirmed"; any wake-up clears them.
+    /// The first call for a hash only records where its evidence starts. Returns the misses counted.
+    @discardableResult
+    func messagesFoundByPoll(hash: String, times: [Date]) -> Int {
+        guard Self.isHash(hash) else { return 0 }
+        let current = now()
+        var counted = 0
+        update(hash) { entry in
+            guard let since = entry.watchedSince else { entry.watchedSince = current; return true }
+            let floor = max(since, entry.lastWake ?? .distantPast, entry.countedThrough ?? .distantPast)
+            let candidates = times.filter { time in
+                let age = current.timeIntervalSince(time)
+                return time > floor && age >= Self.maxMessageAge && age <= Self.pollEvidenceAge
+            }.sorted().suffix(Self.pollEvidenceLimit)
+            guard let newest = candidates.last else { return false }
+            entry.weakMisses = (entry.weakMisses ?? 0) + candidates.count
+            entry.countedThrough = newest
+            counted = candidates.count
+            return true
+        }
+        return counted
+    }
+
+    /// The bridge doesn't hold this hash now: evidence starts again the next time it does.
+    func notWatched(hash: String) {
+        guard entries[hash]?.watchedSince != nil else { return }
+        update(hash) { $0.watchedSince = nil; return true }
     }
 
     // MARK: Checking
@@ -175,7 +248,7 @@ final class SelfHostedWakeCheck {
         let current = now()
         let age = current.timeIntervalSince(messageTime)
         guard age <= Self.maxMessageAge - 1, age > -Self.slack else { return nil }
-        guard NtfyMeHostCooldown.blockedUntil(defaults, now: current) == nil else { return nil }
+        guard NtfyMeHostCooldown.blockedUntil(lock, now: current) == nil else { return nil }
         let entry = entries[hash]
         let armed = isArmed(hash: hash)
         if !armed {
@@ -186,7 +259,7 @@ final class SelfHostedWakeCheck {
         processLock.lock(); defer { processLock.unlock() }
         guard !inFlight.contains(hash) else { return nil }
         let globalFree: Bool = lock.withLock { () -> Bool in
-            if let last = defaults.object(forKey: Self.globalKey) as? Date, current.timeIntervalSince(last) < Self.globalInterval, last <= current {
+            if let last = defaults.object(forKey: Self.globalKey) as? Date, current.timeIntervalSince(last) < (armed ? Self.globalInterval : Self.passiveInterval), last <= current {
                 return false
             }
             defaults.set(current, forKey: Self.globalKey)
@@ -216,7 +289,7 @@ final class SelfHostedWakeCheck {
             }
             // Re-checked at dispatch, not only when planned (review-130b #9): a pause the server
             // asked for meanwhile, the setting turned off or the hash no longer admitted stops it.
-            guard NtfyMeHostCooldown.blockedUntil(self.defaults, now: self.now()) == nil, admitted() else {
+            guard NtfyMeHostCooldown.blockedUntil(self.lock, now: self.now()) == nil, admitted() else {
                 self.finish(hash); completion?(nil); return
             }
             let asked = self.now()
@@ -259,7 +332,7 @@ final class SelfHostedWakeCheck {
             let status = error == nil ? response?.statusCode : nil
             if status == nil || status == 429 || (status ?? 0) >= 500 {
                 NtfyMeHostCooldown.note(status: status, retryAfter: response?.value(forHTTPHeaderField: "Retry-After"),
-                                        defaults: self.defaults, lock: self.lock, now: self.now())
+                                        lock: self.lock, now: self.now())
             }
             // The same contract RelayCheck.Snapshot reads; repeated here because the extension
             // compiles this file without RelayCheck.

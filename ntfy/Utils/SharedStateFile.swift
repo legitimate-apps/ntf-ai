@@ -10,6 +10,12 @@ final class SharedFileLock {
     static func named(_ name: String) -> SharedFileLock {
         let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Store.appGroup)
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return at(directory, name)
+    }
+
+    /// The one lock object in this process for `name` in `directory` (the app group in the app,
+    /// a scratch directory in tests), so everything keyed on a directory shares its lock.
+    static func at(_ directory: URL, _ name: String) -> SharedFileLock {
         let path = directory.appendingPathComponent(name).path
         registryLock.lock(); defer { registryLock.unlock() }
         if let lock = registry[path] { return lock }
@@ -18,7 +24,7 @@ final class SharedFileLock {
         return lock
     }
 
-    private let path: String
+    let path: String
     private let local = NSRecursiveLock()
     private var depth = 0
     private var descriptor: Int32 = -1
@@ -83,17 +89,54 @@ final class SharedStateFile<Value: Codable> {
         self.lock = lock ?? SharedFileLock(path: directory.appendingPathComponent(name + ".lock").path)
     }
 
-    /// The value on disk now, nil if there is none (or it can't be decoded).
-    func read() -> Value? {
-        (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(Value.self, from: $0) }
+    /// What the file holds: nothing yet (eligible for migration from older storage), a value, or
+    /// something that can't be read now (protected before first unlock, corrupt). Unreadable is
+    /// never treated as empty (review-130c C3).
+    enum Load {
+        case missing
+        case value(Value)
+        case unreadable
+
+        var value: Value? { if case .value(let value) = self { return value }; return nil }
     }
 
+    init(url: URL, lock: SharedFileLock) {
+        self.url = url
+        self.lock = lock
+    }
+
+    func load() -> Load {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return .missing
+        } catch let error as NSError where error.domain == NSPOSIXErrorDomain && error.code == Int(ENOENT) {
+            return .missing
+        } catch {
+            return FileManager.default.fileExists(atPath: url.path) ? .unreadable : .missing
+        }
+        guard let value = try? JSONDecoder().decode(Value.self, from: data) else { return .unreadable }
+        return .value(value)
+    }
+
+    /// The value on disk now, nil if there is none or it can't be read.
+    func read() -> Value? { load().value }
+
     /// Read-modify-write under the lock. `change` gets the value on disk (nil if none) and returns
-    /// whether to write. Returns `change`'s value, or nil when the lock wasn't had in time or the
-    /// write failed (then nothing changed on disk).
+    /// whether to write. Returns `change`'s value only once it is committed: nil when the lock
+    /// wasn't had in time, the file can't be read (an unreadable file is never overwritten as if
+    /// empty), or the write failed. Then nothing changed on disk.
     func update<R>(timeout: TimeInterval = SharedFileLock.defaultTimeout, _ change: (inout Value?) -> (write: Bool, result: R)) -> R? {
         lock.withLock(timeout: timeout) { () -> R? in
-            var value = read()
+            var value: Value?
+            switch load() {
+            case .missing: value = nil
+            case .value(let stored): value = stored
+            case .unreadable:
+                Log.w("SharedStateFile", "\(url.lastPathComponent) can't be read; not changing it")
+                return nil
+            }
             let outcome = change(&value)
             guard outcome.write else { return outcome.result }
             do {
@@ -109,4 +152,5 @@ final class SharedStateFile<Value: Codable> {
             }
         } ?? nil
     }
+
 }

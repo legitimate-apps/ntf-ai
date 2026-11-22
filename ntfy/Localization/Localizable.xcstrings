@@ -4033,7 +4033,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Duidelijkere serveruitleg: onderwerpen op ntfy.sh geven aan dat directe stroken ontbreken. Bij het toevoegen zie je waar je scripts naartoe moeten sturen. Handleidingen voor eigen servers en overstappen zijn direct bereikbaar."
+            "value": "Duidelijkere serveruitleg: onderwerpen op ntfy.sh geven aan dat directe meldingen ontbreken. Bij het toevoegen zie je waar je scripts naartoe moeten sturen. Handleidingen voor eigen servers en overstappen zijn direct bereikbaar."
           }
         },
         "fr": {
@@ -36108,7 +36108,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Directe stroken voor ntfy.sh en andere servers"
+            "value": "Directe meldingen voor ntfy.sh en andere servers"
           }
         },
         "fr": {
@@ -36155,7 +36155,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onderwerpen op ntfy.sh krijgen directe stroken: %@ houdt ze in de gaten voor dit apparaat en bewaart geen berichttekst. Je kunt dit uitzetten in Instellingen. Zie %@."
+            "value": "Onderwerpen op ntfy.sh krijgen directe meldingen: %@ houdt ze in de gaten voor dit apparaat en bewaart geen berichttekst. Je kunt dit uitzetten in Instellingen. Zie %@."
           }
         },
         "fr": {
@@ -36202,7 +36202,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "'Directe stroken voor ntfy.sh en andere servers' staat uit in Instellingen, dus berichten op ntfy.sh verschijnen pas wanneer je de app opent of vernieuwt. Zie %@."
+            "value": "'Directe meldingen voor ntfy.sh en andere servers' staat uit in Instellingen, dus berichten op ntfy.sh verschijnen pas wanneer je de app opent of vernieuwt. Zie %@."
           }
         },
         "fr": {
@@ -36249,7 +36249,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voor directe stroken van je eigen server zet je upstream-base-url op https://ntfy.sh, de gebruikelijke instelling, waarmee de officiële ntfy-app ook blijft werken, of op %@. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
+            "value": "Voor directe meldingen van je eigen server zet je upstream-base-url op https://ntfy.sh, de gebruikelijke instelling, waarmee de officiële ntfy-app ook blijft werken, of op %@. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
           }
         },
         "fr": {
@@ -36296,7 +36296,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voor directe stroken van je eigen server zet je upstream-base-url op %@. https://ntfy.sh, de gebruikelijke instelling, werkt alleen zolang 'Directe stroken voor ntfy.sh en andere servers' aan staat in Instellingen. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
+            "value": "Voor directe meldingen van je eigen server zet je upstream-base-url op %@. https://ntfy.sh, de gebruikelijke instelling, werkt alleen zolang 'Directe meldingen voor ntfy.sh en andere servers' aan staat in Instellingen. Zonder upstream komen berichten binnen wanneer je vernieuwt. Zie %@."
           }
         },
         "fr": {
@@ -36907,7 +36907,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe stroken aan in Instellingen, of https://ntfy-me.com), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
+            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
           }
         },
         "fr": {
@@ -36954,7 +36954,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe stroken aan in Instellingen, of https://ntfy-me.com), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
+            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
           }
         },
         "fr": {
@@ -37001,7 +37001,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De upstream-base-url van je server moet https://ntfy.sh (met directe stroken aan in Instellingen) of %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
+            "value": "De upstream-base-url van je server moet https://ntfy.sh (met directe meldingen aan in Instellingen) of %@ zijn. De ingestelde base-url moet exact overeenkomen met het serveradres van dit abonnement, inclusief protocol, poort, pad en spelling. De relay bewaart alleen recente acceptatietijden (maximaal 2 minuten) en meldt geen bezorging op je apparaat."
           }
         },
         "fr": {
@@ -37012,50 +37012,50 @@
         }
       }
     },
-    "ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.": {
+    "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.": {
       "comment": "What's New 1.30.0",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."
+            "value": "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Themen auf ntfy.sh bekommen sofortige Banner, auch wenn ein Login für ntfy.sh gespeichert ist. Ein Thema, das diesen Login braucht, sagt das, und seine Nachrichten erscheinen, wenn du die App öffnest."
+            "value": "Öffentliche Themen auf ntfy.sh bekommen sofortige Banner, auch wenn ein Login für ntfy.sh gespeichert ist. Ein Thema, das diesen Login braucht, sagt das, und seine Nachrichten erscheinen, wenn du die App öffnest."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los tópicos de ntfy.sh reciben avisos instantáneos aunque tengas guardado un inicio de sesión de ntfy.sh. Un tópico que lo necesita lo indica, y sus mensajes aparecen al abrir la app."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gli argomenti su ntfy.sh ricevono banner istantanei anche con un accesso a ntfy.sh salvato. Un argomento che richiede quell’accesso lo indica, e i suoi messaggi compaiono quando apri l’app."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tematy na ntfy.sh dostają natychmiastowe banery, nawet gdy zapisano dane logowania do ntfy.sh. Temat, który ich wymaga, informuje o tym, a jego wiadomości pojawiają się po otwarciu aplikacji."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Onderwerpen op ntfy.sh krijgen directe stroken, ook met een opgeslagen login voor ntfy.sh. Een onderwerp dat die login nodig heeft, meldt dat, en de berichten verschijnen als je de app opent."
+            "value": "Los tópicos públicos de ntfy.sh reciben avisos instantáneos aunque tengas guardadas credenciales para ntfy.sh. Un tópico que necesita esas credenciales lo indica, y sus mensajes aparecen al abrir la app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les sujets sur ntfy.sh reçoivent des bannières instantanées même avec des identifiants de connexion ntfy.sh enregistrés. Un sujet qui en a besoin l’indique, et ses messages s’affichent à l’ouverture de l’app."
+            "value": "Les sujets publics sur ntfy.sh reçoivent des bannières instantanées même avec des identifiants de connexion ntfy.sh enregistrés. Un sujet qui en a besoin l’indique, et ses messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli argomenti pubblici su ntfy.sh ricevono banner istantanei anche con credenziali salvate per ntfy.sh. Un argomento che richiede quelle credenziali lo indica, e i suoi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Openbare onderwerpen op ntfy.sh krijgen directe meldingen, ook met opgeslagen inloggegevens voor ntfy.sh. Een onderwerp dat die inloggegevens nodig heeft, meldt dat, en de berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publiczne tematy na ntfy.sh dostają natychmiastowe banery, nawet gdy zapisano dane logowania do ntfy.sh. Temat, który ich wymaga, informuje o tym, a jego wiadomości pojawiają się po otwarciu aplikacji."
           }
         }
       }
@@ -37097,7 +37097,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onderwerpen die zijn toegevoegd als http://ntfy.sh of www.ntfy.sh krijgen ook directe stroken."
+            "value": "Onderwerpen die zijn toegevoegd als http://ntfy.sh of www.ntfy.sh krijgen ook directe meldingen."
           }
         },
         "fr": {
@@ -37145,7 +37145,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Meldingsstatus toont elk onderwerp dat geen directe stroken krijgt en waarom, ook een eigen server die er niet voor is ingesteld."
+            "value": "Meldingsstatus toont elk onderwerp dat geen directe meldingen krijgt en waarom, ook een eigen server die er niet voor is ingesteld."
           }
         },
         "fr": {
@@ -37156,50 +37156,50 @@
         }
       }
     },
-    "Instant banners keep working even if you rarely open the app.": {
+    "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them.": {
       "comment": "What's New 1.30.0",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instant banners keep working even if you rarely open the app."
+            "value": "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sofortige Banner funktionieren weiter, auch wenn du die App selten öffnest."
+            "value": "Weckrufe im Hintergrund erneuern jetzt die sofortigen Banner, sodass du die App selten öffnen musst, um sie zu behalten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los avisos instantáneos siguen funcionando aunque abras la app pocas veces."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I banner istantanei continuano a funzionare anche se apri l’app di rado."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Natychmiastowe banery działają dalej, nawet jeśli rzadko otwierasz aplikację."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Directe stroken blijven werken, ook als je de app zelden opent."
+            "value": "Las activaciones en segundo plano ahora renuevan los avisos instantáneos, así que rara vez necesitas abrir la app para mantenerlos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les bannières instantanées continuent de fonctionner même si vous ouvrez rarement l’app."
+            "value": "Les réveils en arrière-plan renouvellent désormais les bannières instantanées : vous avez donc rarement besoin d’ouvrir l’app pour les conserver."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I risvegli in background ora rinnovano i banner istantanei, quindi raramente devi aprire l’app per mantenerli."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wekberichten op de achtergrond vernieuwen nu de directe meldingen, dus je hoeft de app zelden te openen om ze te houden."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wybudzenia w tle odnawiają teraz natychmiastowe banery, więc rzadko musisz otwierać aplikację, aby je zachować."
           }
         }
       }
@@ -37241,7 +37241,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onderwerpen op ntfy.sh krijgen nu directe stroken: ntfy-me.com houdt ze in de gaten en wekt je apparaat als er een bericht binnenkomt."
+            "value": "Onderwerpen op ntfy.sh krijgen nu directe meldingen: ntfy-me.com houdt ze in de gaten en wekt je apparaat als er een bericht binnenkomt."
           }
         },
         "pl": {
@@ -37289,7 +37289,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je eigen ntfy-server krijgt directe stroken met de gebruikelijke instelling upstream-base-url: https://ntfy.sh, en de officiële ntfy-app blijft werken."
+            "value": "Je eigen ntfy-server krijgt directe meldingen met de gebruikelijke instelling upstream-base-url: https://ntfy.sh, en de officiële ntfy-app blijft werken."
           }
         },
         "pl": {
@@ -37643,7 +37643,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ konnte die Liste dieses Geräts nicht annehmen. NTF-AI versucht es erneut, sobald es wieder eine Verbindung herstellen und es erneut versuchen kann. Bis dahin erscheinen Nachrichten, die über ntfy.sh kämen, wenn du die App öffnest."
+            "value": "%@ konnte die Liste dieses Geräts nicht annehmen. NTF-AI versucht es erneut, wenn es das nächste Mal läuft. Bis dahin erscheinen Nachrichten, die über ntfy.sh kämen, wenn du die App öffnest."
           }
         },
         "es": {
@@ -37690,7 +37690,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ hat die Liste dieses Geräts nicht mehr. NTF-AI sendet sie erneut, sobald es wieder eine Verbindung herstellen und es erneut versuchen kann; wenn keine Banner zurückkommen, öffne NTF-AI."
+            "value": "%@ hat die Liste dieses Geräts nicht mehr. NTF-AI sendet sie erneut, wenn es das nächste Mal läuft; falls keine Banner zurückkommen, öffne NTF-AI."
           }
         },
         "es": {
@@ -37913,49 +37913,257 @@
         }
       }
     },
-    "Removing this device's topics from %@. NTF-AI tries again the next time it runs.": {
+    "Asking %@ to stop watching this device's topics. If it hasn't confirmed yet, NTF-AI asks again the next time it runs.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Removing this device's topics from %@. NTF-AI tries again the next time it runs."
+            "value": "Asking %@ to stop watching this device's topics. If it hasn't confirmed yet, NTF-AI asks again the next time it runs."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Themen dieses Geräts werden von %@ entfernt. NTF-AI versucht es erneut, sobald es wieder eine Verbindung herstellen und es erneut versuchen kann."
+            "value": "NTF-AI bittet %@, die Themen dieses Geräts nicht mehr zu beobachten. Hat der Dienst das noch nicht bestätigt, fragt NTF-AI erneut, wenn es das nächste Mal läuft."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quitando los tópicos de este dispositivo de %@. NTF-AI lo vuelve a intentar la próxima vez que se ejecute."
+            "value": "Pidiendo a %@ que deje de vigilar los tópicos de este dispositivo. Si aún no lo ha confirmado, NTF-AI lo vuelve a pedir la próxima vez que se ejecute."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retrait des sujets de cet appareil de %@. NTF-AI réessaie à sa prochaine exécution."
+            "value": "Demande à %@ de cesser de surveiller les sujets de cet appareil. S’il ne l’a pas encore confirmé, NTF-AI redemande à sa prochaine exécution."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rimozione degli argomenti di questo dispositivo da %@. NTF-AI riprova alla prossima esecuzione."
+            "value": "Richiesta a %@ di smettere di osservare gli argomenti di questo dispositivo. Se non l’ha ancora confermato, NTF-AI lo chiede di nuovo alla prossima esecuzione."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verwijdering van de onderwerpen van dit apparaat van %@ is nog niet bevestigd. NTF-AI probeert het opnieuw wanneer het weer draait."
+            "value": "NTF-AI vraagt %@ om de onderwerpen van dit apparaat niet langer in de gaten te houden. Als dat nog niet is bevestigd, vraagt NTF-AI het opnieuw wanneer het weer draait."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usuwanie tematów tego urządzenia z %@. NTF-AI spróbuje ponownie przy najbliższej okazji, gdy aplikacja będzie działać."
+            "value": "NTF-AI prosi %@ o zaprzestanie obserwowania tematów tego urządzenia. Jeśli jeszcze tego nie potwierdził, NTF-AI poprosi ponownie przy najbliższej okazji, gdy aplikacja będzie działać."
+          }
+        }
+      }
+    },
+    "Removing %lld topics from %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Removing %lld topic from %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Removing %lld topics from %@"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Thema wird von %@ entfernt"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Themen werden von %@ entfernt"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Quitando %lld tópico de %@"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Quitando %lld tópicos de %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Quitando %lld tópicos de %@"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retrait de %lld sujet de %@"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retrait de %lld sujets de %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retrait de %lld sujets de %@"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimozione di %lld argomento da %@"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimozione di %lld argomenti da %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimozione di %lld argomenti da %@"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld onderwerp wordt verwijderd van %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld onderwerpen worden verwijderd van %@"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuwanie %lld tematu z %@"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuwanie %lld tematów z %@"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuwanie %lld tematów z %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usuwanie %lld tematów z %@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ hasn't confirmed yet. NTF-AI asks again the next time it runs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hasn't confirmed yet. NTF-AI asks again the next time it runs."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat das noch nicht bestätigt. NTF-AI fragt erneut, wenn es das nächste Mal läuft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ aún no lo ha confirmado. NTF-AI lo vuelve a pedir la próxima vez que se ejecute."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ne l’a pas encore confirmé. NTF-AI redemande à sa prochaine exécution."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non l’ha ancora confermato. NTF-AI lo chiede di nuovo alla prossima esecuzione."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ heeft het nog niet bevestigd. NTF-AI vraagt het opnieuw wanneer het weer draait."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ jeszcze tego nie potwierdził. NTF-AI poprosi ponownie przy najbliższej okazji, gdy aplikacja będzie działać."
           }
         }
       }
@@ -38072,7 +38280,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este tópico de ntfy.sh no se puede leer sin iniciar sesión, así que no recibe avisos instantáneos. Con tu inicio de sesión guardado, sus mensajes aparecen al abrir la app o actualizar."
+            "value": "Este tópico de ntfy.sh no se puede leer sin credenciales, así que no recibe avisos instantáneos. Con tus credenciales guardadas, sus mensajes aparecen al abrir la app o actualizar."
           }
         },
         "fr": {
@@ -38084,7 +38292,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo argomento su ntfy.sh non si può leggere senza accesso, quindi non riceve banner immediati. Con il tuo accesso salvato, i suoi messaggi compaiono quando apri l’app o aggiorni."
+            "value": "Questo argomento su ntfy.sh non si può leggere senza credenziali, quindi non riceve banner immediati. Con le tue credenziali salvate, i suoi messaggi compaiono quando apri l’app o aggiorni."
           }
         },
         "nl": {
@@ -38148,49 +38356,49 @@
         }
       }
     },
-    "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first checks each ntfy.sh topic with ntfy.sh without sending them and sends only topics anyone can read. It checks again when NTF-AI next runs, about once a day: a topic made private is dropped then, and one it can't check is held back. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.": {
+    "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, topic names are sent without that check. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first checks each ntfy.sh topic with ntfy.sh without sending them and sends only topics anyone can read. It checks again when NTF-AI next runs, about once a day: a topic made private is dropped then, and one it can't check is held back. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh."
+            "value": "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, topic names are sent without that check. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "An: NTF-AI sendet %@ eine nur dafür erzeugte Installations-ID, die Namen deiner ntfy.sh-Themen und einen Hash jeder Themenadresse auf deinen anderen Servern. %@ beobachtet diese Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht eintrifft; der Dienst sieht Nachrichten im Durchlauf und speichert keinen Nachrichtentext. Hast du Zugangsdaten für ntfy.sh gespeichert, oder kann NTF-AI das nicht feststellen, prüft es jedes ntfy.sh-Thema zuerst bei ntfy.sh, ohne sie mitzusenden, und sendet nur Themen, die jeder lesen kann. Erneut geprüft wird, wenn NTF-AI das nächste Mal läuft, etwa einmal am Tag: Ein privat gemachtes Thema fällt dann heraus, und eines, das sich nicht prüfen lässt, wird zurückgehalten. Für deine anderen Server kann NTF-AI %@ fragen, ob ein Weckruf für den Hash eines Themas durchkam. Aus: ntfy.sh-Themen und Server mit ntfy.sh als Upstream zeigen neue Nachrichten erst, wenn du die App öffnest oder aktualisierst."
+            "value": "An: NTF-AI sendet %@ eine nur dafür erzeugte Installations-ID, die Namen deiner ntfy.sh-Themen und einen Hash jeder Themenadresse auf deinen anderen Servern. %@ beobachtet diese Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht eintrifft; der Dienst sieht Nachrichten im Durchlauf und speichert keinen Nachrichtentext. Hast du Zugangsdaten für ntfy.sh gespeichert, oder kann NTF-AI das nicht feststellen, fragt es ntfy.sh zuerst ohne deine Zugangsdaten, ob jedes Thema für alle lesbar ist, und sendet nur Themen, die jeder lesen kann. Ohne gespeicherte Zugangsdaten werden Themennamen ohne diese Prüfung gesendet. Erfüllt ein Thema die Bedingungen nicht mehr, oder schaltest du dies aus, bittet NTF-AI %@, es nicht mehr zu beobachten. Für deine anderen Server kann NTF-AI %@ fragen, ob ein Weckruf für den Hash eines Themas durchkam. Aus: ntfy.sh-Themen und Server mit ntfy.sh als Upstream zeigen neue Nachrichten erst, wenn du die App öffnest oder aktualisierst."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activado, NTF-AI envía a %@ un ID de instalación creado solo para esto, los nombres de tus tópicos de ntfy.sh y un hash de cada dirección de tópico de tus otros servidores. %@ vigila esos tópicos en ntfy.sh y despierta este dispositivo cuando llega un mensaje; ve los mensajes de paso y no guarda su texto. Si guardaste credenciales para ntfy.sh, o NTF-AI no puede saber si lo hiciste, NTF-AI comprueba primero cada tópico de ntfy.sh con ntfy.sh sin enviarlas y solo envía los tópicos que cualquiera puede leer. Vuelve a comprobarlos la próxima vez que NTF-AI se ejecute, más o menos una vez al día: un tópico que pase a ser privado se quita entonces, y uno que no pueda comprobar queda retenido. Para tus otros servidores, NTF-AI puede preguntar a %@ si llegó un aviso de activación para el hash de un tópico. Desactivado, los tópicos de ntfy.sh y los servidores cuyo upstream es ntfy.sh muestran mensajes nuevos solo al abrir la app o actualizar."
+            "value": "Activado, NTF-AI envía a %@ un ID de instalación creado solo para esto, los nombres de tus tópicos de ntfy.sh y un hash de cada dirección de tópico de tus otros servidores. %@ vigila esos tópicos en ntfy.sh y despierta este dispositivo cuando llega un mensaje; ve los mensajes de paso y no guarda su texto. Si guardaste credenciales para ntfy.sh, o NTF-AI no puede saber si lo hiciste, NTF-AI pregunta primero a ntfy.sh, sin tus credenciales, si cualquiera puede leer cada tópico, y solo envía los tópicos que cualquiera puede leer. Sin credenciales guardadas, los nombres de los tópicos se envían sin esa comprobación. Cuando un tópico deja de cumplir los requisitos, o desactivas esta opción, NTF-AI pide a %@ que deje de vigilarlo. Para tus otros servidores, NTF-AI puede preguntar a %@ si llegó un aviso de activación para el hash de un tópico. Desactivado, los tópicos de ntfy.sh y los servidores cuyo upstream es ntfy.sh muestran mensajes nuevos solo al abrir la app o actualizar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activé, NTF-AI envoie à %@ un identifiant d’installation créé uniquement pour cela, les noms de vos sujets ntfy.sh et une empreinte de chaque adresse de sujet sur vos autres serveurs. %@ surveille ces sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message ; il voit les messages au passage et n’en conserve aucun texte. Si vous avez enregistré des identifiants de connexion pour ntfy.sh, ou si NTF-AI ne peut pas le savoir, NTF-AI vérifie d’abord chaque sujet ntfy.sh auprès de ntfy.sh sans les envoyer et n’envoie que les sujets lisibles par tous. Il vérifie de nouveau à sa prochaine exécution, environ une fois par jour : un sujet rendu privé est alors retiré, et un sujet impossible à vérifier est mis en attente. Pour vos autres serveurs, NTF-AI peut demander à %@ si un réveil pour l’empreinte d’un sujet est passé. Désactivé, les sujets ntfy.sh et les serveurs dont l’amont est ntfy.sh n’affichent les nouveaux messages qu’à l’ouverture de l’app ou à l’actualisation."
+            "value": "Activé, NTF-AI envoie à %@ un identifiant d’installation créé uniquement pour cela, les noms de vos sujets ntfy.sh et une empreinte de chaque adresse de sujet sur vos autres serveurs. %@ surveille ces sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message ; il voit les messages au passage et n’en conserve aucun texte. Si vous avez enregistré des identifiants de connexion pour ntfy.sh, ou si NTF-AI ne peut pas le savoir, NTF-AI demande d’abord à ntfy.sh, sans vos identifiants de connexion, si chaque sujet est lisible par tous, et n’envoie que les sujets lisibles par tous. Sans identifiants de connexion enregistrés, les noms des sujets sont envoyés sans cette vérification. Quand un sujet ne remplit plus les conditions, ou si vous désactivez cette option, NTF-AI demande à %@ de cesser de le surveiller. Pour vos autres serveurs, NTF-AI peut demander à %@ si un réveil pour l’empreinte d’un sujet est passé. Désactivé, les sujets ntfy.sh et les serveurs dont l’amont est ntfy.sh n’affichent les nouveaux messages qu’à l’ouverture de l’app ou à l’actualisation."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Attivo, NTF-AI invia a %@ un ID di installazione creato solo per questo, i nomi dei tuoi argomenti ntfy.sh e un hash di ogni indirizzo di argomento sugli altri tuoi server. %@ osserva questi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio; vede i messaggi di passaggio e non ne conserva il testo. Se hai salvato credenziali per ntfy.sh, o NTF-AI non può saperlo, NTF-AI verifica prima con ntfy.sh, senza inviarle, se chiunque può leggere ogni argomento, e invia solo gli argomenti che chiunque può leggere. Verifica di nuovo alla prossima esecuzione di NTF-AI, circa una volta al giorno: un argomento reso privato viene tolto allora, e uno che non riesce a verificare viene trattenuto. Per gli altri tuoi server, NTF-AI può chiedere a %@ se un risveglio per l’hash di un argomento è passato. Disattivo, gli argomenti ntfy.sh e i server con upstream ntfy.sh mostrano i nuovi messaggi solo quando apri l’app o aggiorni."
+            "value": "Attivo, NTF-AI invia a %@ un ID di installazione creato solo per questo, i nomi dei tuoi argomenti ntfy.sh e un hash di ogni indirizzo di argomento sugli altri tuoi server. %@ osserva questi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio; vede i messaggi di passaggio e non ne conserva il testo. Se hai salvato credenziali per ntfy.sh, o NTF-AI non può saperlo, NTF-AI chiede prima a ntfy.sh, senza le tue credenziali, se chiunque può leggere ogni argomento, e invia solo gli argomenti che chiunque può leggere. Senza credenziali salvate, i nomi degli argomenti vengono inviati senza questa verifica. Quando un argomento non soddisfa più i requisiti, o disattivi questa opzione, NTF-AI chiede a %@ di smettere di osservarlo. Per gli altri tuoi server, NTF-AI può chiedere a %@ se un risveglio per l’hash di un argomento è passato. Disattivo, gli argomenti ntfy.sh e i server con upstream ntfy.sh mostrano i nuovi messaggi solo quando apri l’app o aggiorni."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aan: NTF-AI stuurt %@ een installatie-ID die alleen hiervoor is gemaakt, de namen van je ntfy.sh-onderwerpen en een hash van elk onderwerpadres op je andere servers. %@ houdt die onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt; het ziet berichten in het voorbijgaan en bewaart geen berichttekst. Heb je inloggegevens voor ntfy.sh opgeslagen, of kan NTF-AI dat niet nagaan, dan controleert NTF-AI elk ntfy.sh-onderwerp eerst bij ntfy.sh zonder ze mee te sturen en stuurt alleen onderwerpen die iedereen kan lezen. Opnieuw gecontroleerd wordt wanneer NTF-AI weer draait, ongeveer eens per dag: een onderwerp dat privé is geworden valt dan af, en een onderwerp dat niet te controleren is wordt achtergehouden. Voor je andere servers kan NTF-AI %@ vragen of een wekbericht voor de hash van een onderwerp is doorgekomen. Uit: ntfy.sh-onderwerpen en servers met ntfy.sh als upstream tonen nieuwe berichten pas als je de app opent of vernieuwt."
+            "value": "Aan: NTF-AI stuurt %@ een installatie-ID die alleen hiervoor is gemaakt, de namen van je ntfy.sh-onderwerpen en een hash van elk onderwerpadres op je andere servers. %@ houdt die onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt; het ziet berichten in het voorbijgaan en bewaart geen berichttekst. Heb je inloggegevens voor ntfy.sh opgeslagen, of kan NTF-AI dat niet nagaan, dan vraagt NTF-AI eerst aan ntfy.sh, zonder je inloggegevens, of iedereen elk onderwerp kan lezen, en stuurt alleen onderwerpen die iedereen kan lezen. Zonder opgeslagen inloggegevens worden onderwerpnamen zonder die controle verstuurd. Voldoet een onderwerp niet meer, of zet je dit uit, dan vraagt NTF-AI %@ om het niet langer in de gaten te houden. Voor je andere servers kan NTF-AI %@ vragen of een wekbericht voor de hash van een onderwerp is doorgekomen. Uit: ntfy.sh-onderwerpen en servers met ntfy.sh als upstream tonen nieuwe berichten pas als je de app opent of vernieuwt."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Włączone: NTF-AI wysyła do %@ identyfikator instalacji utworzony tylko w tym celu, nazwy Twoich tematów na ntfy.sh i hash każdego adresu tematu na Twoich innych serwerach. %@ obserwuje te tematy na ntfy.sh i wybudza to urządzenie, gdy przyjdzie wiadomość; widzi wiadomości w przelocie i nie przechowuje ich treści. Jeśli zapisano dane logowania do ntfy.sh albo NTF-AI nie może tego ustalić, najpierw sprawdza każdy temat na ntfy.sh bez ich wysyłania i wysyła tylko tematy, które każdy może czytać. Ponownie sprawdza przy najbliższej okazji, gdy aplikacja będzie działać, mniej więcej raz na dobę: temat ustawiony jako prywatny zostaje wtedy usunięty, a temat, którego nie da się sprawdzić, zostaje wstrzymany. Dla Twoich innych serwerów NTF-AI może zapytać %@, czy wybudzenie dla hasha tematu dotarło. Wyłączone: tematy na ntfy.sh i serwery z ntfy.sh jako serwerem nadrzędnym pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
+            "value": "Włączone: NTF-AI wysyła do %@ identyfikator instalacji utworzony tylko w tym celu, nazwy Twoich tematów na ntfy.sh i hash każdego adresu tematu na Twoich innych serwerach. %@ obserwuje te tematy na ntfy.sh i wybudza to urządzenie, gdy przyjdzie wiadomość; widzi wiadomości w przelocie i nie przechowuje ich treści. Jeśli zapisano dane logowania do ntfy.sh albo NTF-AI nie może tego ustalić, NTF-AI najpierw pyta ntfy.sh, bez Twoich danych logowania, czy każdy temat jest dostępny do odczytu dla wszystkich, i wysyła tylko tematy, które każdy może czytać. Bez zapisanych danych logowania nazwy tematów są wysyłane bez tego sprawdzenia. Gdy temat przestaje spełniać warunki albo wyłączysz tę funkcję, NTF-AI prosi %@ o zaprzestanie jego obserwowania. Dla Twoich innych serwerów NTF-AI może zapytać %@, czy wybudzenie dla hasha tematu dotarło. Wyłączone: tematy na ntfy.sh i serwery z ntfy.sh jako serwerem nadrzędnym pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
           }
         }
       }
@@ -38336,49 +38544,49 @@
         }
       }
     },
-    "ntfy.sh didn't let NTF-AI check this topic, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.": {
+    "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh didn't let NTF-AI check this topic, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app."
+            "value": "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh hat NTF-AI dieses Thema nicht prüfen lassen, daher bekommt es vorerst keine sofortigen Banner. NTF-AI prüft erneut, wenn es das nächste Mal läuft, etwa einmal am Tag. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+            "value": "%@ konnte dieses Thema auf ntfy.sh nicht beobachten, daher bekommt es vorerst keine sofortigen Banner. NTF-AI prüft erneut, wenn es das nächste Mal läuft, etwa einmal am Tag. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh no dejó que NTF-AI comprobara este tópico, así que por ahora no recibe avisos instantáneos. NTF-AI vuelve a comprobarlo la próxima vez que se ejecute, más o menos una vez al día. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+            "value": "%@ no pudo vigilar este tópico en ntfy.sh, así que por ahora no recibe avisos instantáneos. NTF-AI vuelve a comprobarlo la próxima vez que se ejecute, más o menos una vez al día. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh n’a pas laissé NTF-AI vérifier ce sujet : il ne reçoit donc pas de bannières instantanées pour l’instant. NTF-AI vérifie de nouveau à sa prochaine exécution, environ une fois par jour. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+            "value": "%@ n’a pas pu surveiller ce sujet sur ntfy.sh : il ne reçoit donc pas de bannières instantanées pour l’instant. NTF-AI vérifie de nouveau à sa prochaine exécution, environ une fois par jour. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh non ha permesso a NTF-AI di verificare questo argomento, quindi per ora non riceve banner immediati. NTF-AI verifica di nuovo alla prossima esecuzione, circa una volta al giorno. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+            "value": "%@ non è riuscito a osservare questo argomento su ntfy.sh, quindi per ora non riceve banner immediati. NTF-AI verifica di nuovo alla prossima esecuzione, circa una volta al giorno. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh liet NTF-AI dit onderwerp niet controleren, dus het krijgt voorlopig geen directe meldingen. NTF-AI controleert opnieuw wanneer het weer draait, ongeveer eens per dag. Tot dan verschijnen nieuwe berichten als je de app opent."
+            "value": "%@ kon dit onderwerp op ntfy.sh niet in de gaten houden, dus het krijgt voorlopig geen directe meldingen. NTF-AI controleert opnieuw wanneer het weer draait, ongeveer eens per dag. Tot dan verschijnen nieuwe berichten als je de app opent."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ntfy.sh nie pozwolił NTF-AI sprawdzić tego tematu, więc na razie nie dostaje natychmiastowych banerów. NTF-AI sprawdzi ponownie przy najbliższej okazji, gdy aplikacja będzie działać, mniej więcej raz na dobę. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+            "value": "%@ nie mógł obserwować tego tematu na ntfy.sh, więc na razie nie dostaje natychmiastowych banerów. NTF-AI sprawdzi ponownie przy najbliższej okazji, gdy aplikacja będzie działać, mniej więcej raz na dobę. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
           }
         }
       }
@@ -38430,143 +38638,143 @@
         }
       }
     },
-    "%@ isn't watching ntfy.sh for this device right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, new messages show when you open the app.": {
+    "%@ may not be watching all of this device's ntfy.sh topics right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, some new messages may show only when you open the app.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ isn't watching ntfy.sh for this device right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, new messages show when you open the app."
+            "value": "%@ may not be watching all of this device's ntfy.sh topics right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, some new messages may show only when you open the app."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ beobachtet ntfy.sh für dieses Gerät gerade nicht. Möglicherweise verbindet sich der Dienst neu oder wartet, bis ntfy.sh wieder Anfragen annimmt. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+            "value": "%@ beobachtet gerade eventuell nicht alle ntfy.sh-Themen dieses Geräts. Möglicherweise verbindet sich der Dienst neu oder wartet, bis ntfy.sh wieder Anfragen annimmt. Bis dahin erscheinen manche neuen Nachrichten vielleicht erst, wenn du die App öffnest."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ no está vigilando ntfy.sh para este dispositivo en este momento. Puede que se esté reconectando o que espere a que ntfy.sh acepte más solicitudes. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+            "value": "Puede que %@ no esté vigilando ahora todos los tópicos de ntfy.sh de este dispositivo. Puede que se esté reconectando o que espere a que ntfy.sh acepte más solicitudes. Hasta entonces, algunos mensajes nuevos pueden aparecer solo al abrir la app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ne surveille pas ntfy.sh pour cet appareil en ce moment. Il se reconnecte peut-être, ou attend que ntfy.sh accepte davantage de requêtes. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+            "value": "%@ ne surveille peut-être pas tous les sujets ntfy.sh de cet appareil en ce moment. Il se reconnecte peut-être, ou attend que ntfy.sh accepte davantage de requêtes. En attendant, certains nouveaux messages peuvent ne s’afficher qu’à l’ouverture de l’app."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ al momento non osserva ntfy.sh per questo dispositivo. Potrebbe essere in riconnessione o in attesa che ntfy.sh accetti altre richieste. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+            "value": "%@ al momento potrebbe non osservare tutti gli argomenti ntfy.sh di questo dispositivo. Potrebbe essere in riconnessione o in attesa che ntfy.sh accetti altre richieste. Fino ad allora alcuni nuovi messaggi potrebbero comparire solo quando apri l’app."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ houdt ntfy.sh nu niet in de gaten voor dit apparaat. Het maakt misschien opnieuw verbinding, of wacht tot ntfy.sh weer meer verzoeken aanneemt. Tot dan verschijnen nieuwe berichten als je de app opent."
+            "value": "%@ houdt nu mogelijk niet alle ntfy.sh-onderwerpen van dit apparaat in de gaten. Het maakt misschien opnieuw verbinding, of wacht tot ntfy.sh weer meer verzoeken aanneemt. Tot dan verschijnen sommige nieuwe berichten mogelijk pas als je de app opent."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ nie obserwuje teraz ntfy.sh dla tego urządzenia. Może ponownie się łączyć lub czekać, aż ntfy.sh przyjmie więcej żądań. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+            "value": "%@ może teraz nie obserwować wszystkich tematów ntfy.sh tego urządzenia. Może ponownie się łączyć lub czekać, aż ntfy.sh przyjmie więcej żądań. Do tego czasu niektóre nowe wiadomości mogą pojawić się dopiero po otwarciu aplikacji."
           }
         }
       }
     },
-    "NTF-AI checks the next message from this server that arrives within a day.": {
+    "NTF-AI checks the next eligible message from this server that arrives within 24 hours.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI checks the next message from this server that arrives within a day."
+            "value": "NTF-AI checks the next eligible message from this server that arrives within 24 hours."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI prüft die nächste Nachricht von diesem Server, die innerhalb eines Tages eintrifft."
+            "value": "NTF-AI prüft die nächste geeignete Nachricht von diesem Server, die innerhalb von 24 Stunden eintrifft."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI comprueba el siguiente mensaje de este servidor que llegue en el plazo de un día."
+            "value": "NTF-AI comprueba el siguiente mensaje apto de este servidor que llegue en las próximas 24 horas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI vérifie le prochain message de ce serveur qui arrive dans la journée."
+            "value": "NTF-AI vérifie le prochain message éligible de ce serveur qui arrive dans les 24 heures."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI controlla il prossimo messaggio da questo server che arriva entro un giorno."
+            "value": "NTF-AI controlla il prossimo messaggio idoneo da questo server che arriva entro 24 ore."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI controleert het volgende bericht van deze server dat binnen een dag binnenkomt."
+            "value": "NTF-AI controleert het volgende geschikte bericht van deze server dat binnen 24 uur binnenkomt."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "NTF-AI sprawdzi następną wiadomość z tego serwera, która przyjdzie w ciągu doby."
+            "value": "NTF-AI sprawdzi następną kwalifikującą się wiadomość z tego serwera, która przyjdzie w ciągu doby."
           }
         }
       }
     },
-    "Not watching ntfy.sh right now": {
+    "Some topics may be waiting for push": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not watching ntfy.sh right now"
+            "value": "Some topics may be waiting for push"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beobachtet ntfy.sh gerade nicht"
+            "value": "Einige Themen warten eventuell auf Push-Anbindung"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No vigila ntfy.sh en este momento"
+            "value": "Algunos tópicos pueden estar esperando los avisos"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ne surveille pas ntfy.sh pour l’instant"
+            "value": "Certains sujets attendent peut-être le push"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al momento non osserva ntfy.sh"
+            "value": "Alcuni argomenti potrebbero essere in attesa del push"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Houdt ntfy.sh nu niet in de gaten"
+            "value": "Sommige onderwerpen wachten mogelijk op push"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obecnie nie obserwuje ntfy.sh"
+            "value": "Niektóre tematy mogą czekać na push"
           }
         }
       }
@@ -38618,49 +38826,96 @@
         }
       }
     },
-    "Will check again shortly": {
+    "Waiting to retry": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Will check again shortly"
+            "value": "Waiting to retry"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wird gleich erneut geprüft"
+            "value": "Wartet auf erneuten Versuch"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se volverá a comprobar en breve"
+            "value": "Esperando para reintentar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nouvelle vérification sous peu"
+            "value": "En attente d’une nouvelle tentative"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nuovo controllo a breve"
+            "value": "In attesa di riprovare"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wordt zo opnieuw gecontroleerd"
+            "value": "Wacht om opnieuw te proberen"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wkrótce nastąpi ponowne sprawdzenie"
+            "value": "Oczekiwanie na ponowną próbę"
+          }
+        }
+      }
+    },
+    "Waiting to retry after %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to retry after %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf erneuten Versuch nach %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando para reintentar después de %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente d’une nouvelle tentative après %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa di riprovare dopo %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht om opnieuw te proberen na %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oczekiwanie na ponowną próbę po %@"
           }
         }
       }

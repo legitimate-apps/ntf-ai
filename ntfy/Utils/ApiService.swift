@@ -30,10 +30,11 @@ class ApiService {
     
     /// Polls from `request.since` using only the snapshot's values, never the managed `Subscription`,
     /// so it is safe to call and complete on any queue.
-    func poll(_ request: PollRequest, timeout: TimeInterval = 30, completionHandler: @escaping ([Message]?, Error?) -> Void) {
+    /// - Parameter wake: in a background wake, the poll starts only with time left and is cancelled when the wake ends.
+    func poll(_ request: PollRequest, timeout: TimeInterval = 30, wake: WakeContext? = nil, completionHandler: @escaping ([Message]?, Error?) -> Void) {
         let urlString = "\(request.topicUrl)/json?poll=1&since=\(request.since ?? "all")"
         Log.d(tag, "Polling from \(urlString) with user \(request.user?.username ?? "anonymous")")
-        fetchJsonData(urlString: urlString, baseUrl: request.baseUrl, user: request.user, timeout: timeout, completionHandler: completionHandler)
+        fetchJsonData(urlString: urlString, baseUrl: request.baseUrl, user: request.user, timeout: timeout, wake: wake, completionHandler: completionHandler)
     }
     
     func poll(subscription: Subscription, messageId: String, user: ServerCredential?, completionHandler: @escaping (Message?, Error?) -> Void) {
@@ -403,13 +404,13 @@ class ApiService {
         var isNtfyForbidden: Bool { http == 403 && code / 100 == 403 && !error.isEmpty }
     }
 
-    private func fetchJsonData<T: Decodable>(urlString: String, baseUrl: String, user: ServerCredential?, timeout: TimeInterval = 30, completionHandler: @escaping ([T]?, Error?) -> ()) {
+    private func fetchJsonData<T: Decodable>(urlString: String, baseUrl: String, user: ServerCredential?, timeout: TimeInterval = 30, wake: WakeContext? = nil, completionHandler: @escaping ([T]?, Error?) -> ()) {
         guard let url = URL(string: urlString) else {
             completionHandler(nil, URLError(.badURL))
             return
         }
         let request = newRequest(url: url, baseUrl: baseUrl, user: user)
-        runOneShot(request, timeout: timeout, baseUrl: baseUrl) { (data, response, error) in
+        runOneShot(request, timeout: timeout, baseUrl: baseUrl, wake: wake) { (data, response, error) in
             if let error {
                 Log.e(self.tag, "Error fetching data", error)
                 completionHandler(nil, error)
@@ -480,11 +481,22 @@ class ApiService {
         timeout: TimeInterval,
         baseUrl: String,
         session: URLSession? = nil,
+        wake: WakeContext? = nil,
         completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void
     ) -> URLSession {
         let owned = session == nil
+        // Within a wake: no longer than the time left, started only with its cancellation installed.
+        let timeout = wake.map { min(timeout, max(1, $0.remaining - 0.5)) } ?? timeout
         let session = session ?? newSession(timeout: timeout, baseUrl: baseUrl)
-        session.dataTask(with: request, completionHandler: completionHandler).resume()
+        let task = session.dataTask(with: request, completionHandler: completionHandler)
+        if let wake {
+            if !wake.start(task, minimum: 1) {
+                Log.d(tag, "Background wake ended; request not started")
+                task.cancel()
+            }
+        } else {
+            task.resume()
+        }
         if owned {
             session.finishTasksAndInvalidate()
         }
@@ -745,5 +757,81 @@ struct PublishOptions {
             return "=?UTF-8?B?\(Data(value.utf8).base64EncodedString())?="
         }
         return value
+    }
+}
+
+/// Lets exactly one of several racing callbacks through (a reply and the wake's cancellation, say).
+final class Once {
+    private let lock = NSLock()
+    private var claimed = false
+
+    /// True for the first caller only.
+    @discardableResult
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard !claimed else { return false }
+        claimed = true
+        return true
+    }
+}
+
+/// One background wake's budget: a monotonic deadline and a cancellation token, passed to every
+/// request the wake starts (content polls, the bridge, its access checks). A request is started
+/// only through `start`, which installs its cancellation before checking the time left, so none
+/// can start after the wake ended or outlive it (review-130c C4).
+final class WakeContext {
+    private let deadlineUptime: TimeInterval
+    private let uptime: () -> TimeInterval
+    private let lock = NSLock()
+    private var cancelled = false
+    private var handlers: [UUID: () -> Void] = [:]
+
+    init(deadline: TimeInterval, uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        self.uptime = uptime
+        self.deadlineUptime = uptime() + deadline
+    }
+
+    /// Seconds left (0 once cancelled).
+    var remaining: TimeInterval {
+        lock.lock(); defer { lock.unlock() }
+        return cancelled ? 0 : max(0, deadlineUptime - uptime())
+    }
+
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+
+    /// Ends the wake: every request started through it is cancelled, and none starts after.
+    func cancel() {
+        lock.lock()
+        guard !cancelled else { lock.unlock(); return }
+        cancelled = true
+        let pending = handlers.values
+        handlers = [:]
+        lock.unlock()
+        pending.forEach { $0() }
+    }
+
+    /// Runs `handler` when the wake ends (at once if it already has). Returns a token for `remove`.
+    @discardableResult
+    func onCancel(_ handler: @escaping () -> Void) -> UUID? {
+        lock.lock()
+        guard !cancelled else { lock.unlock(); handler(); return nil }
+        let id = UUID()
+        handlers[id] = handler
+        lock.unlock()
+        return id
+    }
+
+    func remove(_ id: UUID?) {
+        guard let id else { return }
+        lock.lock(); handlers[id] = nil; lock.unlock()
+    }
+
+    /// Resumes `task` only if at least `minimum` seconds are left, with its cancellation already
+    /// installed; a task resumed is cancelled when the wake ends. False when it wasn't started.
+    func start(_ task: URLSessionTask, minimum: TimeInterval) -> Bool {
+        let id = onCancel { [weak task] in task?.cancel() }
+        guard id != nil, remaining >= minimum else { remove(id); return false }
+        task.resume()
+        return true
     }
 }

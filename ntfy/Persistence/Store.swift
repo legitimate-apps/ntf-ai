@@ -58,7 +58,9 @@ class Store: ObservableObject {
     /// Alerts claimed for a message before its row exists (the extension's fallback for a
     /// poll_request): "<topic URL>#<message id>" to the claim time, kept a week.
     /// Claims by delivery key (`claimKey`), in their own app-group file (review-130b D).
-    private let presentationClaims: SharedStateFile<[String: Date]>
+    private let presentationClaims: SharedStateFile<[String: AlertClaim]>
+    /// The 1.30 betas' file of bare claim times; read until the first write moves it.
+    let legacyClaimFile: SharedStateFile<[String: Date]>
     /// Where 1.29 kept them; read until the first write moves them.
     private let legacyPresentationClaims: UserDefaults
     private static let presentationClaimsKey = "presentationClaimsBeforeRow"
@@ -162,12 +164,21 @@ class Store: ObservableObject {
         self.observesPersistentChanges = !inMemory
         self.credentialStore = credentialStore
         self.legacyPresentationClaims = inMemory ? UserDefaults(suiteName: "ntfy.presentationClaims.\(UUID().uuidString)") ?? .standard : Store.sharedDefaults
-        if inMemory {
+        if let storeURL {
+            // Stores opened on one file stand for the app and its extension: they share the claims
+            // file next to it, each through its own descriptor on the store's alert lock.
+            let lock = SharedFileLock(path: storeURL.appendingPathExtension("alerts.lock").path)
+            let directory = storeURL.deletingLastPathComponent()
+            self.presentationClaims = SharedStateFile(name: Store.alertClaimsFile, directory: directory, lock: lock)
+            self.legacyClaimFile = SharedStateFile(name: Store.presentationClaimsFile, directory: directory, lock: lock)
+        } else if inMemory {
             let directory = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ntfy.claims.\(UUID().uuidString)")
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            self.presentationClaims = SharedStateFile(name: Store.presentationClaimsFile, directory: directory)
+            self.presentationClaims = SharedStateFile(name: Store.alertClaimsFile, directory: directory)
+            self.legacyClaimFile = SharedStateFile(name: Store.presentationClaimsFile, directory: directory, lock: presentationClaims.lock)
         } else {
-            self.presentationClaims = SharedStateFile(name: Store.presentationClaimsFile)
+            self.presentationClaims = SharedStateFile(name: Store.alertClaimsFile)
+            self.legacyClaimFile = SharedStateFile(name: Store.presentationClaimsFile, lock: presentationClaims.lock)
         }
         self.topicSecrets = topicSecrets
         let fileManager = FileManager.default
@@ -751,11 +762,14 @@ class Store: ObservableObject {
         }
     }
 
-    /// Called by both alert delivery paths, including a full-order reconciliation.
-    func recordPresentation(message: Message, baseUrl: String) {
-        // Every alert also lands in the claims file, so the extension's expiry can tell from that
-        // file alone, without Core Data, that this message was alerted (review-130b #5).
-        recordClaimBeforeRow(message: message, baseUrl: baseUrl)
+    /// Called by both alert delivery paths, including a full-order reconciliation: the message is
+    /// delivered (`by` this process). Marks the row too when it exists.
+    func recordPresentation(message: Message, baseUrl: String, by owner: AlertOwner = .current, token: String? = nil) {
+        // Every alert lands in the claims file, so the extension's expiry can tell from that file
+        // alone, without Core Data, that this message was alerted (review-130b #5).
+        if !markDelivered(message: message, baseUrl: baseUrl, by: owner, token: token) {
+            Log.w(Store.tag, "Cannot record a delivery claim; a later poll may alert this message again")
+        }
         context.performAndWait {
             guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: message.topic) else { return }
             let request = Notification.fetchRequest()
@@ -768,7 +782,30 @@ class Store: ObservableObject {
         }
     }
 
+    /// The claims file: one record per message, shared by the app and the extension (review-130c C5).
+    static let alertClaimsFile = "ntfai-alert-claims.json"
+    /// Where the 1.30 betas kept bare claim times, read until the first write moves them.
     static let presentationClaimsFile = "ntfai-presentation-claims.json"
+    /// A reservation this old is from a delivery that died; another may take it over.
+    static let reservationLifetime: TimeInterval = 30
+    /// How long the extension's expiry waits for the claims lock: never more than this.
+    static let expiryLockTimeout: TimeInterval = 0.1
+
+    /// Which process kind wrote a claim (for the record and the expiry rule; ownership is the token).
+    enum AlertOwner: String, Codable {
+        case app, nse, legacy
+        static var current: AlertOwner { Bundle.main.bundlePath.hasSuffix(".appex") ? .nse : .app }
+    }
+
+    /// One message's alert ownership: reserved by a delivery that will present it, or delivered.
+    struct AlertClaim: Codable, Equatable {
+        enum State: String, Codable { case reserved, delivered }
+        var state: State
+        var by: AlertOwner
+        /// The delivery that wrote it.
+        var token: String?
+        var at: Date
+    }
 
     /// The delivery's identity, not the row's: every spelling of ntfy.sh is one origin, so alias rows
     /// for the same topic share one claim per message (review-130b D).
@@ -780,50 +817,137 @@ class Store: ObservableObject {
         claimTopicUrl(baseUrl: baseUrl, topic: message.topic) + "#" + message.id
     }
 
-    private func legacyClaims() -> [String: Date] {
-        (legacyPresentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+    /// A key as an older build wrote it, in today's canonical form ("<topic URL>#<id>").
+    static func canonicalClaimKey(_ key: String) -> String {
+        guard let hash = key.lastIndex(of: "#"), let slash = key[..<hash].lastIndex(of: "/") else { return key }
+        let base = String(key[..<slash])
+        let topic = String(key[key.index(after: slash)..<hash])
+        return claimTopicUrl(baseUrl: base, topic: topic) + String(key[hash...])
+    }
+
+    /// Claims from older storage (the 1.30 beta file, then 1.29's defaults), keys canonicalized and
+    /// the newest stamp kept per message; all of them count as delivered (review-130c C6).
+    private func legacyClaims() -> [String: AlertClaim] {
+        let defaults = (legacyPresentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+        let beta = legacyClaimFile.read() ?? [:]
+        var claims: [String: AlertClaim] = [:]
+        for (key, at) in defaults.merging(beta, uniquingKeysWith: max) {
+            let canonical = Self.canonicalClaimKey(key)
+            if let existing = claims[canonical], existing.at >= at { continue }
+            claims[canonical] = AlertClaim(state: .delivered, by: .legacy, token: nil, at: at)
+        }
+        return claims
+    }
+
+    /// The claims as committed; nil when the file can't be read now (then nothing is known).
+    private func loadClaims() -> [String: AlertClaim]? {
+        switch presentationClaims.load() {
+        case .value(let claims): return claims
+        case .missing: return legacyClaims()
+        case .unreadable: return nil
+        }
     }
 
     /// Every claim writer and removal is one read-modify-write of the claims file under its lock.
-    /// Returns false when the lock or the write failed (nothing changed).
+    /// Returns `change`'s value only once committed; nil when the lock or the write failed.
     @discardableResult
-    private func updateClaims(_ change: (inout [String: Date]) -> Void) -> Bool {
-        let legacy = legacyClaims()
+    private func updateClaims<R>(timeout: TimeInterval = SharedFileLock.defaultTimeout, _ change: (inout [String: AlertClaim]) -> R) -> R? {
         let now = Date()
-        let saved: Bool? = presentationClaims.update { stored in
-            var claims = stored ?? legacy
+        var migrated = false
+        let result: R? = presentationClaims.update(timeout: timeout) { stored in
+            var claims = stored ?? legacyClaims()
+            migrated = stored == nil
             let before = claims
-            claims = claims.filter { now.timeIntervalSince($0.value) < Self.presentationClaimLifetime }
-            change(&claims)
+            claims = claims.filter { now.timeIntervalSince($0.value.at) < Self.presentationClaimLifetime }
+            // Cleanups that couldn't be written before go first (review-130c C6).
+            for topicUrl in pendingClaimCleanups() { claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }
+            let result = change(&claims)
             let write = claims != before || stored == nil
             if write { stored = claims }
-            return (write, true)
+            return (write, result)
         }
-        if saved == true, !legacy.isEmpty { legacyPresentationClaims.removeObject(forKey: Self.presentationClaimsKey) }
-        return saved == true
+        if result != nil {
+            if !pendingClaimCleanups().isEmpty { legacyPresentationClaims.removeObject(forKey: Self.claimCleanupKey) }
+            if migrated {
+                legacyPresentationClaims.removeObject(forKey: Self.presentationClaimsKey)
+                try? FileManager.default.removeItem(at: legacyClaimFile.url)
+            }
+        }
+        return result
     }
 
-    private func recordClaimBeforeRow(message: Message, baseUrl: String) {
+    private static let claimCleanupKey = "alertClaimCleanupsPending"
+    private func pendingClaimCleanups() -> [String] { legacyPresentationClaims.stringArray(forKey: Self.claimCleanupKey) ?? [] }
+
+    /// Whose the message is now, for a delivery holding `token`.
+    enum AlertReservation: Equatable {
+        /// This delivery owns it: present, then `markDelivered`.
+        case reserved
+        /// Already delivered, or another delivery is presenting it now: stay passive.
+        case passive
+        /// The claims couldn't be had: alert anyway (a rare duplicate beats a lost first alert).
+        case unavailable
+    }
+
+    /// Reserve the alert for `token` (review-130c C5): delivered, or freshly reserved by another
+    /// delivery, is passive; otherwise (nothing, a stale reservation, our own) it is ours.
+    func reserveAlert(message: Message, baseUrl: String, token: String, by owner: AlertOwner = .current,
+                      timeout: TimeInterval = SharedFileLock.defaultTimeout) -> AlertReservation {
+        if rowWasAlerted(message: message, baseUrl: baseUrl) { return .passive }
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
-        if !updateClaims({ $0[key] = Date() }) {
-            Log.w(Store.tag, "Cannot record a presentation claim; a later poll may alert this message again")
+        let now = Date()
+        let outcome: AlertReservation? = updateClaims(timeout: timeout) { claims in
+            if let claim = claims[key], claim.token != token {
+                if claim.state == .delivered { return .passive }
+                if now.timeIntervalSince(claim.at) < Self.reservationLifetime, claim.at <= now.addingTimeInterval(5) { return .passive }
+            }
+            if claims[key]?.state == .delivered { return .passive }
+            claims[key] = AlertClaim(state: .reserved, by: owner, token: token, at: now)
+            return .reserved
+        }
+        return outcome ?? .unavailable
+    }
+
+    /// The message was handed to the system (`token`'s delivery, or one without a reservation).
+    @discardableResult
+    func markDelivered(message: Message, baseUrl: String, by owner: AlertOwner = .current, token: String? = nil,
+                       timeout: TimeInterval = SharedFileLock.defaultTimeout) -> Bool {
+        let key = Self.claimKey(message: message, baseUrl: baseUrl)
+        return updateClaims(timeout: timeout) { claims in
+            if claims[key]?.state == .delivered { return }
+            claims[key] = AlertClaim(state: .delivered, by: owner, token: token, at: Date())
+        } != nil
+    }
+
+    /// A reservation whose delivery didn't happen (scheduling failed, cancelled): free it at once.
+    func releaseAlert(message: Message, baseUrl: String, token: String) {
+        let key = Self.claimKey(message: message, baseUrl: baseUrl)
+        updateClaims { claims in
+            if let claim = claims[key], claim.state == .reserved, claim.token == token { claims[key] = nil }
         }
     }
 
-    /// The claims belong to the topic like its rows do, so an unsubscribe drops them with the rows.
+    /// The claims belong to the topic like its rows do, so an unsubscribe drops them with the rows,
+    /// but only once no alias of the topic is left (review-130c C6). A cleanup that can't be
+    /// written now is recorded and done with the next write.
     private func forgetClaimsBeforeRow(topicUrl: String) {
-        updateClaims { claims in claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }
+        let remaining = (try? context.fetch(Subscription.fetchRequest())) ?? []
+        guard !remaining.contains(where: { sub in
+            sub.baseUrl.flatMap { base in sub.topic.map { Self.claimTopicUrl(baseUrl: base, topic: $0) } } == topicUrl
+        }) else { return }
+        if updateClaims({ claims in claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }) == nil {
+            legacyPresentationClaims.set(Array(Set(pendingClaimCleanups() + [topicUrl])), forKey: Self.claimCleanupKey)
+        }
     }
 
+    /// A delivered claim is on disk for this message (a reservation isn't one).
     func hasClaimBeforeRow(message: Message, baseUrl: String) -> Bool {
-        let claims = presentationClaims.read() ?? legacyClaims()
-        guard let at = claims[Self.claimKey(message: message, baseUrl: baseUrl)] else { return false }
-        return Date().timeIntervalSince(at) < Self.presentationClaimLifetime
+        guard let claim = loadClaims()?[Self.claimKey(message: message, baseUrl: baseUrl)], claim.state == .delivered else { return false }
+        return Date().timeIntervalSince(claim.at) < Self.presentationClaimLifetime
     }
 
-    /// Failed reads are uncertainty, not evidence that a first alert may be discarded.
-    func wasAlerted(message: Message, baseUrl: String) -> Bool {
-        if hasClaimBeforeRow(message: message, baseUrl: baseUrl) { return true }
+    /// The row says it was alerted. Failed reads are uncertainty, not evidence.
+    private func rowWasAlerted(message: Message, baseUrl: String) -> Bool {
         var alerted = false
         context.performAndWait {
             do {
@@ -837,6 +961,11 @@ class Store: ObservableObject {
             } catch { Log.w(Store.tag, "Cannot check prior alert; allowing delivery", error) }
         }
         return alerted
+    }
+
+    /// Failed reads are uncertainty, not evidence that a first alert may be discarded.
+    func wasAlerted(message: Message, baseUrl: String) -> Bool {
+        hasClaimBeforeRow(message: message, baseUrl: baseUrl) || rowWasAlerted(message: message, baseUrl: baseUrl)
     }
 
     /// A presenting poll may race a history-only poll, or retry after scheduling failed. Include
@@ -866,104 +995,89 @@ class Store: ObservableObject {
     }
 
     private static let alertQueue = DispatchQueue(label: "ntfy.alert-delivery")
-    // /dev/null creates an independent SQLite store per container. Only deliveries using
-    // this Store share its state; another test store must not hold its scheduler hostage.
-    private let memoryAlertLock = DispatchSemaphore(value: 1)
+    /// Past this much contention on the claims lock, a delivery alerts without a reservation.
+    static let alertContentionLimit: TimeInterval = 2
 
-    /// The app records only a successful scheduler callback. The NSE commits and releases before
-    /// its synchronous handoff, since the system may suspend it as soon as that handler fires.
-    /// Contention retries on one serial queue rather than parking a thread per delivery. Cancellation
-    /// releases a pending scheduler's lock; a late callback cannot write after background time expires.
+    /// Both processes present through one ownership protocol (review-130c C5): reserve under the
+    /// claims lock (passive when delivered or freshly reserved elsewhere), present, then mark
+    /// delivered. The app marks after a successful scheduler callback and frees the reservation on
+    /// failure or cancellation; the extension (`recordBeforeDelivery`) marks immediately before its
+    /// synchronous handoff, since the system may suspend it as soon as that handler fires.
+    /// Contention retries on one serial queue, then fails open.
     @discardableResult
     func deliverAlert(message: Message, baseUrl: String, recordBeforeDelivery: Bool = false,
+                      token: String = UUID().uuidString,
                       stillNeeded: @escaping () -> Bool = { true },
                       delivery: @escaping (@escaping (Bool) -> Void) -> Void,
                       suppressed: @escaping () -> Void = {},
                       completion: @escaping () -> Void = {}) -> () -> Void {
         // All state, including cancellation and asynchronous scheduler results, belongs to alertQueue.
-        let url = container.persistentStoreDescriptions.first?.url
-        let memory = url?.path == "/dev/null"
-        var descriptor: Int32 = -1
-        var memoryHeld = false
         var finished = false
+        var reserved = false
         var activity: NSObjectProtocol?
-        func finish() {
+        let started = ProcessInfo.processInfo.systemUptime
+        func finish(release: Bool = false) {
             guard !finished else { return }
             finished = true
-            if descriptor >= 0 { flock(descriptor, LOCK_UN); close(descriptor); descriptor = -1 }
-            if memoryHeld { self.memoryAlertLock.signal(); memoryHeld = false }
+            if release, reserved { self.releaseAlert(message: message, baseUrl: baseUrl, token: token) }
             if let activity { ProcessInfo.processInfo.endActivity(activity) }
             completion()
         }
         func attempt() {
             guard !finished else { return }
-            guard stillNeeded() else { finish(); return }
+            guard stillNeeded() else { finish(release: true); return }
             if activity == nil {
                 activity = ProcessInfo.processInfo.beginActivity(options: .userInitiated,
                                                                  reason: "Commit notification delivery state")
             }
-            let contended: Bool
-            if memory {
-                memoryHeld = self.memoryAlertLock.wait(timeout: .now()) == .success
-                contended = !memoryHeld
-            } else if let url {
-                if descriptor < 0 {
-                    descriptor = open(url.appendingPathExtension("alerts.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-                }
-                let result = descriptor >= 0 ? flock(descriptor, LOCK_EX | LOCK_NB) : -1
-                contended = result != 0 && descriptor >= 0 && (errno == EWOULDBLOCK || errno == EAGAIN)
-                if result != 0 && !contended { Log.w(Store.tag, "Cannot lock alert delivery; allowing delivery") }
-            } else { contended = false }
-            if contended {
+            switch self.reserveAlert(message: message, baseUrl: baseUrl, token: token, timeout: 0) {
+            case .passive:
+                finish(); suppressed(); return
+            case .unavailable where ProcessInfo.processInfo.systemUptime - started < Self.alertContentionLimit:
                 Self.alertQueue.asyncAfter(deadline: .now() + 0.01, execute: attempt)
                 return
-            }
-            guard !self.wasAlerted(message: message, baseUrl: baseUrl) else {
-                finish(); suppressed(); return
+            case .unavailable:
+                Log.w(Store.tag, "Alert claims unavailable; delivering without a reservation")
+            case .reserved:
+                reserved = true
             }
             if recordBeforeDelivery {
-                self.recordPresentation(message: message, baseUrl: baseUrl)
+                self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token)
                 finish()
                 delivery { _ in } // Synchronous NSE handoff; no shared-container work follows it.
             } else {
                 delivery { success in
                     Self.alertQueue.async {
                         guard !finished else { return }
-                        if success { self.recordPresentation(message: message, baseUrl: baseUrl) }
-                        finish()
+                        if success { self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token) }
+                        finish(release: !success)
                     }
                 }
             }
         }
         Self.alertQueue.async(execute: attempt)
-        return { Self.alertQueue.async { finish() } }
+        return { Self.alertQueue.async { finish(release: true) } }
     }
 
     enum ExpiryClaim: Equatable {
-        /// No claim on disk: the fallback alerts (and the claim was written if the lock was free).
+        /// Ours, or nobody's: the fallback alerts (marked delivered first when the lock was had).
         case alert
-        /// A fresh claim for this message is on disk, written by the app or an earlier delivery.
+        /// Another delivery already handed this message to the system.
         case alreadyAlerted
     }
 
-    /// The extension's expiry with no claim of its own settled or in flight (review-130b #5; fix
-    /// after the 41a2a18 full run). Never waits and fails open: the only evidence that downgrades
-    /// the fallback is a fresh claim already in the claims file (every alert writes one first). A
-    /// busy lock, an unreadable file or a held alert lock is uncertainty, and the fallback alerts;
-    /// the claim is written only if the claims lock is free this instant (timeout 0), so the app's
-    /// next poll stays quiet when it can be.
-    func claimAtExpiry(message: Message, baseUrl: String) -> ExpiryClaim {
-        if hasClaimBeforeRow(message: message, baseUrl: baseUrl) { return .alreadyAlerted }
+    /// The extension's expiry (review-130c C5). Waits for the claims lock at most
+    /// `expiryLockTimeout`: delivered by another delivery is passive; our own reservation (`token`),
+    /// a stale one, another's fresh one or none is marked delivered and alerts; an unavailable lock
+    /// alerts without a mark. The documented tradeoff: a rare duplicate beats a lost first alert.
+    func claimAtExpiry(message: Message, baseUrl: String, token: String? = nil) -> ExpiryClaim {
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
-        let wrote: Bool? = presentationClaims.update(timeout: 0) { stored in
-            var claims = stored ?? legacyClaims()
-            // Landed between the read above and the lock: someone else alerted it.
-            if let at = claims[key], Date().timeIntervalSince(at) < Self.presentationClaimLifetime { return (false, false) }
-            claims[key] = Date()
-            stored = claims
-            return (true, true)
+        let outcome: ExpiryClaim? = updateClaims(timeout: Self.expiryLockTimeout) { claims in
+            if let claim = claims[key], claim.state == .delivered, token == nil || claim.token != token { return .alreadyAlerted }
+            claims[key] = AlertClaim(state: .delivered, by: .nse, token: token, at: Date())
+            return .alert
         }
-        return wrote == false ? .alreadyAlerted : .alert
+        return outcome ?? .alert
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.

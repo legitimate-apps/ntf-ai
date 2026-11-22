@@ -162,24 +162,32 @@ struct SubscriptionManager {
             let newMessages = store.save(notificationsFromMessages: messages, polledWith: request)
             if let newMessages {
                 Log.d(tag, "Polling success, \(messages.count) message(s), \(newMessages.count) new", newMessages)
-                Self.checkWakeUps(baseUrl: request.baseUrl, messages: newMessages)
+                Self.checkWakeUps(baseUrl: request.baseUrl, topic: request.topicUrl.split(separator: "/").last.map(String.init),
+                                  messages: newMessages)
             }
             polling.finish(request, outcome: PollOutcome(succeeded: newMessages != nil, newMessages: newMessages ?? [], alertMessages: newMessages == nil ? [] : store.alertCandidates(from: messages, baseUrl: request.baseUrl),
                            failure: newMessages == nil ? .other : nil), retryAfter: nil)
         }
     }
 
-    /// A fresh message from a self-hosted server that reached the app by poll: ask whether its
-    /// wake-up went through (SelfHostedWakeCheck). One check per poll, for the newest message only.
+    /// Messages from a self-hosted server that reached the app by poll: older ones count as weak
+    /// misses at once (`messagesFoundByPoll`); for a fresh one, ask the relay whether its wake-up
+    /// went through (SelfHostedWakeCheck). One relay check per poll, for the newest message only.
     /// Only while the bridge holds this hash (a forward via ntfy.sh reaches the relay only through
     /// the bridge); a miss counts as strong evidence only with the bridge's connection confirmed.
-    static func checkWakeUps(baseUrl: String, messages: [Message], check: SelfHostedWakeCheck = .shared,
+    static func checkWakeUps(baseUrl: String, topic: String? = nil, messages: [Message], check: SelfHostedWakeCheck = .shared,
                              bridge: NtfyShBridge = .shared, appBaseUrl: String = Config.appBaseUrl) {
         let server = normalizeBaseUrl(baseUrl)
-        guard server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server),
-              let newest = messages.filter({ $0.event == "message" }).max(by: { $0.time < $1.time }) else { return }
-        let hash = topicHash(baseUrl: server, topic: newest.topic)
-        guard bridge.isAdmitted(hash: hash) else { return }
+        guard server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server) else { return }
+        let polled = messages.filter { $0.event == "message" }
+        guard let topic = topic ?? polled.first?.topic else { return }
+        let hash = topicHash(baseUrl: server, topic: topic)
+        guard bridge.isAdmitted(hash: hash) else { check.notWatched(hash: hash); return }
+        // Every poll, even an empty one, keeps where evidence starts; older messages no push
+        // brought count at once, without a request (device check of build 62).
+        let mine = polled.filter { $0.topic == topic }
+        check.messagesFoundByPoll(hash: hash, times: mine.map { Date(timeIntervalSince1970: TimeInterval($0.time)) })
+        guard let newest = mine.max(by: { $0.time < $1.time }) else { return }
         check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
                                    messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)),
                                    admitted: { bridge.isAdmitted(hash: hash) },

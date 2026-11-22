@@ -7666,7 +7666,7 @@ final class DeliveryHealthHTTPTests: XCTestCase {
     private final class Service: ApiService {
         var status = 429
         override func runOneShot(_ request: URLRequest, timeout: TimeInterval, baseUrl: String,
-                                 session: URLSession? = nil,
+                                 session: URLSession? = nil, wake: WakeContext? = nil,
                                  completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void) -> URLSession {
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
                                            headerFields: ["Retry-After": "120"])!
@@ -8555,7 +8555,7 @@ final class CredentialReviewTests: XCTestCase {
         var requests: [URLRequest] = []
 
         override func runOneShot(_ request: URLRequest, timeout: TimeInterval, baseUrl: String,
-                                 session: URLSession? = nil,
+                                 session: URLSession? = nil, wake: WakeContext? = nil,
                                  completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void) -> URLSession {
             requests.append(request)
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)

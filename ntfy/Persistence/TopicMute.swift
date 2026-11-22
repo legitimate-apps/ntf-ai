@@ -115,3 +115,70 @@ extension UNMutableNotificationContent {
         relevanceScore = 0
     }
 }
+
+/// What the extension needs to honour a topic's mute and quiet-hours exception before it opens the
+/// store (review-130c C6): every subscription's address, topic, wake-up hash and mute deadline, in
+/// one small app-group file the app rewrites whenever a subscription changes.
+struct NotificationPolicySnapshot: Codable, Equatable {
+    struct Topic: Codable, Equatable {
+        var baseUrl: String
+        var topic: String
+        var hash: String
+        var mutedUntil: Date?
+    }
+    var topics: [Topic] = []
+
+    static let fileName = "ntfai-notification-policy.json"
+    static var file: SharedStateFile<NotificationPolicySnapshot> { SharedStateFile(name: fileName) }
+
+    /// The subscription a push names: by wake-up hash (a poll_request), else by topic on the server
+    /// it names (the app's own when none). Nil when the snapshot doesn't know it.
+    func resolve(userInfo: [AnyHashable: Any]) -> Topic? {
+        let name = userInfo["topic"] as? String ?? ""
+        if let byHash = topics.first(where: { $0.hash == name }) { return byHash }
+        let server = normalizeBaseUrl(userInfo["base_url"] as? String ?? Config.appBaseUrl)
+        return topics.first { $0.topic == name && normalizeBaseUrl($0.baseUrl) == server }
+    }
+
+    /// The push should be silent: its topic is muted, or quiet hours hold for it (with its
+    /// exception and urgency honoured). Unknown topics fall to quiet hours for the address given.
+    func isQuiet(userInfo: [AnyHashable: Any], quietHours: QuietHours, now: Date = Date()) -> Bool {
+        guard let topic = resolve(userInfo: userInfo) else { return quietHours.isQuiet(userInfo: userInfo, now: now) }
+        if TopicMute.isMuted(until: topic.mutedUntil, now: now) { return true }
+        var resolved = userInfo
+        resolved["base_url"] = topic.baseUrl; resolved["topic"] = topic.topic
+        return quietHours.isQuiet(userInfo: resolved, now: now)
+    }
+}
+
+extension Store {
+    /// Rewrites the policy snapshot from the subscriptions (app process).
+    func writeNotificationPolicy() {
+        var snapshot = NotificationPolicySnapshot()
+        context.performAndWait {
+            let subscriptions = (try? context.fetch(Subscription.fetchRequest())) ?? []
+            snapshot.topics = subscriptions.compactMap { sub in
+                guard let baseUrl = sub.baseUrl, let topic = sub.topic else { return nil }
+                return .init(baseUrl: baseUrl, topic: topic, hash: sub.urlHash(), mutedUntil: sub.mutedUntil)
+            }.sorted { ($0.baseUrl, $0.topic) < ($1.baseUrl, $1.topic) }
+        }
+        let written = NotificationPolicySnapshot.file.update { stored -> (write: Bool, result: Bool) in
+            guard stored != snapshot else { return (false, true) }
+            stored = snapshot
+            return (true, true)
+        }
+        if written == nil { Log.w(Store.tag, "Cannot write the notification policy snapshot") }
+    }
+
+    /// Keeps the snapshot current: written now and after every save that touches a subscription.
+    func startNotificationPolicySnapshot() -> NSObjectProtocol {
+        writeNotificationPolicy()
+        return NotificationCenter.default.addObserver(forName: .NSManagedObjectContextDidSave, object: nil, queue: nil) { [weak self] note in
+            guard let self, let saved = note.object as? NSManagedObjectContext,
+                  saved.persistentStoreCoordinator === self.container.persistentStoreCoordinator else { return }
+            let keys = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey]
+            guard keys.contains(where: { ((note.userInfo?[$0] as? Set<NSManagedObject>) ?? []).contains { $0 is Subscription } }) else { return }
+            DispatchQueue.global(qos: .utility).async { self.writeNotificationPolicy() }
+        }
+    }
+}

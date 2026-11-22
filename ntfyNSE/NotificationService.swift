@@ -39,9 +39,9 @@ class NotificationService: UNNotificationServiceExtension {
             let muted = newValue.map { store?.isTopicMuted(baseUrl: $0.baseUrl, topic: $0.message.topic) ?? false } ?? false
             presentationLock.lock(); defer { presentationLock.unlock() }
             processedIdentity = newValue
-            // Our own claim (made before the fetch, or still being written) reads as "alerted"; it
-            // must not silence us. Once ours started, keep the evidence taken before it.
-            expiryIsQuiet = claimStarted ? (expiryIsQuiet || muted) : ((alerted && claimedAlert != true) || muted)
+            // Only a delivered claim counts as alerted, and this extension marks its own only
+            // immediately before its handoff, so the evidence is never our own (review-130c C5).
+            expiryIsQuiet = expiryIsQuiet || alerted || muted
         }
     }
     private var quietHours = QuietHours.load()
@@ -58,9 +58,8 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
     private var claimedAlert: Bool?
-    /// This extension started its own claim (`deliverAlert`). Until it settles, a claim on disk may
-    /// be its own, so expiry can't read it as someone else's and fails open.
-    private var claimStarted = false
+    /// This request's delivery token: its reservation and delivered mark in the claims file.
+    private var claimToken = UUID().uuidString
     /// One monotonic deadline from entry, shared by every step (review-130 #5).
     private(set) var deadline = ExtensionDeadline()
     /// Tests shorten the self-imposed cutoff.
@@ -87,7 +86,7 @@ class NotificationService: UNNotificationServiceExtension {
             if let content = self.bestAttemptContent { self.deliver(content, expiring: true) }
         }
         presentationMessage = nil
-        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; claimStarted = false; presentationLock.unlock()
+        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; claimToken = UUID().uuidString; presentationLock.unlock()
         alertClaim = nil
         self.bestAttemptContent = alertingFallback(request)
         NotificationResponseRelay.installInExtensionIfNeeded()
@@ -139,9 +138,7 @@ class NotificationService: UNNotificationServiceExtension {
     /// fetch) then stop before any store or presentation work.
     private var isPending: Bool { deliveryGate?.isPending == true }
 
-    private func markClaimStarted() {
-        presentationLock.lock(); claimStarted = true; presentationLock.unlock()
-    }
+    private var token: String { presentationLock.lock(); defer { presentationLock.unlock() }; return claimToken }
 
     /// The best attempt installed at entry, before any store work: the push as received, alerting
     /// by its priority with the default sound (a payload without a sound would otherwise expire
@@ -154,6 +151,14 @@ class NotificationService: UNNotificationServiceExtension {
         if let message, AgentAck.isAck(tags: message.tags) { return content }
         let mapped = message ?? Message(id: "", time: 0, event: "message", topic: "")
         content.configureInterruption(message: mapped, criticalEnabled: false, criticalAuthorized: false)
+        // A mute or quiet hours holds even before the store opens: the app keeps a small policy
+        // snapshot (hash to topic, mute deadline) for this (review-130c C6).
+        let policy = NotificationPolicySnapshot.file.read() ?? NotificationPolicySnapshot()
+        if policy.isQuiet(userInfo: content.userInfo, quietHours: QuietHours.load()) {
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.relevanceScore = 0
+        }
         return content
     }
 
@@ -188,13 +193,14 @@ class NotificationService: UNNotificationServiceExtension {
             }
             var quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
             let identity = processedIdentity
-            let unresolved = claimedAlert == nil && !claimStarted
+            let token = claimToken
             presentationLock.unlock()
-            // No claim of ours settled or in flight (review-130b #5): only a fresh claim already on
-            // disk (the app or an earlier delivery alerted it) makes this handoff passive. Anything
-            // uncertain alerts; an unseen or unconfirmed message never gets a silent banner.
-            if !quiet, unresolved, let identity, let store,
-               store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl) == .alreadyAlerted {
+            // One ownership protocol with the app (review-130c C5): the claims lock is tried for at
+            // most 100 ms. Delivered by another delivery is passive; our reservation, none or a
+            // busy lock alerts (marked delivered first when the lock was had). Marked immediately
+            // before the handoff below.
+            if !quiet, let identity, let store,
+               store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl, token: token) == .alreadyAlerted {
                 quiet = true
             }
             if quiet { final.sound = nil; final.interruptionLevel = .passive; final.relevanceScore = 0 }
@@ -211,7 +217,13 @@ class NotificationService: UNNotificationServiceExtension {
             _ = handoff(quiet)
         }
         if let claim = alertClaim {
-            if claim { _ = handoff(final) } else { passive() }
+            if claim {
+                // Ours since the reservation: marked delivered immediately before the handoff.
+                if let identity = alertIdentity, isPending {
+                    store?.recordPresentation(message: identity.message, baseUrl: identity.baseUrl, by: .nse, token: token)
+                }
+                _ = handoff(final)
+            } else { passive() }
             return
         }
         guard let identity = alertIdentity, let store else {
@@ -219,29 +231,26 @@ class NotificationService: UNNotificationServiceExtension {
             return
         }
         let gate = deliveryGate
-        markClaimStarted()
-        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
+        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true, token: token,
                            stillNeeded: { gate?.isPending == true }, delivery: { finished in
             finished(handoff(final))
         }, suppressed: passive)
     }
 
-    /// Records the alert for a stored message before category registration and the attachment
-    /// download, not at the handoff. Once the content handler is pending, iOS shows this push whether
-    /// the extension finishes, expires (best attempt) or is killed (original payload), and expiry
-    /// itself may not touch the store. A later presenting poll then sees `alerted` and stays quiet.
+    /// Reserves the alert for this request before category registration and the attachment
+    /// download (review-130c C5). A reservation is not a delivery: the app's poll sees it as
+    /// someone presenting now and stays passive while it is fresh (30 s), and this extension marks
+    /// it delivered only immediately before its handoff. Already delivered, or reserved by another
+    /// delivery, is passive. An unavailable claims file alerts (a rare duplicate beats a lost alert).
     private func claimAlert(then next: @escaping () -> Void) {
         guard let identity = alertIdentity, let store else { next(); return }
-        let gate = deliveryGate
-        let proceed = { (alerting: Bool) in
-            self.alertClaim = alerting
-            DispatchQueue.global(qos: .userInitiated).async(execute: next)
+        let token = self.token
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard self.isPending else { return }
+            let reservation = store.reserveAlert(message: identity.message, baseUrl: identity.baseUrl, token: token, by: .nse)
+            self.alertClaim = reservation != .passive
+            next()
         }
-        // If expiry already handed off, neither closure runs and nothing remains to present.
-        markClaimStarted()
-        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
-                           stillNeeded: { gate?.isPending == true },
-                           delivery: { _ in proceed(true) }, suppressed: { proceed(false) })
     }
     
     private func handleMessage(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ received: Message) {
@@ -369,8 +378,8 @@ class NotificationService: UNNotificationServiceExtension {
         // received) until `presentClaimed` has formatted this message (review-130b #5).
         guard isPending else { return }
         // A poll_request claimed its alert before fetching: the row exists now, so mark it.
-        if let claim = alertClaim {
-            if claim { store?.recordPresentation(message: message, baseUrl: baseUrl) }
+        if alertClaim != nil {
+            // Marked delivered at the handoff, not here (review-130c C5).
             DispatchQueue.global(qos: .userInitiated).async { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
             return
         }
@@ -395,7 +404,8 @@ class NotificationService: UNNotificationServiceExtension {
             message: message,
             baseUrl: baseUrl,
             user: user,
-            timeout: deadline.timeout(reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout)
+            timeout: deadline.timeout(reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout),
+            stillNeeded: { [weak self] in self?.isPending == true }
         ) {
             guard self.isPending else { return }
             self.presentAsAgent(content, baseUrl: baseUrl, message: message, reconciled: reconciled)

@@ -319,6 +319,7 @@ extension UNMutableNotificationContent {
         credentialStore: CredentialStoring = KeychainCredentialStore.shared,
         session: URLSession? = nil,
         timeout: TimeInterval = 20,
+        stillNeeded: @escaping () -> Bool = { true },
         completionHandler: @escaping () -> Void
     ) {
         guard let attachment = message.attachment else {
@@ -391,6 +392,13 @@ extension UNMutableNotificationContent {
                     maxSize: maxSize,
                     configuration: configuration
                 )
+                // The extension may have handed off meanwhile: then it writes nothing to the shared
+                // store (review-130c C6); the app downloads the attachment again when it needs it.
+                guard stillNeeded() else {
+                    Log.d("NotificationContent", "Attachment arrived after the handoff; not recording it")
+                    try? FileManager.default.removeItem(at: downloaded.localFileUrl)
+                    return
+                }
                 Store.shared.completeAttachmentDownload(
                     notificationID: message.id,
                     localPath: downloaded.localFileUrl.path,

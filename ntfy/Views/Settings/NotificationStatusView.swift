@@ -163,6 +163,10 @@ struct NtfyShBridgeStatusRows: View {
     @State private var revision = 0
     @State private var expanded = Set<String>()
     @State private var visible = false
+    /// The read scheduled for when the server's pause ends; cancelled when the screen leaves,
+    /// the app goes inactive or the setting changes (review-130c C7).
+    @State private var retry: DispatchWorkItem?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let _ = revision
@@ -172,6 +176,29 @@ struct NtfyShBridgeStatusRows: View {
             .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
                 bridge.reload(); revision += 1
             }
+            // Evidence another process wrote while the app was away is read again on return.
+            .onChange(of: scenePhase) { phase in
+                if phase == .active { bridge.reload(); revision += 1 } else { stopReading() }
+            }
+            .onChange(of: enabled) { _ in stopReading(); checked = false; status = nil }
+        // Removals the server hasn't confirmed, even with no topic left to show them (review-130c C2).
+        // Off with topics left, their server rows already say the list is being removed.
+        if report.removing > 0 && !report.optOutPending || report.optOutPending && report.groups.isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "clock").foregroundColor(.secondary).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    if report.removing > 0 {
+                        Text(NtfyShBridgeCopy.removing(report.removing))
+                        Text(NtfyShBridgeCopy.removalUnconfirmed).font(.subheadline).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(NtfyShBridgeCopy.reason(.removalPending)).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("bridge-removing")
+        }
         // Per server: how many topics are watched, then each topic that won't get banners and why.
         ForEach(report.groups, id: \.server) { group in
             let selfHosted = group.server != NtfyShAddress.canonical
@@ -198,7 +225,10 @@ struct NtfyShBridgeStatusRows: View {
                 NotificationStatusRow(title: NtfyShBridgeCopy.connection,
                                       value: status.map(NtfyShBridgeCopy.status) ?? NtfyShBridgeCopy.checking)
                     .onAppear { visible = true; check() }
-                    .onDisappear { visible = false }
+                    .onDisappear { visible = false; stopReading() }
+            }
+            // About the topics listed above: nothing listed, no note (device check of build 62).
+            if report.listsTopics {
                 Text(NtfyShBridgeCopy.renewalNote).font(.footnote).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("bridge-renewal-note")
@@ -253,11 +283,23 @@ struct NtfyShBridgeStatusRows: View {
     /// the screen is open (review-130b #7).
     private func show(_ next: NtfyShBridge.Status) {
         status = next
-        guard case .waiting(let until) = next else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, until.timeIntervalSinceNow + 1)) {
-            guard visible else { return }
+        retry?.cancel()
+        retry = nil
+        guard case .waiting(let until) = next, visible, enabled else { return }
+        let work = DispatchWorkItem {
+            guard visible, enabled else { return }
             bridge.fetchStatus { show($0) }
         }
+        retry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, until.timeIntervalSinceNow + 1), execute: work)
+    }
+
+    /// Drops the scheduled read and the read in flight.
+    private func stopReading() {
+        retry?.cancel()
+        retry = nil
+        bridge.cancelStatus()
+        checked = false
     }
 }
 

@@ -61,6 +61,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     private var responseDeduper = NotificationResponseDeduper()
     private var relayActivationObserver: NSObjectProtocol?
 
+    private var policySnapshot: NSObjectProtocol?
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         Log.d(tag, "Launching AppDelegate")
         ReviewPrompt.shared.recordLaunch()
@@ -74,6 +76,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         }
         // Rows an earlier unsubscribe left behind would show as nameless cards; once gone, a no-op.
         Store.shared.removeOrphanedRows()
+        // The extension's entry fallback reads mutes and quiet-hours exceptions from this (review-130c C6).
+        policySnapshot = Store.shared.startNotificationPolicySnapshot()
 
         QuietTopicAlerts.shared.beginExecution = { cancel, start in
             DispatchQueue.main.async {
@@ -331,7 +335,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         Log.d(tag, "Background notification received", userInfo)
         
         var wakeManager = SubscriptionManager(store: Store.shared)
-        wakeManager.fetch = { ApiService.shared.poll($0, timeout: 8, completionHandler: $1) }
+        wakeManager.fetch = { ApiService.shared.poll($0, timeout: 8, wake: finish.wake, completionHandler: $1) }
         if wakeManager.handleSilentWake(userInfo: userInfo, completion: { succeeded in
             finish.complete(succeeded ? .newData : .failed)
         }) { return }
@@ -340,10 +344,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             let baseUrl = userInfo["base_url"] as? String ?? Config.appBaseUrl
             let result = Store.shared.ingest(pushedMessage: message, baseUrl: baseUrl, topic: message.topic)
             if case .reconcile(let request) = result {
-                ApiService.shared.poll(request, timeout: 8) { messages, _ in
+                ApiService.shared.poll(request, timeout: 8, wake: finish.wake) { messages, _ in
                     guard let messages else { finish.complete(.failed); return }
                     let presentations = Store.shared.save(notificationsFromMessages: messages, polledWith: request) ?? []
-                    self.showNotificationsSequentially(baseUrl: baseUrl, messages: presentations) {
+                    self.showNotificationsSequentially(baseUrl: baseUrl, messages: presentations, wake: finish.wake) {
                         finish.complete(.newData)
                     }
                 }
@@ -360,14 +364,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             return
         }
 
-        // Poll and show new messages as notifications
+        // Poll and show new messages as notifications. An empty store still runs maintenance: a
+        // removal or opt-out the server hasn't confirmed is retried on every trigger (review-130c C2).
         let store = Store.shared
-        let subscriptionManager = SubscriptionManager(store: store)
+        var subscriptionManager = SubscriptionManager(store: store)
+        let wake = finish.wake
+        subscriptionManager.fetch = { ApiService.shared.poll($0, timeout: 8, wake: wake, completionHandler: $1) }
         let subscriptions = store.getSubscriptions() ?? []
-        guard !subscriptions.isEmpty else {
-            finish.complete(.noData)
-            return
-        }
 
         let group = DispatchGroup()
         subscriptions.forEach { subscription in
@@ -379,7 +382,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             }
             subscriptionManager.poll(subscription) { messages in
                 if !messages.isEmpty { finish.noteNewData() }
-                self.showNotificationsSequentially(baseUrl: baseUrl, messages: messages) {
+                self.showNotificationsSequentially(baseUrl: baseUrl, messages: messages, wake: wake) {
                     group.leave()
                 }
             }
@@ -387,15 +390,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         group.notify(queue: .main) {
             // ntfy-me.com sends this wake-up about every 20 minutes, so it also keeps the bridge's
             // registration alive (and its ntfy.sh access rechecks current) for someone who never
-            // opens the app. The content is done whatever the bridge does: maintenance runs only
-            // with enough of the budget left, its requests are cancelled at the deadline, and the
-            // wake completes when it ends or at the deadline, whichever is first.
+            // opens the app. The wake completes on the content result; maintenance then runs only
+            // with enough of the budget left, in a background task bound to the same wake: no
+            // request of it starts past the deadline, and the deadline cancels what is running
+            // (review-130c C4).
             guard finish.admitsMaintenance else {
                 Log.d(self.tag, "Background wake: no time left for bridge maintenance")
                 finish.complete()
                 return
             }
-            NtfyShBridge.shared.sync(reason: "background wake", deadline: finish.deadlineDate) { finish.complete() }
+            let ended = Once()
+            var task = UIBackgroundTaskIdentifier.invalid
+            let end = {
+                guard ended.claim() else { return }
+                DispatchQueue.main.async { if task != .invalid { UIApplication.shared.endBackgroundTask(task); task = .invalid } }
+            }
+            task = UIApplication.shared.beginBackgroundTask(withName: "bridge maintenance") { wake.cancel(); end() }
+            wake.onCancel(end)
+            finish.complete()
+            NtfyShBridge.shared.sync(reason: "background wake", wake: wake) { end() }
         }
     }
     
@@ -483,8 +496,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         }
     }
 
-    private func showNotificationsSequentially(baseUrl: String, messages: [Message], completionHandler: @escaping () -> Void) {
+    /// Within a wake, presentation stops when the wake ends; the messages are saved and show in the app.
+    private func showNotificationsSequentially(baseUrl: String, messages: [Message], wake: WakeContext? = nil, completionHandler: @escaping () -> Void) {
         guard let firstMessage = messages.first else {
+            completionHandler()
+            return
+        }
+        if wake?.isCancelled == true {
+            Log.w(tag, "Background wake ended; \(messages.count) message(s) not presented, saved for the app")
             completionHandler()
             return
         }
@@ -493,6 +512,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             self.showNotificationsSequentially(
                 baseUrl: baseUrl,
                 messages: Array(messages.dropFirst()),
+                wake: wake,
                 completionHandler: completionHandler
             )
         }
@@ -712,6 +732,8 @@ final class BackgroundWakeCompletion {
     private let uptime: () -> TimeInterval
     private let lock = NSLock()
     private var completion: ((UIBackgroundFetchResult) -> Void)?
+    /// The wake's budget and cancellation, for every request it starts (review-130c C4).
+    let wake: WakeContext
     private var newData = false
 
     init(deadline: TimeInterval, uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
@@ -722,10 +744,13 @@ final class BackgroundWakeCompletion {
         self.uptime = uptime
         self.deadlineUptime = uptime() + deadline
         self.completion = completion
-        // Held strongly until the deadline: the completion must run even if nothing else does.
+        self.wake = WakeContext(deadline: deadline, uptime: uptime)
+        // Held strongly until the deadline: the completion must run even if nothing else does,
+        // and nothing the wake started outlives it.
         schedule(deadline) {
             if self.isPending { Log.w("BackgroundWake", "Deadline reached; completing the background wake") }
             self.complete()
+            self.wake.cancel()
         }
     }
 
