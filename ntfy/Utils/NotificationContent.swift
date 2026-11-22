@@ -25,39 +25,100 @@ enum NotificationServiceTiming {
 /// A single-message poll that answered 200 with no message: not stored on the server yet.
 struct PollEmptyResult: Error, Equatable {}
 
+/// Every read answered "no such message" until the retries ran out: the server no longer has it,
+/// or never kept it (`Cache: no`, caching off, past its retention).
+struct PollMissingResult: Error, Equatable {}
+
 /// Fetches the message a poll_request names, asking again while the server answers "not stored
 /// yet". ntfy.sh writes its message cache in batches, so for about 0.6 to 1.9 s after a publish its
 /// `?poll=1&id=` answers 200 with an empty body, and the bridge's wake-up often lands inside that
 /// window (device repro 2026-11-21: 2 of 11 showed the fallback). Any server with batched cache
-/// writes can do the same. Real errors (network, HTTP status, a timeout) are not retried: they keep
-/// the existing behaviour. Everything, retries included, stays inside `budget`, so the extension's
-/// worst case is unchanged.
+/// writes can do the same. Real errors (network, HTTP status, a timeout) are not retried.
+///
+/// Everything happens before `deadline`, a point on `clock` (monotonic uptime): a retry that
+/// dequeues too late doesn't start, an answer after it is dropped, and at the cutoff the read in
+/// flight is cancelled and the completion runs (once) with a timeout.
 enum SingleMessagePoll {
     static let emptyRetryDelays: [TimeInterval] = [0.4, 0.8, 1.6, 3.2]
-    typealias Fetch = (_ timeout: TimeInterval, _ completion: @escaping (Message?, Error?) -> Void) -> Void
+    /// A wake-up for a message older than this isn't racing the server's cache write: one read.
+    static let oldWakeAge: TimeInterval = 60
+    /// Least time worth starting a read with.
+    static let minimumRead: TimeInterval = 0.5
+    /// Starts a read with the given timeout; returns a way to cancel it.
+    typealias Fetch = (_ timeout: TimeInterval, _ completion: @escaping (Message?, Error?) -> Void) -> (() -> Void)?
     typealias Schedule = (TimeInterval, @escaping () -> Void) -> Void
 
-    static func run(budget: TimeInterval = NotificationServiceTiming.pollTimeout,
+    static func delays(messageAge: TimeInterval?) -> [TimeInterval] {
+        guard let messageAge, messageAge > oldWakeAge else { return emptyRetryDelays }
+        return []
+    }
+
+    static func run(deadline: TimeInterval,
                     delays: [TimeInterval] = emptyRetryDelays,
                     clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
                     schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) },
+                    cutoff: Schedule? = nil,
                     fetch: @escaping Fetch,
                     completion: @escaping (_ message: Message?, _ error: Error?, _ attempts: Int) -> Void) {
-        let start = clock()
+        let lock = NSLock()
+        var done = false
+        var cancel: (() -> Void)?
+        var attempts = 0
+        func complete(_ message: Message?, _ error: Error?) {
+            lock.lock()
+            guard !done else { lock.unlock(); return }
+            done = true
+            let pending = message == nil ? cancel : nil
+            cancel = nil
+            let count = attempts
+            lock.unlock()
+            pending?()
+            completion(message, error, count)
+        }
+        (cutoff ?? schedule)(max(0, deadline - clock())) { complete(nil, URLError(.timedOut)) }
         func attempt(_ index: Int) {
-            let remaining = budget - (clock() - start)
-            fetch(max(0.5, remaining)) { message, error in
-                if let message { completion(message, nil, index + 1); return }
-                let elapsed = clock() - start
-                // Leave at least half a second for the next answer, or give up with what we have.
-                guard error is PollEmptyResult, index < delays.count, elapsed + delays[index] + 0.5 <= budget else {
-                    completion(nil, error, index + 1)
-                    return
-                }
+            let remaining = deadline - clock()
+            guard remaining >= minimumRead else { complete(nil, index == 0 ? URLError(.timedOut) : PollEmptyResult()); return }
+            lock.lock()
+            guard !done else { lock.unlock(); return }
+            attempts = index + 1
+            lock.unlock()
+            let handle = fetch(remaining) { message, error in
+                guard clock() <= deadline else { complete(nil, URLError(.timedOut)); return }
+                if let message { complete(message, nil); return }
+                guard error is PollEmptyResult else { complete(nil, error); return }
+                guard index < delays.count else { complete(nil, PollMissingResult()); return }
+                // Leave time for the next answer, or give up with an inconclusive empty read.
+                guard clock() + delays[index] + minimumRead <= deadline else { complete(nil, error); return }
                 schedule(delays[index]) { attempt(index + 1) }
             }
+            lock.lock()
+            if done { lock.unlock(); handle?(); return }
+            cancel = handle
+            lock.unlock()
         }
         attempt(0)
+    }
+}
+
+/// The extension's one clock: a monotonic deadline from entry that every step shares.
+struct ExtensionDeadline {
+    let start: TimeInterval
+    let end: TimeInterval
+    let clock: () -> TimeInterval
+
+    init(budget: TimeInterval = NotificationServiceTiming.processingBudget,
+         clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        self.clock = clock
+        start = clock()
+        end = start + budget
+    }
+
+    var remaining: TimeInterval { end - clock() }
+
+    /// `preferred`, or less so `reserve` seconds stay for what follows; never below the minimum read.
+    func timeout(_ preferred: TimeInterval, reserve: TimeInterval = 1) -> TimeInterval {
+        max(SingleMessagePoll.minimumRead, min(preferred, remaining - reserve))
     }
 }
 

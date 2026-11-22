@@ -55,6 +55,11 @@ class Store: ObservableObject {
     static let autoDownload10MB = Constants.autoDownload10MB
     static let autoDownload50MB = Constants.autoDownload50MB
     private static let sharedDefaults = UserDefaults(suiteName: Store.appGroup)!
+    /// Alerts claimed for a message before its row exists (the extension's fallback for a
+    /// poll_request): "<topic URL>#<message id>" to the claim time, kept a week.
+    private let presentationClaims: UserDefaults
+    private static let presentationClaimsKey = "presentationClaimsBeforeRow"
+    private static let presentationClaimLifetime: TimeInterval = 7 * 24 * 60 * 60
     private static let sharedDefaultsKeyCriticalAlertsAuthorized = "criticalAlertsAuthorized"
     let container: NSPersistentContainer
     let retentionContext: NSManagedObjectContext
@@ -153,6 +158,7 @@ class Store: ObservableObject {
     ) {
         self.observesPersistentChanges = !inMemory
         self.credentialStore = credentialStore
+        self.presentationClaims = inMemory ? UserDefaults(suiteName: "ntfy.presentationClaims.\(UUID().uuidString)") ?? .standard : Store.sharedDefaults
         self.topicSecrets = topicSecrets
         let fileManager = FileManager.default
         let appGroupContainerURL = inMemory
@@ -443,15 +449,18 @@ class Store: ObservableObject {
         var found = false
         context.performAndWait {
             let subscriptions = (try? context.fetch(Subscription.fetchRequest())) ?? []
-            guard let match = subscriptions.first(where: { subscription in
+            // Every row binding this name: ntfy.sh aliases (http, www, case) now share one.
+            let matches = subscriptions.filter { subscription in
                 guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return false }
                 return firebaseTopic(baseUrl: baseUrl, topic: topic) == firebaseTopicName
-            }) else { return }
-            guard match.fcmSubscribed else {
+            }
+            guard !matches.isEmpty else { return }
+            let confirmed = matches.filter(\.fcmSubscribed)
+            guard !confirmed.isEmpty else {
                 found = true // already stale — nothing to write, and the caller's rebuild still applies
                 return
             }
-            match.fcmSubscribed = false
+            confirmed.forEach { $0.fcmSubscribed = false }
             do {
                 try context.save()
                 found = true
@@ -536,6 +545,9 @@ class Store: ObservableObject {
             let subscriptionTopicUrl = subscription.baseUrl.flatMap { baseUrl in
                 subscription.topic.map { topicUrl(baseUrl: baseUrl, topic: $0) }
             }
+            let claimTopicUrl = subscription.baseUrl.flatMap { baseUrl in
+                subscription.topic.map { topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: $0) }
+            }
             let soundIdentity = subscription.objectID.uriRepresentation().absoluteString
             context.delete(subscription)
             do {
@@ -543,6 +555,7 @@ class Store: ObservableObject {
                 deleted = true
                 soundLibrary.setChoice(nil, for: soundIdentity)
                 quietAlerts.cancel(identity: soundIdentity)
+                if let claimTopicUrl { forgetClaimsBeforeRow(topicUrl: claimTopicUrl) }
                 // The password belongs to this subscription. A failed delete doesn't block the
                 // unsubscribe: the `encrypted` flag goes with the row, nothing reads secrets for an
                 // unflagged topic, and setting a password again overwrites it, so a re-subscribe can't
@@ -731,14 +744,47 @@ class Store: ObservableObject {
     /// Called by both alert delivery paths, including a full-order reconciliation.
     func recordPresentation(message: Message, baseUrl: String) {
         context.performAndWait {
-            if let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: message.topic) {
+            guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: message.topic) else { return }
+            let request = Notification.fetchRequest()
+            request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, message.id)
+            if ((try? context.count(for: request)) ?? 0) > 0 {
                 markPresented(id: message.id, on: subscription)
+            } else {
+                // No row yet (the extension's fallback for a poll_request it couldn't fetch, or is
+                // still fetching): remember the claim by id so a later poll doesn't alert again.
+                recordClaimBeforeRow(message: message, baseUrl: baseUrl)
             }
         }
     }
 
+    private static func claimKey(message: Message, baseUrl: String) -> String {
+        topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: message.topic) + "#" + message.id
+    }
+
+    private func recordClaimBeforeRow(message: Message, baseUrl: String) {
+        let now = Date()
+        var claims = (presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+        claims = claims.filter { now.timeIntervalSince($0.value) < Self.presentationClaimLifetime }
+        claims[Self.claimKey(message: message, baseUrl: baseUrl)] = now
+        presentationClaims.set(claims, forKey: Self.presentationClaimsKey)
+    }
+
+    /// The claims belong to the topic like its rows do, so an unsubscribe drops them with the rows.
+    private func forgetClaimsBeforeRow(topicUrl: String) {
+        guard let claims = presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date] else { return }
+        let kept = claims.filter { !$0.key.hasPrefix(topicUrl + "#") }
+        if kept.count != claims.count { presentationClaims.set(kept, forKey: Self.presentationClaimsKey) }
+    }
+
+    func hasClaimBeforeRow(message: Message, baseUrl: String) -> Bool {
+        let claims = (presentationClaims.dictionary(forKey: Self.presentationClaimsKey) as? [String: Date]) ?? [:]
+        guard let at = claims[Self.claimKey(message: message, baseUrl: baseUrl)] else { return false }
+        return Date().timeIntervalSince(at) < Self.presentationClaimLifetime
+    }
+
     /// Failed reads are uncertainty, not evidence that a first alert may be discarded.
     func wasAlerted(message: Message, baseUrl: String) -> Bool {
+        if hasClaimBeforeRow(message: message, baseUrl: baseUrl) { return true }
         var alerted = false
         context.performAndWait {
             do {
@@ -766,6 +812,11 @@ class Store: ObservableObject {
                 guard let row = try? context.fetch(request).first else { continue }
                 refreshFromStore(row)
                 guard row.id == message.id, !row.alerted, !row.read else { continue }
+                // The extension showed this message (its fallback) before the row existed.
+                if hasClaimBeforeRow(message: message, baseUrl: baseUrl) {
+                    markPresented(id: message.id, on: subscription)
+                    continue
+                }
                 var candidate = ingest([message], for: subscription).first?.message ?? message
                 candidate.isUpdate = row.presented && !reminderLog.isAlerting(id: message.id, key: AckLog.key(
                     baseUrl: baseUrl, topic: message.topic, sequence: message.sequence))
@@ -1965,10 +2016,15 @@ class Store: ObservableObject {
         return try context.fetch(fetchRequest).first
     }
 
+    /// The user for this server. An ntfy.sh alias is fetched over https://ntfy.sh, so a login saved
+    /// under any spelling serves it: its own spelling first, then https://ntfy.sh, then any other.
     private func fetchUser(baseUrl: String) throws -> User? {
         let request = User.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "baseUrl = %@", normalizeBaseUrl(baseUrl))])
-        return try context.fetch(request).first
+        if let own = try context.fetch(request).first { return own }
+        guard NtfyShAddress.isNtfySh(baseUrl) else { return nil }
+        let aliases = try context.fetch(User.fetchRequest()).filter { $0.baseUrl.map(NtfyShAddress.isNtfySh) == true }
+        return aliases.first { $0.baseUrl.map(normalizeBaseUrl) == NtfyShAddress.canonical } ?? aliases.first
     }
 
     /// ntfy priorities run 1...5 and the Core Data model enforces that range — but Core Data

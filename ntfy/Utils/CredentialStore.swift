@@ -91,6 +91,15 @@ extension CredentialStoring {
         guard case .success(let headers) = readHTTPHeaders(baseUrl: baseUrl) else { return [:] }
         return headers
     }
+
+    /// The headers a request to this server carries: the row's own spelling first, then, for an
+    /// ntfy.sh alias, those saved for `https://ntfy.sh` (every alias is fetched there).
+    func serviceHTTPHeaders(baseUrl: String) -> [String: String] {
+        let own = httpHeaders(baseUrl: baseUrl)
+        guard own.isEmpty, let canonical = NtfyShAddress.canonicalize(baseUrl),
+              normalizeBaseUrl(baseUrl) != canonical else { return own }
+        return httpHeaders(baseUrl: canonical)
+    }
 }
 
 enum ServerCredentials {
@@ -119,13 +128,13 @@ enum ServerCredentials {
         authorizationHeader: String? = nil,
         credentialStore: CredentialStoring = KeychainCredentialStore.shared
     ) {
-        guard request.url.map({ sameOrigin($0, URL(string: normalizeBaseUrl(baseUrl))) }) == true else {
+        guard request.url.map({ sameOrigin($0, transportOrigin(baseUrl)) }) == true else {
             return
         }
         if let authorizationHeader {
             request.setValue(authorizationHeader, forHTTPHeaderField: "Authorization")
         }
-        for (name, value) in credentialStore.httpHeaders(baseUrl: baseUrl) {
+        for (name, value) in credentialStore.serviceHTTPHeaders(baseUrl: baseUrl) {
             request.setValue(value, forHTTPHeaderField: name)
         }
     }
@@ -135,7 +144,7 @@ enum ServerCredentials {
         baseUrl: String,
         customHeaderNames: [String]
     ) -> URLRequest {
-        guard request.url.map({ sameOrigin($0, URL(string: normalizeBaseUrl(baseUrl))) }) != true else {
+        guard request.url.map({ sameOrigin($0, transportOrigin(baseUrl)) }) != true else {
             return request
         }
         var sanitized = request
@@ -144,6 +153,11 @@ enum ServerCredentials {
             sanitized.setValue(nil, forHTTPHeaderField: name)
         }
         return sanitized
+    }
+
+    /// Where requests for this server go: `https://ntfy.sh` for every ntfy.sh alias (review-130 #3).
+    private static func transportOrigin(_ baseUrl: String) -> URL? {
+        URL(string: NtfyShAddress.canonicalize(baseUrl) ?? normalizeBaseUrl(baseUrl))
     }
 
     private static func sameOrigin(_ lhs: URL, _ rhs: URL?) -> Bool {
@@ -169,7 +183,7 @@ final class ServerCredentialRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
     init(baseUrl: String, credentialStore: CredentialStoring) {
         self.baseUrl = baseUrl
-        self.headerNames = Array(credentialStore.httpHeaders(baseUrl: baseUrl).keys)
+        self.headerNames = Array(credentialStore.serviceHTTPHeaders(baseUrl: baseUrl).keys)
     }
 
     func urlSession(

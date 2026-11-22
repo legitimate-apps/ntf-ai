@@ -102,8 +102,24 @@ enum NtfyShAddress {
 
     static func isNtfySh(_ baseUrl: String) -> Bool { canonicalize(baseUrl) != nil }
 
-    /// For new subscriptions (Add sheet, links): store ntfy.sh as `https://ntfy.sh`, anything else as typed.
+    /// For new subscriptions (Add sheet, links, managed configuration): store ntfy.sh as
+    /// `https://ntfy.sh`, anything else as typed.
     static func ingress(_ baseUrl: String) -> String { canonicalize(baseUrl) ?? baseUrl }
+
+    /// A request URL on any ntfy.sh alias, moved to `https://ntfy.sh` with its path and query kept.
+    /// Rows saved as `http://ntfy.sh` or `www.ntfy.sh` keep their stored spelling (and with it
+    /// their notifications, read state, cursor, mute, sound and encryption keys); only the
+    /// transport changes, as `HostedServer.requestURL` does for the app's own alias.
+    static func transportURL(_ url: URL) -> URL {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = parts.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = parts.host?.lowercased(), host == "ntfy.sh" || host == "www.ntfy.sh",
+              parts.user == nil, parts.password == nil,
+              parts.port == nil || parts.port == (scheme == "https" ? 443 : 80) else { return url }
+        guard scheme != "https" || parts.host != "ntfy.sh" || parts.port != nil else { return url }
+        parts.scheme = "https"; parts.host = "ntfy.sh"; parts.port = nil
+        return parts.url ?? url
+    }
 }
 
 /// The address a server hashes when it forwards a wake-up for one of its topics. Stored rows keep

@@ -362,15 +362,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             return
         }
 
+        // iOS gives this callback 30 seconds. Everything shares one deadline from entry and the
+        // completion runs exactly once, by then at the latest (review-130 #2).
+        let finish = BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.budget, completion: completionHandler)
         let group = DispatchGroup()
-        let resultQueue = DispatchQueue(label: Config.bundleIdBase + ".background-poll-result")
-        var didReceiveNewData = false
-        // ntfy-me.com sends this wake-up about every 20 minutes, so it also keeps the bridge's
-        // registration alive for someone who never opens the app (the server forgets a device 30
-        // days after its last POST). sync is a no-op unless the set changed or the record is a
-        // day old, and it honours the server's Retry-After.
-        group.enter()
-        NtfyShBridge.shared.sync(reason: "background wake") { group.leave() }
         subscriptions.forEach { subscription in
             group.enter()
             guard let baseUrl = subscription.baseUrl else {
@@ -379,18 +374,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                 return
             }
             subscriptionManager.poll(subscription) { messages in
-                if !messages.isEmpty {
-                    resultQueue.sync {
-                        didReceiveNewData = true
-                    }
-                }
+                if !messages.isEmpty { finish.noteNewData() }
                 self.showNotificationsSequentially(baseUrl: baseUrl, messages: messages) {
                     group.leave()
                 }
             }
         }
         group.notify(queue: .main) {
-            completionHandler(didReceiveNewData ? .newData : .noData)
+            // ntfy-me.com sends this wake-up about every 20 minutes, so it also keeps the bridge's
+            // registration alive for someone who never opens the app (the server forgets a device
+            // 30 days after its last POST). After the polls, with whatever time is left: sync is a
+            // no-op unless the set changed or the record is a day old, starts no request it
+            // couldn't finish by the deadline, and honours the server's Retry-After.
+            NtfyShBridge.shared.sync(reason: "background wake", deadline: finish.deadlineDate) { finish.complete() }
         }
     }
     
@@ -691,4 +687,39 @@ extension AppDelegate: MessagingDelegate {
 
 enum FirebaseLogPolicy {
     static func level(debug: Bool) -> FirebaseLoggerLevel { debug ? .max : .min }
+}
+
+/// A background wake's completion: called exactly once, when the work finishes or at the
+/// deadline, whichever comes first. Later calls do nothing.
+final class BackgroundWakeCompletion {
+    /// Under the 30 seconds iOS gives a background notification, with room for the handoff.
+    static let budget: TimeInterval = 25
+
+    let deadlineDate: Date
+    private let lock = NSLock()
+    private var completion: ((UIBackgroundFetchResult) -> Void)?
+    private var newData = false
+
+    init(deadline: TimeInterval, now: Date = Date(),
+         schedule: (TimeInterval, @escaping () -> Void) -> Void = { delay, work in DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work) },
+         completion: @escaping (UIBackgroundFetchResult) -> Void) {
+        self.deadlineDate = now.addingTimeInterval(deadline)
+        self.completion = completion
+        // Held strongly until the deadline: the completion must run even if nothing else does.
+        schedule(deadline) {
+            if self.completion != nil { Log.w("BackgroundWake", "Deadline reached; completing the background wake") }
+            self.complete()
+        }
+    }
+
+    func noteNewData() { lock.lock(); newData = true; lock.unlock() }
+
+    func complete() {
+        lock.lock()
+        let completion = self.completion
+        self.completion = nil
+        let result: UIBackgroundFetchResult = newData ? .newData : .noData
+        lock.unlock()
+        completion?(result)
+    }
 }

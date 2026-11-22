@@ -39,7 +39,7 @@ struct SettingsView: View {
                     Toggle(NtfyShBridgeCopy.settingTitle, isOn: $ntfyShBridge)
                         .accessibilityIdentifier("settings-ntfysh-bridge")
                         .onChange(of: ntfyShBridge) { on in
-                            NtfyShBridge.shared.sync(reason: on ? "setting turned on" : "setting turned off")
+                            NtfyShBridge.shared.sync(reason: on ? "setting turned on" : "setting turned off", userInitiated: true)
                         }
                 }
                 // On a Mac every button opens the app, so there is nothing to allow.

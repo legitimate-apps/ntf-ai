@@ -61,7 +61,8 @@ struct SubscriptionManager {
     }
 
     func subscribe(baseUrl: String, topic: String) {
-        let normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+        // Every new ntfy.sh subscription is stored as https://ntfy.sh, whichever path adds it.
+        let normalizedBaseUrl = normalizeBaseUrl(NtfyShAddress.ingress(baseUrl))
         Log.d(tag, "Subscribing to \(topicUrl(baseUrl: normalizedBaseUrl, topic: topic))")
         // Persist first. The row is created with `fcmSubscribed == false`, which
         // makes it the retry queue: if the FCM binding below fails (or never even
@@ -168,16 +169,18 @@ struct SubscriptionManager {
 
     /// A fresh message from a self-hosted server that reached the app by poll: ask whether its
     /// wake-up went through (SelfHostedWakeCheck). One check per poll, for the newest message only.
-    /// Only while the bridge holds this device's set: a forward via ntfy.sh reaches the relay only
-    /// through the bridge, so with it off or unregistered a miss would mean nothing.
+    /// Only while the bridge holds this hash (a forward via ntfy.sh reaches the relay only through
+    /// the bridge); a miss counts as strong evidence only with the bridge's connection confirmed.
     static func checkWakeUps(baseUrl: String, messages: [Message], check: SelfHostedWakeCheck = .shared,
-                             bridgeRegistered: Bool = NtfyShBridge.shared.isRegistered,
-                             appBaseUrl: String = Config.appBaseUrl) {
+                             bridge: NtfyShBridge = .shared, appBaseUrl: String = Config.appBaseUrl) {
         let server = normalizeBaseUrl(baseUrl)
-        guard bridgeRegistered, server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server),
+        guard server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server),
               let newest = messages.filter({ $0.event == "message" }).max(by: { $0.time < $1.time }) else { return }
+        let hash = topicHash(baseUrl: server, topic: newest.topic)
+        guard bridge.isAdmitted(hash: hash) else { return }
         check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
-                                   messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)))
+                                   messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)),
+                                   evidence: { bridge.forwardingEvidence(hash: hash) })
     }
 
     /// Completion includes saves and all outcomes, rather than only enqueueing the requests.

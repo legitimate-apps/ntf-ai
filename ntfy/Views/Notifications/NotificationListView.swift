@@ -707,7 +707,11 @@ struct TopicPublishHelpView: View {
 
 struct TopicDetailsView: View {
     @ObservedObject var subscription: Subscription
+    @ObservedObject private var bridge = NtfyShBridge.shared
     @Environment(\.dismiss) private var dismiss
+    /// Bumped when the bridge, the access cache or a wake check changes in any process.
+    @State private var revision = 0
+    @State private var armed = false
 
     private var subscribedValue: String {
         guard let date = subscription.subscribedAt else {
@@ -719,7 +723,13 @@ struct TopicDetailsView: View {
     /// Whether this topic gets instant banners, and why not (NtfyShBridge.topicState).
     private var bannerState: NtfyShBridge.TopicState? {
         guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return nil }
-        return NtfyShBridge.shared.topicState(baseUrl: baseUrl, topic: topic)
+        _ = revision
+        return bridge.topicState(baseUrl: baseUrl, topic: topic, fcmBound: subscription.fcmSubscribed)
+    }
+
+    private var selfHosted: Bool {
+        guard let baseUrl = subscription.baseUrl else { return false }
+        return !NtfyShAddress.isNtfySh(baseUrl)
     }
 
     private var bannerHold: NtfyShBridge.TopicHold? {
@@ -751,13 +761,28 @@ struct TopicDetailsView: View {
                 if let state = bannerState {
                     Section {
                         NotificationStatusRow(title: NtfyShBridgeCopy.instantBanners,
-                                              value: state == .held(.checkingAccess) ? NtfyShBridgeCopy.checking
-                                                : (bannerHold == nil ? NtfyShBridgeCopy.on : NtfyShBridgeCopy.off))
+                                              value: bannerHold == nil ? NtfyShBridgeCopy.on
+                                                : (bannerHold?.isPending == true ? NtfyShBridgeCopy.pending : NtfyShBridgeCopy.off))
                             .accessibilityIdentifier("topic-instant-banners")
+                        if let hold = bannerHold, hold.offersCheckAgain, let baseUrl = subscription.baseUrl, let topic = subscription.topic {
+                            let hash = topicHash(baseUrl: baseUrl, topic: topic)
+                            if armed || SelfHostedWakeCheck.shared.isArmed(hash: hash) {
+                                Text(NtfyShBridgeCopy.checkArmed).font(.footnote).foregroundColor(.secondary)
+                            } else {
+                                Button(NtfyShBridgeCopy.checkAgain) {
+                                    armed = true
+                                    NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge)
+                                }
+                                .accessibilityIdentifier("topic-check-again")
+                            }
+                        }
                     } footer: {
-                        if let hold = bannerHold { Text(NtfyShBridgeCopy.reason(hold)) }
+                        if let hold = bannerHold { Text(NtfyShBridgeCopy.reason(hold, selfHosted: selfHosted)) }
                     }
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
+                bridge.reload(); revision += 1
             }
             .navigationTitle(String(localized: "Topic details"))
             .navigationBarTitleDisplayMode(.inline)

@@ -93,6 +93,66 @@ final class FcmTeardownLedgerTests: XCTestCase {
         XCTAssertEqual(fake.subscribes.count, subscribed)
     }
 
+    /// Red on 0c3563e (review-130 #6): the old name was journalled but torn down only at some later trigger.
+    func testRenameTearsDownTheOldNameInTheSamePass() {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        store.context.performAndWait { row.fcmSubscribed = true; try? store.context.save() }
+        r.reconcile(reason: "launch")
+        drain()
+        XCTAssertTrue(fake.unsubscribes.contains { $0.name == legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts_q7x") })
+    }
+
+    /// Red on 0c3563e: a store that couldn't be read looked like "no subscriptions", so the rename
+    /// was stamped done and never ran.
+    func testAnUnreadableStoreDoesNotStampTheRename() {
+        let r = FcmSubscriptionReconciler(store: store, subscriber: Subscriber(), defaults: defaults,
+                                          now: { self.time }, subscriptionSnapshot: { nil })
+        XCTAssertFalse(r.rebindRespelledNtfyShTopicsIfNeeded())
+        XCTAssertLessThan(defaults.integer(forKey: FcmSubscriptionReconciler.defaultsKeyPushNaming), FcmSubscriptionReconciler.pushNamingVersion)
+    }
+
+    /// Red on 0c3563e: only the first row with a name was marked stale, so a second alias stayed
+    /// "confirmed" for a binding that was gone.
+    func testEveryAliasRowSharingANameIsMarkedStale() {
+        let a = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let b = store.saveSubscription(baseUrl: "https://www.ntfy.sh", topic: "alerts_q7x")
+        store.context.performAndWait { a.fcmSubscribed = true; b.fcmSubscribed = true; try? store.context.save() }
+        XCTAssertTrue(store.markFcmSubscriptionStale(firebaseTopicName: topicHash(baseUrl: "https://ntfy.sh", topic: "alerts_q7x")))
+        store.context.performAndWait {
+            XCTAssertFalse(a.fcmSubscribed)
+            XCTAssertFalse(b.fcmSubscribed)
+        }
+    }
+
+    /// Red on 0c3563e: a row deleted before the rename ran left its old binding with no teardown.
+    func testDeletingBeforeTheRenameAlsoTearsDownTheOldName() {
+        let r = reconciler(Subscriber())
+        _ = r.prepareUnsubscribe(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let names = Set(r.teardownLedger.entries.map(\.name))
+        XCTAssertTrue(names.contains(legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")))
+        XCTAssertTrue(names.contains(topicHash(baseUrl: "https://ntfy.sh", topic: "alerts_q7x")))
+    }
+
+    /// The rename changes bindings only: the row, its messages and their read state stay.
+    func testTheRenameKeepsTheRowItsMessagesAndReadState() {
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let id = row.objectID
+        _ = store.ingest(pushedMessage: Message(id: "m1_q7x", time: 1_800_000_000, event: "message", topic: "alerts_q7x", message: "x"),
+                         baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let before = row.notificationCount()
+        let unread = row.unreadCount()
+        let r = reconciler(Subscriber())
+        r.reconcile(reason: "launch")
+        drain()
+        let after = store.getSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        XCTAssertEqual(after?.objectID, id)
+        XCTAssertEqual(after?.notificationCount(), before)
+        XCTAssertEqual(after?.unreadCount(), unread)
+        XCTAssertEqual(before, 1)
+    }
+
     func testOldSuccessCannotEraseNewerIntentAfterFreshBinding() throws {
         let fake = Subscriber()
         let r = reconciler(fake)
@@ -269,9 +329,11 @@ final class FcmTeardownLedgerTests: XCTestCase {
         r.unsubscribe(baseUrl: Config.appBaseUrl, topic: "alerts")
         let b = try XCTUnwrap(r.teardownLedger.entries.first)
         fake.complete(0)
+        drain() // the reconcile after a settled teardown runs on main (review-130 #6)
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         XCTAssertEqual(fake.unsubscribes.count, 2, "A's late callback cannot release the newer request slot")
         fake.complete(1)
+        drain()
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         XCTAssertEqual(fake.unsubscribes.count, 3)
     }
@@ -361,6 +423,7 @@ final class FcmTeardownLedgerTests: XCTestCase {
         let b = try XCTUnwrap(FcmSubscriptionReconciler.enqueueObsoleteTopicNames(["old-name"], defaults: defaults).first?.entry)
         XCTAssertNotEqual(a.id, b.id)
         fake.complete(0)
+        drain()
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         fake.complete(1, error: Subscriber.Failure())
         drain()

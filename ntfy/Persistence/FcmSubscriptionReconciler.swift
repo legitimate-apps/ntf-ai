@@ -75,6 +75,8 @@ final class FcmSubscriptionReconciler {
     let teardownLedger: FcmTeardownLedger
     private let now: () -> Date
     private let teardownLiveness: (() -> Set<String>?)?
+    /// The (baseUrl, topic) pairs the rename reads; nil when the store can't be read. Tests inject a failure.
+    private let subscriptionSnapshot: (() -> [(baseUrl: String, topic: String)]?)?
     /// Registers the ntfy.sh watch set on the same triggers (nil in tests that only exercise FCM).
     let bridge: NtfyShBridge?
     private var teardownsInFlight: [String: (request: UUID, started: Date)] = [:]
@@ -85,7 +87,9 @@ final class FcmSubscriptionReconciler {
          defaults: UserDefaults = UserDefaults(suiteName: Store.appGroup) ?? .standard,
          now: @escaping () -> Date = Date.init,
          teardownLiveness: (() -> Set<String>?)? = nil,
+         subscriptionSnapshot: (() -> [(baseUrl: String, topic: String)]?)? = nil,
          bridge: NtfyShBridge? = nil) {
+        self.subscriptionSnapshot = subscriptionSnapshot
         self.store = store
         self.bridge = bridge
         self.subscriber = subscriber
@@ -169,7 +173,8 @@ final class FcmSubscriptionReconciler {
         // Rename first: a round that bound names derived from a different app base URL would only
         // confirm topics no server publishes to. A rename drives its own round, so stop here if it ran.
         if rebindIfAppBaseUrlChanged() { return }
-        rebindRespelledNtfyShTopicsIfNeeded()
+        // The old names it journals are torn down in this same pass, not at some later trigger.
+        if rebindRespelledNtfyShTopicsIfNeeded() { drainPendingTeardowns() }
 
         lock.lock()
         if inFlight {
@@ -293,9 +298,10 @@ final class FcmSubscriptionReconciler {
     @discardableResult
     func rebindRespelledNtfyShTopicsIfNeeded() -> Bool {
         guard defaults.integer(forKey: Self.defaultsKeyPushNaming) < Self.pushNamingVersion else { return false }
-        let pairs: [(baseUrl: String, topic: String)] = (store.getSubscriptions() ?? []).compactMap {
-            guard let baseUrl = $0.baseUrl, let topic = $0.topic else { return nil }
-            return (baseUrl, topic)
+        // A store that can't be read is not "no subscriptions": stamp nothing and try next time.
+        guard let pairs = subscriptionSnapshot.map({ $0() }) ?? subscriptionPairs() else {
+            Log.w(tag, "Cannot read subscriptions; ntfy.sh binding rename postponed")
+            return false
         }
         let needed = Set(pairs.map { firebaseTopic(baseUrl: $0.baseUrl, topic: $0.topic) })
         let moved = pairs.filter {
@@ -311,6 +317,20 @@ final class FcmSubscriptionReconciler {
         if complete { defaults.set(Self.pushNamingVersion, forKey: Self.defaultsKeyPushNaming) }
         if !moved.isEmpty { Log.d(tag, "Renamed \(moved.count) ntfy.sh binding(s) to the https://ntfy.sh hash") }
         return !moved.isEmpty
+    }
+
+    /// Read on the context's queue, so a save in flight elsewhere can't tear the snapshot.
+    private func subscriptionPairs() -> [(baseUrl: String, topic: String)]? {
+        var pairs: [(baseUrl: String, topic: String)]?
+        store.context.performAndWait {
+            pairs = store.getSubscriptions().map { rows in
+                rows.compactMap { row -> (baseUrl: String, topic: String)? in
+                    guard let baseUrl = row.baseUrl, let topic = row.topic else { return nil }
+                    return (baseUrl, topic)
+                }
+            }
+        }
+        return pairs
     }
 
     // MARK: Durable teardowns
@@ -417,7 +437,12 @@ final class FcmSubscriptionReconciler {
 
     /// Write ahead of deleting the subscription row. If the save fails, retire only this intent.
     func prepareUnsubscribe(baseUrl: String, topic: String) -> FcmTeardownLedger.Entry? {
-        teardownLedger.record(firebaseTopic(baseUrl: baseUrl, topic: topic))
+        // A row deleted before the 1.30 rename ran may still be bound under its old name.
+        let legacy = legacyTopicHash(baseUrl: baseUrl, topic: topic)
+        if normalizeBaseUrl(baseUrl) != normalizeBaseUrl(Config.appBaseUrl), legacy != topicHash(baseUrl: baseUrl, topic: topic) {
+            _ = teardownLedger.record(legacy, obsolete: true)
+        }
+        return teardownLedger.record(firebaseTopic(baseUrl: baseUrl, topic: topic))
     }
 
     /// Also used by direct callers after deleting their row.
@@ -453,7 +478,8 @@ final class FcmSubscriptionReconciler {
         // stay stale with nothing scheduled to fix them, and push stays down until some unrelated
         // event happens to reconcile. If a round is active this only sets `rerunRequested`, so it
         // costs exactly one follow-up pass.
-        reconcile(reason: "teardown settled for \(name)")
+        // On main, like every other trigger: this callback runs on Firebase's queue.
+        DispatchQueue.main.async { self.reconcile(reason: "teardown settled for \(name)") }
     }
 
     private func finish() {

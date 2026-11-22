@@ -40,15 +40,17 @@ class ApiService {
         poll(baseUrl: subscription.baseUrl ?? "?", topic: subscription.topic ?? "?", messageId: messageId, user: user, completionHandler: completionHandler)
     }
 
-    func poll(baseUrl: String, topic: String, messageId: String, user: ServerCredential?, timeout: TimeInterval = 30, completionHandler: @escaping (Message?, Error?) -> Void) {
+    /// Returns a way to cancel the read (the extension's cutoff), nil when none started.
+    @discardableResult
+    func poll(baseUrl: String, topic: String, messageId: String, user: ServerCredential?, timeout: TimeInterval = 30, completionHandler: @escaping (Message?, Error?) -> Void) -> (() -> Void)? {
         guard let url = URL(string: "\(topicUrl(baseUrl: baseUrl, topic: topic))/json?poll=1&id=\(messageId)") else {
             completionHandler(nil, URLError(.badURL))
-            return
+            return nil
         }
         Log.d(tag, "Polling single message from \(url) with user \(user?.username ?? "anonymous")")
         
         let request = newRequest(url: url, baseUrl: baseUrl, user: user)
-        runOneShot(request, timeout: timeout, baseUrl: baseUrl) { (data, response, error) in
+        let session = runOneShot(request, timeout: timeout, baseUrl: baseUrl) { (data, response, error) in
             if let error = error {
                 completionHandler(nil, error)
                 return
@@ -70,6 +72,7 @@ class ApiService {
                 completionHandler(nil, error)
             }
         }
+        return { session.invalidateAndCancel() }
     }
 
     /// The message a `?poll=1&id=` answer holds. A 200 with no line for that id means the server
@@ -439,7 +442,9 @@ class ApiService {
     }
     
     func newRequest(url: URL, baseUrl: String, user: ServerCredential?) -> URLRequest {
-        var request = URLRequest(url: url)
+        // Every ntfy.sh alias is fetched over https://ntfy.sh (www.ntfy.sh doesn't resolve, and
+        // http would carry credentials in the clear); stored rows keep their spelling.
+        var request = URLRequest(url: NtfyShAddress.transportURL(url))
         request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
         // Apply these last: an explicit custom Authorization or User-Agent is an intentional
         // override, while all other requests retain the app's defaults above.

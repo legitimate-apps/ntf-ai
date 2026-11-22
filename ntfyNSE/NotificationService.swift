@@ -39,7 +39,8 @@ class NotificationService: UNNotificationServiceExtension {
             let muted = newValue.map { store?.isTopicMuted(baseUrl: $0.baseUrl, topic: $0.message.topic) ?? false } ?? false
             presentationLock.lock(); defer { presentationLock.unlock() }
             processedIdentity = newValue
-            expiryIsQuiet = alerted || muted
+            // Our own claim (made before the fetch) reads as "alerted"; it must not silence us.
+            expiryIsQuiet = (alerted && claimedAlert != true) || muted
         }
     }
     private var quietHours = QuietHours.load()
@@ -56,11 +57,16 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
     private var claimedAlert: Bool?
+    /// One monotonic deadline from entry, shared by every step (review-130 #5).
+    private(set) var deadline = ExtensionDeadline()
+    /// Tests shorten the self-imposed cutoff.
+    var processingBudget: TimeInterval = NotificationServiceTiming.processingBudget
 
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         // On a Mac this process can outlive the banner and receive its taps; pass them to the app.
         NotificationResponseRelay.installInExtensionIfNeeded()
         NotificationExtensionLifetime.shared.requestStarted()
+        deadline = ExtensionDeadline(budget: processingBudget)
         if self.store == nil { self.store = makeStore() }
         self.deliveryGate = NotificationDeliveryGate { output in
             // Release builds expose only presentation metadata, never message or account content.
@@ -68,6 +74,14 @@ class NotificationService: UNNotificationServiceExtension {
                    log: OSLog(subsystem: Config.bundleIdBase, category: "NotificationPresentation"), type: .info,
                    output.sound == nil ? 0 : 1, output.interruptionLevel.rawValue)
             contentHandler(output)
+        }
+        // At the deadline, hand off the best attempt ourselves, before iOS cuts the extension off;
+        // anything that lands later finds the one-shot gate closed.
+        let gate = deliveryGate
+        DispatchQueue.global().asyncAfter(deadline: .now() + processingBudget) { [weak self] in
+            guard let self, self.deliveryGate === gate, gate?.isPending == true else { return }
+            Log.w(self.tag, "Deadline reached; delivering the best attempt")
+            if let content = self.bestAttemptContent { self.deliver(content, expiring: true) }
         }
         quietHours = QuietHours.load()
         presentationMessage = nil
@@ -208,7 +222,7 @@ class NotificationService: UNNotificationServiceExtension {
         if case .reconcile(let poll) = result {
             let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: received.topic, baseUrl: baseUrl, event: received.event)
             bestAttemptContent = placeholder
-            ApiService.shared.poll(poll, timeout: NotificationServiceTiming.pollTimeout) { messages, _ in
+            ApiService.shared.poll(poll, timeout: deadline.timeout(NotificationServiceTiming.pollTimeout, reserve: 3)) { messages, _ in
                 guard let messages else { self.deliver(placeholder); return }
                 guard let presentations = Store.shared.save(notificationsFromMessages: messages, polledWith: poll) else {
                     self.deliver(placeholder)
@@ -308,6 +322,12 @@ class NotificationService: UNNotificationServiceExtension {
 
     private func handlePresentation(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool = false) {
         bestAttemptContent = content
+        // A poll_request claimed its alert before fetching: the row exists now, so mark it.
+        if let claim = alertClaim {
+            if claim { store?.recordPresentation(message: message, baseUrl: baseUrl) }
+            DispatchQueue.global(qos: .userInitiated).async { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
+            return
+        }
         claimAlert { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
     }
 
@@ -328,7 +348,7 @@ class NotificationService: UNNotificationServiceExtension {
             message: message,
             baseUrl: baseUrl,
             user: user,
-            timeout: reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout
+            timeout: deadline.timeout(reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout)
         ) {
             self.presentAsAgent(content, baseUrl: baseUrl, message: message, reconciled: reconciled)
         }
@@ -368,30 +388,43 @@ class NotificationService: UNNotificationServiceExtension {
         
         // Even a failed fetch/expiry must not re-alert a known id. Unknown ids fail open.
         alertIdentity = (Message(id: pollId, time: pollRequest.time, event: "message", topic: subscription.topic), subscription.baseUrl)
-        if normalizeBaseUrl(subscription.baseUrl) != normalizeBaseUrl(Config.appBaseUrl) {
-            // A wake-up arrived for this hash: the server is set up (clears "not set up").
-            SelfHostedWakeCheck.shared.recordWake(hash: pollRequest.topic)
-            // Someone who lives on banners may never open the app; keep the bridge's registration
-            // fresh from here. Not waited on, and at most hourly (NtfyShBridge.extensionShouldRefresh).
-            NtfyShBridge.shared.refreshFromExtensionIfStale()
-        }
-        // Install the safe topic-named fallback before starting the fetch, including expiry.
+        // Install the safe topic-named fallback before anything else, including expiry.
         let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: subscription.topic, baseUrl: subscription.baseUrl)
         placeholder.configureInterruption(message: pollRequest,
             soundName: store?.topicSoundName(baseUrl: subscription.baseUrl, topic: subscription.topic, library: soundLibrary))
         bestAttemptContent = placeholder
-        // Poll original server
+        // Claim the alert by message id before fetching: if the fallback is what shows (fetch
+        // failure or expiry), a later ~poll that loads the message stays quiet; if the app already
+        // alerted it, this push is passive.
+        claimAlert {
+            self.fetchPolled(request, content, pollRequest, pollId: pollId, subscription: subscription, placeholder: placeholder)
+        }
+        if normalizeBaseUrl(subscription.baseUrl) != normalizeBaseUrl(Config.appBaseUrl) {
+            // Maintenance after the fallback is in place, never waited on.
+            // A wake-up arrived for this hash: the server is set up (clears "not set up").
+            SelfHostedWakeCheck.shared.recordWake(hash: pollRequest.topic)
+            // Someone who lives on banners may never open the app: renew (never replace) the
+            // bridge's registration, at most hourly and only when a week old.
+            NtfyShBridge.shared.renewFromExtensionIfStale()
+        }
+    }
+
+    private func fetchPolled(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ pollRequest: Message,
+                             pollId: String, subscription: (baseUrl: String, topic: String), placeholder: UNMutableNotificationContent) {
         let user = store?.getBasicUser(baseUrl: subscription.baseUrl)
-        // The extension only needs contentHandler to be called from the async callback
         // A wake-up can beat the server's own cache write, so "not stored yet" is asked again
-        // (SingleMessagePoll); a real error still fails at once.
-        SingleMessagePoll.run(fetch: { timeout, done in
+        // (SingleMessagePoll) unless the wake is old; a real error still fails at once.
+        let age = pollRequest.time > 0 ? Date().timeIntervalSince1970 - TimeInterval(pollRequest.time) : nil
+        let pollDeadline = min(deadline.clock() + NotificationServiceTiming.pollTimeout, deadline.end - 2)
+        SingleMessagePoll.run(deadline: pollDeadline, delays: SingleMessagePoll.delays(messageAge: age), clock: deadline.clock, fetch: { timeout, done in
             ApiService.shared.poll(baseUrl: subscription.baseUrl, topic: subscription.topic, messageId: pollId,
                                    user: user, timeout: timeout, completionHandler: done)
         }) { message, error, attempts in
             guard let message = message else {
                 Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), attempts=\(attempts), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
-                self.deliver(NotificationHealth.fetchFailureContent(placeholder, topic: subscription.topic, failure: PollFailure.classify(error)))
+                let missing = error is PollMissingResult ? shortUrl(url: normalizeBaseUrl(subscription.baseUrl)) : nil
+                self.deliver(NotificationHealth.fetchFailureContent(placeholder, topic: subscription.topic,
+                                                                    failure: PollFailure.classify(error), missingOn: missing))
                 return
             }
             self.handleMessage(request, content, subscription.baseUrl, message)
