@@ -940,43 +940,30 @@ class Store: ObservableObject {
     }
 
     enum ExpiryClaim: Equatable {
-        /// Nobody had alerted the message: it is claimed now, and the fallback may sound.
-        case claimed
-        /// It was alerted or claimed already.
+        /// No claim on disk: the fallback alerts (and the claim was written if the lock was free).
+        case alert
+        /// A fresh claim for this message is on disk, written by the app or an earlier delivery.
         case alreadyAlerted
-        /// Another process holds the alert lock (it may be alerting this message), or the claim
-        /// couldn't be written: the fallback is passive.
-        case contended
     }
 
-    /// The extension's expiry with no claim settled (review-130b #5). Never waits: the alert lock
-    /// is tried once, and the claim goes to the claims file under a short lock, not Core Data.
+    /// The extension's expiry with no claim of its own settled or in flight (review-130b #5; fix
+    /// after the 41a2a18 full run). Never waits and fails open: the only evidence that downgrades
+    /// the fallback is a fresh claim already in the claims file (every alert writes one first). A
+    /// busy lock, an unreadable file or a held alert lock is uncertainty, and the fallback alerts;
+    /// the claim is written only if the claims lock is free this instant (timeout 0), so the app's
+    /// next poll stays quiet when it can be.
     func claimAtExpiry(message: Message, baseUrl: String) -> ExpiryClaim {
-        let url = container.persistentStoreDescriptions.first?.url
-        var release: () -> Void = {}
-        if url?.path == "/dev/null" {
-            guard memoryAlertLock.wait(timeout: .now()) == .success else { return .contended }
-            release = { self.memoryAlertLock.signal() }
-        } else if let url {
-            let descriptor = open(url.appendingPathExtension("alerts.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-            guard descriptor >= 0, flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
-                if descriptor >= 0 { close(descriptor) }
-                return .contended
-            }
-            release = { flock(descriptor, LOCK_UN); close(descriptor) }
-        }
-        defer { release() }
+        if hasClaimBeforeRow(message: message, baseUrl: baseUrl) { return .alreadyAlerted }
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
-        var had = false
-        let saved: Bool? = presentationClaims.update(timeout: 0.3) { stored in
+        let wrote: Bool? = presentationClaims.update(timeout: 0) { stored in
             var claims = stored ?? legacyClaims()
-            if let at = claims[key], Date().timeIntervalSince(at) < Self.presentationClaimLifetime { had = true; return (false, true) }
+            // Landed between the read above and the lock: someone else alerted it.
+            if let at = claims[key], Date().timeIntervalSince(at) < Self.presentationClaimLifetime { return (false, false) }
             claims[key] = Date()
             stored = claims
             return (true, true)
         }
-        if had { return .alreadyAlerted }
-        return saved == true ? .claimed : .contended
+        return wrote == false ? .alreadyAlerted : .alert
     }
 
     /// Starts both test-message bodies in `FirstTopicTest` and the topic menu; they prove nothing to the review gate.

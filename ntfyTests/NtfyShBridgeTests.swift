@@ -1801,23 +1801,31 @@ extension PresentationClaimTests {
     /// Red on 15669a0 (review-130b #5): at expiry the extension sounded its fallback without
     /// claiming the message, so the app's next poll alerted it again; and it ignored an app
     /// holding the alert lock for it. Now: claim, or stay passive.
+    /// Fix after the 41a2a18 full run: expiry treated a held alert lock as "someone else alerted",
+    /// and the lock was usually the extension's own claim in flight, so a loaded device gave an
+    /// unseen message a silent banner. Only a fresh claim on disk is evidence; the rest alerts.
     func testTheExtensionsExpiryClaimsOrStaysPassive() {
         let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
         _ = store.saveSubscription(baseUrl: "https://home.example", topic: "door")
         let message = Message(id: "m5_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "open")
-        XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example"), .claimed)
+        XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example"), .alert)
         XCTAssertTrue(store.wasAlerted(message: message, baseUrl: "https://home.example"), "a later app poll stays quiet")
         XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example"), .alreadyAlerted)
-        // The app is alerting another message: the lock is held, so the fallback is passive.
+        // The alert lock is held (by whoever) with no claim written for this message: uncertain, alerts.
         let other = Message(id: "m6_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "x")
-        let holding = expectation(description: "app holds the alert lock")
+        let holding = expectation(description: "alert lock held")
         let release = DispatchSemaphore(value: 0)
-        _ = store.deliverAlert(message: other, baseUrl: "https://home.example", delivery: { done in
+        _ = store.deliverAlert(message: Message(id: "m7_q7x", time: 1_800_000_000, event: "message", topic: "door"),
+                               baseUrl: "https://home.example", delivery: { done in
             holding.fulfill()
             DispatchQueue.global().async { release.wait(); done(true) }
         })
-        wait(for: [holding], timeout: 2)
-        XCTAssertEqual(store.claimAtExpiry(message: other, baseUrl: "https://home.example"), .contended)
+        wait(for: [holding], timeout: 5)
+        XCTAssertEqual(store.claimAtExpiry(message: other, baseUrl: "https://home.example"), .alert)
+        // A claim the app wrote for this message is confirmed evidence: passive.
+        let alerted = Message(id: "m8_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "y")
+        store.recordPresentation(message: alerted, baseUrl: "https://home.example")
+        XCTAssertEqual(store.claimAtExpiry(message: alerted, baseUrl: "https://home.example"), .alreadyAlerted)
         release.signal()
     }
 }
@@ -1838,63 +1846,86 @@ final class NotificationBestAttemptTests: XCTestCase {
 }
 
 final class NotificationServiceExpiryTests: XCTestCase {
-    private func request(_ id: String, baseUrl: String, topic: String) -> UNNotificationRequest {
+    private func request(_ id: String, baseUrl: String, topic: String, sound: Bool = true) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = topic
         content.body = "alive"
-        content.sound = .default
+        if sound { content.sound = .default }
         content.userInfo = Message(id: id, time: 1_800_000_000, event: "message", topic: topic, message: "alive").toUserInfo()
         content.userInfo["base_url"] = baseUrl
         return UNNotificationRequest(identifier: id, content: content, trigger: nil)
     }
 
     /// Red on 15669a0 (review-130b #5): the deadline and its watchdog started after the store
-    /// opened, so a slow open pushed the handoff past the system's limit.
+    /// opened, so a slow open pushed the handoff past the system's limit. No wall clock: the store
+    /// open blocks until the handoff has happened, which only an entry-time watchdog can do.
     func testTheDeadlineStartsBeforeTheStoreOpens() {
         let store = Store(inMemory: true)
         _ = store.saveSubscription(baseUrl: "https://slow-open.example", topic: "door")
         let service = NotificationService()
-        service.processingBudget = 0.1
-        service.makeStore = { Thread.sleep(forTimeInterval: 0.6); return store }
-        let started = Date()
+        service.processingBudget = 0.05
+        let handed = DispatchSemaphore(value: 0)
+        var openedAfterHandoff = false
+        service.makeStore = { openedAfterHandoff = handed.wait(timeout: .now() + 30) == .success; return store }
         let lock = NSLock()
-        var handedAt: Date?
-        var calls = 0
-        service.didReceive(request("slow_q7x", baseUrl: "https://slow-open.example", topic: "door")) { _ in
-            lock.lock(); calls += 1; if handedAt == nil { handedAt = Date() }; lock.unlock()
+        var outputs: [UNNotificationContent] = []
+        let done = expectation(description: "didReceive returned")
+        DispatchQueue.global().async {
+            service.didReceive(self.request("slow_q7x", baseUrl: "https://slow-open.example", topic: "door", sound: false)) { output in
+                lock.lock(); outputs.append(output); lock.unlock()
+                handed.signal()
+            }
+            done.fulfill()
         }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
-        lock.lock(); let at = handedAt; let count = calls; lock.unlock()
-        XCTAssertNotNil(at)
-        XCTAssertLessThan(at.map { $0.timeIntervalSince(started) } ?? 99, 0.5, "handed off at the deadline, during the slow open")
-        XCTAssertEqual(count, 1)
+        wait(for: [done], timeout: 60)
+        XCTAssertTrue(openedAfterHandoff, "the handoff came while the store was still opening")
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        lock.lock(); let delivered = outputs; lock.unlock()
+        XCTAssertEqual(delivered.count, 1)
+        // Fix after the 41a2a18 full run: the entry fallback alerts even when the payload has no sound.
+        XCTAssertNotNil(delivered.first?.sound)
+        XCTAssertNotEqual(delivered.first?.interruptionLevel, .passive)
         withExtendedLifetime(service) {}
     }
 
-    /// Red on 15669a0 (review-130b #5): an expiry before the alert claim settled sounded the
-    /// fallback even while the app held the alert lock and might be alerting the same message.
-    func testExpiryWhileTheAppHoldsTheAlertLockIsPassive() {
+    /// Fix after the 41a2a18 full run: an expiry while the alert lock is held (the extension's own
+    /// claim, or the app alerting something) and no claim on disk alerts; it is not evidence.
+    func testExpiryWhileTheAlertLockIsHeldStillAlerts() {
         let store = Store(inMemory: true)
         let baseUrl = "https://expiry-claim.example"
         _ = store.saveSubscription(baseUrl: baseUrl, topic: "door")
-        let holding = expectation(description: "app holds the alert lock")
+        let holding = expectation(description: "alert lock held")
         let release = DispatchSemaphore(value: 0)
         let other = Message(id: "held_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "x")
         _ = store.deliverAlert(message: other, baseUrl: baseUrl, delivery: { done in
             holding.fulfill()
             DispatchQueue.global().async { release.wait(); done(true) }
         })
-        wait(for: [holding], timeout: 2)
+        wait(for: [holding], timeout: 5)
         let service = NotificationService(); service.makeStore = { store }
-        let handed = expectation(description: "handoff")
-        var output: UNNotificationContent?
-        service.didReceive(request("claim_q7x", baseUrl: baseUrl, topic: "door")) { output = $0; handed.fulfill() }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        var outputs: [UNNotificationContent] = []
+        service.didReceive(request("claim_q7x", baseUrl: baseUrl, topic: "door")) { outputs.append($0) }
         service.serviceExtensionTimeWillExpire()
-        wait(for: [handed], timeout: 2)
-        XCTAssertNil(output?.sound)
-        XCTAssertEqual(output?.interruptionLevel, .passive)
+        XCTAssertEqual(outputs.count, 1, "expiry hands off synchronously")
+        XCTAssertNotNil(outputs.first?.sound)
+        XCTAssertNotEqual(outputs.first?.interruptionLevel, .passive)
         release.signal()
+        withExtendedLifetime(service) {}
+    }
+
+    /// Only a claim on disk for this message (the app alerted it) makes the expiry passive.
+    func testExpiryAfterTheAppAlertedTheMessageIsPassive() {
+        let store = Store(inMemory: true)
+        let baseUrl = "https://expiry-claim.example"
+        _ = store.saveSubscription(baseUrl: baseUrl, topic: "door")
+        store.recordPresentation(message: Message(id: "seen_q7x", time: 1_800_000_000, event: "message", topic: "door", message: "alive"), baseUrl: baseUrl)
+        let service = NotificationService(); service.makeStore = { store }
+        var outputs: [UNNotificationContent] = []
+        service.didReceive(request("seen_q7x", baseUrl: baseUrl, topic: "door")) { outputs.append($0) }
+        service.serviceExtensionTimeWillExpire()
+        XCTAssertEqual(outputs.count, 1)
+        XCTAssertNil(outputs.first?.sound)
+        XCTAssertEqual(outputs.first?.interruptionLevel, .passive)
         withExtendedLifetime(service) {}
     }
 }

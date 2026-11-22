@@ -9387,7 +9387,9 @@ extension AlertedTests {
         let start = Date()
         service.serviceExtensionTimeWillExpire()
         XCTAssertEqual(calls, 1, "expiry must hand off synchronously, without waiting for a lock or GCD worker")
-        XCTAssertLessThan(Date().timeIntervalSince(start), 0.25)
+        // The alert lock above stays held, so a wait on it would never return; the synchronous
+        // count proves there was none. The bound only catches a stall, and tolerates a loaded host.
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5)
         flock(fd, LOCK_UN)
         let settled = expectation(description: "late fetch cannot hand off twice")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { settled.fulfill() }

@@ -39,8 +39,9 @@ class NotificationService: UNNotificationServiceExtension {
             let muted = newValue.map { store?.isTopicMuted(baseUrl: $0.baseUrl, topic: $0.message.topic) ?? false } ?? false
             presentationLock.lock(); defer { presentationLock.unlock() }
             processedIdentity = newValue
-            // Our own claim (made before the fetch) reads as "alerted"; it must not silence us.
-            expiryIsQuiet = (alerted && claimedAlert != true) || muted
+            // Our own claim (made before the fetch, or still being written) reads as "alerted"; it
+            // must not silence us. Once ours started, keep the evidence taken before it.
+            expiryIsQuiet = claimStarted ? (expiryIsQuiet || muted) : ((alerted && claimedAlert != true) || muted)
         }
     }
     private var quietHours = QuietHours.load()
@@ -57,6 +58,9 @@ class NotificationService: UNNotificationServiceExtension {
         }
     }
     private var claimedAlert: Bool?
+    /// This extension started its own claim (`deliverAlert`). Until it settles, a claim on disk may
+    /// be its own, so expiry can't read it as someone else's and fails open.
+    private var claimStarted = false
     /// One monotonic deadline from entry, shared by every step (review-130 #5).
     private(set) var deadline = ExtensionDeadline()
     /// Tests shorten the self-imposed cutoff.
@@ -83,9 +87,9 @@ class NotificationService: UNNotificationServiceExtension {
             if let content = self.bestAttemptContent { self.deliver(content, expiring: true) }
         }
         presentationMessage = nil
-        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; presentationLock.unlock()
+        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; claimStarted = false; presentationLock.unlock()
         alertClaim = nil
-        self.bestAttemptContent = (fallbackContent(request).mutableCopy() as? UNMutableNotificationContent)
+        self.bestAttemptContent = alertingFallback(request)
         NotificationResponseRelay.installInExtensionIfNeeded()
         NotificationExtensionLifetime.shared.requestStarted()
         if self.store == nil { self.store = makeStore() }
@@ -135,6 +139,24 @@ class NotificationService: UNNotificationServiceExtension {
     /// fetch) then stop before any store or presentation work.
     private var isPending: Bool { deliveryGate?.isPending == true }
 
+    private func markClaimStarted() {
+        presentationLock.lock(); claimStarted = true; presentationLock.unlock()
+    }
+
+    /// The best attempt installed at entry, before any store work: the push as received, alerting
+    /// by its priority with the default sound (a payload without a sound would otherwise expire
+    /// silent). Only evidence downgrades it later: an ack, mute, quiet hours, or a claim showing the
+    /// message was already alerted. Critical alerts need a store read, so the entry fallback for a
+    /// priority-5 message is time-sensitive until the message is formatted.
+    private func alertingFallback(_ request: UNNotificationRequest) -> UNMutableNotificationContent? {
+        guard let content = fallbackContent(request).mutableCopy() as? UNMutableNotificationContent else { return nil }
+        let message = Message.from(userInfo: content.userInfo)
+        if let message, AgentAck.isAck(tags: message.tags) { return content }
+        let mapped = message ?? Message(id: "", time: 0, event: "message", topic: "")
+        content.configureInterruption(message: mapped, criticalEnabled: false, criticalAuthorized: false)
+        return content
+    }
+
     private func fallbackContent(_ request: UNNotificationRequest) -> UNNotificationContent {
         UNNotificationContent.encryptionSafeFallback(request.content)
     }
@@ -166,16 +188,14 @@ class NotificationService: UNNotificationServiceExtension {
             }
             var quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
             let identity = processedIdentity
-            let unresolved = claimedAlert == nil
+            let unresolved = claimedAlert == nil && !claimStarted
             presentationLock.unlock()
-            // No claim settled yet (review-130b #5): if the app holds the alert lock, it may be
-            // alerting this message, so this handoff is passive; if no one does, claim the message
-            // first, so a later app poll stays quiet, then sound the fallback.
-            if !quiet, unresolved, let identity, let store {
-                switch store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl) {
-                case .claimed: break
-                case .alreadyAlerted, .contended: quiet = true
-                }
+            // No claim of ours settled or in flight (review-130b #5): only a fresh claim already on
+            // disk (the app or an earlier delivery alerted it) makes this handoff passive. Anything
+            // uncertain alerts; an unseen or unconfirmed message never gets a silent banner.
+            if !quiet, unresolved, let identity, let store,
+               store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl) == .alreadyAlerted {
+                quiet = true
             }
             if quiet { final.sound = nil; final.interruptionLevel = .passive; final.relevanceScore = 0 }
             _ = handoff(final)
@@ -199,6 +219,7 @@ class NotificationService: UNNotificationServiceExtension {
             return
         }
         let gate = deliveryGate
+        markClaimStarted()
         store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
                            stillNeeded: { gate?.isPending == true }, delivery: { finished in
             finished(handoff(final))
@@ -217,6 +238,7 @@ class NotificationService: UNNotificationServiceExtension {
             DispatchQueue.global(qos: .userInitiated).async(execute: next)
         }
         // If expiry already handed off, neither closure runs and nothing remains to present.
+        markClaimStarted()
         store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
                            stillNeeded: { gate?.isPending == true },
                            delivery: { _ in proceed(true) }, suppressed: { proceed(false) })
