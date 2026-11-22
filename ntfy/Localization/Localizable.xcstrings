@@ -36307,147 +36307,6 @@
         }
       }
     },
-    "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ beobachtet deine Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht kommt. Der Dienst erfährt die Namen dieser Themen und sieht ihre Nachrichten im Vorbeigehen, speichert aber keinen Nachrichtentext. Bei deinem eigenen Server erfährt er nur einen Hash jeder Themenadresse. Themen, die auf ntfy.sh eine Anmeldung brauchen, werden nicht beobachtet. Wenn aus, zeigen Themen auf ntfy.sh und Server mit Upstream ntfy.sh neue Nachrichten erst beim Öffnen der App oder beim Aktualisieren."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ vigila tus tópicos de ntfy.sh y despierta este dispositivo cuando llega un mensaje. Conoce los nombres de esos tópicos y ve sus mensajes al pasar, pero no guarda el texto. De tu propio servidor solo conoce un hash de la dirección de cada tópico. Los tópicos que requieren inicio de sesión en ntfy.sh no se vigilan. Si lo desactivas, los tópicos de ntfy.sh y los servidores con upstream ntfy.sh muestran mensajes nuevos solo al abrir la app o actualizar."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ osserva i tuoi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio. Conosce i nomi di quegli argomenti e ne vede i messaggi di passaggio, ma non conserva il testo. Per il tuo server conosce solo un hash dell'indirizzo di ogni argomento. Gli argomenti che su ntfy.sh richiedono un accesso non vengono osservati. Se disattivato, gli argomenti su ntfy.sh e i server con upstream ntfy.sh mostrano i nuovi messaggi solo aprendo l'app o aggiornando."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ obserwuje Twoje tematy na ntfy.sh i budzi to urządzenie, gdy przyjdzie wiadomość. Poznaje nazwy tych tematów i widzi ich wiadomości w przelocie, ale nie przechowuje treści. W przypadku własnego serwera poznaje tylko skrót (hash) adresu każdego tematu. Tematy wymagające logowania na ntfy.sh nie są obserwowane. Po wyłączeniu tematy na ntfy.sh i serwery z serwerem nadrzędnym ntfy.sh pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ houdt je onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt. Het kent de namen van die onderwerpen en ziet hun berichten voorbijkomen, maar bewaart geen berichttekst. Van je eigen server kent het alleen een hash van elk onderwerpadres. Onderwerpen waarvoor je op ntfy.sh moet inloggen, worden niet gevolgd. Staat dit uit, dan tonen onderwerpen op ntfy.sh en servers met upstream ntfy.sh nieuwe berichten pas wanneer je de app opent of vernieuwt."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ surveille vos sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message. Il connaît le nom de ces sujets et voit passer leurs messages, mais n’en conserve aucun texte. Pour votre propre serveur, il ne connaît qu’un hachage de l’adresse de chaque sujet. Les sujets qui demandent une connexion sur ntfy.sh ne sont pas surveillés. Désactivé, les sujets sur ntfy.sh et les serveurs dont le relais amont est ntfy.sh n’affichent les nouveaux messages qu’à l’ouverture de l’app ou à l’actualisation."
-          }
-        }
-      }
-    },
-    "ntfy.sh topics watched": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ntfy.sh topics watched"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beobachtete Themen auf ntfy.sh"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos de ntfy.sh vigilados"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Argomenti ntfy.sh osservati"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obserwowane tematy na ntfy.sh"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gevolgde onderwerpen op ntfy.sh"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets ntfy.sh surveillés"
-          }
-        }
-      }
-    },
-    "Other servers' topics watched": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Other servers' topics watched"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beobachtete Themen anderer Server"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tópicos de otros servidores vigilados"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Argomenti di altri server osservati"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obserwowane tematy innych serwerów"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gevolgde onderwerpen van andere servers"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sujets d’autres serveurs surveillés"
-          }
-        }
-      }
-    },
     "Last registration": {
       "extractionState": "manual",
       "localizations": {
@@ -37388,6 +37247,523 @@
           "stringUnit": {
             "state": "translated",
             "value": "NTF-AI nie może połączyć się z tym serwerem w Twojej sieci lokalnej. Zezwól na dostęp do sieci lokalnej, gdy pojawi się prośba, lub włącz Sieć lokalna w Ustawienia > NTF-AI, a następnie ponownie stuknij Subskrybuj."
+          }
+        }
+      }
+    },
+    "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. With a login saved for ntfy.sh, the app first checks each ntfy.sh topic without the login, and only topics anyone can read are sent. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. With a login saved for ntfy.sh, the app first checks each ntfy.sh topic without the login, and only topics anyone can read are sent. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ beobachtet deine ntfy.sh-Themen und weckt dieses Gerät, wenn eine Nachricht eintrifft. Der Dienst erfährt diese Themennamen und sieht ihre Nachrichten im Durchlauf, speichert aber keinen Nachrichtentext. Für deinen eigenen Server erfährt er nur einen Hash jeder Themenadresse. Ist ein Login für ntfy.sh gespeichert, prüft die App jedes ntfy.sh-Thema zuerst ohne Login, und nur Themen, die jeder lesen kann, werden gesendet. Aus: ntfy.sh-Themen und Server mit ntfy.sh als Upstream zeigen neue Nachrichten erst, wenn du die App öffnest oder aktualisierst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ vigila tus temas de ntfy.sh y despierta este dispositivo cuando llega un mensaje. Conoce esos nombres de tema y ve sus mensajes de paso, pero no guarda el texto. Para tu propio servidor solo conoce un hash de cada dirección de tema. Con un inicio de sesión guardado para ntfy.sh, la app comprueba primero cada tema de ntfy.sh sin ese inicio de sesión, y solo se envían los temas que cualquiera puede leer. Desactivado, los temas de ntfy.sh y los servidores cuyo upstream es ntfy.sh muestran los mensajes nuevos solo al abrir la app o actualizar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ surveille vos sujets ntfy.sh et réveille cet appareil à l’arrivée d’un message. Il connaît ces noms de sujet et voit passer leurs messages, mais n’en garde aucun texte. Pour votre propre serveur, il ne connaît qu’un hachage de chaque adresse de sujet. Si un identifiant est enregistré pour ntfy.sh, l’app vérifie d’abord chaque sujet ntfy.sh sans cet identifiant, et seuls les sujets lisibles par tous sont envoyés. Désactivé, les sujets ntfy.sh et les serveurs dont l’upstream est ntfy.sh n’affichent les nouveaux messages qu’à l’ouverture de l’app ou lors d’une actualisation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ osserva i tuoi argomenti ntfy.sh e sveglia questo dispositivo quando arriva un messaggio. Conosce quei nomi di argomento e vede passare i loro messaggi, ma non ne conserva il testo. Per il tuo server conosce solo un hash di ogni indirizzo di argomento. Con un accesso salvato per ntfy.sh, l’app controlla prima ogni argomento ntfy.sh senza l’accesso, e vengono inviati solo gli argomenti che chiunque può leggere. Disattivato, gli argomenti ntfy.sh e i server con upstream ntfy.sh mostrano i nuovi messaggi solo quando apri l’app o aggiorni."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ houdt je ntfy.sh-onderwerpen in de gaten en wekt dit apparaat als er een bericht binnenkomt. Het leert die onderwerpnamen en ziet hun berichten voorbijkomen, maar bewaart geen berichttekst. Voor je eigen server leert het alleen een hash van elk onderwerpadres. Met een opgeslagen login voor ntfy.sh controleert de app elk ntfy.sh-onderwerp eerst zonder die login, en alleen onderwerpen die iedereen kan lezen worden verstuurd. Uit: ntfy.sh-onderwerpen en servers met ntfy.sh als upstream tonen nieuwe berichten pas als je de app opent of vernieuwt."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ obserwuje Twoje tematy ntfy.sh i budzi to urządzenie, gdy przychodzi wiadomość. Zna nazwy tych tematów i widzi przechodzące wiadomości, ale nie przechowuje ich treści. Dla Twojego własnego serwera zna tylko skrót (hash) adresu każdego tematu. Gdy dla ntfy.sh zapisano login, aplikacja najpierw sprawdza każdy temat ntfy.sh bez loginu i wysyła tylko tematy, które każdy może czytać. Wyłączone: tematy ntfy.sh i serwery z upstreamem ntfy.sh pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
+          }
+        }
+      }
+    },
+    "Instant banners": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant banners"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sofortige Banner"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avisos instantáneos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bannières instantanées"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banner immediati"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Directe meldingen"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natychmiastowe banery"
+          }
+        }
+      }
+    },
+    "Watching %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watching %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld beobachtet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigilando %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld surveillés"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld osservati"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld in de gaten"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obserwowane: %lld"
+          }
+        }
+      }
+    },
+    "And %lld more": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "And %lld more"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Und %lld weitere"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Y %lld más"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Et %lld de plus"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E altri %lld"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En nog %lld"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I jeszcze %lld"
+          }
+        }
+      }
+    },
+    "Needs a login on ntfy.sh, so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs a login on ntfy.sh, so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Braucht einen Login auf ntfy.sh, daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Necesita iniciar sesión en ntfy.sh, así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nécessite un identifiant sur ntfy.sh : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richiede un accesso su ntfy.sh, quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heeft een login op ntfy.sh nodig, dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymaga logowania na ntfy.sh, więc nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "Checking whether anyone can read this topic on ntfy.sh. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking whether anyone can read this topic on ntfy.sh. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wird geprüft, ob jeder dieses Thema auf ntfy.sh lesen kann. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando si cualquiera puede leer este tema en ntfy.sh. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification en cours : ce sujet est-il lisible par tous sur ntfy.sh ? En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica in corso: chiunque può leggere questo argomento su ntfy.sh? Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezig met controleren of iedereen dit onderwerp op ntfy.sh kan lezen. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdzanie, czy każdy może czytać ten temat na ntfy.sh. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Adresse oder dieser Themenname kann auf ntfy.sh nicht beobachtet werden, daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta dirección o nombre de tema no se puede vigilar en ntfy.sh, así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette adresse ou ce nom de sujet ne peut pas être surveillé sur ntfy.sh : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo indirizzo o nome di argomento non può essere osservato su ntfy.sh, quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit adres of deze onderwerpnaam kan op ntfy.sh niet in de gaten worden gehouden, dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tego adresu lub nazwy tematu nie da się obserwować na ntfy.sh, więc nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "Over the limit of 100 topics per list, so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Over the limit of 100 topics per list, so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über dem Limit von 100 Themen pro Liste, daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supera el límite de 100 temas por lista, así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-delà de la limite de 100 sujets par liste : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oltre il limite di 100 argomenti per elenco, quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boven de limiet van 100 onderwerpen per lijst, dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Powyżej limitu 100 tematów na listę, więc nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "Instant banners for ntfy.sh and other servers is off in Settings, so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant banners for ntfy.sh and other servers is off in Settings, so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Sofortige Banner für ntfy.sh und andere Server“ ist in den Einstellungen aus, daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avisos instantáneos para ntfy.sh y otros servidores está desactivado en Ajustes, así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les bannières instantanées pour ntfy.sh et d’autres serveurs sont désactivées dans les Réglages : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I banner immediati per ntfy.sh e altri server sono disattivati nelle Impostazioni, quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Directe meldingen voor ntfy.sh en andere servers staat uit in Instellingen, dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natychmiastowe banery dla ntfy.sh i innych serwerów są wyłączone w Ustawieniach, więc nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "%@ is busy or unreachable and will retry on its own. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is busy or unreachable and will retry on its own. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist ausgelastet oder nicht erreichbar und versucht es selbst erneut. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está ocupado o no responde y lo reintentará por su cuenta. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est occupé ou injoignable et réessaiera de lui-même. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ è occupato o non raggiungibile e riproverà da solo. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is bezet of onbereikbaar en probeert het zelf opnieuw. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ jest zajęty lub nieosiągalny i sam spróbuje ponownie. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für neue Nachrichten kam kein Weckruf an, daher ist dieser Server nicht für sofortige Banner eingerichtet. Bitte den Admin, upstream-base-url auf https://ntfy.sh und base-url auf genau %@ zu setzen, die Adresse, die diese App nutzt. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No llegó ningún aviso de activación para los mensajes recientes, así que este servidor no está configurado para avisos instantáneos. Pide a su administrador que ponga upstream-base-url en https://ntfy.sh y base-url exactamente en %@, la dirección que usa esta app. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun réveil n’est arrivé pour les messages récents : ce serveur n’est pas configuré pour les bannières instantanées. Demandez à son administrateur de régler upstream-base-url sur https://ntfy.sh et base-url exactement sur %@, l’adresse utilisée par cette app. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è arrivato alcun risveglio per i messaggi recenti, quindi questo server non è configurato per i banner immediati. Chiedi al suo amministratore di impostare upstream-base-url su https://ntfy.sh e base-url esattamente su %@, l’indirizzo usato da questa app. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er kwam geen wekbericht voor recente berichten, dus deze server is niet ingesteld voor directe meldingen. Vraag de beheerder om upstream-base-url op https://ntfy.sh te zetten en base-url op precies %@, het adres dat deze app gebruikt. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dla ostatnich wiadomości nie przyszło żadne wybudzenie, więc ten serwer nie jest skonfigurowany do natychmiastowych banerów. Poproś administratora, aby ustawił upstream-base-url na https://ntfy.sh, a base-url dokładnie na %@, adres używany przez tę aplikację. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
           }
         }
       }

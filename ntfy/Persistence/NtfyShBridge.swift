@@ -11,14 +11,36 @@ import Combine
 /// changes; this type only tells the server what to watch.
 struct BridgeWatchSet: Equatable {
     static let maxEntries = 100
-    static let ntfyShBaseUrl = "https://ntfy.sh"
+    static let ntfyShBaseUrl = NtfyShAddress.canonical
+
+    /// Why one subscription is not in the set the server watches.
+    enum Hold: String, Codable, Equatable {
+        /// A login is saved for ntfy.sh and an anonymous check found the topic protected.
+        case needsLogin
+        /// A login is saved for ntfy.sh and the topic hasn't been checked anonymously yet.
+        case checkingAccess
+        /// ntfy.sh doesn't allow the name, so the server would refuse it.
+        case invalidName
+        /// Past the contract's 100 entries per list.
+        case overCap
+    }
+
+    struct Entry: Equatable {
+        let baseUrl: String
+        let topic: String
+        let hold: Hold
+    }
 
     /// Raw topic names on https://ntfy.sh, sorted and unique.
     var ntfyShTopics: [String] = []
     /// `topicHash(baseUrl, topic)` for every other server except the app's own, sorted and unique.
     var hashes: [String] = []
-    /// Subscriptions left out of the set (bad name, login on ntfy.sh, over the cap, unusable spelling).
-    var skipped = 0
+    /// Subscriptions left out of the set, each with its reason.
+    var held: [Entry] = []
+    /// ntfy.sh topics (with a login saved) that need an anonymous access check before they can be sent.
+    var needsProbe: [String] = []
+
+    var skipped: Int { held.count }
 
     static let empty = BridgeWatchSet()
 
@@ -31,37 +53,102 @@ struct BridgeWatchSet: Equatable {
         topic.range(of: #"^[-_A-Za-z0-9]{1,64}$"#, options: .regularExpression) != nil
     }
 
+    func hold(baseUrl: String, topic: String) -> Hold? {
+        held.first { $0.baseUrl == baseUrl && $0.topic == topic }?.hold
+    }
+
     /// - Parameters:
-    ///   - subscriptions: every subscription's stored base URL and topic.
-    ///   - ntfyShHasLogin: a user is saved for https://ntfy.sh. The bridge reads ntfy.sh anonymously,
-    ///     so it could not read those topics, and sending their names would only leak them.
-    static func compute(subscriptions: [(baseUrl: String, topic: String)], ntfyShHasLogin: Bool,
+    ///   - subscriptions: every subscription's stored base URL and topic, and whether a login is saved for its server.
+    ///   - access: what anonymous checks found for ntfy.sh topic names (only consulted with a login).
+    ///
+    /// Any spelling of ntfy.sh counts (`NtfyShAddress`): the wake-up lands on the `https://ntfy.sh`
+    /// hash, which is the name the app binds for every spelling since 1.30. Without a login every
+    /// valid name is sent, as in 1.29; the server reports any it can't read (`unwatchable`). With a
+    /// login a name is sent only once an anonymous check answered 200, so a protected name never
+    /// reaches ntfy-me.com.
+    static func compute(subscriptions: [(baseUrl: String, topic: String, hasLogin: Bool)],
+                        access: [String: NtfyShAccess] = [:], now: Date = Date(),
                         appBaseUrl: String = Config.appBaseUrl) -> BridgeWatchSet {
         let appServer = normalizeBaseUrl(appBaseUrl)
         var topics = Set<String>()
-        var hashes = Set<String>()
-        var skipped = 0
-        for (baseUrl, topic) in subscriptions {
+        var hashes: [String: (baseUrl: String, topic: String)] = [:]
+        var topicOwners: [String: [(baseUrl: String, topic: String)]] = [:]
+        var held: [Entry] = []
+        var probe = Set<String>()
+        for (baseUrl, topic, hasLogin) in subscriptions {
             let server = normalizeBaseUrl(baseUrl)
             // The app's own server already pushes to this app.
             if server == appServer { continue }
-            if URL(string: server)?.host?.lowercased() == "ntfy.sh" {
-                // Only the exact spelling: the server wakes `sha256("https://ntfy.sh/" + topic)`, and
-                // that is the FCM topic this app binds only for a subscription stored as https://ntfy.sh.
-                if server == ntfyShBaseUrl, !ntfyShHasLogin, isValidNtfyShTopic(topic) {
-                    topics.insert(topic)
-                } else {
-                    skipped += 1
+            if NtfyShAddress.isNtfySh(server) {
+                guard isValidNtfyShTopic(topic) else {
+                    held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .invalidName)); continue
                 }
+                if hasLogin {
+                    switch access[topic]?.current(now: now) {
+                    case .open?: break
+                    case .protected?:
+                        held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .needsLogin)); continue
+                    case .invalid?:
+                        held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .invalidName)); continue
+                    case .unknown?:
+                        held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .checkingAccess)); continue
+                    case nil:
+                        probe.insert(topic)
+                        held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .checkingAccess)); continue
+                    }
+                }
+                topics.insert(topic)
+                topicOwners[topic, default: []].append((baseUrl, topic))
                 continue
             }
-            hashes.insert(topicHash(baseUrl: server, topic: topic))
+            if URL(string: server)?.host?.lowercased() == "ntfy.sh" {
+                // A path under ntfy.sh is not an ntfy server; nothing could wake it.
+                continue
+            }
+            hashes[topicHash(baseUrl: server, topic: topic)] = (baseUrl, topic)
         }
         let sortedTopics = topics.sorted()
-        let sortedHashes = hashes.sorted()
-        skipped += max(0, sortedTopics.count - maxEntries) + max(0, sortedHashes.count - maxEntries)
+        let sortedHashes = hashes.keys.sorted()
+        for topic in sortedTopics.dropFirst(maxEntries) {
+            for owner in topicOwners[topic] ?? [] { held.append(Entry(baseUrl: owner.baseUrl, topic: owner.topic, hold: .overCap)) }
+        }
+        for hash in sortedHashes.dropFirst(maxEntries) {
+            if let owner = hashes[hash] { held.append(Entry(baseUrl: owner.baseUrl, topic: owner.topic, hold: .overCap)) }
+        }
         return BridgeWatchSet(ntfyShTopics: Array(sortedTopics.prefix(maxEntries)),
-                              hashes: Array(sortedHashes.prefix(maxEntries)), skipped: skipped)
+                              hashes: Array(sortedHashes.prefix(maxEntries)), held: held, needsProbe: probe.sorted())
+    }
+}
+
+/// What an anonymous `GET https://ntfy.sh/<topic>/auth` said, which is the read the bridge makes.
+struct NtfyShAccess: Codable, Equatable {
+    enum State: String, Codable { case open, protected, invalid, unknown }
+    var state: State
+    var checked: Date
+
+    /// How long an answer holds before the topic is checked again. A protected topic can be
+    /// unreserved, an open one reserved; a failed check is retried after an hour.
+    static func lifetime(_ state: State) -> TimeInterval {
+        switch state {
+        case .open, .invalid: return 7 * 24 * 60 * 60
+        case .protected: return 24 * 60 * 60
+        case .unknown: return 60 * 60
+        }
+    }
+
+    /// The answer while it is fresh, nil once it is due again.
+    func current(now: Date) -> State? {
+        let age = now.timeIntervalSince(checked)
+        return age >= 0 && age < Self.lifetime(state) ? state : nil
+    }
+
+    static func classify(status: Int?) -> State {
+        switch status {
+        case 200?: return .open
+        case 401?, 403?: return .protected
+        case 400?: return .invalid
+        default: return .unknown
+        }
     }
 }
 
@@ -85,6 +172,8 @@ struct BridgeRecord: Codable, Equatable {
     var sentHashes = 0
     var watching: Int?
     var expires: Date?
+    /// The device's own ntfy.sh names the server reports it can't read (status and POST, from 1.30).
+    var unwatchable: [String]?
 }
 
 final class NtfyShBridge: ObservableObject {
@@ -92,6 +181,14 @@ final class NtfyShBridge: ObservableObject {
     static let enabledKey = Config.ntfyShBridgeKey
     static let deviceIdKey = "ntfyShBridgeDeviceId"
     static let recordKey = "ntfyShBridgeRecord"
+    static let accessKey = "ntfyShBridgeAccess"
+    /// Anonymous access checks per sync, so a big account can't burst ntfy.sh's per-IP limits.
+    static let maxProbesPerSync = 20
+    /// The extension refreshes a registration older than this when it handles a bridged wake-up,
+    /// well inside the server's 30-day expiry.
+    static let extensionRefreshAge: TimeInterval = 7 * 24 * 60 * 60
+    /// And tries at most this often, so a failing refresh can't run on every push.
+    static let extensionRetryInterval: TimeInterval = 60 * 60
     static let refreshInterval: TimeInterval = 24 * 60 * 60
     static let maxRetryAfter: TimeInterval = 60 * 60
 
@@ -167,16 +264,60 @@ final class NtfyShBridge: ObservableObject {
 
     /// The set the subscriptions call for, whatever the setting says.
     func subscribedSet() -> BridgeWatchSet {
-        var pairs: [(baseUrl: String, topic: String)] = []
-        var hasLogin = false
+        var rows: [(baseUrl: String, topic: String, hasLogin: Bool)] = []
         store.context.performAndWait {
-            pairs = (store.getSubscriptions() ?? []).compactMap {
+            let users = Set(((try? store.context.fetch(User.fetchRequest())) ?? []).compactMap { $0.baseUrl.map(normalizeBaseUrl) })
+            let ntfyShLogin = users.contains(where: NtfyShAddress.isNtfySh)
+            rows = (store.getSubscriptions() ?? []).compactMap {
                 guard let baseUrl = $0.baseUrl, let topic = $0.topic else { return nil }
-                return (baseUrl, topic)
+                let login = NtfyShAddress.isNtfySh(baseUrl) ? ntfyShLogin : users.contains(normalizeBaseUrl(baseUrl))
+                return (baseUrl, topic, login)
             }
-            hasLogin = store.getUser(baseUrl: BridgeWatchSet.ntfyShBaseUrl) != nil
         }
-        return BridgeWatchSet.compute(subscriptions: pairs, ntfyShHasLogin: hasLogin, appBaseUrl: appBaseUrl)
+        return BridgeWatchSet.compute(subscriptions: rows, access: access, now: now(), appBaseUrl: appBaseUrl)
+    }
+
+    // MARK: Anonymous access checks (a login is saved for ntfy.sh)
+
+    /// Cached answers per ntfy.sh topic name.
+    var access: [String: NtfyShAccess] {
+        defaults.data(forKey: Self.accessKey).flatMap { try? JSONDecoder().decode([String: NtfyShAccess].self, from: $0) } ?? [:]
+    }
+
+    private func saveAccess(_ update: [String: NtfyShAccess]) {
+        lock.lock(); defer { lock.unlock() }
+        var merged = access
+        update.forEach { merged[$0.key] = $0.value }
+        // Forget names checked over a month ago (unsubscribed long since).
+        merged = merged.filter { now().timeIntervalSince($0.value.checked) < 30 * 24 * 60 * 60 }
+        if let data = try? JSONEncoder().encode(merged) { defaults.set(data, forKey: Self.accessKey) }
+    }
+
+    /// `GET https://ntfy.sh/<topic>/auth` with no credentials: 200 when anyone may read it, which is
+    /// exactly what the bridge can do. Sequential and capped; a 429 stops the round.
+    private func probe(_ topics: [String], completion: @escaping () -> Void) {
+        guard let session, !topics.isEmpty else { completion(); return }
+        var queue = Array(topics.prefix(Self.maxProbesPerSync))
+        var results: [String: NtfyShAccess] = [:]
+        func next() {
+            guard !queue.isEmpty else { saveAccess(results); completion(); return }
+            let topic = queue.removeFirst()
+            guard let url = URL(string: NtfyShAddress.canonical + "/" + topic + "/auth") else { next(); return }
+            var request = URLRequest(url: url)
+            request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
+            session.dataTask(with: request) { _, response, error in
+                let status = error == nil ? (response as? HTTPURLResponse)?.statusCode : nil
+                results[topic] = NtfyShAccess(state: NtfyShAccess.classify(status: status), checked: self.now())
+                Log.d(Self.tag, "Access check: HTTP \(status.map(String.init) ?? "none")")
+                if status == 429 {
+                    // Mark the rest unknown too, so they wait an hour like this one.
+                    queue.forEach { results[$0] = NtfyShAccess(state: .unknown, checked: self.now()) }
+                    queue = []
+                }
+                next()
+            }.resume()
+        }
+        next()
     }
 
     /// What should be registered now: empty when the setting is off.
@@ -200,6 +341,16 @@ final class NtfyShBridge: ObservableObject {
         inFlight = true
         lock.unlock()
 
+        let pending = isEnabled && session != nil ? subscribedSet().needsProbe : []
+        if !pending.isEmpty {
+            Log.d(Self.tag, "sync(\(reason)): checking \(min(pending.count, Self.maxProbesPerSync)) ntfy.sh topic(s) anonymously first")
+            probe(pending) { self.register(reason: reason, completion: completion) }
+            return
+        }
+        register(reason: reason, completion: completion)
+    }
+
+    private func register(reason: String, completion: (() -> Void)?) {
         let desired = desiredSet()
         let current = currentRecord
         if let skip = skipReason(desired: desired, record: current) {
@@ -274,8 +425,9 @@ final class NtfyShBridge: ObservableObject {
         }
         switch response.statusCode {
         case 200:
-            struct Reply: Decodable { let watching: Int?; let expires: Double? }
+            struct Reply: Decodable { let watching: Int?; let expires: Double?; let unwatchable: [String]? }
             let reply = data.flatMap { try? JSONDecoder().decode(Reply.self, from: $0) }
+            next.unwatchable = reply?.unwatchable
             next.lastOutcome = .ok
             next.lastSuccess = now()
             next.acceptedSignature = desired.signature
@@ -332,6 +484,120 @@ final class NtfyShBridge: ObservableObject {
             + (record.lastHTTPStatus.map { " (\($0))" } ?? "") + ", success \(age), watching \(record.watching.map(String.init) ?? "?")"
     }
 
+    // MARK: Per-topic truth (topic details, Notification status)
+
+    enum TopicState: Equatable {
+        /// On the app's own server: pushed directly, the bridge isn't involved.
+        case direct
+        /// In the set the bridge watches.
+        case watched
+        case held(TopicHold)
+    }
+
+    enum TopicHold: Equatable {
+        case needsLogin, checkingAccess, invalidName, overCap, bridgeOff, bridgeUnavailable
+        /// Self-hosted: no wake-up seen for recent messages; `address` is the one used in the app.
+        case notSetUp(address: String)
+    }
+
+    /// Why a subscription does or doesn't get instant banners through the bridge.
+    func topicState(baseUrl: String, topic: String, set: BridgeWatchSet? = nil,
+                    wakes: SelfHostedWakeCheck? = .shared) -> TopicState {
+        if normalizeBaseUrl(baseUrl) == normalizeBaseUrl(appBaseUrl) { return .direct }
+        let ntfySh = NtfyShAddress.isNtfySh(baseUrl)
+        if !ntfySh, URL(string: normalizeBaseUrl(baseUrl))?.host?.lowercased() == "ntfy.sh" { return .held(.invalidName) }
+        guard isEnabled else { return .held(.bridgeOff) }
+        let set = set ?? subscribedSet()
+        if let hold = set.hold(baseUrl: baseUrl, topic: topic) {
+            switch hold {
+            case .needsLogin: return .held(.needsLogin)
+            case .checkingAccess: return .held(.checkingAccess)
+            case .invalidName: return .held(.invalidName)
+            case .overCap: return .held(.overCap)
+            }
+        }
+        let record = currentRecord
+        if ntfySh, record.unwatchable?.contains(topic) == true { return .held(.needsLogin) }
+        if !ntfySh, let wakes, wakes.isNotSetUp(hash: topicHash(baseUrl: baseUrl, topic: topic)) {
+            return .held(.notSetUp(address: normalizeBaseUrl(baseUrl)))
+        }
+        // The set the server holds isn't this one and the last try failed: nothing is watched yet.
+        if let outcome = record.lastOutcome, outcome != .ok, record.acceptedSignature != set.signature {
+            return .held(.bridgeUnavailable)
+        }
+        if record.lastOutcome == .full { return .held(.bridgeUnavailable) }
+        return .watched
+    }
+
+    /// Notification status, per server: how many topics are watched and every topic that isn't, with why.
+    struct Report: Equatable {
+        struct Held: Equatable {
+            let topic: String
+            let hold: TopicHold
+        }
+        struct Group: Equatable {
+            let server: String
+            var watching: Int
+            var held: [Held]
+        }
+        var groups: [Group]
+    }
+
+    /// ntfy.sh first, then other servers by address; the app's own server isn't listed (it pushes directly).
+    func report(wakes: SelfHostedWakeCheck? = .shared) -> Report {
+        var pairs: [(baseUrl: String, topic: String)] = []
+        store.context.performAndWait {
+            pairs = (store.getSubscriptions() ?? []).compactMap {
+                guard let baseUrl = $0.baseUrl, let topic = $0.topic else { return nil }
+                return (baseUrl, topic)
+            }
+        }
+        let set = subscribedSet()
+        var groups: [String: Report.Group] = [:]
+        for pair in pairs {
+            let state = topicState(baseUrl: pair.baseUrl, topic: pair.topic, set: set, wakes: wakes)
+            if state == .direct { continue }
+            let server = NtfyShAddress.canonicalize(pair.baseUrl) ?? normalizeBaseUrl(pair.baseUrl)
+            var group = groups[server] ?? Report.Group(server: server, watching: 0, held: [])
+            switch state {
+            case .watched: group.watching += 1
+            case .held(let hold): group.held.append(Report.Held(topic: pair.topic, hold: hold))
+            case .direct: break
+            }
+            groups[server] = group
+        }
+        let ordered = groups.values.sorted {
+            ($0.server == NtfyShAddress.canonical ? 0 : 1, $0.server) < ($1.server == NtfyShAddress.canonical ? 0 : 1, $1.server)
+        }
+        return Report(groups: ordered.map { var g = $0; g.held.sort { $0.topic < $1.topic }; return g })
+    }
+
+    /// On, and the server accepted the set it holds now.
+    var isRegistered: Bool {
+        let record = currentRecord
+        return isEnabled && record.lastOutcome == .ok && record.acceptedSignature != nil
+    }
+
+    // MARK: Refresh from the extension
+
+    /// True when a bridged wake-up should also refresh this device's registration: it is over a
+    /// week old (the server forgets a device after 30 days without a POST), and the last attempt
+    /// wasn't within the hour. A user who lives on banners and never opens the app stays registered.
+    func extensionShouldRefresh() -> Bool {
+        guard isEnabled else { return false }
+        let record = currentRecord
+        if let attempt = record.lastAttempt, now().timeIntervalSince(attempt) < Self.extensionRetryInterval, attempt <= now() { return false }
+        guard let success = record.lastSuccess else { return record.mayHaveEntries || record.lastAttempt == nil }
+        return now().timeIntervalSince(success) >= Self.extensionRefreshAge
+    }
+
+    /// Called by the extension for a wake-up on a non-hosted topic. Never waited on: the banner
+    /// goes out first, and a POST the system cuts short is retried by the next wake or launch.
+    func refreshFromExtensionIfStale() {
+        guard extensionShouldRefresh() else { return }
+        sync(reason: "extension refresh")
+    }
+
     // MARK: Status
 
     enum Status: Equatable {
@@ -353,13 +619,16 @@ final class NtfyShBridge: ObservableObject {
         var request = URLRequest(url: url)
         request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
         session.dataTask(with: request) { data, response, error in
-            struct Reply: Decodable { let watching: Int; let connected: Bool }
+            struct Reply: Decodable { let watching: Int; let connected: Bool; let unwatchable: [String]? }
             let status: Status
             let code = (response as? HTTPURLResponse)?.statusCode
             if code == 404 {
                 status = .unknownDevice
             } else if code == 200, let data, let reply = try? JSONDecoder().decode(Reply.self, from: data) {
                 status = reply.connected ? .connected(watching: reply.watching) : .notConnected(watching: reply.watching)
+                var next = self.currentRecord
+                next.unwatchable = reply.unwatchable
+                self.save(next)
             } else {
                 status = .unavailable
             }
@@ -377,13 +646,35 @@ enum NtfyShBridgeCopy {
     static var settingTitle: String { String(localized: "Instant banners for ntfy.sh and other servers") }
 
     static var settingFooter: String {
-        String(localized: "\(serverName) watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.")
+        String(localized: "\(serverName) watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. With a login saved for ntfy.sh, the app first checks each ntfy.sh topic without the login, and only topics anyone can read are sent. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.")
+    }
+
+    static var instantBanners: String { String(localized: "Instant banners") }
+    static func watching(_ count: Int) -> String { String(localized: "Watching \(count)") }
+
+    /// Why one topic gets no instant banners, in the words the user sees on the topic and in
+    /// Notification status.
+    static func reason(_ hold: NtfyShBridge.TopicHold) -> String {
+        switch hold {
+        case .needsLogin:
+            return String(localized: "Needs a login on ntfy.sh, so new messages show when you open the app.")
+        case .checkingAccess:
+            return String(localized: "Checking whether anyone can read this topic on ntfy.sh. Until then, new messages show when you open the app.")
+        case .invalidName:
+            return String(localized: "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.")
+        case .overCap:
+            return String(localized: "Over the limit of 100 topics per list, so new messages show when you open the app.")
+        case .bridgeOff:
+            return String(localized: "Instant banners for ntfy.sh and other servers is off in Settings, so new messages show when you open the app.")
+        case .bridgeUnavailable:
+            return String(localized: "\(serverName) is busy or unreachable and will retry on its own. Until then, new messages show when you open the app.")
+        case .notSetUp(let address):
+            return String(localized: "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly \(address), the address this app uses. Until then, new messages show when you open the app.")
+        }
     }
 
     static var on: String { String(localized: "On") }
     static var off: String { String(localized: "Off") }
-    static var ntfyShTopics: String { String(localized: "ntfy.sh topics watched") }
-    static var otherTopics: String { String(localized: "Other servers' topics watched") }
     static var lastRegistration: String { String(localized: "Last registration") }
     static var never: String { String(localized: "Never") }
     static var connection: String { String(localized: "Bridge connection") }

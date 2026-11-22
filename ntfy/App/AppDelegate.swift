@@ -365,6 +365,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         let group = DispatchGroup()
         let resultQueue = DispatchQueue(label: Config.bundleIdBase + ".background-poll-result")
         var didReceiveNewData = false
+        // ntfy-me.com sends this wake-up about every 20 minutes, so it also keeps the bridge's
+        // registration alive for someone who never opens the app (the server forgets a device 30
+        // days after its last POST). sync is a no-op unless the set changed or the record is a
+        // day old, and it honours the server's Retry-After.
+        group.enter()
+        NtfyShBridge.shared.sync(reason: "background wake") { group.leave() }
         subscriptions.forEach { subscription in
             group.enter()
             guard let baseUrl = subscription.baseUrl else {

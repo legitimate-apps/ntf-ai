@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B71D6E0000000000000000C3 /* SelfHostedWakeCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D6E0000000000000000C1 /* SelfHostedWakeCheck.swift */; };
+		B71D6E0000000000000000C2 /* SelfHostedWakeCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D6E0000000000000000C1 /* SelfHostedWakeCheck.swift */; };
+		B71D6E0000000000000000A3 /* NtfyShBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D6E0000000000000000A1 /* NtfyShBridge.swift */; };
 		D8FA928E38C098A6C4758208 /* AnswerFinishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EA2B924B869108A6988DC6 /* AnswerFinishTests.swift */; };
 		C9AF09BEA63A58020F979AD7 /* AgentIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D815DE11356DC025FD04A5C1 /* AgentIdentityTests.swift */; };
 		69C272C9F3348DE82915AA76 /* AgentIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B75536984D56EED18624C9 /* AgentIdentity.swift */; };
@@ -282,6 +285,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B71D6E0000000000000000C1 /* SelfHostedWakeCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfHostedWakeCheck.swift; sourceTree = "<group>"; };
 		557DE638A451FB775522B9EA /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
 		5E4D1D57A3D6C3D97842879E /* ActionsPassthroughTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsPassthroughTests.swift; sourceTree = "<group>"; };
 		0D01AFD4A75ED431CA08E8D3 /* AgentProtocolV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProtocolV2Tests.swift; sourceTree = "<group>"; };
@@ -722,6 +726,7 @@
 				94867142283EC9950093C7A4 /* Actions.swift */,
 				948671462841B0B20093C7A4 /* NotificationContent.swift */,
 				F576A27EB64E4AB483082C5F /* DeliveryHealth.swift */,
+				B71D6E0000000000000000C1 /* SelfHostedWakeCheck.swift */,
 				C11800010000000000000003 /* ClearThrough.swift */,
 				948671492841D0CE0093C7A4 /* ActionExecutor.swift */,
 				D3151EA4AE89DD0DC417C7D2 /* AnswerLog.swift */,
@@ -993,6 +998,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B71D6E0000000000000000C2 /* SelfHostedWakeCheck.swift in Sources */,
 				729248E8E1BB5BEEC70AAFF9,
 				70C0A426085ED8D1F7D716AF,
 				F3359A54F7126EFCC8332441 /* DiagnosticReports.swift in Sources */,
@@ -1102,6 +1108,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B71D6E0000000000000000C3 /* SelfHostedWakeCheck.swift in Sources */,
+				B71D6E0000000000000000A3 /* NtfyShBridge.swift in Sources */,
 				22F7005DEE2B3B5D8D3AA005,
 				546100000000000000000001 /* TopicSound.swift in Sources */,
 				547100000000000000000001 /* QuietTopicAlerts.swift in Sources */,

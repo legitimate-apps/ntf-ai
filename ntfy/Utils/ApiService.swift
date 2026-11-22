@@ -65,12 +65,33 @@ class ApiService {
                 return
             }
             do {
-                let message = try JSONDecoder().decode(Message.self, from: data)
-                completionHandler(message, nil)
+                completionHandler(try Self.singleMessage(from: data, id: messageId), nil)
             } catch {
                 completionHandler(nil, error)
             }
         }
+    }
+
+    /// The message a `?poll=1&id=` answer holds. A 200 with no line for that id means the server
+    /// hasn't stored it yet (ntfy.sh answers this way for up to about 2 s after a publish):
+    /// `PollEmptyResult`, so the caller can ask again. Anything else unreadable is a decode error.
+    static func singleMessage(from data: Data, id: String) throws -> Message {
+        let lines = String(decoding: data, as: UTF8.self).split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard !lines.isEmpty else { throw PollEmptyResult() }
+        var firstError: Error?
+        var sawOther = false
+        for line in lines {
+            do {
+                let message = try JSONDecoder().decode(Message.self, from: Data(line.utf8))
+                if message.id == id && message.event == "message" { return message }
+                sawOther = true
+            } catch {
+                firstError = firstError ?? error
+            }
+        }
+        if let firstError, !sawOther { throw firstError }
+        throw PollEmptyResult()
     }
 
     /// Clear endpoints exist on sequence-aware servers; older servers reject this path. There is

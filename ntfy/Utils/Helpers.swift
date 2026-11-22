@@ -81,8 +81,46 @@ func topicAuthUrl(baseUrl: String, topic: String) -> String {
     return "\(normalizeBaseUrl(baseUrl))/\(topic)/auth"
 }
 
+/// Every spelling of ntfy.sh that reaches the same API: http or https, `www.`, any case, the
+/// default port, a trailing slash. ntfy.sh names its topics under exactly `https://ntfy.sh`, and
+/// that is the address the bridge hashes for a wake-up.
+enum NtfyShAddress {
+    static let canonical = "https://ntfy.sh"
+
+    /// `https://ntfy.sh` for any spelling of it, nil for anything else (including a path under it).
+    static func canonicalize(_ baseUrl: String) -> String? {
+        var value = baseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        while value.hasSuffix("/") { value.removeLast() }
+        if ["ntfy.sh", "www.ntfy.sh"].contains(value.lowercased()) { return canonical }
+        guard let parts = URLComponents(string: value), let scheme = parts.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = parts.host?.lowercased(), host == "ntfy.sh" || host == "www.ntfy.sh",
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              parts.path.isEmpty, parts.port == nil || parts.port == (scheme == "https" ? 443 : 80) else { return nil }
+        return canonical
+    }
+
+    static func isNtfySh(_ baseUrl: String) -> Bool { canonicalize(baseUrl) != nil }
+
+    /// For new subscriptions (Add sheet, links): store ntfy.sh as `https://ntfy.sh`, anything else as typed.
+    static func ingress(_ baseUrl: String) -> String { canonicalize(baseUrl) ?? baseUrl }
+}
+
+/// The address a server hashes when it forwards a wake-up for one of its topics. Stored rows keep
+/// their spelling; only this identity is canonical, so a row saved as `http://ntfy.sh` binds the
+/// same FCM topic the bridge wakes.
+func pushIdentityBaseUrl(_ baseUrl: String) -> String {
+    NtfyShAddress.canonicalize(baseUrl) ?? normalizeBaseUrl(baseUrl)
+}
+
+/// The hash 1.29 and earlier bound, from the stored spelling. Only for tearing those names down.
+func legacyTopicHash(baseUrl: String, topic: String) -> String {
+    let digest = SHA256.hash(data: Data(topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: topic).utf8))
+    return digest.compactMap { String(format: "%02x", $0) }.joined()
+}
+
 func topicHash(baseUrl: String, topic: String) -> String {
-    let data = Data(topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: topic).utf8)
+    let data = Data(topicUrl(baseUrl: pushIdentityBaseUrl(baseUrl), topic: topic).utf8)
     let digest = SHA256.hash(data: data)
     return digest.compactMap { String(format: "%02x", $0)}.joined()
 }

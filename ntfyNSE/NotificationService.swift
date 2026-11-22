@@ -368,6 +368,13 @@ class NotificationService: UNNotificationServiceExtension {
         
         // Even a failed fetch/expiry must not re-alert a known id. Unknown ids fail open.
         alertIdentity = (Message(id: pollId, time: pollRequest.time, event: "message", topic: subscription.topic), subscription.baseUrl)
+        if normalizeBaseUrl(subscription.baseUrl) != normalizeBaseUrl(Config.appBaseUrl) {
+            // A wake-up arrived for this hash: the server is set up (clears "not set up").
+            SelfHostedWakeCheck.shared.recordWake(hash: pollRequest.topic)
+            // Someone who lives on banners may never open the app; keep the bridge's registration
+            // fresh from here. Not waited on, and at most hourly (NtfyShBridge.extensionShouldRefresh).
+            NtfyShBridge.shared.refreshFromExtensionIfStale()
+        }
         // Install the safe topic-named fallback before starting the fetch, including expiry.
         let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: subscription.topic, baseUrl: subscription.baseUrl)
         placeholder.configureInterruption(message: pollRequest,
@@ -376,15 +383,14 @@ class NotificationService: UNNotificationServiceExtension {
         // Poll original server
         let user = store?.getBasicUser(baseUrl: subscription.baseUrl)
         // The extension only needs contentHandler to be called from the async callback
-        ApiService.shared.poll(
-            baseUrl: subscription.baseUrl,
-            topic: subscription.topic,
-            messageId: pollId,
-            user: user,
-            timeout: NotificationServiceTiming.pollTimeout
-        ) { message, error in
+        // A wake-up can beat the server's own cache write, so "not stored yet" is asked again
+        // (SingleMessagePoll); a real error still fails at once.
+        SingleMessagePoll.run(fetch: { timeout, done in
+            ApiService.shared.poll(baseUrl: subscription.baseUrl, topic: subscription.topic, messageId: pollId,
+                                   user: user, timeout: timeout, completionHandler: done)
+        }) { message, error, attempts in
             guard let message = message else {
-                Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
+                Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), attempts=\(attempts), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
                 self.deliver(NotificationHealth.fetchFailureContent(placeholder, topic: subscription.topic, failure: PollFailure.classify(error)))
                 return
             }

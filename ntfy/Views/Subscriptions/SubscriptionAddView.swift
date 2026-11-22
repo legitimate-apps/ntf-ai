@@ -561,7 +561,8 @@ struct SubscriptionAddView_Previews: PreviewProvider {
 enum SubscriptionAddServer {
     static func selectedBaseUrl(useAnother: Bool, input: String, defaultBaseUrl: String) -> String {
         let alternate = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalizeBaseUrl(useAnother && !alternate.isEmpty ? alternate : defaultBaseUrl)
+        // Any spelling of ntfy.sh is stored as https://ntfy.sh, the address its wake-ups are named under.
+        return NtfyShAddress.ingress(normalizeBaseUrl(useAnother && !alternate.isEmpty ? alternate : defaultBaseUrl))
     }
 
     static func placeholder(defaultBaseUrl: String) -> String {

@@ -22,6 +22,45 @@ enum NotificationServiceTiming {
     }
 }
 
+/// A single-message poll that answered 200 with no message: not stored on the server yet.
+struct PollEmptyResult: Error, Equatable {}
+
+/// Fetches the message a poll_request names, asking again while the server answers "not stored
+/// yet". ntfy.sh writes its message cache in batches, so for about 0.6 to 1.9 s after a publish its
+/// `?poll=1&id=` answers 200 with an empty body, and the bridge's wake-up often lands inside that
+/// window (device repro 2026-11-21: 2 of 11 showed the fallback). Any server with batched cache
+/// writes can do the same. Real errors (network, HTTP status, a timeout) are not retried: they keep
+/// the existing behaviour. Everything, retries included, stays inside `budget`, so the extension's
+/// worst case is unchanged.
+enum SingleMessagePoll {
+    static let emptyRetryDelays: [TimeInterval] = [0.4, 0.8, 1.6, 3.2]
+    typealias Fetch = (_ timeout: TimeInterval, _ completion: @escaping (Message?, Error?) -> Void) -> Void
+    typealias Schedule = (TimeInterval, @escaping () -> Void) -> Void
+
+    static func run(budget: TimeInterval = NotificationServiceTiming.pollTimeout,
+                    delays: [TimeInterval] = emptyRetryDelays,
+                    clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                    schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) },
+                    fetch: @escaping Fetch,
+                    completion: @escaping (_ message: Message?, _ error: Error?, _ attempts: Int) -> Void) {
+        let start = clock()
+        func attempt(_ index: Int) {
+            let remaining = budget - (clock() - start)
+            fetch(max(0.5, remaining)) { message, error in
+                if let message { completion(message, nil, index + 1); return }
+                let elapsed = clock() - start
+                // Leave at least half a second for the next answer, or give up with what we have.
+                guard error is PollEmptyResult, index < delays.count, elapsed + delays[index] + 0.5 <= budget else {
+                    completion(nil, error, index + 1)
+                    return
+                }
+                schedule(delays[index]) { attempt(index + 1) }
+            }
+        }
+        attempt(0)
+    }
+}
+
 final class NotificationDeliveryGate {
     private let handler: (UNNotificationContent) -> Void
     private let lock = NSLock()

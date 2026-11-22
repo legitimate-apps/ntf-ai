@@ -92,37 +92,108 @@ final class NtfyShBridgeTests: XCTestCase {
 
     // MARK: Set computation
 
+    private func rows(_ pairs: [(String, String)], login: Bool = false) -> [(baseUrl: String, topic: String, hasLogin: Bool)] {
+        pairs.map { ($0.0, $0.1, login) }
+    }
+
     func testWatchSetSplitsNtfyShTopicsFromHashesAndLeavesOutTheAppServer() {
-        let set = BridgeWatchSet.compute(subscriptions: [
+        let set = BridgeWatchSet.compute(subscriptions: rows([
             ("https://ntfy-me.com", "own"),            // already pushes to this app
             ("https://ntfy.sh", "zeta"),
             ("https://ntfy.sh/", "alerts_home"),
             ("https://ntfy.sh", "alerts_home"),         // duplicate
             ("https://ntfy.sh", "has space"),           // the server would reject the whole body
-            ("http://ntfy.sh", "plain"),                // its FCM topic is not the one the server wakes
+            ("http://ntfy.sh", "plain"),                // 1.30: every spelling of ntfy.sh is ntfy.sh
             ("https://home.example/ntfy", "garage"),
             ("https://home.example/ntfy/", "garage"),   // same topic URL once normalized
-        ], ntfyShHasLogin: false, appBaseUrl: "https://ntfy-me.com")
-        XCTAssertEqual(set.ntfyShTopics, ["alerts_home", "zeta"])
+        ]), appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(set.ntfyShTopics, ["alerts_home", "plain", "zeta"])
         XCTAssertEqual(set.hashes, [sha("https://home.example/ntfy/garage")])
         XCTAssertEqual(set.hashes, [topicHash(baseUrl: "https://home.example/ntfy", topic: "garage")])
-        XCTAssertEqual(set.skipped, 2)
+        XCTAssertEqual(set.held, [.init(baseUrl: "https://ntfy.sh", topic: "has space", hold: .invalidName)])
     }
 
-    func testNtfyShTopicsWithASavedLoginAreNotSent() {
-        let set = BridgeWatchSet.compute(subscriptions: [("https://ntfy.sh", "private"), ("https://home.example", "a")],
-                                         ntfyShHasLogin: true, appBaseUrl: "https://ntfy-me.com")
-        XCTAssertEqual(set.ntfyShTopics, [])
+    /// Red on b0f4a48: http://, www., case and :443 were each skipped, so they never got banners.
+    func testEverySpellingOfNtfyShIsWatched() {
+        let spellings = ["http://ntfy.sh", "https://www.ntfy.sh", "HTTPS://NTFY.SH", "https://ntfy.sh:443", "http://ntfy.sh:80/", "ntfy.sh", "www.ntfy.sh"]
+        for spelling in spellings {
+            XCTAssertEqual(NtfyShAddress.canonicalize(spelling), "https://ntfy.sh", spelling)
+            let set = BridgeWatchSet.compute(subscriptions: rows([(spelling, "alerts")]), appBaseUrl: "https://ntfy-me.com")
+            XCTAssertEqual(set.ntfyShTopics, ["alerts"], spelling)
+            XCTAssertEqual(set.hashes, [], spelling)
+        }
+        for other in ["https://ntfy.sh/sub", "https://ntfy.sh:8443", "https://user:pw@ntfy.sh", "https://notntfy.sh", "ftp://ntfy.sh", "https://ntfy.sh?x=1"] {
+            XCTAssertNil(NtfyShAddress.canonicalize(other), other)
+        }
+    }
+
+    /// Red on b0f4a48: the FCM name came from the stored spelling, so http://ntfy.sh bound a hash
+    /// the bridge never wakes, and the extension couldn't match the wake-up to the row.
+    func testEverySpellingBindsAndMatchesTheHashTheBridgeWakes() {
+        let wakes = sha("https://ntfy.sh/alerts")
+        for spelling in ["http://ntfy.sh", "https://www.ntfy.sh/", "https://NTFY.sh"] {
+            XCTAssertEqual(topicHash(baseUrl: spelling, topic: "alerts"), wakes, spelling)
+            XCTAssertEqual(firebaseTopic(baseUrl: spelling, topic: "alerts"), wakes, spelling)
+        }
+        _ = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts")
+        let match = store.findSubscriptionMatch(forPollRequestTopic: wakes)
+        XCTAssertEqual(match?.baseUrl, "http://ntfy.sh")
+        XCTAssertEqual(match?.topic, "alerts")
+        // Other servers keep their hash exactly.
+        XCTAssertEqual(topicHash(baseUrl: "http://home.example", topic: "a"), sha("http://home.example/a"))
+    }
+
+    /// The add sheet and links store ntfy.sh as https://ntfy.sh, however it was typed.
+    func testNewSubscriptionsStoreTheCanonicalNtfyShAddress() {
+        XCTAssertEqual(NtfyShAddress.ingress("http://www.ntfy.sh/"), "https://ntfy.sh")
+        XCTAssertEqual(NtfyShAddress.ingress("http://home.example"), "http://home.example")
+        XCTAssertEqual(TopicLink(scanned: "ntfy.sh/alerts")?.server, "https://ntfy.sh")
+        XCTAssertEqual(TopicLink(scanned: "http://www.ntfy.sh/alerts")?.server, "https://ntfy.sh")
+    }
+
+    /// Red on b0f4a48: one saved ntfy.sh login dropped every ntfy.sh topic, public ones included.
+    func testWithALoginOnlyTopicsThatAreOpenAnonymouslyAreSent() {
+        let checked = Date(timeIntervalSince1970: 1_800_000_000)
+        let access: [String: NtfyShAccess] = [
+            "public": .init(state: .open, checked: checked),
+            "private": .init(state: .protected, checked: checked),
+            "flaky": .init(state: .unknown, checked: checked),
+        ]
+        let set = BridgeWatchSet.compute(subscriptions: rows([("https://ntfy.sh", "public"), ("https://ntfy.sh", "private"),
+                                                              ("https://ntfy.sh", "flaky"), ("https://ntfy.sh", "new"),
+                                                              ("https://home.example", "a")], login: true),
+                                         access: access, now: checked.addingTimeInterval(60), appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(set.ntfyShTopics, ["public"])
         XCTAssertEqual(set.hashes.count, 1)
-        XCTAssertEqual(set.skipped, 1)
+        XCTAssertEqual(set.hold(baseUrl: "https://ntfy.sh", topic: "private"), .needsLogin)
+        XCTAssertEqual(set.hold(baseUrl: "https://ntfy.sh", topic: "flaky"), .checkingAccess)
+        XCTAssertEqual(set.hold(baseUrl: "https://ntfy.sh", topic: "new"), .checkingAccess)
+        XCTAssertEqual(set.needsProbe, ["new"])
+        // Answers expire: open after 7 days, protected after 1, unknown after an hour.
+        let later = BridgeWatchSet.compute(subscriptions: rows([("https://ntfy.sh", "flaky"), ("https://ntfy.sh", "private")], login: true),
+                                           access: access, now: checked.addingTimeInterval(2 * 3600), appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(later.needsProbe, ["flaky"])
+        let nextDay = BridgeWatchSet.compute(subscriptions: rows([("https://ntfy.sh", "private")], login: true),
+                                             access: access, now: checked.addingTimeInterval(25 * 3600), appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(nextDay.needsProbe, ["private"])
+    }
+
+    func testAccessAnswersAreClassifiedByStatus() {
+        XCTAssertEqual(NtfyShAccess.classify(status: 200), .open)
+        XCTAssertEqual(NtfyShAccess.classify(status: 401), .protected)
+        XCTAssertEqual(NtfyShAccess.classify(status: 403), .protected)
+        XCTAssertEqual(NtfyShAccess.classify(status: 400), .invalid)
+        XCTAssertEqual(NtfyShAccess.classify(status: 429), .unknown)
+        XCTAssertEqual(NtfyShAccess.classify(status: nil), .unknown)
     }
 
     func testEachListIsCappedAtTheContractLimit() {
         let pairs = (0..<130).map { ("https://ntfy.sh", "t\($0)") } + (0..<105).map { ("https://h\($0).example", "x") }
-        let set = BridgeWatchSet.compute(subscriptions: pairs, ntfyShHasLogin: false, appBaseUrl: "https://ntfy-me.com")
+        let set = BridgeWatchSet.compute(subscriptions: rows(pairs), appBaseUrl: "https://ntfy-me.com")
         XCTAssertEqual(set.ntfyShTopics.count, 100)
         XCTAssertEqual(set.hashes.count, 100)
         XCTAssertEqual(set.skipped, 35)
+        XCTAssertTrue(set.held.allSatisfy { $0.hold == .overCap })
     }
 
     func testTopicNamePatternMatchesTheContract() {
@@ -130,11 +201,146 @@ final class NtfyShBridgeTests: XCTestCase {
         for bad in ["", "a b", "ü", "a/b", String(repeating: "x", count: 65)] { XCTAssertFalse(BridgeWatchSet.isValidNtfyShTopic(bad), bad) }
     }
 
-    func testStoreLoginOnNtfyShExcludesItsTopics() {
+    /// Red on b0f4a48: with a login saved, `alerts` (public) was never sent. Now it is checked
+    /// anonymously, the way the bridge reads it, and sent; `mine` (403) is held back and named.
+    func testStoreLoginOnNtfyShChecksEachTopicAnonymouslyAndSendsTheOpenOnes() throws {
         _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "alerts")
-        XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, ["alerts"])
+        _ = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "mine")
+        XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, ["alerts", "mine"])
         XCTAssertTrue(store.saveUser(baseUrl: "https://ntfy.sh", username: "me", password: "pw"))
         XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
+        XCTAssertEqual(bridge.subscribedSet().needsProbe, ["alerts", "mine"])
+        BridgeStubProtocol.reply = { request in
+            if request.url?.path == "/mine/auth" { return .success((403, [:], #"{"code":40301}"#)) }
+            if request.url?.path == "/alerts/auth" { return .success((200, [:], #"{"success":true}"#)) }
+            return .success((200, [:], #"{"watching":1,"expires":1800000000}"#))
+        }
+        sync()
+        let probes = BridgeStubProtocol.sent.filter { $0.request.url?.path.hasSuffix("/auth") == true }
+        XCTAssertEqual(probes.count, 2)
+        for probe in probes {
+            XCTAssertEqual(probe.request.url?.host, "ntfy.sh")
+            XCTAssertEqual(probe.request.httpMethod ?? "GET", "GET")
+            XCTAssertNil(probe.request.value(forHTTPHeaderField: "Authorization"), "the check must be anonymous")
+        }
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["alerts"])
+        XCTAssertEqual(bridge.topicState(baseUrl: "http://ntfy.sh", topic: "mine", wakes: nil), .held(.needsLogin))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "alerts", wakes: nil), .watched)
+        // Cached: the next sync doesn't ask again.
+        BridgeStubProtocol.sent = []
+        clock = clock.addingTimeInterval(25 * 3600)
+        sync()
+        XCTAssertTrue(BridgeStubProtocol.sent.filter { $0.request.url?.path.hasSuffix("/auth") == true }.map { $0.request.url!.path } == ["/mine/auth"],
+                      "only the protected answer (1 day) is due again")
+    }
+
+    func testARateLimitedCheckSendsNothingAndWaitsAnHour() throws {
+        _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "a")
+        _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "b")
+        XCTAssertTrue(store.saveUser(baseUrl: "https://ntfy.sh", username: "me", password: "pw"))
+        BridgeStubProtocol.reply = { request in
+            request.url?.path.hasSuffix("/auth") == true ? .success((429, [:], "")) : .success((200, [:], #"{"watching":0}"#))
+        }
+        sync()
+        XCTAssertEqual(BridgeStubProtocol.sent.filter { $0.request.url?.path.hasSuffix("/auth") == true }.count, 1, "a 429 stops the round")
+        XCTAssertEqual(bridge.subscribedSet().needsProbe, [])
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "b", wakes: nil), .held(.checkingAccess))
+        clock = clock.addingTimeInterval(3601)
+        XCTAssertEqual(bridge.subscribedSet().needsProbe, ["a", "b"])
+    }
+
+    /// The server's own `unwatchable` list (S1) names topics it couldn't read anonymously.
+    func testUnwatchableFromThePostAndStatusIsShownAsNeedsLogin() {
+        _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "phil")
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0,"expires":1800000000,"unwatchable":["phil"]}"#)) }
+        sync()
+        XCTAssertEqual(bridge.currentRecord.unwatchable, ["phil"])
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .held(.needsLogin))
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"connected":true,"unwatchable":[]}"#)) }
+        let done = expectation(description: "status")
+        bridge.fetchStatus { _ in done.fulfill() }
+        wait(for: [done], timeout: 5)
+        XCTAssertEqual(bridge.currentRecord.unwatchable, [])
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "phil", wakes: nil), .watched)
+    }
+
+    func testTopicStateNamesBridgeOffAndUnavailable() {
+        _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "a")
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy-me.com", topic: "x", wakes: nil), .direct)
+        BridgeStubProtocol.reply = { _ in .success((503, [:], "")) }
+        sync()
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", wakes: nil), .held(.bridgeUnavailable))
+        bridge.setEnabled(false)
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", wakes: nil), .held(.bridgeOff))
+    }
+
+    // MARK: Notification status (A6)
+
+    /// Red on b0f4a48: status showed two counts, so a topic with no banners was invisible.
+    func testReportListsEachServerWithItsCountAndEveryTopicThatGetsNoBanners() throws {
+        let suite = "wakes.\(UUID())"
+        let wakeDefaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { wakeDefaults.removePersistentDomain(forName: suite) }
+        let wakes = SelfHostedWakeCheck(defaults: wakeDefaults, network: false, now: { [unowned self] in self.clock })
+        for (base, topic) in [("https://ntfy.sh", "alerts"), ("http://www.ntfy.sh", "lights"), ("https://ntfy.sh", "bad name"),
+                              ("https://home.example", "garage"), ("https://home.example", "backups"), ("https://ntfy-me.com", "own")] {
+            _ = store.saveSubscription(baseUrl: base, topic: topic)
+        }
+        sync()
+        let garage = topicHash(baseUrl: "https://home.example", topic: "garage")
+        // Three polled messages in a row without a wake-up.
+        wakeDefaults.set(try JSONEncoder().encode([garage: SelfHostedWakeCheck.Entry(misses: 3, lastWake: nil, lastCheck: clock)]),
+                         forKey: SelfHostedWakeCheck.key)
+        let report = bridge.report(wakes: wakes)
+        XCTAssertEqual(report.groups.map(\.server), ["https://ntfy.sh", "https://home.example"])
+        XCTAssertEqual(report.groups[0].watching, 2)
+        XCTAssertEqual(report.groups[0].held, [.init(topic: "bad name", hold: .invalidName)])
+        XCTAssertEqual(report.groups[1].watching, 1)
+        XCTAssertEqual(report.groups[1].held, [.init(topic: "garage", hold: .notSetUp(address: "https://home.example"))])
+        XCTAssertTrue(NtfyShBridgeCopy.reason(.notSetUp(address: "https://home.example")).contains("https://home.example"))
+        // A wake-up clears it.
+        wakes.recordWake(hash: garage)
+        XCTAssertEqual(bridge.report(wakes: wakes).groups[1].held, [])
+        bridge.setEnabled(false)
+        XCTAssertTrue(bridge.report(wakes: wakes).groups.flatMap(\.held).allSatisfy { $0.hold == .bridgeOff || $0.hold == .invalidName })
+    }
+
+    // MARK: Users who never open the app (A3)
+
+    /// Red on b0f4a48: nothing outside the app process ever refreshed the registration.
+    func testExtensionRefreshesAWeekOldRegistrationAtMostHourly() {
+        _ = store.saveSubscription(baseUrl: "https://ntfy.sh", topic: "a")
+        XCTAssertTrue(bridge.extensionShouldRefresh(), "never registered")
+        sync()
+        XCTAssertFalse(bridge.extensionShouldRefresh(), "just registered")
+        clock = clock.addingTimeInterval(6 * 24 * 3600)
+        XCTAssertFalse(bridge.extensionShouldRefresh(), "six days")
+        clock = clock.addingTimeInterval(24 * 3600 + 1)
+        XCTAssertTrue(bridge.extensionShouldRefresh(), "over a week")
+        BridgeStubProtocol.reply = { _ in .failure(URLError(.notConnectedToInternet)) }
+        let before = BridgeStubProtocol.sent.count
+        bridge.refreshFromExtensionIfStale()
+        let deadline = Date().addingTimeInterval(3)
+        while BridgeStubProtocol.sent.count == before, Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+        XCTAssertEqual(BridgeStubProtocol.sent.count, before + 1)
+        let settle = Date().addingTimeInterval(3)
+        while bridge.currentRecord.lastOutcome != .network, Date() < settle { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+        XCTAssertFalse(bridge.extensionShouldRefresh(), "a failed try waits an hour")
+        clock = clock.addingTimeInterval(3601)
+        XCTAssertTrue(bridge.extensionShouldRefresh())
+        bridge.setEnabled(false)
+        XCTAssertFalse(bridge.extensionShouldRefresh())
+    }
+
+    /// The extension compiles the bridge, so it can refresh without the app.
+    func testBridgeAndWakeCheckBuildIntoTheExtension() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("ntfy.xcodeproj/project.pbxproj")
+        let project = try String(contentsOf: url, encoding: .utf8)
+        let nse = try XCTUnwrap(project.range(of: "9474F1E0282F3FFD00CDE4DD /* Sources */ = {"))
+        let phase = project[nse.upperBound...].prefix { $0 != ")" }
+        XCTAssertTrue(phase.contains("NtfyShBridge.swift in Sources"))
+        XCTAssertTrue(phase.contains("SelfHostedWakeCheck.swift in Sources"))
     }
 
     // MARK: Registration
@@ -333,8 +539,16 @@ final class NtfyShBridgeTests: XCTestCase {
         "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@.",
         "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@.",
         "Instant banners for ntfy.sh and other servers",
-        "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. Topics that need a login on ntfy.sh aren't watched. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.",
-        "ntfy.sh topics watched", "Other servers' topics watched", "Last registration", "Never", "Bridge connection",
+        "%@ watches your ntfy.sh topics and wakes this device when a message arrives. It learns those topic names and sees their messages in passing, but keeps no message text. For your own server it learns only a hash of each topic address. With a login saved for ntfy.sh, the app first checks each ntfy.sh topic without the login, and only topics anyone can read are sent. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.",
+        "Instant banners", "Watching %lld", "And %lld more",
+        "Needs a login on ntfy.sh, so new messages show when you open the app.",
+        "Checking whether anyone can read this topic on ntfy.sh. Until then, new messages show when you open the app.",
+        "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.",
+        "Over the limit of 100 topics per list, so new messages show when you open the app.",
+        "Instant banners for ntfy.sh and other servers is off in Settings, so new messages show when you open the app.",
+        "%@ is busy or unreachable and will retry on its own. Until then, new messages show when you open the app.",
+        "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.",
+        "Last registration", "Never", "Bridge connection",
         "Checking…", "Accepted", "Rejected by the server", "Rate limited, will retry", "Bridge full, will retry",
         "Server error, will retry", "No connection, will retry", "Connected", "Reconnecting to ntfy.sh",
         "Not registered yet", "Couldn't check", "%@, %@", "On", "Off",
@@ -362,6 +576,8 @@ final class NtfyShBridgeTests: XCTestCase {
         let keys = try XCTUnwrap(catalog["strings"] as? [String: Any]).keys
         XCTAssertFalse(keys.contains("Topics on ntfy.sh have no instant banners in this app. Messages appear when you open the app or refresh. For banners, move your topic to %@. See %@."))
         XCTAssertFalse(keys.contains { $0.hasPrefix("For instant delivery from your own server, add") })
+        XCTAssertFalse(keys.contains { $0.contains("Topics that need a login on ntfy.sh aren't watched.") })
+        XCTAssertFalse(keys.contains("ntfy.sh topics watched"))
     }
 
     func testLocalNetworkHostsAreRecognized() {
@@ -382,5 +598,194 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertTrue(hint?.contains("Local Network") ?? false)
         XCTAssertNil(LocalNetworkHint.message(for: offline, baseUrl: "https://ntfy.sh"), "a public server keeps the real offline error")
         XCTAssertNil(LocalNetworkHint.message(for: URLError(.timedOut), baseUrl: "http://192.168.1.20:8080"), "only the refused-connection error gets the hint")
+    }
+}
+
+// MARK: - A5: a wake-up that beats the server's cache write
+
+final class SingleMessagePollTests: XCTestCase {
+    private func message(_ id: String = "m1") -> Message {
+        Message(id: id, time: 1_800_000_000, event: "message", topic: "alerts", message: "real text")
+    }
+
+    /// A clock the scheduler advances, so the backoff runs instantly.
+    private final class FakeTime {
+        var now: TimeInterval = 0
+        var delays: [TimeInterval] = []
+        var timeouts: [TimeInterval] = []
+    }
+
+    private func run(_ answers: [(Message?, Error?)], budget: TimeInterval = NotificationServiceTiming.pollTimeout,
+                     answerTakes: TimeInterval = 0.1) -> (Message?, Error?, Int, FakeTime) {
+        let time = FakeTime()
+        var queue = answers
+        var result: (Message?, Error?, Int)?
+        SingleMessagePoll.run(budget: budget, clock: { time.now }, schedule: { delay, work in
+            time.delays.append(delay); time.now += delay; work()
+        }, fetch: { timeout, done in
+            time.timeouts.append(timeout)
+            time.now += answerTakes
+            let next = queue.isEmpty ? (nil, PollEmptyResult()) : queue.removeFirst()
+            done(next.0, next.1)
+        }) { message, error, attempts in result = (message, error, attempts) }
+        let r = try! XCTUnwrap(result)
+        return (r.0, r.1, r.2, time)
+    }
+
+    /// Red on b0f4a48: the first empty 200 delivered "Open the app to load it".
+    func testEmptyAnswersAreAskedAgainUntilTheMessageIsStored() {
+        let (message, error, attempts, time) = run([(nil, PollEmptyResult()), (nil, PollEmptyResult()), (self.message(), nil)])
+        XCTAssertEqual(message?.message, "real text")
+        XCTAssertNil(error)
+        XCTAssertEqual(attempts, 3)
+        XCTAssertEqual(time.delays, [0.4, 0.8])
+    }
+
+    func testRealErrorsAreNotRetried() {
+        for failure: Error in [URLError(.timedOut), URLError(.notConnectedToInternet), PollHTTPError(status: 401, retryAfter: nil, retryCondition: nil)] {
+            let (message, error, attempts, time) = run([(nil, failure), (self.message(), nil)])
+            XCTAssertNil(message)
+            XCTAssertNotNil(error)
+            XCTAssertEqual(attempts, 1, "\(failure)")
+            XCTAssertEqual(time.delays, [])
+        }
+    }
+
+    func testRetriesStayInsideTheExtensionsPollBudget() {
+        let (message, error, attempts, time) = run([], answerTakes: 0.3)
+        XCTAssertNil(message)
+        XCTAssertTrue(error is PollEmptyResult)
+        XCTAssertEqual(time.delays, [0.4, 0.8, 1.6, 3.2])
+        XCTAssertEqual(attempts, 5)
+        XCTAssertLessThanOrEqual(time.now, NotificationServiceTiming.pollTimeout)
+        // Each request gets only what is left of the budget.
+        XCTAssertEqual(time.timeouts.first, NotificationServiceTiming.pollTimeout)
+        XCTAssertTrue(zip(time.timeouts, time.timeouts.dropFirst()).allSatisfy { $0 > $1 })
+        // A slow server: the last wait would pass the budget, so it stops early.
+        let (_, _, slowAttempts, slow) = run([], answerTakes: 1.5)
+        XCTAssertLessThan(slowAttempts, 5)
+        XCTAssertLessThanOrEqual(slow.now, NotificationServiceTiming.pollTimeout + 1.5)
+    }
+
+    /// Red on b0f4a48: an empty 200 was a JSON decode error, indistinguishable from garbage.
+    func testEmptyBodyIsTheDistinctNotStoredYetError() throws {
+        for body in ["", "\n", "  \n\n"] {
+            XCTAssertThrowsError(try ApiService.singleMessage(from: Data(body.utf8), id: "m1")) { XCTAssertTrue($0 is PollEmptyResult) }
+        }
+        let other = #"{"id":"zz","time":1,"event":"message","topic":"alerts","message":"x"}"#
+        XCTAssertThrowsError(try ApiService.singleMessage(from: Data(other.utf8), id: "m1")) { XCTAssertTrue($0 is PollEmptyResult) }
+        XCTAssertThrowsError(try ApiService.singleMessage(from: Data("<html>".utf8), id: "m1")) { XCTAssertFalse($0 is PollEmptyResult) }
+        let line = #"{"id":"m1","time":1,"event":"message","topic":"alerts","message":"real text"}"#
+        XCTAssertEqual(try ApiService.singleMessage(from: Data((line + "\n").utf8), id: "m1").message, "real text")
+    }
+}
+
+// MARK: - A4: self-hosted servers that never wake the device
+
+final class SelfHostedWakeCheckTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private var suite = ""
+    private var clock = Date(timeIntervalSince1970: 1_800_000_000)
+    private var replies: [(Int, String)] = []
+    private var sent: [URLRequest] = []
+    private var check: SelfHostedWakeCheck!
+    private let base = "http://192.168.1.20:8099"
+
+    override func setUp() {
+        super.setUp()
+        suite = "SelfHostedWakeCheckTests.\(UUID())"
+        defaults = UserDefaults(suiteName: suite)
+        check = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", read: { [unowned self] request, done in
+            self.sent.append(request)
+            let (status, body) = self.replies.isEmpty ? (200, #"{"relayed":false,"relayed_at":null,"window_seconds":120}"#) : self.replies.removeFirst()
+            done(Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil), nil)
+        }, schedule: { [unowned self] delay, work in self.clock = self.clock.addingTimeInterval(delay); work() },
+           now: { [unowned self] in self.clock })
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    private var garageHash: String { topicHash(baseUrl: base, topic: "garage") }
+
+    @discardableResult
+    private func arrive(age: TimeInterval = 2) -> SelfHostedWakeCheck.Verdict? {
+        var verdict: SelfHostedWakeCheck.Verdict?? = .none
+        check.messageArrivedByPoll(baseUrl: base, topic: "garage", messageTime: clock.addingTimeInterval(-age)) { verdict = .some($0) }
+        return verdict ?? nil
+    }
+
+    /// Red on b0f4a48: a server that never forwarded looked the same as a working one.
+    func testThreeMissesInARowFlagNotSetUpAndAWakeClearsIt() throws {
+        XCTAssertEqual(arrive(), .missed)
+        XCTAssertEqual(sent.count, 1)
+        let request = try XCTUnwrap(sent.first)
+        XCTAssertEqual(request.url?.absoluteString, "https://ntfy-me.com/v1/ntfyme/relay-check")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["hash": garageHash])
+        XCTAssertFalse(check.isNotSetUp(hash: garageHash))
+        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+        XCTAssertEqual(arrive(), .missed)
+        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+        XCTAssertEqual(arrive(), .missed)
+        XCTAssertTrue(check.isNotSetUp(hash: garageHash))
+        check.recordWake(hash: garageHash)
+        XCTAssertFalse(check.isNotSetUp(hash: garageHash))
+    }
+
+    func testARelayedWakeUpAtTheMessageTimeIsWorking() {
+        let at = Int64(clock.timeIntervalSince1970 * 1000)
+        replies = [(200, #"{"relayed":true,"relayed_at":\#(at),"window_seconds":120}"#)]
+        XCTAssertEqual(arrive(age: 12), .relayed)
+        XCTAssertEqual(check.entry(hash: garageHash)?.misses, 0)
+    }
+
+    func testAnOlderRelayDoesNotCountForThisMessage() {
+        let at = Int64((clock.timeIntervalSince1970 - 60) * 1000)
+        replies = [(200, #"{"relayed":true,"relayed_at":\#(at),"window_seconds":120}"#)]
+        XCTAssertEqual(arrive(age: 2), .missed)
+    }
+
+    func testErrorsAndRateLimitsChangeNothing() {
+        replies = [(429, ""), (500, ""), (200, "nonsense")]
+        for _ in 0..<3 {
+            XCTAssertEqual(arrive(), .unknown)
+            clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+        }
+        XCTAssertEqual(check.entry(hash: garageHash)?.misses, 0)
+    }
+
+    func testNoCheckForOldMessagesRecentWakesOrWithinTenMinutes() {
+        XCTAssertNil(arrive(age: 300), "the relay keeps 120 s")
+        XCTAssertEqual(sent.count, 0)
+        XCTAssertEqual(arrive(), .missed)
+        XCTAssertNil(arrive(), "throttled")
+        XCTAssertEqual(sent.count, 1)
+        check.recordWake(hash: garageHash)
+        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+        XCTAssertNil(arrive(), "a wake-up within six hours already proves it works")
+        XCTAssertEqual(sent.count, 1)
+    }
+
+    func testWaitsUntilTheForwardHadTimeToLand() {
+        var waited: TimeInterval = 0
+        check = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", read: { _, done in
+            done(Data(#"{"relayed":false,"relayed_at":null,"window_seconds":120}"#.utf8),
+                 HTTPURLResponse(url: URL(string: "https://x")!, statusCode: 200, httpVersion: nil, headerFields: nil), nil)
+        }, schedule: { delay, work in waited = delay; work() }, now: { [unowned self] in self.clock })
+        arrive(age: 1)
+        XCTAssertEqual(waited, SelfHostedWakeCheck.minMessageAge - 1, accuracy: 0.001)
+    }
+
+    func testOnlyPolledSelfHostedMessagesAreChecked() {
+        let m = Message(id: "m", time: Int64(clock.timeIntervalSince1970) - 2, event: "message", topic: "garage")
+        SubscriptionManager.checkWakeUps(baseUrl: "https://ntfy.sh", messages: [m], check: check, bridgeRegistered: true, appBaseUrl: "https://ntfy-me.com")
+        SubscriptionManager.checkWakeUps(baseUrl: "https://ntfy-me.com", messages: [m], check: check, bridgeRegistered: true, appBaseUrl: "https://ntfy-me.com")
+        SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridgeRegistered: false, appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(sent.count, 0)
+        SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridgeRegistered: true, appBaseUrl: "https://ntfy-me.com")
+        XCTAssertEqual(sent.count, 1)
     }
 }

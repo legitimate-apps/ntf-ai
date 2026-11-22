@@ -159,10 +159,25 @@ struct SubscriptionManager {
             let newMessages = store.save(notificationsFromMessages: messages, polledWith: request)
             if let newMessages {
                 Log.d(tag, "Polling success, \(messages.count) message(s), \(newMessages.count) new", newMessages)
+                Self.checkWakeUps(baseUrl: request.baseUrl, messages: newMessages)
             }
             polling.finish(request, outcome: PollOutcome(succeeded: newMessages != nil, newMessages: newMessages ?? [], alertMessages: newMessages == nil ? [] : store.alertCandidates(from: messages, baseUrl: request.baseUrl),
                            failure: newMessages == nil ? .other : nil), retryAfter: nil)
         }
+    }
+
+    /// A fresh message from a self-hosted server that reached the app by poll: ask whether its
+    /// wake-up went through (SelfHostedWakeCheck). One check per poll, for the newest message only.
+    /// Only while the bridge holds this device's set: a forward via ntfy.sh reaches the relay only
+    /// through the bridge, so with it off or unregistered a miss would mean nothing.
+    static func checkWakeUps(baseUrl: String, messages: [Message], check: SelfHostedWakeCheck = .shared,
+                             bridgeRegistered: Bool = NtfyShBridge.shared.isRegistered,
+                             appBaseUrl: String = Config.appBaseUrl) {
+        let server = normalizeBaseUrl(baseUrl)
+        guard bridgeRegistered, server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server),
+              let newest = messages.filter({ $0.event == "message" }).max(by: { $0.time < $1.time }) else { return }
+        check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
+                                   messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)))
     }
 
     /// Completion includes saves and all outcomes, rather than only enqueueing the requests.

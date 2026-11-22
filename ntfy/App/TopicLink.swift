@@ -59,7 +59,7 @@ struct TopicLink: Equatable {
         if let port = parts.port, port != (normalizedScheme == "https" ? 443 : 80),
            !(HostedServer.hosts.contains(host) && scheme == "http" && port == 80) { server += ":\(port)" }
         server += encoded.dropLast().map { "/" + $0 }.joined()
-        self.server = normalizeBaseUrl(server)
+        self.server = NtfyShAddress.ingress(normalizeBaseUrl(server))
         self.topic = topic
     }
 }

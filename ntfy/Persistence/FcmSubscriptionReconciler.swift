@@ -169,6 +169,7 @@ final class FcmSubscriptionReconciler {
         // Rename first: a round that bound names derived from a different app base URL would only
         // confirm topics no server publishes to. A rename drives its own round, so stop here if it ran.
         if rebindIfAppBaseUrlChanged() { return }
+        rebindRespelledNtfyShTopicsIfNeeded()
 
         lock.lock()
         if inFlight {
@@ -280,6 +281,36 @@ final class FcmSubscriptionReconciler {
         }
         reconcile(reason: "app base URL changed")
         return true
+    }
+
+    /// 1.30 names an ntfy.sh topic's FCM binding after `https://ntfy.sh` whatever spelling the row
+    /// was saved with (`pushIdentityBaseUrl`), because that is the hash the bridge wakes. A row saved
+    /// as `http://ntfy.sh` (or `www.`, or mixed case) still reads `fcmSubscribed` for its old name, so
+    /// once: tear the old name down, mark the row stale, and let this round bind the new one.
+    static let defaultsKeyPushNaming = "fcmPushNamingVersion"
+    static let pushNamingVersion = 2
+
+    @discardableResult
+    func rebindRespelledNtfyShTopicsIfNeeded() -> Bool {
+        guard defaults.integer(forKey: Self.defaultsKeyPushNaming) < Self.pushNamingVersion else { return false }
+        let pairs: [(baseUrl: String, topic: String)] = (store.getSubscriptions() ?? []).compactMap {
+            guard let baseUrl = $0.baseUrl, let topic = $0.topic else { return nil }
+            return (baseUrl, topic)
+        }
+        let needed = Set(pairs.map { firebaseTopic(baseUrl: $0.baseUrl, topic: $0.topic) })
+        let moved = pairs.filter {
+            normalizeBaseUrl($0.baseUrl) != normalizeBaseUrl(Config.appBaseUrl)
+                && legacyTopicHash(baseUrl: $0.baseUrl, topic: $0.topic) != topicHash(baseUrl: $0.baseUrl, topic: $0.topic)
+        }
+        var complete = true
+        for pair in moved {
+            let old = legacyTopicHash(baseUrl: pair.baseUrl, topic: pair.topic)
+            if !needed.contains(old), teardownLedger.record(old, obsolete: true) == nil { complete = false }
+            if !store.markFcmSubscriptionStale(firebaseTopicName: topicHash(baseUrl: pair.baseUrl, topic: pair.topic)) { complete = false }
+        }
+        if complete { defaults.set(Self.pushNamingVersion, forKey: Self.defaultsKeyPushNaming) }
+        if !moved.isEmpty { Log.d(tag, "Renamed \(moved.count) ntfy.sh binding(s) to the https://ntfy.sh hash") }
+        return !moved.isEmpty
     }
 
     // MARK: Durable teardowns

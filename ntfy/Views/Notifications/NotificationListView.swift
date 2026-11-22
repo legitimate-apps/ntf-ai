@@ -716,6 +716,17 @@ struct TopicDetailsView: View {
         return date.formatted(.dateTime.year().month(.abbreviated).day().hour().minute())
     }
 
+    /// Whether this topic gets instant banners, and why not (NtfyShBridge.topicState).
+    private var bannerState: NtfyShBridge.TopicState? {
+        guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return nil }
+        return NtfyShBridge.shared.topicState(baseUrl: baseUrl, topic: topic)
+    }
+
+    private var bannerHold: NtfyShBridge.TopicHold? {
+        if case .held(let hold)? = bannerState { return hold }
+        return nil
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -735,6 +746,16 @@ struct TopicDetailsView: View {
                 } footer: {
                     if subscription.subscribedAt == nil {
                         Text(String(localized: "The subscription date was not recorded for this topic."))
+                    }
+                }
+                if let state = bannerState {
+                    Section {
+                        NotificationStatusRow(title: NtfyShBridgeCopy.instantBanners,
+                                              value: state == .held(.checkingAccess) ? NtfyShBridgeCopy.checking
+                                                : (bannerHold == nil ? NtfyShBridgeCopy.on : NtfyShBridgeCopy.off))
+                            .accessibilityIdentifier("topic-instant-banners")
+                    } footer: {
+                        if let hold = bannerHold { Text(NtfyShBridgeCopy.reason(hold)) }
                     }
                 }
             }

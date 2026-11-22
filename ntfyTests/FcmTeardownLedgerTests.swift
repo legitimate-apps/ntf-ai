@@ -68,6 +68,31 @@ final class FcmTeardownLedgerTests: XCTestCase {
         store.saveSubscription(baseUrl: Config.appBaseUrl, topic: topic)
     }
 
+    /// Red on b0f4a48: a row saved as http://ntfy.sh stayed bound to the hash of that spelling,
+    /// which nothing wakes. 1.30 tears it down once and binds the https://ntfy.sh hash.
+    func testRespelledNtfyShRowIsRenamedOnceToTheHashTheBridgeWakes() throws {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts")
+        let legacy = legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts")
+        let wakes = topicHash(baseUrl: "https://ntfy.sh", topic: "alerts")
+        XCTAssertNotEqual(legacy, wakes)
+        store.context.performAndWait { row.fcmSubscribed = true; try? store.context.save() }
+        fake.bindings.insert(legacy)
+        r.reconcile(reason: "launch")
+        drain()
+        XCTAssertTrue(fake.subscribes.contains { $0.name == wakes }, "\(fake.subscribes.map(\.name))")
+        XCTAssertEqual(defaults.integer(forKey: FcmSubscriptionReconciler.defaultsKeyPushNaming), FcmSubscriptionReconciler.pushNamingVersion)
+        r.reconcile(reason: "next")
+        drain()
+        XCTAssertTrue(fake.unsubscribes.contains { $0.name == legacy }, "\(fake.unsubscribes.map(\.name))")
+        // Once only: another launch doesn't redo it.
+        let subscribed = fake.subscribes.count
+        r.reconcile(reason: "again")
+        drain()
+        XCTAssertEqual(fake.subscribes.count, subscribed)
+    }
+
     func testOldSuccessCannotEraseNewerIntentAfterFreshBinding() throws {
         let fake = Subscriber()
         let r = reconciler(fake)
