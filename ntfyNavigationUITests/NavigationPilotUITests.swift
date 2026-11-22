@@ -350,6 +350,8 @@ final class NavigationPilotUITests: XCTestCase {
         if !(last.exists && last.isHittable) { app.swipeUp(velocity: .slow); captureAX("b130-status-\(variant)-more") }
         guard variant == "main" else { return }
         for topic in ["family-private-q7x", "garage"] {
+            // A fresh launch for each topic; the sheet's close control differs between iPhone and iPad.
+            app.terminate(); app.launch()
             openTopics()
             let row = app.staticTexts[topic].firstMatch
             for _ in 0..<6 { if row.exists && row.isHittable { break }; app.swipeUp() }
@@ -358,8 +360,6 @@ final class NavigationPilotUITests: XCTestCase {
             app.buttons["Topic details"].tap()
             XCTAssertTrue(app.staticTexts["Instant banners"].waitForExistence(timeout: 5))
             captureAX("b130-details-\(topic)")
-            app.buttons["Done"].firstMatch.tap()
-            app.navigationBars.buttons.element(boundBy: 0).tap()
         }
     }
     func testCaptureSavedUserRow() {
