@@ -37269,7 +37269,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ vigila tus temas de ntfy.sh y despierta este dispositivo cuando llega un mensaje. Conoce esos nombres de tema y ve sus mensajes de paso, pero no guarda el texto. Para tu propio servidor solo conoce un hash de cada dirección de tema. Con un inicio de sesión guardado para ntfy.sh, la app comprueba primero cada tema de ntfy.sh sin ese inicio de sesión, y solo se envían los temas que cualquiera puede leer. Desactivado, los temas de ntfy.sh y los servidores cuyo upstream es ntfy.sh muestran los mensajes nuevos solo al abrir la app o actualizar."
+            "value": "%@ vigila tus tópicos de ntfy.sh y despierta este dispositivo cuando llega un mensaje. Conoce esos nombres de tópico y ve sus mensajes de paso, pero no guarda el texto. Para tu propio servidor solo conoce un hash de cada dirección de tópico. Con un inicio de sesión guardado para ntfy.sh, la app comprueba primero cada tópico de ntfy.sh sin ese inicio de sesión, y solo se envían los tópicos que cualquiera puede leer. Desactivado, los tópicos de ntfy.sh y los servidores cuyo upstream es ntfy.sh muestran los mensajes nuevos solo al abrir la app o actualizar."
           }
         },
         "fr": {
@@ -37504,7 +37504,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comprobando si cualquiera puede leer este tema en ntfy.sh. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+            "value": "Comprobando si cualquiera puede leer este tópico en ntfy.sh. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {
@@ -37551,7 +37551,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta dirección o nombre de tema no se puede vigilar en ntfy.sh, así que los mensajes nuevos aparecen al abrir la app."
+            "value": "Esta dirección o nombre de tópico no se puede vigilar en ntfy.sh, así que los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {
@@ -37598,7 +37598,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supera el límite de 100 temas por lista, así que los mensajes nuevos aparecen al abrir la app."
+            "value": "Supera el límite de 100 tópicos por lista, así que los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {
@@ -37645,7 +37645,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avisos instantáneos para ntfy.sh y otros servidores está desactivado en Ajustes, así que los mensajes nuevos aparecen al abrir la app."
+            "value": "«Avisos instantáneos para ntfy.sh y otros servidores» está desactivado en Ajustes, así que los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {

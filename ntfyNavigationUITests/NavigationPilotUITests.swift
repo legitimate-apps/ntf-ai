@@ -307,7 +307,7 @@ final class NavigationPilotUITests: XCTestCase {
         app.swipeUp(velocity: .slow)
         if !toggle.isHittable { app.swipeDown(velocity: .slow) }
         captureAX("bridge-setting")
-        let watched = app.staticTexts["ntfy.sh topics watched"].firstMatch
+        let watched = app.staticTexts["ntfy.sh"].firstMatch
         for _ in 0..<8 { if watched.exists && watched.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(watched.exists)
         captureAX("bridge-status")
@@ -330,6 +330,36 @@ final class NavigationPilotUITests: XCTestCase {
         app.navigationBars["Add topic"].tap()
         captureAX("add-footer-selfhosted")
         app.buttons["Cancel"].tap()
+    }
+    /// 1.30: Notification status per server, each topic without banners and why, and the same
+    /// reason in Topic details. Needs `seed130.py`'s fixture (no live bridge or ntfy.sh calls).
+    /// `NTFY_130_VARIANT=off|full` names the captures for the other fixtures.
+    func testCaptureBridgeStates130() {
+        let variant = ProcessInfo.processInfo.environment["NTFY_130_VARIANT"] ?? "main"
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 8))
+        tab("Settings")
+        let first = app.staticTexts["ntfy.sh"].firstMatch
+        for _ in 0..<10 { if first.exists && first.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(first.exists, "the ntfy.sh group row")
+        captureAX("b130-status-\(variant)")
+        let last = app.otherElements["bridge-held-garage"].firstMatch
+        if !(last.exists && last.isHittable) { app.swipeUp(velocity: .slow); captureAX("b130-status-\(variant)-more") }
+        guard variant == "main" else { return }
+        for topic in ["family-private", "garage"] {
+            openTopics()
+            let row = app.staticTexts[topic].firstMatch
+            for _ in 0..<6 { if row.exists && row.isHittable { break }; app.swipeUp() }
+            row.tap()
+            app.navigationBars.buttons["Topic actions"].tap()
+            app.buttons["Topic details"].tap()
+            XCTAssertTrue(app.staticTexts["Instant banners"].waitForExistence(timeout: 5))
+            captureAX("b130-details-\(topic)")
+            app.buttons["Close"].firstMatch.tap()
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
     }
     func testCaptureSavedUserRow() {
         app.launch()
