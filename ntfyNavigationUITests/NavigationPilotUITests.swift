@@ -339,8 +339,9 @@ final class NavigationPilotUITests: XCTestCase {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
-        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 8))
+        openTopics()
         tab("Settings")
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         let first = app.staticTexts["ntfy.sh"].firstMatch
         for _ in 0..<10 { if first.exists && first.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(first.exists, "the ntfy.sh group row")
@@ -348,7 +349,7 @@ final class NavigationPilotUITests: XCTestCase {
         let last = app.otherElements["bridge-held-garage"].firstMatch
         if !(last.exists && last.isHittable) { app.swipeUp(velocity: .slow); captureAX("b130-status-\(variant)-more") }
         guard variant == "main" else { return }
-        for topic in ["family-private", "garage"] {
+        for topic in ["family-private-q7x", "garage"] {
             openTopics()
             let row = app.staticTexts[topic].firstMatch
             for _ in 0..<6 { if row.exists && row.isHittable { break }; app.swipeUp() }
@@ -357,7 +358,7 @@ final class NavigationPilotUITests: XCTestCase {
             app.buttons["Topic details"].tap()
             XCTAssertTrue(app.staticTexts["Instant banners"].waitForExistence(timeout: 5))
             captureAX("b130-details-\(topic)")
-            app.buttons["Close"].firstMatch.tap()
+            app.buttons["Done"].firstMatch.tap()
             app.navigationBars.buttons.element(boundBy: 0).tap()
         }
     }
