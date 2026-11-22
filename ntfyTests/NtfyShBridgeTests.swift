@@ -471,6 +471,8 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: true), .watched)
         XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "b", fcmBound: true), .held(.bridgeUnavailable))
         XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a", fcmBound: false), .held(.pushNotReady))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "b", fcmBound: false), .held(.pushNotReady),
+                       "an unbound row gets no wake even once accepted, so it doesn't say 'being added'")
         XCTAssertEqual(NtfyShBridgeCopy.outcome(.unavailable), String(localized: "Unavailable, will retry"))
     }
 

@@ -791,11 +791,12 @@ final class NtfyShBridge: ObservableObject {
         if record.repairRequested == true { return .held(.notRegistered) }
         let hash = topicHash(baseUrl: baseUrl, topic: topic)
         let member = ntfySh ? "t:" + topic : "h:" + hash
+        // Without its push binding no wake reaches this row, whatever the bridge accepts.
+        if fcmBound == false { return .held(.pushNotReady) }
         guard BridgeWatchSet.members(signature: record.acceptedSignature).contains(member) else {
             if let outcome = record.lastOutcome, outcome != .ok { return .held(.bridgeUnavailable) }
             return .held(.registering)
         }
-        if fcmBound == false { return .held(.pushNotReady) }
         if record.statusConnected == false { return .held(.reconnecting) }
         if !ntfySh, let wakes {
             switch wakes.diagnosis(hash: hash) {
