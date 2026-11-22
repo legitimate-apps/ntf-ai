@@ -575,22 +575,64 @@ final class NtfyShBridge: ObservableObject {
 
     // MARK: Anonymous access checks
 
-    /// Cached answers per ntfy.sh topic name.
+    /// Cached answers per ntfy.sh topic name: the saved ones, with any this process couldn't save
+    /// laid over them (newer evidence wins).
     var access: [String: NtfyShAccess] {
+        unsavedLock.lock(); let unsaved = unsavedAccess; unsavedLock.unlock()
+        return Self.merge(storedAccess, unsaved)
+    }
+
+    private var storedAccess: [String: NtfyShAccess] {
         defaults.data(forKey: Self.accessKey).flatMap { try? JSONDecoder().decode([String: NtfyShAccess].self, from: $0) } ?? [:]
     }
 
-    private func saveAccess(_ update: [String: NtfyShAccess]) {
-        guard !update.isEmpty else { return }
-        lock.withLock {
-            var merged = access
-            // Newer evidence wins: an answer to a check that started before a refusal can't undo it.
-            for (name, answer) in update { merged[name] = merged[name].map { $0.merged(with: answer) } ?? answer }
+    /// Answers whose save failed (the shared lock timed out). A refusal lost to a busy lock would
+    /// leave an earlier 200 on disk and let a protected name into the next list, so the answer is
+    /// kept here, honoured by `access` (and so by every set this process computes), and written
+    /// with the next save that gets the lock. Fails closed: never drops a refusal.
+    private let unsavedLock = NSLock()
+    private var unsavedAccess: [String: NtfyShAccess] = [:]
+
+    private static func merge(_ base: [String: NtfyShAccess], _ update: [String: NtfyShAccess]) -> [String: NtfyShAccess] {
+        var merged = base
+        // Newer evidence wins: an answer to a check that started before a refusal can't undo it.
+        for (name, answer) in update { merged[name] = merged[name].map { $0.merged(with: answer) } ?? answer }
+        return merged
+    }
+
+    /// Retries writing answers an earlier save couldn't (each sync starts with it).
+    private func flushUnsavedAccess() {
+        unsavedLock.lock(); let pending = unsavedAccess; unsavedLock.unlock()
+        if !pending.isEmpty { saveAccess(pending) }
+    }
+
+    /// Saves the answers, with any earlier ones that couldn't be saved. Returns false when the
+    /// shared lock wasn't had in time; the answers then stay in force in this process.
+    @discardableResult
+    private func saveAccess(_ update: [String: NtfyShAccess]) -> Bool {
+        guard !update.isEmpty else { return true }
+        unsavedLock.lock()
+        unsavedAccess = Self.merge(unsavedAccess, update)
+        let pending = unsavedAccess
+        unsavedLock.unlock()
+        let saved = lock.withLock { () -> Bool in
             // Forget names checked over a month ago (unsubscribed long since).
-            merged = merged.filter { now().timeIntervalSince(max($0.value.checked, $0.value.failedAt ?? .distantPast)) < 30 * 24 * 60 * 60 }
-            if let data = try? JSONEncoder().encode(merged) { defaults.set(data, forKey: Self.accessKey) }
+            let merged = Self.merge(storedAccess, pending)
+                .filter { now().timeIntervalSince(max($0.value.checked, $0.value.failedAt ?? .distantPast)) < 30 * 24 * 60 * 60 }
+            guard let data = try? JSONEncoder().encode(merged) else { return false }
+            defaults.set(data, forKey: Self.accessKey)
+            return true
+        } ?? false
+        guard saved else {
+            Log.w(Self.tag, "Access answers not saved (lock busy); kept in force in this process")
+            return false
         }
+        unsavedLock.lock()
+        // Drop what was written; an answer that arrived meanwhile stays for the next save.
+        for (name, answer) in pending where unsavedAccess[name] == answer { unsavedAccess[name] = nil }
+        unsavedLock.unlock()
         BridgeStateSignal.announce()
+        return true
     }
 
     /// The server can't read these names anonymously: forget any earlier 200, so they leave the
@@ -676,6 +718,7 @@ final class NtfyShBridge: ObservableObject {
         inFlight = true
         processLock.unlock()
 
+        flushUnsavedAccess()
         let pending = isEnabled && session != nil ? (readSubscribedSet()?.needsProbe ?? []) : []
         if !pending.isEmpty {
             Log.d(Self.tag, "sync(\(reason)): checking up to \(min(pending.count, Self.maxProbesPerSync)) ntfy.sh topic(s) anonymously first")
@@ -845,8 +888,9 @@ final class NtfyShBridge: ObservableObject {
                 Log.w(Self.tag, "Registration failed (HTTP \(status)); backing off")
             }
         }
-        if obsolete { Log.d(Self.tag, "Dropped the reply to an older registration"); return }
+        // Refusals are about the names, not the list: kept even for a reply to an older one.
         if status == 200 { markRefused(reply?.unwatchable) }
+        if obsolete { Log.d(Self.tag, "Dropped the reply to an older registration") }
     }
 
     private func finish(_ completion: (() -> Void)?) {
@@ -1211,22 +1255,25 @@ final class NtfyShBridge: ObservableObject {
             }
             var status = Status.unavailable
             var repair = false
-            var refused: [String]?
+            // The server's refusals are evidence about the names, kept even when the record
+            // write below is skipped (lock busy) or the answer crossed a newer registration.
+            let decoded = code == 200 ? data.flatMap { try? JSONDecoder().decode(Reply.self, from: $0) } : nil
+            let refused = decoded?.unwatchable
             var crossed = false
             self.mutate { next in
                 guard (next.revision ?? 0) == revision else { crossed = true; return }
                 if code == 404 {
                     status = .unknownDevice
                     if next.mayHaveEntries || next.acceptedSignature != nil { next.repairRequested = true; repair = true }
-                } else if code == 200, let data, let reply = try? JSONDecoder().decode(Reply.self, from: data) {
+                } else if let reply = decoded {
                     status = reply.connected ? .connected(watching: reply.watching) : .notConnected(watching: reply.watching)
                     next.unwatchable = reply.unwatchable
                     next.statusConnected = reply.connected
                     next.statusAt = self.now()
                     next.statusRevision = revision
-                    refused = reply.unwatchable
                 }
             }
+            self.markRefused(refused)
             if crossed {
                 // A registration started meanwhile: this answer describes the list it replaced.
                 Log.d(Self.tag, "Status: answer crossed a newer registration" + (retryOnNewRegistration ? "; reading again" : ""))
@@ -1236,7 +1283,6 @@ final class NtfyShBridge: ObservableObject {
                 }
                 return
             }
-            self.markRefused(refused)
             Log.d(Self.tag, "Status: \(status) (HTTP \(code.map(String.init) ?? "none"))")
             DispatchQueue.main.async {
                 completion(status)

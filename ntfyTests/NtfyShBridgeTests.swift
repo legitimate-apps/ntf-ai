@@ -1898,3 +1898,58 @@ final class NotificationServiceExpiryTests: XCTestCase {
         withExtendedLifetime(service) {}
     }
 }
+
+extension NtfyShBridgeTests {
+    /// Red on e46c1d6 (security review of fix round 2): a refusal that arrived while the shared
+    /// lock was busy was dropped (the status path read it inside the skipped record write, and
+    /// `saveAccess` skipped silently), so the earlier 200 stayed and the protected name went out in
+    /// the next list. Now the refusal is kept in force in the process and saved with the next write.
+    func testALockTimeoutWhileSavingARefusalKeepsTheNameOutOfTheNextPost() throws {
+        let path = NSTemporaryDirectory() + "bridge-refusal-\(UUID()).lock"
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BridgeStubProtocol.self]
+        bridge = NtfyShBridge(store: store, defaults: defaults, session: URLSession(configuration: config),
+                              appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock },
+                              lock: SharedFileLock(path: path), stateDirectory: stateDirectory)
+        _ = store.saveUser(baseUrl: "https://ntfy.sh", username: "u", password: "p")
+        save("https://ntfy.sh", "a_q7x")
+        save("https://ntfy.sh", "b_q7x")
+        BridgeStubProtocol.reply = { request in
+            request.url?.path.hasSuffix("/auth") == true ? .success((200, [:], ""))
+                : .success((200, [:], #"{"watching":2,"expires":1900000000}"#))
+        }
+        sync()
+        XCTAssertEqual(Set(try lastBody()["ntfy_sh_topics"] as? [String] ?? []), ["a_q7x", "b_q7x"])
+
+        // Another process holds the lock for the whole status read that reports the refusal.
+        let holder = SharedFileLock(path: path)
+        let held = expectation(description: "held")
+        let release = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { holder.withLock { held.fulfill(); release.wait() } }
+        wait(for: [held], timeout: 2)
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"connected":true,"unwatchable":["a_q7x"]}"#)) }
+        let status = expectation(description: "status")
+        bridge.fetchStatus { _ in status.fulfill() }
+        wait(for: [status], timeout: 10)
+        XCTAssertEqual(bridge.access["a_q7x"]?.state, .refused, "in force although it couldn't be saved")
+        release.signal()
+
+        // The next registration leaves the name out, and asks ntfy.sh nothing (the refusal is fresh).
+        let before = BridgeStubProtocol.sent.count
+        BridgeStubProtocol.reply = { request in
+            request.url?.path.hasSuffix("/auth") == true ? .success((200, [:], ""))
+                : .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
+        }
+        sync()
+        let newer = BridgeStubProtocol.sent.dropFirst(before)
+        XCTAssertFalse(newer.contains { $0.request.url?.path.hasSuffix("/auth") == true })
+        let post = try XCTUnwrap(newer.last { $0.request.url?.path.hasSuffix("/v1/ntfai/watch") == true })
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: post.body ?? Data()) as? [String: Any])
+        XCTAssertEqual(body["ntfy_sh_topics"] as? [String], ["b_q7x"])
+
+        // And it was written with that save, so a fresh process sees it too.
+        let fresh = NtfyShBridge(store: store, defaults: defaults, network: false, now: { [unowned self] in self.clock },
+                                 lock: SharedFileLock(path: path), stateDirectory: stateDirectory)
+        XCTAssertEqual(fresh.access["a_q7x"]?.state, .refused)
+    }
+}
