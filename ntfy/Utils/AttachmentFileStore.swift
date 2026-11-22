@@ -30,11 +30,13 @@ enum AttachmentFileStore {
         configuration: URLSessionConfiguration? = nil,
         onProgress: ((Int16) -> Void)? = nil
     ) async throws -> DownloadedAttachmentFile {
-        let request = makeRequest(
+        let (request, delegate) = prepareDownload(
             remoteUrl: remoteUrl,
             baseUrl: baseUrl,
             authorizationHeader: authorizationHeader,
-            credentialStore: credentialStore
+            credentialStore: credentialStore,
+            maxSize: maxSize,
+            onProgress: onProgress
         )
 
         let config = configuration ?? URLSessionConfiguration.default
@@ -43,12 +45,6 @@ enum AttachmentFileStore {
             config.timeoutIntervalForResource = 30
         }
 
-        let delegate = DownloadDelegate(
-            maxSize: maxSize,
-            onProgress: onProgress,
-            baseUrl: baseUrl,
-            customHeaderNames: Array(credentialStore.httpHeaders(baseUrl: baseUrl).keys)
-        )
         let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         // A delegate session lives (delegate included) until invalidated; this one is per download.
         defer { session.finishTasksAndInvalidate() }
@@ -86,15 +82,47 @@ enum AttachmentFileStore {
         authorizationHeader: String?,
         credentialStore: CredentialStoring = KeychainCredentialStore.shared
     ) -> URLRequest {
-        var request = URLRequest(url: remoteUrl)
+        prepareRequest(remoteUrl: remoteUrl, baseUrl: baseUrl, authorizationHeader: authorizationHeader,
+                       credentialStore: credentialStore).request
+    }
+
+    static func prepareDownload(
+        remoteUrl: URL,
+        baseUrl: String,
+        authorizationHeader: String?,
+        credentialStore: CredentialStoring,
+        maxSize: Int64?,
+        onProgress: ((Int16) -> Void)?
+    ) -> (request: URLRequest, delegate: DownloadDelegate) {
+        let (request, customHeaderNames) = prepareRequest(remoteUrl: remoteUrl, baseUrl: baseUrl,
+            authorizationHeader: authorizationHeader, credentialStore: credentialStore)
+        let delegate = DownloadDelegate(maxSize: maxSize, onProgress: onProgress,
+            baseUrl: baseUrl, customHeaderNames: customHeaderNames)
+        return (request, delegate)
+    }
+
+    private static func prepareRequest(
+        remoteUrl: URL,
+        baseUrl: String,
+        authorizationHeader: String?,
+        credentialStore: CredentialStoring
+    ) -> (request: URLRequest, customHeaderNames: [String]) {
+        var request = URLRequest(url: NtfyShAddress.transportURL(remoteUrl))
         request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
-        ServerCredentials.apply(
+        let authorization: String?
+        if let store = ServerCredentials.sharedStoreForNtfyShTransport(baseUrl: baseUrl, credentialStore: credentialStore) {
+            let login = store.transportLogin(baseUrl: baseUrl)
+            authorization = login.hasAccount ? login.credential?.toHeader() : authorizationHeader
+        } else {
+            authorization = authorizationHeader
+        }
+        let customHeaderNames = ServerCredentials.apply(
             to: &request,
             baseUrl: baseUrl,
-            authorizationHeader: authorizationHeader,
+            authorizationHeader: authorization,
             credentialStore: credentialStore
         )
-        return request
+        return (request, customHeaderNames)
     }
 
     static func existingLocalFileUrl(

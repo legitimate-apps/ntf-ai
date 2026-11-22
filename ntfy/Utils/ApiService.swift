@@ -47,9 +47,10 @@ class ApiService {
             completionHandler(nil, URLError(.badURL))
             return nil
         }
-        Log.d(tag, "Polling single message from \(url) with user \(user?.username ?? "anonymous")")
-        
-        let request = newRequest(url: url, baseUrl: baseUrl, user: user)
+        let credential = transportCredential(baseUrl: baseUrl, supplied: user)
+        Log.d(tag, "Polling single message from \(url) with user \(credential?.username ?? "anonymous")")
+
+        let request = newRequest(url: url, baseUrl: baseUrl, user: credential)
         let session = runOneShot(request, timeout: timeout, baseUrl: baseUrl) { (data, response, error) in
             if let error = error {
                 completionHandler(nil, error)
@@ -169,10 +170,12 @@ class ApiService {
         completionHandler: (() -> Void)? = nil,
         failureHandler: ((PublishError) -> Void)? = nil
     ) {
+        let baseUrl = subscription.baseUrl ?? ""
+        let credential = transportCredential(baseUrl: baseUrl, supplied: user)
         let request: URLRequest
         switch buildPublishRequest(
             subscription: subscription,
-            user: user,
+            user: credential,
             message: message,
             title: title,
             priority: priority,
@@ -186,7 +189,6 @@ class ApiService {
             failureHandler?(error)
             return
         }
-        let baseUrl = subscription.baseUrl ?? ""
         guard let attempt = cooldown.claimAttempt(server: baseUrl, manual: true, kind: .publish) else {
             let seconds = Int(ceil(max(1, cooldown.deadline(for: baseUrl, kind: .publish).timeIntervalSinceNow)))
             failureHandler?(cooldown.hasNonTimeRefusal(server: baseUrl, kind: .publish) ? .publishNeedsChange : .publishWait(seconds))
@@ -455,6 +457,16 @@ class ApiService {
             credentialStore: credentialStore
         )
         return request
+    }
+
+    /// Single-message reads and publishes can receive a credential from the exact-row
+    /// compatibility accessor. Resolve the saved login for the wire here.
+    private func transportCredential(baseUrl: String, supplied: ServerCredential?) -> ServerCredential? {
+        guard let store = ServerCredentials.sharedStoreForNtfyShTransport(baseUrl: baseUrl, credentialStore: credentialStore) else {
+            return supplied
+        }
+        let login = store.transportLogin(baseUrl: baseUrl)
+        return login.hasAccount ? login.credential : supplied
     }
     
     /// Runs one request. A session this creates is invalidated as soon as its task is queued

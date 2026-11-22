@@ -236,7 +236,7 @@ struct ComposeSheetView: View {
     private func loadLimits() {
         guard !encrypted else { return }
         let baseURL = subscription.baseUrl ?? ""
-        model.loadLimits(baseURL: baseURL, user: store.getBasicUser(baseUrl: baseURL))
+        model.loadLimits(baseURL: baseURL, user: store.getTransportCredential(baseUrl: baseURL))
     }
     private func close() {
         model.close()

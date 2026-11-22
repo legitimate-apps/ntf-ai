@@ -104,13 +104,20 @@ extension CredentialStoring {
         return headers
     }
 
-    /// The headers a request to this server carries: the row's own spelling first, then, for an
-    /// ntfy.sh alias, those saved for `https://ntfy.sh` (every alias is fetched there).
-    func serviceHTTPHeaders(baseUrl: String) -> [String: String] {
-        let own = httpHeaders(baseUrl: baseUrl)
-        guard own.isEmpty, let canonical = NtfyShAddress.canonicalize(baseUrl),
-              normalizeBaseUrl(baseUrl) != canonical else { return own }
-        return httpHeaders(baseUrl: canonical)
+    /// The canonical host's headers take precedence for every ntfy.sh alias. An unreadable
+    /// canonical entry is not evidence that the alias's credentials should be used.
+    func readTransportHTTPHeaders(baseUrl: String) -> HTTPHeadersReadResult {
+        guard let canonical = NtfyShAddress.canonicalize(baseUrl) else {
+            return readHTTPHeaders(baseUrl: baseUrl)
+        }
+        let result = readHTTPHeaders(baseUrl: canonical)
+        guard normalizeBaseUrl(baseUrl) != canonical,
+              case .success(let headers) = result, headers.isEmpty else { return result }
+        switch readCredential(baseUrl: canonical, username: "") {
+        case .found: return result // Alias headers, including Authorization, cannot override a new canonical login.
+        case .notFound: return readHTTPHeaders(baseUrl: baseUrl)
+        case .failed: return .failure
+        }
     }
 }
 
@@ -134,21 +141,32 @@ enum ServerCredentials {
         return nil
     }
 
+    /// Saved-login requests from the app and extensions all have access to this store. Explicit
+    /// credentials supplied for validation and clients with an injected store stay caller-owned.
+    static func sharedStoreForNtfyShTransport(baseUrl: String, credentialStore: CredentialStoring) -> Store? {
+        guard NtfyShAddress.isNtfySh(baseUrl),
+              credentialStore === KeychainCredentialStore.shared else { return nil }
+        return Store.shared
+    }
+
+    @discardableResult
     static func apply(
         to request: inout URLRequest,
         baseUrl: String,
         authorizationHeader: String? = nil,
         credentialStore: CredentialStoring = KeychainCredentialStore.shared
-    ) {
+    ) -> [String] {
         guard request.url.map({ sameOrigin($0, transportOrigin(baseUrl)) }) == true else {
-            return
+            return []
         }
         if let authorizationHeader {
             request.setValue(authorizationHeader, forHTTPHeaderField: "Authorization")
         }
-        for (name, value) in credentialStore.serviceHTTPHeaders(baseUrl: baseUrl) {
+        guard case .success(let headers) = credentialStore.readTransportHTTPHeaders(baseUrl: baseUrl) else { return [] }
+        for (name, value) in headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
+        return Array(headers.keys)
     }
 
     static func removingCredentialsFromCrossOriginRedirect(
@@ -195,7 +213,11 @@ final class ServerCredentialRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
     init(baseUrl: String, credentialStore: CredentialStoring) {
         self.baseUrl = baseUrl
-        self.headerNames = Array(credentialStore.serviceHTTPHeaders(baseUrl: baseUrl).keys)
+        if case .success(let headers) = credentialStore.readTransportHTTPHeaders(baseUrl: baseUrl) {
+            self.headerNames = Array(headers.keys)
+        } else {
+            self.headerNames = []
+        }
     }
 
     func urlSession(

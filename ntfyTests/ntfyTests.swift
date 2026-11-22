@@ -8551,6 +8551,91 @@ extension ntfyTests {
 }
 
 final class CredentialReviewTests: XCTestCase {
+    private final class PollService: ApiService {
+        var requests: [URLRequest] = []
+
+        override func runOneShot(_ request: URLRequest, timeout: TimeInterval, baseUrl: String,
+                                 session: URLSession? = nil,
+                                 completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void) -> URLSession {
+            requests.append(request)
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)
+            completionHandler(Data(), response, nil)
+            return .shared
+        }
+    }
+
+    func testSavingCanonicalReplacementSendsNewTokenOnTheNextLegacyPoll() throws {
+        let credentials = InMemoryCredentialStore()
+        let store = Store(inMemory: true, credentialStore: credentials)
+        let service = PollService(credentialStore: credentials)
+        let legacy = "http://ntfy.sh"
+        let canonical = "https://ntfy.sh"
+        let row = store.saveSubscription(baseUrl: legacy, topic: "alerts")
+        XCTAssertTrue(store.saveUser(baseUrl: legacy, credential: .accessToken("tk_revoked")))
+        service.poll(try XCTUnwrap(store.pollRequest(for: row))) { _, _ in }
+        XCTAssertEqual(service.requests.last?.value(forHTTPHeaderField: "Authorization"), "Bearer tk_revoked")
+
+        XCTAssertTrue(credentials.setHTTPHeaders(["Authorization": "Bearer tk_stale_custom"], baseUrl: legacy))
+        XCTAssertNil(store.getUser(baseUrl: canonical), "the legacy account is not an editable canonical account")
+        XCTAssertTrue(store.saveUser(baseUrl: canonical, credential: .accessToken("tk_replacement")))
+        service.poll(try XCTUnwrap(store.pollRequest(for: row))) { _, _ in }
+        XCTAssertEqual(service.requests.last?.url?.absoluteString, canonical + "/alerts/json?poll=1&since=all")
+        XCTAssertEqual(service.requests.last?.value(forHTTPHeaderField: "Authorization"), "Bearer tk_replacement")
+        XCTAssertEqual(store.getUser(baseUrl: canonical)?.baseUrl, canonical)
+        XCTAssertEqual(store.getUser(baseUrl: legacy)?.baseUrl, legacy)
+        XCTAssertEqual(store.getBasicUser(baseUrl: legacy), .accessToken("tk_revoked"), "the account editor reads its own secret")
+        XCTAssertEqual(credentials.readCredential(baseUrl: legacy, username: ""), .found(.accessToken("tk_revoked")))
+    }
+
+    func testAliasAttachmentRequestUsesHTTPSAndTheCanonicalCredentials() throws {
+        let credentials = InMemoryCredentialStore()
+        let canonical = "https://ntfy.sh"
+        XCTAssertTrue(credentials.setHTTPHeaders(["X-Canonical-Key": "canonical"], baseUrl: canonical))
+        for alias in ["http://ntfy.sh", "https://www.ntfy.sh"] {
+            XCTAssertTrue(credentials.setHTTPHeaders(["X-Legacy-Key": "stale"], baseUrl: alias))
+            let url = try XCTUnwrap(URL(string: alias + "/file/abc%20def.png?download=1"))
+            let request = AttachmentFileStore.makeRequest(remoteUrl: url, baseUrl: alias,
+                authorizationHeader: "Bearer tk_attachment", credentialStore: credentials)
+            XCTAssertEqual(request.url?.absoluteString, canonical + "/file/abc%20def.png?download=1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tk_attachment")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Canonical-Key"), "canonical")
+            XCTAssertNil(request.value(forHTTPHeaderField: "X-Legacy-Key"))
+        }
+    }
+
+    func testAliasAttachmentRedirectStripsEveryHeaderAttachedByTheDownloader() throws {
+        let credentials = InMemoryCredentialStore()
+        let baseUrl = "http://ntfy.sh"
+        let remoteUrl = try XCTUnwrap(URL(string: "https://ntfy.sh/file/image.png"))
+        let custom = ["X-Canonical-Key": "secret", "X-Second-Key": "second", "User-Agent": "custom"]
+        XCTAssertTrue(credentials.setHTTPHeaders(custom, baseUrl: "https://ntfy.sh"))
+        let (request, delegate) = AttachmentFileStore.prepareDownload(remoteUrl: remoteUrl, baseUrl: baseUrl,
+            authorizationHeader: "Bearer tk_attachment", credentialStore: credentials, maxSize: nil, onProgress: nil)
+        // A storage change during the download must not affect which headers are stripped.
+        XCTAssertTrue(credentials.deleteHTTPHeaders(baseUrl: "https://ntfy.sh"))
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        let response = try XCTUnwrap(HTTPURLResponse(url: remoteUrl, statusCode: 302, httpVersion: nil, headerFields: nil))
+        let task = session.downloadTask(with: request)
+        let target = try XCTUnwrap(URL(string: "https://elsewhere.example/image.png"))
+        var redirected = request
+        redirected.url = target
+        redirected.setValue("image/*", forHTTPHeaderField: "Accept")
+
+        for (name, value) in custom { XCTAssertEqual(request.value(forHTTPHeaderField: name), value) }
+        let legacyDelegate = DownloadDelegate(maxSize: nil, onProgress: nil, baseUrl: baseUrl,
+            customHeaderNames: Array(credentials.httpHeaders(baseUrl: baseUrl).keys))
+        legacyDelegate.urlSession(session, task: task, willPerformHTTPRedirection: response, newRequest: redirected) { historical in
+            XCTAssertEqual(historical?.value(forHTTPHeaderField: "X-Canonical-Key"), custom["X-Canonical-Key"])
+        }
+        delegate.urlSession(session, task: task, willPerformHTTPRedirection: response, newRequest: redirected) { sanitized in
+            XCTAssertEqual(sanitized?.url, target)
+            XCTAssertNil(sanitized?.value(forHTTPHeaderField: "Authorization"))
+            for name in custom.keys { XCTAssertNil(sanitized?.value(forHTTPHeaderField: name), name) }
+            XCTAssertEqual(sanitized?.value(forHTTPHeaderField: "Accept"), "image/*")
+        }
+    }
+
     func testFailedKeychainDeleteKeepsTheAccountAndCredential() throws {
         let credentials = InMemoryCredentialStore()
         let store = Store(inMemory: true, credentialStore: credentials)

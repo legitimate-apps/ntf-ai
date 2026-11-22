@@ -151,7 +151,7 @@ struct SubscriptionAddView: View {
                             .disableAutocorrection(true)
                     }
                 }
-                if let user = store.getBasicUser(baseUrl: selectedBaseUrl) {
+                if let user = store.getTransportCredential(baseUrl: selectedBaseUrl) {
                     Section {
                         NavigationLink(isActive: $showAccountTopics) {
                             AccountTopicsView(baseURL: selectedBaseUrl, user: user, store: store) { urls in
@@ -277,7 +277,7 @@ struct SubscriptionAddView: View {
     private func subscribeOrShowLoginAction() {
         loading = true
         addError = nil
-        let user = store.getBasicUser(baseUrl: selectedBaseUrl)
+        let user = store.getTransportCredential(baseUrl: selectedBaseUrl)
         // checkAuth's handler runs on a URLSession delegate queue, so everything below — SwiftUI @State
         // writes and Core Data through subscriptionManager/store — has to be hopped onto main.
         ApiService.shared.checkAuth(baseUrl: selectedBaseUrl, topic: sanitizedTopic, user: user) { result in

@@ -1042,7 +1042,7 @@ class Store: ObservableObject {
         guard let subscription = notification.subscription, let baseUrl = subscription.baseUrl,
               let topic = subscription.topic, let id = notification.id else { return nil }
         return ClearRequest(baseUrl: baseUrl, topic: topic, sequence: notification.sequenceID ?? id,
-                            user: try? fetchUser(baseUrl: baseUrl)?.toBasicUser(credentialStore: credentialStore), messageId: id)
+                            user: try? fetchTransportLogin(baseUrl: baseUrl).credential, messageId: id)
     }
 
     /// Materialize only the legacy fallback cap. Retain bounded metadata for EVERY newly read
@@ -1246,7 +1246,7 @@ class Store: ObservableObject {
                 baseUrl: baseUrl,
                 topicUrl: topicUrl(baseUrl: baseUrl, topic: topic),
                 since: subscription.sequenceReconcile ? nil : subscription.lastNotificationId,
-                user: try? fetchUser(baseUrl: baseUrl)?.toBasicUser(credentialStore: credentialStore)
+                user: try? fetchTransportLogin(baseUrl: baseUrl).credential
             )
         }
         return request
@@ -1604,7 +1604,7 @@ class Store: ObservableObject {
                 // Write before inserting or mutating a row. Failure leaves the editor's user intact
                 // and creates no orphan account that would silently poll without a password.
                 if let password, !credentialStore.setPassword(password, baseUrl: normalized) { return }
-                let user = getUser(baseUrl: baseUrl) ?? User(context: context)
+                let user = try fetchUser(baseUrl: normalized) ?? User(context: context)
                 user.baseUrl = normalized
                 user.username = username
                 // The password goes to the Keychain, never to Core Data. The column stays on the
@@ -1633,7 +1633,10 @@ class Store: ObservableObject {
         var saved = false
         context.performAndWait {
             let normalized = normalizeBaseUrl(baseUrl)
-            let existing = getUser(baseUrl: normalized)
+            let existing: User?
+            do {
+                existing = try fetchUser(baseUrl: normalized)
+            } catch { return }
             let previous = credentialStore.readCredential(baseUrl: normalized, username: existing?.username ?? "")
             if case .failed = previous { return }
             let user = existing ?? User(context: context)
@@ -1700,15 +1703,29 @@ class Store: ObservableObject {
     }
     
     func getUser(baseUrl: String) -> User? {
-        try? fetchUser(baseUrl: baseUrl)
+        context.performAndWait { try? fetchUser(baseUrl: baseUrl) }
     }
 
+    /// Account displays and edits must read the selected row's own secret. Retain the legacy
+    /// convenience fallback for callers that have a server spelling but no account row there.
     func getBasicUser(baseUrl: String) -> BasicUser? {
-        var basicUser: BasicUser?
         context.performAndWait {
-            basicUser = try? fetchUser(baseUrl: baseUrl)?.toBasicUser(credentialStore: credentialStore)
+            do {
+                if let account = try fetchUser(baseUrl: baseUrl) {
+                    return account.toBasicUser(credentialStore: credentialStore)
+                }
+                guard NtfyShAddress.isNtfySh(baseUrl) else { return nil }
+                return try fetchTransportLogin(baseUrl: baseUrl).credential
+            } catch { return nil }
         }
-        return basicUser
+    }
+
+    func getTransportCredential(baseUrl: String) -> ServerCredential? {
+        transportLogin(baseUrl: baseUrl).credential
+    }
+
+    func transportLogin(baseUrl: String) -> (credential: ServerCredential?, hasAccount: Bool) {
+        context.performAndWait { (try? fetchTransportLogin(baseUrl: baseUrl)) ?? (nil, true) }
     }
 
     func findSubscriptionMatch(forPollRequestTopic topic: String, preferredBaseUrl: String? = nil) -> (baseUrl: String, topic: String)? {
@@ -2095,15 +2112,43 @@ class Store: ObservableObject {
         return try context.fetch(fetchRequest).first
     }
 
-    /// The user for this server. An ntfy.sh alias is fetched over https://ntfy.sh, so a login saved
-    /// under any spelling serves it: its own spelling first, then https://ntfy.sh, then any other.
+    /// The account for this exact stored server address.
     private func fetchUser(baseUrl: String) throws -> User? {
         let request = User.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "baseUrl = %@", normalizeBaseUrl(baseUrl))])
-        if let own = try context.fetch(request).first { return own }
-        guard NtfyShAddress.isNtfySh(baseUrl) else { return nil }
-        let aliases = try context.fetch(User.fetchRequest()).filter { $0.baseUrl.map(NtfyShAddress.isNtfySh) == true }
-        return aliases.first { $0.baseUrl.map(normalizeBaseUrl) == NtfyShAddress.canonical } ?? aliases.first
+        request.predicate = NSPredicate(format: "baseUrl = %@", normalizeBaseUrl(baseUrl))
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    /// Called on the context's queue. The chosen account supplies both the legacy username and
+    /// the exact Keychain key. All aliases go to the canonical host, so a new canonical login
+    /// supersedes any older alias login without moving or overwriting that alias's account.
+    private func fetchTransportLogin(baseUrl: String) throws -> (credential: ServerCredential?, hasAccount: Bool) {
+        let exact = normalizeBaseUrl(baseUrl)
+        guard let canonical = NtfyShAddress.canonicalize(baseUrl) else {
+            let account = try fetchUser(baseUrl: exact)
+            return (account?.toBasicUser(credentialStore: credentialStore), account != nil)
+        }
+        let request = User.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "baseUrl", ascending: true)]
+        let accounts = try context.fetch(request).filter { $0.baseUrl.map(NtfyShAddress.isNtfySh) == true }
+        let canonicalCredential = accounts.first { $0.baseUrl == canonical }
+        let exactCredential = accounts.first { $0.baseUrl == exact && exact != canonical }
+        var candidates = [canonicalCredential, exactCredential].compactMap { $0 }
+        candidates += accounts.filter { $0.baseUrl != canonical && $0.baseUrl != exact }
+        for account in candidates {
+            guard let key = account.baseUrl else { continue }
+            switch credentialStore.readCredential(baseUrl: key, username: account.username ?? "?") {
+            case .found(let credential): return (credential, true)
+            case .failed: return (nil, true)
+            case .notFound:
+                // Keep pre-Keychain stores working until their migration succeeds.
+                if let password = account.password, !password.isEmpty {
+                    return (.basic(username: account.username ?? "?", password: password), true)
+                }
+            }
+        }
+        return (nil, !candidates.isEmpty)
     }
 
     /// ntfy priorities run 1...5 and the Core Data model enforces that range — but Core Data
