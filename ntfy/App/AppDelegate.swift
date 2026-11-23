@@ -76,6 +76,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         }
         // Rows an earlier unsubscribe left behind would show as nameless cards; once gone, a no-op.
         Store.shared.removeOrphanedRows()
+        // So do alert claims of topics no longer subscribed, should an unsubscribe's sweep have failed.
+        Store.shared.pruneClaimsOfRemovedTopics()
         // The extension's entry fallback reads mutes and quiet-hours exceptions from this (review-130c C6).
         policySnapshot = Store.shared.startNotificationPolicySnapshot()
 
@@ -456,19 +458,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         UIApplication.shared.endBackgroundTask($0)
     }
 
-    func showNotification(baseUrl: String, _ message: Message, completionHandler: (() -> Void)? = nil) {
+    /// Seconds the attachment download may take: 20, or within a wake what is left of it, less
+    /// time to schedule the banner (review-130d D3).
+    static func attachmentTimeout(wake: WakeContext?) -> TimeInterval {
+        guard let wake else { return 20 }
+        return max(0.5, min(20, wake.remaining - 2))
+    }
+
+    /// Within a wake (`wake`), every step of this message's presentation stops when the wake ends:
+    /// the attachment download is bounded by its remaining time and isn't recorded after it, and the
+    /// wake is checked again right before the claim and the scheduler (review-130d D3). The message
+    /// is saved either way and shows in the app.
+    func showNotification(baseUrl: String, _ message: Message, wake: WakeContext? = nil, completionHandler: (() -> Void)? = nil) {
+        let stillNeeded = { wake?.isCancelled != true }
         let user = Store.shared.getBasicUser(baseUrl: baseUrl)
         let displayName = Store.shared.subscriptionDisplayName(baseUrl: baseUrl, topic: message.topic)
         let soundName = Store.shared.topicSoundName(baseUrl: baseUrl, topic: message.topic, library: soundLibrary)
         let content = UNMutableNotificationContent()
         content.modify(message: message, baseUrl: baseUrl, displayName: displayName, soundName: soundName)
-        content.attachImageIfNeeded(message: message, baseUrl: baseUrl, user: user) {
+        content.attachImageIfNeeded(message: message, baseUrl: baseUrl, user: user, timeout: Self.attachmentTimeout(wake: wake),
+                                    stillNeeded: stillNeeded) {
             content.configureInterruption(message: message, soundName: soundName)
             content.applyTopicMute(baseUrl: baseUrl, topic: message.topic)
             let request = UNNotificationRequest(identifier: message.id, content: content, trigger: nil /* now */)
             // Acquire background execution on main before the shared-container lock or scheduler.
             // Expiration cancels the pending delivery and relinquishes its lock before ending the task.
             DispatchQueue.main.async {
+                guard stillNeeded() else {
+                    Log.w(self.tag, "Background wake ended; message \(message.id) not presented, saved for the app")
+                    completionHandler?()
+                    return
+                }
                 var cancel: () -> Void = {}
                 var task: UIBackgroundTaskIdentifier = .invalid
                 task = self.beginNotificationBackgroundTask { cancel() }
@@ -481,7 +501,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                     }
                     return
                 }
-                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, delivery: { finished in
+                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, stillNeeded: stillNeeded, delivery: { finished in
                     self.notificationScheduler(request) { error in
                         if let error { Log.e(self.tag, "Unable to create notification", error) }
                         finished(error == nil)
@@ -508,7 +528,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
             return
         }
 
-        showNotification(baseUrl: baseUrl, firstMessage) {
+        showNotification(baseUrl: baseUrl, firstMessage, wake: wake) {
             self.showNotificationsSequentially(
                 baseUrl: baseUrl,
                 messages: Array(messages.dropFirst()),

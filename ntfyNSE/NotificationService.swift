@@ -41,23 +41,34 @@ class NotificationService: UNNotificationServiceExtension {
             processedIdentity = newValue
             // Only a delivered claim counts as alerted, and this extension marks its own only
             // immediately before its handoff, so the evidence is never our own (review-130c C5).
+            // The two reasons latched here are final: a delivery, or the user's mute.
             expiryIsQuiet = expiryIsQuiet || alerted || muted
         }
     }
     private var quietHours = QuietHours.load()
     private var expiryIsQuiet = false
     private var processedIdentity: (message: Message, baseUrl: String)?
-    /// Settled before the slow steps of a presentation: true when this extension alerts the
-    /// message, false when the app or an earlier delivery already did. Nil means not claimed.
-    private var alertClaim: Bool? {
+    /// What the reservation taken before the slow steps of a presentation found (review-130d D4).
+    enum AlertDecision: Equatable {
+        /// This extension alerts the message (reserved, or the claims couldn't be had).
+        case ours
+        /// The app or an earlier delivery already delivered it: final, and quiet at expiry too.
+        case delivered
+        /// Another delivery holds a fresh reservation. Provisional: it may still fail and release
+        /// it, so the handoff and the expiry both check the claims again before choosing silence.
+        case elsewhere
+    }
+    /// Settled before the slow steps of a presentation. Nil means not claimed.
+    private var alertClaim: AlertDecision? {
         get { presentationLock.lock(); defer { presentationLock.unlock() }; return claimedAlert }
         set {
             presentationLock.lock(); defer { presentationLock.unlock() }
             claimedAlert = newValue
-            if newValue == false { expiryIsQuiet = true }
+            // Only a delivery is evidence for silence; a reservation elsewhere is not (review-130d D4).
+            if newValue == .delivered { expiryIsQuiet = true }
         }
     }
-    private var claimedAlert: Bool?
+    private var claimedAlert: AlertDecision?
     /// This request's delivery token: its reservation and delivered mark in the claims file.
     private var claimToken = UUID().uuidString
     /// One monotonic deadline from entry, shared by every step (review-130 #5).
@@ -198,7 +209,8 @@ class NotificationService: UNNotificationServiceExtension {
             // One ownership protocol with the app (review-130c C5): the claims lock is tried for at
             // most 100 ms. Delivered by another delivery is passive; our reservation, none or a
             // busy lock alerts (marked delivered first when the lock was had). Marked immediately
-            // before the handoff below.
+            // before the handoff below. A reservation seen earlier elsewhere never latched silence,
+            // so it is read again here: released or still held, it alerts (review-130d D4).
             if !quiet, let identity, let store,
                store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl, token: token) == .alreadyAlerted {
                 quiet = true
@@ -216,15 +228,23 @@ class NotificationService: UNNotificationServiceExtension {
             quiet.relevanceScore = 0
             _ = handoff(quiet)
         }
-        if let claim = alertClaim {
-            if claim {
-                // Ours since the reservation: marked delivered immediately before the handoff.
-                if let identity = alertIdentity, isPending {
-                    store?.recordPresentation(message: identity.message, baseUrl: identity.baseUrl, by: .nse, token: token)
-                }
-                _ = handoff(final)
-            } else { passive() }
+        switch alertClaim {
+        case .ours?:
+            // Ours since the reservation: marked delivered immediately before the handoff, unless
+            // another delivery took the reservation over meanwhile; then it alerts, not us (review-130d D4).
+            if let identity = alertIdentity, isPending, let store,
+               !store.recordPresentation(message: identity.message, baseUrl: identity.baseUrl, by: .nse, token: token,
+                                         requireOwnership: true) {
+                passive()
+                return
+            }
+            _ = handoff(final)
             return
+        case .delivered?:
+            passive()
+            return
+        case .elsewhere?, nil:
+            break // Reserve now (waiting briefly for a reservation elsewhere to settle), then hand off.
         }
         guard let identity = alertIdentity, let store else {
             _ = handoff(final)
@@ -240,15 +260,19 @@ class NotificationService: UNNotificationServiceExtension {
     /// Reserves the alert for this request before category registration and the attachment
     /// download (review-130c C5). A reservation is not a delivery: the app's poll sees it as
     /// someone presenting now and stays passive while it is fresh (30 s), and this extension marks
-    /// it delivered only immediately before its handoff. Already delivered, or reserved by another
-    /// delivery, is passive. An unavailable claims file alerts (a rare duplicate beats a lost alert).
+    /// it delivered only immediately before its handoff. Already delivered is passive; reserved by
+    /// another delivery is provisional and asked again later (`AlertDecision.elsewhere`). An
+    /// unavailable claims file alerts (a rare duplicate beats a lost alert).
     private func claimAlert(then next: @escaping () -> Void) {
         guard let identity = alertIdentity, let store else { next(); return }
         let token = self.token
         DispatchQueue.global(qos: .userInitiated).async {
             guard self.isPending else { return }
-            let reservation = store.reserveAlert(message: identity.message, baseUrl: identity.baseUrl, token: token, by: .nse)
-            self.alertClaim = reservation != .passive
+            switch store.reserveAlert(message: identity.message, baseUrl: identity.baseUrl, token: token, by: .nse) {
+            case .reserved, .unavailable: self.alertClaim = .ours
+            case .passive: self.alertClaim = .delivered
+            case .reservedElsewhere: self.alertClaim = .elsewhere
+            }
             next()
         }
     }
@@ -377,8 +401,9 @@ class NotificationService: UNNotificationServiceExtension {
         // The best attempt stays what it is (a poll_request's ready placeholder, or the push as
         // received) until `presentClaimed` has formatted this message (review-130b #5).
         guard isPending else { return }
-        // A poll_request claimed its alert before fetching: the row exists now, so mark it.
-        if alertClaim != nil {
+        // A poll_request claimed its alert before fetching: the row exists now, so mark it. A
+        // reservation that was elsewhere then is asked for again.
+        if let claim = alertClaim, claim != .elsewhere {
             // Marked delivered at the handoff, not here (review-130c C5).
             DispatchQueue.global(qos: .userInitiated).async { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
             return

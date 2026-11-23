@@ -354,6 +354,13 @@ extension UNMutableNotificationContent {
             return
         }
 
+        // The delivery (the extension's request, or the app's background wake) already ended: no
+        // download starts for it (review-130d D3). The summary still names the attachment.
+        guard stillNeeded() else {
+            completeAttachmentHandling(message: message, didAttachImage: false, completionHandler: completionHandler)
+            return
+        }
+
         // Tests may inject a recording session to prove whether policy starts a request at all.
         // Production uses the shared bounded downloader below, which cancels as bytes arrive and
         // verifies the final file size even when neither the payload nor HTTP response declared it.

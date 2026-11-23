@@ -2378,7 +2378,7 @@ extension PresentationClaimTests {
     func testTheAppsReservationKeepsTheExtensionPassiveUntilExpiry() {
         let (store, message) = pair()
         XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "app", by: .app), .reserved)
-        XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "nse", by: .nse), .passive)
+        XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "nse", by: .nse), .reservedElsewhere)
         XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example", token: "nse"), .alert,
                        "the app hasn't delivered: a rare duplicate beats a lost alert")
         XCTAssertTrue(store.hasClaimBeforeRow(message: message, baseUrl: "https://home.example"))
@@ -2389,7 +2389,7 @@ extension PresentationClaimTests {
     func testTheExtensionsOwnReservationAlertsAtExpiryAndTheAppStaysPassive() {
         let (store, message) = pair()
         XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "nse", by: .nse), .reserved)
-        XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "app", by: .app), .passive)
+        XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "app", by: .app), .reservedElsewhere)
         XCTAssertEqual(store.claimAtExpiry(message: message, baseUrl: "https://home.example", token: "nse"), .alert)
         XCTAssertEqual(store.reserveAlert(message: message, baseUrl: "https://home.example", token: "app2", by: .app), .passive)
         // Delivered by the app first: the extension's expiry is passive.

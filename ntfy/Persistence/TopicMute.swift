@@ -127,6 +127,28 @@ struct NotificationPolicySnapshot: Codable, Equatable {
         var mutedUntil: Date?
     }
     var topics: [Topic] = []
+    /// Which app process took it, and in what order its reads were taken (review-130d D5): a
+    /// snapshot never replaces a newer one from the same process. A new process (the app relaunched)
+    /// always replaces it, since nothing of the old one can still be writing. Nil before 1.30 round 4.
+    var writer: String?
+    var generation: Int?
+
+    /// This process's writer identity.
+    static let processWriter = UUID().uuidString
+    private static let generationLock = NSLock()
+    private static var lastGeneration = 0
+    /// The next generation, taken where the subscriptions are read, so it orders the reads.
+    static func nextGeneration() -> Int {
+        generationLock.lock(); defer { generationLock.unlock() }
+        lastGeneration += 1
+        return lastGeneration
+    }
+
+    /// `self` may replace `stored`: no file yet, another process's, or an older read of this one.
+    func supersedes(_ stored: NotificationPolicySnapshot?) -> Bool {
+        guard let stored, stored.writer == writer, let mine = generation, let theirs = stored.generation else { return true }
+        return mine > theirs
+    }
 
     static let fileName = "ntfai-notification-policy.json"
     static var file: SharedStateFile<NotificationPolicySnapshot> { SharedStateFile(name: fileName) }
@@ -154,20 +176,40 @@ struct NotificationPolicySnapshot: Codable, Equatable {
 extension Store {
     /// Rewrites the policy snapshot from the subscriptions (app process).
     func writeNotificationPolicy() {
-        var snapshot = NotificationPolicySnapshot()
+        guard let snapshot = readNotificationPolicy() else { return }
+        publishNotificationPolicy(snapshot)
+    }
+
+    /// The policy as the subscriptions say now, with the generation of this read. Nil when they
+    /// can't be read: the last good snapshot stays rather than an empty one (review-130d D5).
+    func readNotificationPolicy() -> NotificationPolicySnapshot? {
+        var snapshot: NotificationPolicySnapshot?
         context.performAndWait {
-            let subscriptions = (try? context.fetch(Subscription.fetchRequest())) ?? []
-            snapshot.topics = subscriptions.compactMap { sub in
-                guard let baseUrl = sub.baseUrl, let topic = sub.topic else { return nil }
-                return .init(baseUrl: baseUrl, topic: topic, hash: sub.urlHash(), mutedUntil: sub.mutedUntil)
-            }.sorted { ($0.baseUrl, $0.topic) < ($1.baseUrl, $1.topic) }
+            do {
+                let subscriptions = try subscriptionSnapshotFetch?(context) ?? context.fetch(Subscription.fetchRequest())
+                var read = NotificationPolicySnapshot(writer: NotificationPolicySnapshot.processWriter,
+                                                      generation: NotificationPolicySnapshot.nextGeneration())
+                read.topics = subscriptions.compactMap { sub in
+                    guard let baseUrl = sub.baseUrl, let topic = sub.topic else { return nil }
+                    return .init(baseUrl: baseUrl, topic: topic, hash: sub.urlHash(), mutedUntil: sub.mutedUntil)
+                }.sorted { ($0.baseUrl, $0.topic) < ($1.baseUrl, $1.topic) }
+                snapshot = read
+            } catch { Log.w(Store.tag, "Cannot read subscriptions; keeping the last notification policy", error) }
         }
+        return snapshot
+    }
+
+    /// Writes `snapshot` unless the file already holds a newer read (checked inside the file's
+    /// transaction, so two writers finishing out of order can't publish the older one).
+    @discardableResult
+    func publishNotificationPolicy(_ snapshot: NotificationPolicySnapshot) -> Bool {
         let written = NotificationPolicySnapshot.file.update { stored -> (write: Bool, result: Bool) in
-            guard stored != snapshot else { return (false, true) }
+            guard snapshot.supersedes(stored) else { return (false, false) }
             stored = snapshot
             return (true, true)
         }
         if written == nil { Log.w(Store.tag, "Cannot write the notification policy snapshot") }
+        return written == true
     }
 
     /// Keeps the snapshot current: written now and after every save that touches a subscription.

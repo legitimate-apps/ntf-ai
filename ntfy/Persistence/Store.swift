@@ -64,6 +64,8 @@ class Store: ObservableObject {
     /// Where 1.29 kept them; read until the first write moves them.
     private let legacyPresentationClaims: UserDefaults
     private static let presentationClaimsKey = "presentationClaimsBeforeRow"
+    /// Tests stand in a failing subscription query; nil reads the store.
+    var subscriptionSnapshotFetch: ((NSManagedObjectContext) throws -> [Subscription])?
     private static let presentationClaimLifetime: TimeInterval = 7 * 24 * 60 * 60
     private static let sharedDefaultsKeyCriticalAlertsAuthorized = "criticalAlertsAuthorized"
     let container: NSPersistentContainer
@@ -566,9 +568,6 @@ class Store: ObservableObject {
             let subscriptionTopicUrl = subscription.baseUrl.flatMap { baseUrl in
                 subscription.topic.map { topicUrl(baseUrl: baseUrl, topic: $0) }
             }
-            let claimTopicUrl = subscription.baseUrl.flatMap { baseUrl in
-                subscription.topic.map { Store.claimTopicUrl(baseUrl: baseUrl, topic: $0) }
-            }
             let soundIdentity = subscription.objectID.uriRepresentation().absoluteString
             context.delete(subscription)
             do {
@@ -576,7 +575,7 @@ class Store: ObservableObject {
                 deleted = true
                 soundLibrary.setChoice(nil, for: soundIdentity)
                 quietAlerts.cancel(identity: soundIdentity)
-                if let claimTopicUrl { forgetClaimsBeforeRow(topicUrl: claimTopicUrl) }
+                pruneClaimsOfRemovedTopics()
                 // The password belongs to this subscription. A failed delete doesn't block the
                 // unsubscribe: the `encrypted` flag goes with the row, nothing reads secrets for an
                 // unflagged topic, and setting a password again overwrites it, so a re-subscribe can't
@@ -764,22 +763,36 @@ class Store: ObservableObject {
 
     /// Called by both alert delivery paths, including a full-order reconciliation: the message is
     /// delivered (`by` this process). Marks the row too when it exists.
-    func recordPresentation(message: Message, baseUrl: String, by owner: AlertOwner = .current, token: String? = nil) {
-        // Every alert lands in the claims file, so the extension's expiry can tell from that file
-        // alone, without Core Data, that this message was alerted (review-130b #5).
-        if !markDelivered(message: message, baseUrl: baseUrl, by: owner, token: token) {
-            Log.w(Store.tag, "Cannot record a delivery claim; a later poll may alert this message again")
-        }
+    ///
+    /// With `requireOwnership` (the extension, immediately before its handoff), the stamp is a
+    /// compare-and-set: false when another delivery took the reservation over or already delivered,
+    /// and then the caller must not alert, and the row is left for the delivery that owns it
+    /// (review-130d D4). True otherwise, including when the claims can't be had (a rare duplicate
+    /// beats a lost first alert).
+    ///
+    /// The row's lookup (the Core Data fetch) comes before the stamp, so that from the stamp to the
+    /// caller's handoff there is one UPDATE (review-130d, tradeoffs). The UPDATE itself stays after
+    /// the stamp: an `alerted` row is delivered evidence too, so writing it first wouldn't shorten
+    /// the window, and it would mark the row for a delivery that then loses its claim.
+    @discardableResult
+    func recordPresentation(message: Message, baseUrl: String, by owner: AlertOwner = .current, token: String? = nil,
+                            requireOwnership: Bool = false) -> Bool {
+        var rowTopic: Subscription?
         context.performAndWait {
             guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: message.topic) else { return }
             let request = Notification.fetchRequest()
             request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, message.id)
-            if ((try? context.count(for: request)) ?? 0) > 0 {
-                markPresented(id: message.id, on: subscription)
-            }
+            if ((try? context.count(for: request)) ?? 0) > 0 { rowTopic = subscription }
             // No row yet (the extension's fallback for a poll_request it couldn't fetch, or is
-            // still fetching): the claim above keeps a later poll from alerting it again.
+            // still fetching): the claim below keeps a later poll from alerting it again.
         }
+        // Every alert lands in the claims file, so the extension's expiry can tell from that file
+        // alone, without Core Data, that this message was alerted (review-130b #5).
+        let stamped = markDelivered(message: message, baseUrl: baseUrl, by: owner, token: token, requireOwnership: requireOwnership)
+        if stamped == nil { Log.w(Store.tag, "Cannot record a delivery claim; a later poll may alert this message again") }
+        guard stamped != false else { return false }
+        if let rowTopic { context.performAndWait { markPresented(id: message.id, on: rowTopic) } }
+        return true
     }
 
     /// The claims file: one record per message, shared by the app and the extension (review-130c C5).
@@ -859,15 +872,12 @@ class Store: ObservableObject {
             migrated = stored == nil
             let before = claims
             claims = claims.filter { now.timeIntervalSince($0.value.at) < Self.presentationClaimLifetime }
-            // Cleanups that couldn't be written before go first (review-130c C6).
-            for topicUrl in pendingClaimCleanups() { claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }
             let result = change(&claims)
             let write = claims != before || stored == nil
             if write { stored = claims }
             return (write, result)
         }
         if result != nil {
-            if !pendingClaimCleanups().isEmpty { legacyPresentationClaims.removeObject(forKey: Self.claimCleanupKey) }
             if migrated {
                 legacyPresentationClaims.removeObject(forKey: Self.presentationClaimsKey)
                 try? FileManager.default.removeItem(at: legacyClaimFile.url)
@@ -876,32 +886,39 @@ class Store: ObservableObject {
         return result
     }
 
+    /// The pre-1.30 defaults list of cleanups to retry; the sweep below replaced it (review-130d D5).
     private static let claimCleanupKey = "alertClaimCleanupsPending"
-    private func pendingClaimCleanups() -> [String] { legacyPresentationClaims.stringArray(forKey: Self.claimCleanupKey) ?? [] }
 
-    /// Whose the message is now, for a delivery holding `token`.
+    /// Whose the message is now, for a delivery holding `token`. The reasons stay distinct
+    /// (review-130d D4): only a delivery is final; a reservation elsewhere may still be released.
     enum AlertReservation: Equatable {
         /// This delivery owns it: present, then `markDelivered`.
         case reserved
-        /// Already delivered, or another delivery is presenting it now: stay passive.
+        /// Already delivered (claim or row): stay passive.
         case passive
+        /// Another delivery holds a fresh reservation: it may still fail and release it, so this is
+        /// provisional; check again before choosing silence.
+        case reservedElsewhere
         /// The claims couldn't be had: alert anyway (a rare duplicate beats a lost first alert).
         case unavailable
     }
 
-    /// Reserve the alert for `token` (review-130c C5): delivered, or freshly reserved by another
-    /// delivery, is passive; otherwise (nothing, a stale reservation, our own) it is ours.
+    private static func isFresh(_ claim: AlertClaim, now: Date) -> Bool {
+        now.timeIntervalSince(claim.at) < reservationLifetime && claim.at <= now.addingTimeInterval(5)
+    }
+
+    /// Reserve the alert for `token` (review-130c C5): delivered is passive, a fresh reservation by
+    /// another delivery is `reservedElsewhere`; otherwise (nothing, a stale reservation, our own) it is ours.
     func reserveAlert(message: Message, baseUrl: String, token: String, by owner: AlertOwner = .current,
                       timeout: TimeInterval = SharedFileLock.defaultTimeout) -> AlertReservation {
         if rowWasAlerted(message: message, baseUrl: baseUrl) { return .passive }
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
         let now = Date()
         let outcome: AlertReservation? = updateClaims(timeout: timeout) { claims in
-            if let claim = claims[key], claim.token != token {
+            if let claim = claims[key] {
                 if claim.state == .delivered { return .passive }
-                if now.timeIntervalSince(claim.at) < Self.reservationLifetime, claim.at <= now.addingTimeInterval(5) { return .passive }
+                if claim.token != token, Self.isFresh(claim, now: now) { return .reservedElsewhere }
             }
-            if claims[key]?.state == .delivered { return .passive }
             claims[key] = AlertClaim(state: .reserved, by: owner, token: token, at: now)
             return .reserved
         }
@@ -909,14 +926,21 @@ class Store: ObservableObject {
     }
 
     /// The message was handed to the system (`token`'s delivery, or one without a reservation).
+    /// Nil when the claims couldn't be had. With `requireOwnership`, false (and nothing written)
+    /// when another delivery delivered it or holds a fresh reservation: ours was taken over.
     @discardableResult
     func markDelivered(message: Message, baseUrl: String, by owner: AlertOwner = .current, token: String? = nil,
-                       timeout: TimeInterval = SharedFileLock.defaultTimeout) -> Bool {
+                       requireOwnership: Bool = false, timeout: TimeInterval = SharedFileLock.defaultTimeout) -> Bool? {
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
-        return updateClaims(timeout: timeout) { claims in
-            if claims[key]?.state == .delivered { return }
-            claims[key] = AlertClaim(state: .delivered, by: owner, token: token, at: Date())
-        } != nil
+        let now = Date()
+        return updateClaims(timeout: timeout) { claims -> Bool in
+            if let claim = claims[key] {
+                if claim.state == .delivered { return !requireOwnership || claim.token == token }
+                if requireOwnership, claim.token != token, Self.isFresh(claim, now: now) { return false }
+            }
+            claims[key] = AlertClaim(state: .delivered, by: owner, token: token, at: now)
+            return true
+        }
     }
 
     /// A reservation whose delivery didn't happen (scheduling failed, cancelled): free it at once.
@@ -928,16 +952,32 @@ class Store: ObservableObject {
     }
 
     /// The claims belong to the topic like its rows do, so an unsubscribe drops them with the rows,
-    /// but only once no alias of the topic is left (review-130c C6). A cleanup that can't be
-    /// written now is recorded and done with the next write.
-    private func forgetClaimsBeforeRow(topicUrl: String) {
-        let remaining = (try? context.fetch(Subscription.fetchRequest())) ?? []
-        guard !remaining.contains(where: { sub in
-            sub.baseUrl.flatMap { base in sub.topic.map { Self.claimTopicUrl(baseUrl: base, topic: $0) } } == topicUrl
-        }) else { return }
-        if updateClaims({ claims in claims = claims.filter { !$0.key.hasPrefix(topicUrl + "#") } }) == nil {
-            legacyPresentationClaims.set(Array(Set(pendingClaimCleanups() + [topicUrl])), forKey: Self.claimCleanupKey)
+    /// but only once no alias of the topic is left (review-130c C6). One sweep, with no queued
+    /// intents (review-130d D5): a claim goes only when a successful subscription query, taken
+    /// after it was stamped, shows no alias of its topic. A failed query removes nothing, and a
+    /// sweep that can't be written leaves the claims for the next one (each unsubscribe and each
+    /// launch), so nothing stale can outlive a re-subscribe. Claims age out after a week anyway.
+    @discardableResult
+    func pruneClaimsOfRemovedTopics() -> Bool {
+        let taken = Date()
+        var live: Set<String>?
+        context.performAndWait {
+            do {
+                let subscriptions = try subscriptionSnapshotFetch?(context) ?? context.fetch(Subscription.fetchRequest())
+                live = Set(subscriptions.compactMap { sub in
+                    sub.baseUrl.flatMap { base in sub.topic.map { Self.claimTopicUrl(baseUrl: base, topic: $0) } }
+                })
+            } catch { Log.w(Store.tag, "Cannot list subscriptions; keeping alert claims until the next sweep", error) }
         }
+        guard let live else { return false }
+        let swept = updateClaims { claims in
+            claims = claims.filter { key, claim in
+                guard claim.at < taken, let hash = key.lastIndex(of: "#") else { return true }
+                return live.contains(String(key[..<hash]))
+            }
+        } != nil
+        if swept { legacyPresentationClaims.removeObject(forKey: Self.claimCleanupKey) }
+        return swept
     }
 
     /// A delivered claim is on disk for this message (a reservation isn't one).
@@ -1030,10 +1070,19 @@ class Store: ObservableObject {
                 activity = ProcessInfo.processInfo.beginActivity(options: .userInitiated,
                                                                  reason: "Commit notification delivery state")
             }
+            let elapsed = ProcessInfo.processInfo.systemUptime - started
             switch self.reserveAlert(message: message, baseUrl: baseUrl, token: token, timeout: 0) {
             case .passive:
                 finish(); suppressed(); return
-            case .unavailable where ProcessInfo.processInfo.systemUptime - started < Self.alertContentionLimit:
+            case .reservedElsewhere where recordBeforeDelivery && elapsed < Self.alertContentionLimit:
+                // The extension's only handoff: the app's reservation normally settles within
+                // milliseconds, delivered (passive) or released (ours). Wait for that rather than
+                // stay passive for a reservation that may still fail (review-130d D4).
+                Self.alertQueue.asyncAfter(deadline: .now() + 0.05, execute: attempt)
+                return
+            case .reservedElsewhere:
+                finish(); suppressed(); return
+            case .unavailable where elapsed < Self.alertContentionLimit:
                 Self.alertQueue.asyncAfter(deadline: .now() + 0.01, execute: attempt)
                 return
             case .unavailable:
@@ -1042,9 +1091,11 @@ class Store: ObservableObject {
                 reserved = true
             }
             if recordBeforeDelivery {
-                self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token)
+                let owned = self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token,
+                                                    requireOwnership: reserved)
                 finish()
-                delivery { _ in } // Synchronous NSE handoff; no shared-container work follows it.
+                // Synchronous NSE handoff; no shared-container work follows it.
+                if owned { delivery { _ in } } else { suppressed() }
             } else {
                 delivery { success in
                     Self.alertQueue.async {

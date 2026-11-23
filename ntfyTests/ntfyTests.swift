@@ -11323,3 +11323,356 @@ final class AnswerButtonReviewTests: XCTestCase {
         XCTAssertEqual(AnswerFailedLine.failedText(nil, toAgent: false), "Didn't go through. Try again.")
     }
 }
+
+// MARK: 1.30 fix round 4 (review-130d D3, D4, D5): alert ownership, the wake scope, policy and claims files
+
+final class AlertOwnershipRound4Tests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    /// Two stores on one file stand for the app and its extension.
+    private func pair() -> (app: Store, nse: Store, url: URL) {
+        let url = directory.appendingPathComponent("round4.sqlite")
+        return (Store(inMemory: true, storeURL: url), Store(inMemory: true, storeURL: url), url)
+    }
+
+    /// A loopback port that accepts connections into its backlog and answers only when told to.
+    private final class StalledServer {
+        let fd: Int32
+        let port: UInt16
+        private var answering = false
+        init() throws {
+            fd = socket(AF_INET, SOCK_STREAM, 0)
+            var address = sockaddr_in()
+            address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_addr.s_addr = inet_addr("127.0.0.1")
+            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let fd = self.fd
+            try withUnsafeMutablePointer(to: &address) { pointer in
+                try pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    guard fd >= 0, bind(fd, $0, length) == 0, listen(fd, 8) == 0,
+                          getsockname(fd, $0, &length) == 0 else { throw POSIXError(.EADDRINUSE) }
+                }
+            }
+            port = UInt16(bigEndian: address.sin_port)
+        }
+        /// From now on every connection gets a 404 and is closed.
+        func answer() {
+            guard !answering else { return }
+            answering = true
+            let fd = self.fd
+            Thread.detachNewThread {
+                while true {
+                    let client = accept(fd, nil, nil)
+                    guard client >= 0 else { return }
+                    let reply = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    _ = reply.withCString { write(client, $0, strlen($0)) }
+                    close(client)
+                }
+            }
+        }
+        deinit { close(fd) }
+    }
+
+    private func photo(topic: String, port: UInt16) -> Message {
+        Message(id: UUID().uuidString, time: Int64(Date().timeIntervalSince1970), event: "message",
+                topic: topic, message: "Photo", priority: 4,
+                attachment: MessageAttachment(name: "shot.png", type: "image/png", size: 1024, expires: nil,
+                                              url: "http://127.0.0.1:\(port)/shot.png"))
+    }
+
+    private func pause(_ seconds: TimeInterval) {
+        let settle = expectation(description: "settle")
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { settle.fulfill() }
+        wait(for: [settle], timeout: seconds + 5)
+    }
+
+    private func ageClaims(at url: URL, by seconds: TimeInterval) throws {
+        let file = url.deletingLastPathComponent().appendingPathComponent(Store.alertClaimsFile)
+        var claims = try JSONDecoder().decode([String: Store.AlertClaim].self, from: Data(contentsOf: file))
+        for key in claims.keys { claims[key]?.at = Date().addingTimeInterval(-seconds) }
+        try JSONEncoder().encode(claims).write(to: file)
+    }
+
+    private func pushContent(_ message: Message, baseUrl: String) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent(); content.sound = .default
+        content.userInfo = message.toUserInfo(); content.userInfo["base_url"] = baseUrl
+        return content
+    }
+
+    // MARK: D4
+
+    /// Red on 1050490 (review-130d D4): the extension saw the app's reservation and latched quiet;
+    /// the app's scheduling then failed and released it, and the expiry, skipping the claims, was
+    /// silent too. Neither alerted. Now a reservation elsewhere is read again at expiry.
+    func testTheAppsFailedSchedulingAfterTheExtensionSawItsReservationStillAlertsAtExpiry() throws {
+        let server = try StalledServer()
+        let (app, nse, url) = pair()
+        let base = "https://round4-expiry.example"
+        let sub = app.saveSubscription(baseUrl: base, topic: "door")
+        let msg = photo(topic: sub.topic!, port: server.port)
+        XCTAssertEqual(app.reserveAlert(message: msg, baseUrl: base, token: "app", by: .app), .reserved)
+        let service = NotificationService(); service.makeStore = { nse }
+        var outputs: [UNNotificationContent] = []
+        service.didReceive(UNNotificationRequest(identifier: UUID().uuidString, content: pushContent(msg, baseUrl: base), trigger: nil)) {
+            outputs.append($0)
+        }
+        pause(1)
+        XCTAssertTrue(outputs.isEmpty, "premise: the extension saw the reservation and waits for the image")
+        app.releaseAlert(message: msg, baseUrl: base, token: "app") // the app's scheduler failed
+        service.serviceExtensionTimeWillExpire()
+        XCTAssertEqual(outputs.count, 1)
+        XCTAssertNotNil(outputs.first?.sound, "nobody else alerted: the expiry must")
+        XCTAssertNotEqual(outputs.first?.interruptionLevel, .passive)
+        XCTAssertTrue(Store(inMemory: true, storeURL: url).wasAlerted(message: msg, baseUrl: base))
+    }
+
+    /// The same reservation still held at expiry (the app may yet succeed) alerts too: the
+    /// documented duplicate tradeoff. Delivered by the app, the expiry stays quiet.
+    func testAtExpiryAReservationElsewhereAlertsAndADeliveryStaysQuiet() throws {
+        let server = try StalledServer()
+        for appDelivered in [false, true] {
+            let (app, nse, _) = pair()
+            let base = "https://round4-held-\(appDelivered).example"
+            let sub = app.saveSubscription(baseUrl: base, topic: "door")
+            let msg = photo(topic: sub.topic!, port: server.port)
+            XCTAssertEqual(app.reserveAlert(message: msg, baseUrl: base, token: "app", by: .app), .reserved)
+            let service = NotificationService(); service.makeStore = { nse }
+            var outputs: [UNNotificationContent] = []
+            service.didReceive(UNNotificationRequest(identifier: UUID().uuidString, content: pushContent(msg, baseUrl: base), trigger: nil)) {
+                outputs.append($0)
+            }
+            pause(1)
+            if appDelivered { app.recordPresentation(message: msg, baseUrl: base, by: .app, token: "app") }
+            service.serviceExtensionTimeWillExpire()
+            XCTAssertEqual(outputs.count, 1)
+            XCTAssertEqual(outputs.first?.sound == nil, appDelivered, "appDelivered=\(appDelivered)")
+        }
+    }
+
+    /// Red on 1050490 (review-130d D4): an extension whose reservation went stale and was taken
+    /// over still marked it delivered and alerted at its later handoff, a second banner and sound.
+    /// Now the stamp is a compare-and-set, and the delivery that took it over is the one that alerts.
+    func testAnExtensionWhoseReservationWasTakenOverCannotAlertAtItsDelayedHandoff() throws {
+        let server = try StalledServer()
+        let (app, nse, url) = pair()
+        let base = "https://round4-takeover.example"
+        let sub = app.saveSubscription(baseUrl: base, topic: "door")
+        let msg = photo(topic: sub.topic!, port: server.port)
+        let service = NotificationService(); service.makeStore = { nse }
+        var outputs: [UNNotificationContent] = []
+        let handed = expectation(description: "the extension hands off after the image fails")
+        service.didReceive(UNNotificationRequest(identifier: UUID().uuidString, content: pushContent(msg, baseUrl: base), trigger: nil)) {
+            outputs.append($0); handed.fulfill()
+        }
+        pause(1)
+        XCTAssertTrue(outputs.isEmpty, "premise: the extension holds its reservation and waits for the image")
+        try ageClaims(at: url, by: Store.reservationLifetime + 1)
+        XCTAssertEqual(app.reserveAlert(message: msg, baseUrl: base, token: "app", by: .app), .reserved, "a stale reservation is taken over")
+        server.answer() // the image fails; the extension goes on to its handoff
+        wait(for: [handed], timeout: 15)
+        XCTAssertEqual(outputs.count, 1)
+        XCTAssertNil(outputs.first?.sound, "the delivery that took the reservation over alerts, not this one")
+        XCTAssertEqual(outputs.first?.interruptionLevel, .passive)
+        XCTAssertEqual(app.reserveAlert(message: msg, baseUrl: base, token: "probe", by: .app), .reservedElsewhere,
+                       "the app's reservation stands; the extension didn't stamp over it")
+    }
+
+    func testTheOwnershipStampRefusesOnlyAnotherDeliverysClaim() throws {
+        let (app, nse, url) = pair()
+        let base = "https://round4-stamp.example"
+        let sub = app.saveSubscription(baseUrl: base, topic: "door")
+        let mine = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: sub.topic!, message: "a")
+        XCTAssertEqual(nse.reserveAlert(message: mine, baseUrl: base, token: "nse", by: .nse), .reserved)
+        XCTAssertTrue(nse.recordPresentation(message: mine, baseUrl: base, by: .nse, token: "nse", requireOwnership: true))
+        let taken = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: sub.topic!, message: "b")
+        XCTAssertEqual(nse.reserveAlert(message: taken, baseUrl: base, token: "nse", by: .nse), .reserved)
+        try ageClaims(at: url, by: Store.reservationLifetime + 1)
+        XCTAssertEqual(app.reserveAlert(message: taken, baseUrl: base, token: "app", by: .app), .reserved)
+        XCTAssertFalse(nse.recordPresentation(message: taken, baseUrl: base, by: .nse, token: "nse", requireOwnership: true))
+        app.recordPresentation(message: taken, baseUrl: base, by: .app, token: "app")
+        XCTAssertFalse(nse.recordPresentation(message: taken, baseUrl: base, by: .nse, token: "nse", requireOwnership: true),
+                       "delivered by another delivery")
+        XCTAssertTrue(nse.recordPresentation(message: taken, baseUrl: base, by: .app, token: "late-app"),
+                      "bookkeeping after a submitted alert is never refused")
+    }
+
+    // MARK: D3
+
+    /// Red on 1050490 (review-130d D3): the sequential helper checked the wake between messages
+    /// only; the message in progress went on to its claim and the scheduler after the wake ended,
+    /// even without a background task.
+    func testAnEndedWakeSchedulesNothingForTheMessageInProgress() {
+        for granted in [true, false] {
+            let delegate = AppDelegate()
+            var scheduled = 0, starts = 0
+            delegate.notificationScheduler = { _, done in scheduled += 1; done(nil) }
+            delegate.beginNotificationBackgroundTask = { _ in starts += 1; return granted ? UIBackgroundTaskIdentifier(rawValue: 61) : .invalid }
+            delegate.endNotificationBackgroundTask = { _ in }
+            let wake = WakeContext(deadline: 30)
+            wake.cancel()
+            let msg = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "round4-wake", message: "late")
+            let done = expectation(description: "completes")
+            delegate.showNotification(baseUrl: "https://round4-wake.example", msg, wake: wake) { done.fulfill() }
+            wait(for: [done], timeout: 10)
+            XCTAssertEqual(scheduled, 0, "granted=\(granted)")
+            XCTAssertEqual(starts, 0, "no background task or claim for a wake that ended")
+            XCTAssertEqual(Store.shared.reserveAlert(message: msg, baseUrl: "https://round4-wake.example", token: "probe"), .reserved,
+                           "no reservation was taken")
+        }
+        // Outside a wake (or within one still running) the message is scheduled as before.
+        let delegate = AppDelegate()
+        var scheduled = 0
+        delegate.notificationScheduler = { _, done in scheduled += 1; done(nil) }
+        delegate.beginNotificationBackgroundTask = { _ in UIBackgroundTaskIdentifier(rawValue: 62) }
+        delegate.endNotificationBackgroundTask = { _ in }
+        let done = expectation(description: "completes")
+        let msg = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "round4-wake", message: "on time")
+        delegate.showNotification(baseUrl: "https://round4-wake.example", msg, wake: WakeContext(deadline: 30)) { done.fulfill() }
+        wait(for: [done], timeout: 10)
+        XCTAssertEqual(scheduled, 1)
+    }
+
+    private final class CountingURLProtocol: URLProtocol {
+        static let lock = NSLock()
+        static var count = 0
+        override class func canInit(with request: URLRequest) -> Bool { true }
+        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+        override func startLoading() {
+            Self.lock.lock(); Self.count += 1; Self.lock.unlock()
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+        }
+        override func stopLoading() {}
+    }
+
+    /// Red on 1050490 (review-130d D3): the download for the message in progress started after the
+    /// wake (or the extension's request) had ended.
+    func testAnEndedDeliveryStartsNoAttachmentDownload() {
+        Store.shared.saveAttachmentAutoDownloadMaxSize(Store.autoDownload10MB)
+        addTeardownBlock { Store.shared.saveAttachmentAutoDownloadMaxSize(Store.autoDownloadDefault) }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CountingURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let attachment = MessageAttachment(name: "shot.png", type: "image/png", size: 1024, expires: nil, url: "https://round4.invalid/shot.png")
+        let msg = Message(id: UUID().uuidString, time: 1, event: "message", topic: "round4", message: "body", attachment: attachment)
+        for needed in [false, true] {
+            CountingURLProtocol.lock.lock(); CountingURLProtocol.count = 0; CountingURLProtocol.lock.unlock()
+            let content = UNMutableNotificationContent()
+            let done = expectation(description: "completes")
+            content.attachImageIfNeeded(message: msg, baseUrl: "https://round4.invalid", user: nil, session: session,
+                                        stillNeeded: { needed }) { done.fulfill() }
+            wait(for: [done], timeout: 10)
+            CountingURLProtocol.lock.lock(); let count = CountingURLProtocol.count; CountingURLProtocol.lock.unlock()
+            XCTAssertEqual(count, needed ? 1 : 0, "needed=\(needed)")
+        }
+    }
+
+    func testTheAttachmentDownloadIsBoundedByTheWakesRemainingTime() {
+        var clock: TimeInterval = 1000
+        let wake = WakeContext(deadline: 7, uptime: { clock })
+        XCTAssertEqual(AppDelegate.attachmentTimeout(wake: nil), 20)
+        XCTAssertEqual(AppDelegate.attachmentTimeout(wake: wake), 5, accuracy: 0.001, "time to schedule is kept back")
+        clock += 6
+        XCTAssertEqual(AppDelegate.attachmentTimeout(wake: wake), 0.5, accuracy: 0.001)
+        XCTAssertEqual(AppDelegate.attachmentTimeout(wake: WakeContext(deadline: 60)), 20, accuracy: 0.001)
+    }
+
+    // MARK: D5
+
+    private struct ReadFailure: Error {}
+
+    private func preservingPolicyFile() {
+        let url = NotificationPolicySnapshot.file.url
+        let saved = try? Data(contentsOf: url)
+        addTeardownBlock {
+            if let saved { try? saved.write(to: url) } else { try? FileManager.default.removeItem(at: url) }
+        }
+    }
+
+    /// Red on 1050490 (review-130d D5): two snapshot writes finishing out of order published the
+    /// older read over the newer one (a mute lost, or an unmute undone, for the cold extension).
+    func testAnOlderPolicyReadCannotReplaceANewerOne() throws {
+        preservingPolicyFile()
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        _ = store.saveSubscription(baseUrl: "https://round4-policy.example", topic: "door")
+        let older = try XCTUnwrap(store.readNotificationPolicy())
+        _ = store.saveSubscription(baseUrl: "https://round4-policy.example", topic: "gate")
+        let newer = try XCTUnwrap(store.readNotificationPolicy())
+        XCTAssertTrue(store.publishNotificationPolicy(newer))
+        XCTAssertFalse(store.publishNotificationPolicy(older), "the older read finishes last")
+        XCTAssertEqual(NotificationPolicySnapshot.file.read()?.topics.map(\.topic), ["door", "gate"])
+        // A relaunched app (another writer) always replaces the file, whatever its counter.
+        var relaunched = older
+        relaunched.writer = UUID().uuidString
+        XCTAssertTrue(relaunched.supersedes(NotificationPolicySnapshot.file.read()))
+    }
+
+    /// Red on 1050490 (review-130d D5): a failed subscription query became an empty policy and
+    /// replaced a good one, so a cold extension sounded a muted topic.
+    func testAFailedSubscriptionReadKeepsTheLastGoodPolicy() throws {
+        preservingPolicyFile()
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        _ = store.saveSubscription(baseUrl: "https://round4-policy.example", topic: "door")
+        store.writeNotificationPolicy()
+        XCTAssertEqual(NotificationPolicySnapshot.file.read()?.topics.map(\.topic), ["door"])
+        store.subscriptionSnapshotFetch = { _ in throw ReadFailure() }
+        XCTAssertNil(store.readNotificationPolicy())
+        store.writeNotificationPolicy()
+        XCTAssertEqual(NotificationPolicySnapshot.file.read()?.topics.map(\.topic), ["door"], "the last good policy stays")
+    }
+
+    /// Red on 1050490 (review-130d D5): a failed alias query was taken as proof that no alias was
+    /// left, and a queued cleanup, applied blindly at the next write, removed the claims of a topic
+    /// subscribed again meanwhile. Now only a successful query removes claims, and nothing is queued.
+    func testAFailedAliasQueryRemovesNoClaimAndAReSubscribeKeepsThem() throws {
+        let store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        let base = "https://round4-claims.example"
+        let sub = store.saveSubscription(baseUrl: base, topic: "door")
+        let msg = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "door", message: "x")
+        store.recordPresentation(message: msg, baseUrl: base)
+        store.subscriptionSnapshotFetch = { _ in throw ReadFailure() }
+        XCTAssertTrue(store.delete(subscription: sub))
+        XCTAssertTrue(store.hasClaimBeforeRow(message: msg, baseUrl: base), "a failed query isn't proof of absence")
+        store.subscriptionSnapshotFetch = nil
+        _ = store.saveSubscription(baseUrl: base, topic: "door")
+        let other = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "door", message: "y")
+        store.recordPresentation(message: other, baseUrl: base)
+        XCTAssertTrue(store.pruneClaimsOfRemovedTopics())
+        XCTAssertTrue(store.hasClaimBeforeRow(message: msg, baseUrl: base), "subscribed again: its claims stay")
+        XCTAssertTrue(store.hasClaimBeforeRow(message: other, baseUrl: base))
+        XCTAssertTrue(store.delete(subscription: try XCTUnwrap(store.getSubscription(baseUrl: base, topic: "door"))))
+        XCTAssertFalse(store.hasClaimBeforeRow(message: msg, baseUrl: base), "a successful query shows no alias: gone")
+        XCTAssertFalse(store.hasClaimBeforeRow(message: other, baseUrl: base))
+    }
+
+    /// A claim stamped after the sweep's query (the extension, for a topic subscribed meanwhile)
+    /// is newer than the evidence and stays.
+    func testTheSweepKeepsAClaimStampedAfterItsQuery() throws {
+        let (app, nse, _) = pair()
+        let base = "https://round4-sweep.example"
+        _ = app.saveSubscription(baseUrl: base, topic: "door")
+        let gone = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "gone", message: "x")
+        nse.recordPresentation(message: gone, baseUrl: base)
+        let fresh = Message(id: UUID().uuidString, time: 1_800_000_000, event: "message", topic: "new", message: "y")
+        app.subscriptionSnapshotFetch = { context in
+            let subscriptions = try context.fetch(Subscription.fetchRequest())
+            Thread.sleep(forTimeInterval: 0.01)
+            nse.markDelivered(message: fresh, baseUrl: base, by: .nse, token: "nse")
+            return subscriptions
+        }
+        // The stamp before the query is older than it; make that unambiguous on a coarse clock.
+        Thread.sleep(forTimeInterval: 0.01)
+        XCTAssertTrue(app.pruneClaimsOfRemovedTopics())
+        XCTAssertFalse(app.hasClaimBeforeRow(message: gone, baseUrl: base), "no subscription had it at the query")
+        XCTAssertTrue(app.hasClaimBeforeRow(message: fresh, baseUrl: base), "stamped after the query")
+    }
+}
