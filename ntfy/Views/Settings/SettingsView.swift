@@ -75,6 +75,7 @@ struct SettingsView: View {
                         ServerHeadersView(defaultBaseUrl: store.getDefaultBaseUrl())
                     }
                 }
+                DirectWatchServersSection()
                 FeedbackSettingsSection()
                 Section(header: Text(String(localized: "About"))) {
                     AboutView()

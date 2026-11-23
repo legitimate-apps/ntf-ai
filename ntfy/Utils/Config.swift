@@ -47,9 +47,9 @@ enum Config {
     /// ntfy.sh pushes to the official app's Firebase project, not this app's, so banners for its
     /// topics come through the bridge (`NtfyShBridge`): on by default, and the copy says what it shares.
     static func ntfyShDeliveryHint(baseUrl: String, bridgeOn: Bool = ntfyShBridgeEnabled) -> String? {
-        guard URL(string: normalizeBaseUrl(baseUrl))?.host?.lowercased() == "ntfy.sh" else { return nil }
+        guard let host = URL(string: normalizeBaseUrl(baseUrl))?.host?.lowercased(), host == "ntfy.sh" || host == "www.ntfy.sh" else { return nil }
         if bridgeOn {
-            return String(localized: "Topics on ntfy.sh get instant banners: \(normalizeBaseUrl(appBaseUrl).replacingOccurrences(of: "https://", with: "")) watches them for this device and keeps no message text. You can turn this off in Settings. See \(migrateUrl).")
+            return String(localized: "Topics on ntfy.sh get instant banners: \(shortUrl(url: normalizeBaseUrl(appBaseUrl))) watches them for this device and keeps no message text. You can turn this off in Settings. See \(migrateUrl).")
         }
         return String(localized: "Instant banners for ntfy.sh and other servers is off in Settings, so messages on ntfy.sh appear only when you open the app or refresh. See \(migrateUrl).")
     }
@@ -59,7 +59,7 @@ enum Config {
         if useAnother {
             return selfHostedDeliveryHint
         }
-        if baseUrl == normalizeBaseUrl(appBaseUrl) {
+        if normalizeBaseUrl(baseUrl) == normalizeBaseUrl(appBaseUrl) {
             return String(localized: "New topics use \(appServerDescription). Any ntfy server works: turn on \"Use another server\" or change the default in Settings. Your scripts must send to \(shortUrl(url: normalizeBaseUrl(appBaseUrl))); the same topic name on ntfy.sh is a different topic.")
         }
         return String(localized: "New topics use your default server, \(shortUrl(url: baseUrl)).")
@@ -69,7 +69,7 @@ enum Config {
     /// (who runs it, and that ntfy.sh is a different server) sits behind "About this server".
     /// Nil wherever the full footer carries a delivery hint the user needs to see.
     static func subscriptionServerShortFooter(baseUrl: String, useAnother: Bool) -> String? {
-        guard !useAnother, ntfyShDeliveryHint(baseUrl: baseUrl) == nil, baseUrl == normalizeBaseUrl(appBaseUrl) else { return nil }
+        guard !useAnother, ntfyShDeliveryHint(baseUrl: baseUrl) == nil, normalizeBaseUrl(baseUrl) == normalizeBaseUrl(appBaseUrl) else { return nil }
         return String(localized: "New topics use \(shortUrl(url: normalizeBaseUrl(appBaseUrl))), a free public server. Any ntfy server works: turn on \"Use another server\".")
     }
 

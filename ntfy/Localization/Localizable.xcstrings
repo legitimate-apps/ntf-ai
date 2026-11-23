@@ -48,6 +48,241 @@
         }
       }
     },
+    "%@ can't connect to this server's address. New messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ can't connect to this server's address. New messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kann keine Verbindung zur Adresse dieses Servers herstellen. Neue Nachrichten erscheinen, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no puede conectar con la dirección de este servidor. Los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ne peut pas se connecter à l’adresse de ce serveur. Les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non riesce a collegarsi all’indirizzo di questo server. I nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kan geen verbinding maken met het adres van deze server. Nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ nie może połączyć się z adresem tego serwera. Nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "%@ can't reach this server from the internet. Check that the server is online and reachable from outside your network. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ can't reach this server from the internet. Check that the server is online and reachable from outside your network. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kann diesen Server nicht aus dem Internet erreichen. Prüfe, ob der Server online und von außerhalb deines Netzwerks erreichbar ist. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no puede conectar con este servidor desde internet. Comprueba que el servidor esté en línea y sea accesible desde fuera de tu red. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ne peut pas joindre ce serveur depuis internet. Vérifiez que le serveur est en ligne et accessible depuis l’extérieur de votre réseau. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non riesce a raggiungere questo server da internet. Controlla che il server sia online e raggiungibile dall’esterno della tua rete. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kan deze server niet bereiken vanaf internet. Controleer of de server online is en van buiten je netwerk bereikbaar is. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ nie może połączyć się z tym serwerem przez internet. Sprawdź, czy serwer działa i jest dostępny spoza Twojej sieci. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "%@ connects to %@ and listens on its public topics. It sees each message as it passes and keeps none of it. Topics that need a login aren't watched, and your login never leaves this device. Off by default.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ connects to %@ and listens on its public topics. It sees each message as it passes and keeps none of it. Topics that need a login aren't watched, and your login never leaves this device. Off by default."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ verbindet sich mit %2$@ und lauscht auf dessen öffentlichen Themen. Es sieht jede Nachricht im Vorbeigehen und speichert nichts davon. Themen, die eine Anmeldung erfordern, werden nicht beobachtet, und deine Anmeldedaten verlassen nie dieses Gerät. Standardmäßig aus."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ se conecta a %2$@ y escucha sus tópicos públicos. Ve cada mensaje al pasar y no guarda nada de él. Los tópicos que requieren iniciar sesión no se vigilan, y tus credenciales nunca salen de este dispositivo. Desactivado de forma predeterminada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ se connecte à %2$@ et écoute ses sujets publics. Il voit chaque message au passage et n’en conserve rien. Les sujets qui exigent une connexion ne sont pas surveillés, et vos identifiants ne quittent jamais cet appareil. Désactivé par défaut."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ si collega a %2$@ e ascolta i suoi argomenti pubblici. Vede ogni messaggio di passaggio e non ne conserva nulla. Gli argomenti che richiedono l’accesso non vengono osservati e le tue credenziali non lasciano mai questo dispositivo. Disattivato per impostazione predefinita."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ maakt verbinding met %2$@ en luistert naar de openbare onderwerpen daarvan. Het ziet elk bericht in het voorbijgaan en bewaart er niets van. Onderwerpen waarvoor inloggen nodig is, worden niet in de gaten gehouden, en je inloggegevens verlaten dit apparaat nooit. Standaard uit."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ łączy się z %2$@ i nasłuchuje jego publicznych tematów. Widzi każdą przechodzącą wiadomość i niczego z niej nie zachowuje. Tematy wymagające logowania nie są obserwowane, a Twoje dane logowania nigdy nie opuszczają tego urządzenia. Domyślnie wyłączone."
+          }
+        }
+      }
+    },
+    "%@ couldn't watch this topic on its server. NTF-AI checks again when it next runs. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ couldn't watch this topic on its server. NTF-AI checks again when it next runs. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ konnte dieses Thema auf seinem Server nicht beobachten. NTF-AI prüft es beim nächsten Ausführen erneut. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no pudo vigilar este tópico en su servidor. NTF-AI lo comprobará de nuevo la próxima vez que se ejecute. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n’a pas pu surveiller ce sujet sur son serveur. NTF-AI vérifiera à nouveau lors de sa prochaine exécution. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non è riuscito a osservare questo argomento sul suo server. NTF-AI riproverà alla prossima esecuzione. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kon dit onderwerp op de server niet in de gaten houden. NTF-AI controleert het opnieuw wanneer het weer draait. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ nie mógł obserwować tego tematu na jego serwerze. NTF-AI sprawdzi ponownie przy następnym uruchomieniu. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "%@ is connecting to this server. Once it is listening, a message to these topics can wake this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is connecting to this server. Once it is listening, a message to these topics can wake this device."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ verbindet sich mit diesem Server. Sobald die Verbindung steht, kann eine Nachricht an diese Themen dieses Gerät wecken."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ se está conectando a este servidor. Cuando esté escuchando, un mensaje a estos tópicos podrá despertar este dispositivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ se connecte à ce serveur. Une fois à l’écoute, un message sur ces sujets pourra réveiller cet appareil."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ si sta collegando a questo server. Quando sarà in ascolto, un messaggio a questi argomenti potrà riattivare questo dispositivo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ maakt verbinding met deze server. Zodra het luistert, kan een bericht naar deze onderwerpen dit apparaat wekken."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ łączy się z tym serwerem. Gdy zacznie nasłuchiwać, wiadomość do tych tematów będzie mogła wybudzić to urządzenie."
+          }
+        }
+      }
+    },
     "%@, a free public server run by the publisher of this app (not affiliated with ntfy.sh or the ntfy project)": {
       "extractionState": "manual",
       "localizations": {
@@ -1491,6 +1726,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajouter un utilisateur"
+          }
+        }
+      }
+    },
+    "Advanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advanced"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erweitert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avanzado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avancé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avanzate"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geavanceerd"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaawansowane"
           }
         }
       }
@@ -3570,6 +3852,53 @@
         }
       }
     },
+    "Checking, without your login, whether anyone can read this topic on its server. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking, without your login, whether anyone can read this topic on its server. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wird ohne deine Anmeldedaten geprüft, ob jeder dieses Thema auf seinem Server lesen kann. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando, sin tus credenciales, si cualquiera puede leer este tópico en su servidor. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification en cours, sans vos identifiants : ce sujet est-il lisible par tous sur son serveur ? En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica in corso, senza le tue credenziali, se chiunque può leggere questo argomento sul suo server. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er wordt zonder je inloggegevens gecontroleerd of iedereen dit onderwerp op de server kan lezen. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdzanie bez Twoich danych logowania, czy każdy może czytać ten temat na jego serwerze. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
     "Choose": {
       "comment": "Empty choice in a form field menu",
       "extractionState": "manual",
@@ -4138,6 +4467,53 @@
         }
       }
     },
+    "Connecting…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird verbunden…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connessione…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Łączenie…"
+          }
+        }
+      }
+    },
     "Continue": {
       "extractionState": "manual",
       "localizations": {
@@ -4228,6 +4604,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copié"
+          }
+        }
+      }
+    },
+    "Copy setting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy setting"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellung kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar ajuste"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le réglage"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia impostazione"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instelling kopiëren"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj ustawienie"
           }
         }
       }
@@ -7615,6 +8038,53 @@
         }
       }
     },
+    "Fix it on the server (best):": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fix it on the server (best):"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf dem Server beheben (am besten):"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corrígelo en el servidor (lo mejor):"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corriger sur le serveur (le mieux) :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correggi sul server (la scelta migliore):"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los het op op de server (het beste):"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Napraw to na serwerze (najlepiej):"
+          }
+        }
+      }
+    },
     "For self-hosted HTTPS topics, Settings → Notification status can check whether ntfy-me.com receives forwarded wake-ups. It asks before sending one visible test message. This checks forwarding, not delivery to your phone.": {
       "extractionState": "manual",
       "localizations": {
@@ -8792,6 +9262,53 @@
         }
       }
     },
+    "If you let %@ watch one of your servers directly, NTF-AI also sends it that server's address and the names of its topics anyone can read, never a login.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you let %@ watch one of your servers directly, NTF-AI also sends it that server's address and the names of its topics anyone can read, never a login."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn du %@ einen deiner Server direkt beobachten lässt, sendet NTF-AI ihm auch die Adresse dieses Servers und die Namen seiner Themen, die jeder lesen kann, aber nie deine Anmeldedaten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si dejas que %@ vigile directamente uno de tus servidores, NTF-AI también le envía la dirección de ese servidor y los nombres de sus tópicos que cualquiera puede leer, nunca tus credenciales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si vous laissez %@ surveiller directement l’un de vos serveurs, NTF-AI lui envoie aussi l’adresse de ce serveur et les noms de ses sujets lisibles par tous, jamais vos identifiants."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se lasci che %@ osservi direttamente uno dei tuoi server, NTF-AI gli invia anche l’indirizzo di quel server e i nomi dei suoi argomenti che chiunque può leggere, mai le tue credenziali."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als je %@ een van je servers direct in de gaten laat houden, stuurt NTF-AI het ook het adres van die server en de namen van de onderwerpen die iedereen kan lezen, nooit je inloggegevens."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeśli pozwolisz %@ bezpośrednio obserwować jeden z Twoich serwerów, NTF-AI wyśle mu też adres tego serwera i nazwy jego tematów, które każdy może czytać, ale nigdy danych logowania."
+          }
+        }
+      }
+    },
     "Image attachment": {
       "extractionState": "manual",
       "localizations": {
@@ -9216,6 +9733,53 @@
         }
       },
       "comment": "Programming language picker for executable encryption examples (Node.js or Python)."
+    },
+    "Let %@ watch this server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let %@ watch this server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ diesen Server beobachten lassen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dejar que %@ vigile este servidor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laisser %@ surveiller ce serveur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lascia che %@ osservi questo server"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ deze server in de gaten laten houden"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozwól %@ obserwować ten serwer"
+          }
+        }
+      }
     },
     "Licenses": {
       "extractionState": "manual",
@@ -10341,6 +10905,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mettre le sujet en sourdine"
+          }
+        }
+      }
+    },
+    "Not available: this server is on your local network, so %@ can't reach it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available: this server is on your local network, so %@ can't reach it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht verfügbar: Dieser Server ist in deinem lokalen Netzwerk, daher kann %@ ihn nicht erreichen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No disponible: este servidor está en tu red local, así que %@ no puede conectar con él."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indisponible : ce serveur est sur votre réseau local, donc %@ ne peut pas le joindre."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non disponibile: questo server è nella tua rete locale, quindi %@ non può raggiungerlo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niet beschikbaar: deze server staat in je lokale netwerk, dus %@ kan hem niet bereiken."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niedostępne: ten serwer jest w Twojej sieci lokalnej, więc %@ nie może się z nim połączyć."
           }
         }
       }
@@ -12599,6 +13210,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Options"
+          }
+        }
+      }
+    },
+    "Or let %@ watch it:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or let %@ watch it:"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oder lass %@ ihn beobachten:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O deja que %@ lo vigile:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ou laissez %@ le surveiller :"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oppure lascia che %@ lo osservi:"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Of laat %@ hem in de gaten houden:"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Albo pozwól %@ go obserwować:"
+          }
+        }
+      }
+    },
+    "Over the limit for servers watched directly (3 servers, 20 topics each), so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Over the limit for servers watched directly (3 servers, 20 topics each), so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über dem Limit für direkt beobachtete Server (3 Server, je 20 Themen), daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supera el límite de servidores vigilados directamente (3 servidores, 20 tópicos cada uno), así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-delà de la limite des serveurs surveillés directement (3 serveurs, 20 sujets chacun) : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oltre il limite dei server osservati direttamente (3 server, 20 argomenti ciascuno), quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boven de limiet voor servers die direct in de gaten worden gehouden (3 servers, elk 20 onderwerpen), dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Powyżej limitu serwerów obserwowanych bezpośrednio (3 serwery, po 20 tematów), więc nowe wiadomości pojawią się po otwarciu aplikacji."
           }
         }
       }
@@ -15616,6 +16321,53 @@
         }
       }
     },
+    "Servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servers"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveurs"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servers"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serwery"
+          }
+        }
+      }
+    },
     "Service URL, e.g. https://ntfy.home.io": {
       "extractionState": "manual",
       "localizations": {
@@ -18456,49 +19208,49 @@
         }
       }
     },
-    "The server this app used to default to is private, so these topics never received messages there. They now live on ntfy-me.com:\n\n%@\n\nAnything that sends to them, such as scripts or services, must now post to %@/<topic>.": {
+    "The server this app used to default to is private, so these topics never received messages there. They now live on ntf-ai.app:\n\n%@\n\nAnything that sends to them, such as scripts or services, must now post to %@/<topic>.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The server this app used to default to is private, so these topics never received messages there. They now live on ntfy-me.com:\n\n%@\n\nAnything that sends to them, such as scripts or services, must now post to %@/<topic>."
+            "value": "The server this app used to default to is private, so these topics never received messages there. They now live on ntf-ai.app:\n\n%@\n\nAnything that sends to them, such as scripts or services, must now post to %@/<topic>."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der bisherige Standardserver dieser App ist privat. Diese Themen konnten dort daher keine Nachrichten empfangen. Sie sind jetzt auf ntfy-me.com:\n\n%@\n\nSkripte, Dienste und andere Sender müssen ab jetzt an %@/<topic> senden."
+            "value": "Der bisherige Standardserver dieser App ist privat. Diese Themen konnten dort daher keine Nachrichten empfangen. Sie sind jetzt auf ntf-ai.app:\n\n%@\n\nSkripte, Dienste und andere Sender müssen ab jetzt an %@/<topic> senden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El servidor predeterminado anterior de esta app es privado, por lo que estos tópicos nunca recibieron mensajes allí. Ahora están en ntfy-me.com:\n\n%@\n\nTodo lo que les envíe mensajes, como scripts o servicios, debe publicarlos en %@/<topic>."
+            "value": "El servidor predeterminado anterior de esta app es privado, por lo que estos tópicos nunca recibieron mensajes allí. Ahora están en ntf-ai.app:\n\n%@\n\nTodo lo que les envíe mensajes, como scripts o servicios, debe publicarlos en %@/<topic>."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il vecchio server predefinito dell'app è privato, quindi questi argomenti non vi hanno mai ricevuto messaggi. Ora si trovano su ntfy-me.com:\n\n%@\n\nQualsiasi script o servizio che invia a questi argomenti deve ora pubblicare su %@/<topic>."
+            "value": "Il vecchio server predefinito dell'app è privato, quindi questi argomenti non vi hanno mai ricevuto messaggi. Ora si trovano su ntf-ai.app:\n\n%@\n\nQualsiasi script o servizio che invia a questi argomenti deve ora pubblicare su %@/<topic>."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poprzedni serwer domyślny tej aplikacji jest prywatny, więc te tematy nigdy nie odbierały tam wiadomości. Są teraz na ntfy-me.com:\n\n%@\n\nWszystko, co do nich wysyła, na przykład skrypty i usługi, musi teraz publikować pod adresem %@/<topic>."
+            "value": "Poprzedni serwer domyślny tej aplikacji jest prywatny, więc te tematy nigdy nie odbierały tam wiadomości. Są teraz na ntf-ai.app:\n\n%@\n\nWszystko, co do nich wysyła, na przykład skrypty i usługi, musi teraz publikować pod adresem %@/<topic>."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De vroegere standaardserver van deze app is privé, dus deze onderwerpen hebben daar nooit berichten ontvangen. Ze staan nu op ntfy-me.com:\n\n%@\n\nAlles wat naar deze onderwerpen stuurt, zoals scripts of diensten, moet nu naar %@/<topic> publiceren."
+            "value": "De vroegere standaardserver van deze app is privé, dus deze onderwerpen hebben daar nooit berichten ontvangen. Ze staan nu op ntf-ai.app:\n\n%@\n\nAlles wat naar deze onderwerpen stuurt, zoals scripts of diensten, moet nu naar %@/<topic> publiceren."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’ancien serveur par défaut de l’app est privé : ces sujets n’y ont donc jamais reçu de messages. Ils sont maintenant sur ntfy-me.com :\n\n%@\n\nLes scripts, services et autres outils qui leur envoient des messages doivent désormais publier sur %@/<topic>."
+            "value": "L’ancien serveur par défaut de l’app est privé : ces sujets n’y ont donc jamais reçu de messages. Ils sont maintenant sur ntf-ai.app :\n\n%@\n\nLes scripts, services et autres outils qui leur envoient des messages doivent désormais publier sur %@/<topic>."
           }
         }
       }
@@ -19304,6 +20056,100 @@
         }
       }
     },
+    "This server is on your local network, so %@ can't reach it from the internet. New messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server is on your local network, so %@ can't reach it from the internet. New messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Server ist in deinem lokalen Netzwerk, daher kann %@ ihn nicht aus dem Internet erreichen. Neue Nachrichten erscheinen, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este servidor está en tu red local, así que %@ no puede conectar con él desde internet. Los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce serveur est sur votre réseau local : %@ ne peut donc pas le joindre depuis internet. Les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo server è nella tua rete locale, quindi %@ non può raggiungerlo da internet. I nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze server staat in je lokale netwerk, dus %@ kan hem niet bereiken vanaf internet. Nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten serwer jest w Twojej sieci lokalnej, więc %@ nie może połączyć się z nim przez internet. Nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "This server isn't sending wake-ups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server isn't sending wake-ups."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Server sendet keine Wecksignale."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este servidor no envía avisos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce serveur n’envoie pas de demandes de réveil."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo server non invia segnali di risveglio."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze server stuurt geen activeringssignalen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten serwer nie wysyła sygnałów wybudzenia."
+          }
+        }
+      }
+    },
     "This server uses HTTP. Your access token is sent without encryption.": {
       "extractionState": "manual",
       "localizations": {
@@ -19488,6 +20334,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce sujet est chiffré de bout en bout, mais son mot de passe est actuellement illisible. Le message de test serait donc envoyé en clair. Réessayez après avoir déverrouillé votre appareil ou définissez à nouveau le mot de passe."
+          }
+        }
+      }
+    },
+    "This topic name can't be watched directly, so new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This topic name can't be watched directly, so new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Themenname kann nicht direkt beobachtet werden, daher erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este nombre de tópico no se puede vigilar directamente, así que los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce nom de sujet ne peut pas être surveillé directement : les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo nome di argomento non può essere osservato direttamente, quindi i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze onderwerpnaam kan niet direct in de gaten worden gehouden, dus nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tej nazwy tematu nie da się obserwować bezpośrednio, więc nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
+    "This topic needs a login on its server, so %@ doesn't watch it. Your login never leaves this device. New messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This topic needs a login on its server, so %@ doesn't watch it. Your login never leaves this device. New messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Thema erfordert eine Anmeldung auf seinem Server, daher beobachtet %@ es nicht. Deine Anmeldedaten verlassen nie dieses Gerät. Neue Nachrichten erscheinen, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este tópico requiere iniciar sesión en su servidor, así que %@ no lo vigila. Tus credenciales nunca salen de este dispositivo. Los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce sujet exige une connexion sur son serveur, donc %@ ne le surveille pas. Vos identifiants ne quittent jamais cet appareil. Les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo argomento richiede l’accesso sul suo server, quindi %@ non lo osserva. Le tue credenziali non lasciano mai questo dispositivo. I nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit onderwerp vereist inloggen op de server, dus %@ houdt het niet in de gaten. Je inloggegevens verlaten dit apparaat nooit. Nieuwe berichten verschijnen als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten temat wymaga logowania na swoim serwerze, więc %@ go nie obserwuje. Twoje dane logowania nigdy nie opuszczają tego urządzenia. Nowe wiadomości pojawią się po otwarciu aplikacji."
           }
         }
       }
@@ -19770,6 +20710,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Réessayez dans %lld secondes."
+          }
+        }
+      }
+    },
+    "Turn off for this server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn off for this server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Server ausschalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivar para este servidor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactiver pour ce serveur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disattiva per questo server"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitzetten voor deze server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyłącz dla tego serwera"
+          }
+        }
+      }
+    },
+    "Turn on for this server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on for this server"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Server einschalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar para este servidor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer pour ce serveur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attiva per questo server"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aanzetten voor deze server"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Włącz dla tego serwera"
           }
         }
       }
@@ -21488,6 +22522,53 @@
         }
       }
     },
+    "Watched by %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watched by %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beobachtet von %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigilado por %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveillé par %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Osservato da %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bewaakt door %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obserwowany przez %@"
+          }
+        }
+      }
+    },
     "Weak: easy to guess for someone who copies the encrypted messages. Use Generate, or a much longer password.": {
       "extractionState": "manual",
       "localizations": {
@@ -21909,6 +22990,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wycofane przez agenta · %@"
+          }
+        }
+      }
+    },
+    "Works while Instant banners for ntfy.sh and other servers is on in Settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Works while Instant banners for ntfy.sh and other servers is on in Settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funktioniert, solange „Sofortige Banner für ntfy.sh und andere Server“ in den Einstellungen an ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funciona mientras «Avisos instantáneos para ntfy.sh y otros servidores» esté activado en Ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonctionne tant que « Bannières instantanées pour ntfy.sh et d’autres serveurs » est activé dans Réglages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funziona se «Banner istantanei per ntfy.sh e altri server» è attivo in Impostazioni."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werkt zolang 'Directe meldingen voor ntfy.sh en andere servers' aan staat in Instellingen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Działa, gdy opcja „Natychmiastowe banery dla ntfy.sh i innych serwerów” jest włączona w Ustawieniach."
           }
         }
       }

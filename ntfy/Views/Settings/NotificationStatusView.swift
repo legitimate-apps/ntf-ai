@@ -103,7 +103,8 @@ struct NotificationStatusView: View {
         guard RelayCheck.isSecureBase(baseUrl), let hostname = URL(string: baseUrl)?.host?.lowercased() else { return false }
         let host = hostname.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let appHost = URL(string: Config.appBaseUrl)?.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        return host != appHost && host != "ntfy-me.com" && host != "ntfy.sh"
+        // The app's own server under either name (ntfy-me.com, ntf-ai.app) and ntfy.sh, www forms too.
+        return host != appHost && !HostedServer.isOwnHost("https://" + host) && host != "ntfy.sh" && host != "www.ntfy.sh"
     }
 
     private func warningRow(_ warning: NotificationWarning) -> some View {
@@ -225,6 +226,9 @@ struct NtfyShBridgeStatusRows: View {
             if held.count > shown.count {
                 Button(NtfyShBridgeCopy.showMore(held.count - shown.count)) { expanded.insert(group.server) }
                     .accessibilityIdentifier("bridge-show-more-\(Self.serverLabel(group.server))")
+            }
+            if enabled, let panel = NtfyShBridge.directWatchPanel(group: group, optedIn: bridge.isDirectWatched(group.server)) {
+                DirectWatchPanelView(bridge: bridge, server: group.server, panel: panel)
             }
         }
         if enabled {
@@ -414,4 +418,114 @@ struct RelayCheckContentView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+}
+
+/// Direct server watch (1.31) under a self-hosted server in Notification status: the server-side
+/// fix first, then the offer, or (turned on) its state and the way to turn it off.
+struct DirectWatchPanelView: View {
+    @ObservedObject var bridge: NtfyShBridge
+    let server: String
+    let panel: NtfyShBridge.DirectWatchPanel
+    @State private var copied = false
+
+    private var label: String { shortUrl(url: server) }
+
+    var body: some View {
+        switch panel {
+        case .offer:
+            VStack(alignment: .leading, spacing: 8) {
+                Text(NtfyShBridgeCopy.offerTitle).font(.headline)
+                Text(NtfyShBridgeCopy.offerFix).font(.subheadline)
+                Text(NtfyShBridgeCopy.offerFixSetting)
+                    .font(.system(.footnote, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(6)
+                Button(copied ? NtfyShBridgeCopy.copied : NtfyShBridgeCopy.copySetting) {
+                    UIPasteboard.general.string = NtfyShBridgeCopy.offerFixSetting
+                    copied = true
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("direct-watch-copy-\(label)")
+                Text(NtfyShBridgeCopy.offerWatch).font(.subheadline).padding(.top, 4)
+                Text(NtfyShBridgeCopy.disclosure(label)).font(.footnote).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(NtfyShBridgeCopy.turnOn) { bridge.setDirectWatch(server, on: true) }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("direct-watch-on-\(label)")
+            }
+            .padding(.vertical, 4)
+            .accessibilityIdentifier("direct-watch-offer-\(label)")
+        case .on:
+            NotificationStatusRow(title: NtfyShBridgeCopy.directWatchTitle, value: bridge.directWatchState(server))
+                .accessibilityIdentifier("direct-watch-state-\(label)")
+            Button(NtfyShBridgeCopy.turnOff, role: .destructive) { bridge.setDirectWatch(server, on: false) }
+                .accessibilityIdentifier("direct-watch-off-\(label)")
+        }
+    }
+}
+
+/// Settings › Servers: one page per self-hosted server, whose Advanced section holds its direct
+/// watch switch (1.31). Listed only when there is such a server; ntfy.sh and the app's own server
+/// aren't, under any name.
+struct DirectWatchServersSection: View {
+    @EnvironmentObject private var store: Store
+
+    static func servers(_ baseUrls: [String], appBaseUrl: String = Config.appBaseUrl) -> [String] {
+        Set(baseUrls.map(normalizeBaseUrl)).filter { server in
+            guard server != normalizeBaseUrl(appBaseUrl) else { return false }
+            switch DirectWatch.address(server) {
+            case .notSelfHosted: return false
+            default: return true
+            }
+        }.sorted()
+    }
+
+    var body: some View {
+        let servers = Self.servers((store.getSubscriptions() ?? []).compactMap(\.baseUrl))
+        if !servers.isEmpty {
+            Section(header: Text(NtfyShBridgeCopy.servers)) {
+                ForEach(servers, id: \.self) { server in
+                    NavigationLink(shortUrl(url: server)) { DirectWatchServerView(server: server) }
+                        .accessibilityIdentifier("settings-server-\(shortUrl(url: server))")
+                }
+            }
+        }
+    }
+}
+
+struct DirectWatchServerView: View {
+    let server: String
+    @ObservedObject private var bridge = NtfyShBridge.shared
+    @AppStorage(Config.ntfyShBridgeKey, store: NtfyShBridge.defaults) private var bridgeOn = true
+    @State private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        let label = shortUrl(url: server)
+        let local = DirectWatch.address(server) == .localOnly
+        Form {
+            Section(header: Text(NtfyShBridgeCopy.advanced),
+                    footer: VStack(alignment: .leading, spacing: 6) {
+                        Text(local ? NtfyShBridgeCopy.directWatchLocal : NtfyShBridgeCopy.disclosure(label))
+                        if !local, !bridgeOn { Text(NtfyShBridgeCopy.directWatchNeedsBridge) }
+                    }) {
+                Toggle(NtfyShBridgeCopy.directWatchToggle, isOn: Binding(
+                    get: { bridge.isDirectWatched(server) },
+                    set: { bridge.setDirectWatch(server, on: $0); revision += 1 }
+                ))
+                .disabled(local)
+                .accessibilityIdentifier("server-direct-watch")
+                if bridgeOn, bridge.isDirectWatched(server) {
+                    NotificationStatusRow(title: NtfyShBridgeCopy.directWatchTitle, value: bridge.directWatchState(server))
+                }
+            }
+        }
+        .navigationTitle(label)
+        .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
+            bridge.reload(); revision += 1
+        }
+    }
 }

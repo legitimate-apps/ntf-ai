@@ -6376,7 +6376,7 @@ final class NewcomerSetupTests: XCTestCase {
 
     // The bridge is on by default, so these are its "on" sentences (NtfyShBridgeTests covers "off").
     private var ntfyShHint: String {
-        String(localized: "Topics on ntfy.sh get instant banners: \("ntfy-me.com") watches them for this device and keeps no message text. You can turn this off in Settings. See \("https://ntf-ai.app/docs/migrate").")
+        String(localized: "Topics on ntfy.sh get instant banners: \("ntf-ai.app") watches them for this device and keeps no message text. You can turn this off in Settings. See \("https://ntf-ai.app/docs/migrate").")
     }
     private var ownServerHint: String {
         String(localized: "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to \("https://ntfy-me.com"). With no upstream, messages arrive when you refresh. See \("https://ntf-ai.app/docs/self-hosting").")
