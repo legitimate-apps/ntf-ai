@@ -1047,9 +1047,12 @@ class Store: ObservableObject {
     /// delivered. The app marks after a successful scheduler callback and frees the reservation on
     /// failure or cancellation; the extension (`recordBeforeDelivery`) marks immediately before its
     /// synchronous handoff, since the system may suspend it as soon as that handler fires.
-    /// Contention retries on one serial queue, then fails open.
+    /// Contention retries on one serial queue, then fails open. `writeAfterDelivery` false (the app
+    /// with no background task) reserves first but writes nothing once the scheduler is called: a
+    /// suspended app must not hold the shared lock, so the reservation is left to age out.
     @discardableResult
     func deliverAlert(message: Message, baseUrl: String, recordBeforeDelivery: Bool = false,
+                      writeAfterDelivery: Bool = true,
                       token: String = UUID().uuidString,
                       stillNeeded: @escaping () -> Bool = { true },
                       delivery: @escaping (@escaping (Bool) -> Void) -> Void,
@@ -1107,6 +1110,7 @@ class Store: ObservableObject {
                 delivery { success in
                     Self.alertQueue.async {
                         guard !finished else { return }
+                        guard writeAfterDelivery else { finish(); return }
                         if success { self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token) }
                         finish(release: !success)
                     }

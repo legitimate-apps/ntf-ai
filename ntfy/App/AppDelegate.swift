@@ -495,8 +495,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                 task = self.beginNotificationBackgroundTask { cancel() }
                 // Without a background task too, the alert is reserved before it is scheduled, so an
                 // extension already presenting it, or a delivery already made, keeps this one quiet
-                // (review-130e E5). The claims lock is held only for its short write.
-                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, stillNeeded: stillNeeded, delivery: { finished in
+                // (review-130e E5). The claims lock is held only for that short write, and nothing is
+                // written after scheduling: without execution time the app may be suspended at once.
+                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, writeAfterDelivery: task != .invalid,
+                                                   stillNeeded: stillNeeded, delivery: { finished in
                     self.notificationScheduler(request) { error in
                         if let error { Log.e(self.tag, "Unable to create notification", error) }
                         finished(error == nil)

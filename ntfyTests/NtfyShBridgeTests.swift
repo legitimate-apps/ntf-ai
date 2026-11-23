@@ -3259,7 +3259,9 @@ extension PresentationClaimTests {
         app.showNotification(baseUrl: "https://e5.example", fresh) { second.fulfill() }
         wait(for: [second], timeout: 5)
         XCTAssertEqual(scheduled, [fresh.id])
-        XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .passive,
-                       "owned and marked delivered")
+        // Reserved before scheduling; without a task nothing is written after it (the reservation
+        // ages out), as testDeniedBackgroundTimeFailsOpenWithoutFlagWrite pins.
+        XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .reservedElsewhere,
+                       "owned before scheduling")
     }
 }
