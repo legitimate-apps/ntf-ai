@@ -401,17 +401,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                 finish.complete()
                 return
             }
-            let ended = Once()
-            var task = UIBackgroundTaskIdentifier.invalid
-            let end = {
-                guard ended.claim() else { return }
-                DispatchQueue.main.async { if task != .invalid { UIApplication.shared.endBackgroundTask(task); task = .invalid } }
-            }
-            task = UIApplication.shared.beginBackgroundTask(withName: "bridge maintenance") { wake.cancel(); end() }
-            wake.onCancel(end)
-            finish.complete()
-            NtfyShBridge.shared.sync(reason: "background wake", wake: wake) { end() }
+            self.runWakeMaintenance(finish: finish)
         }
+    }
+
+    var beginMaintenanceBackgroundTask: (@escaping () -> Void) -> UIBackgroundTaskIdentifier = {
+        UIApplication.shared.beginBackgroundTask(withName: "bridge maintenance", expirationHandler: $0)
+    }
+    var endMaintenanceBackgroundTask: (UIBackgroundTaskIdentifier) -> Void = { UIApplication.shared.endBackgroundTask($0) }
+    var bridgeMaintenance: (WakeContext, @escaping () -> Void) -> Void = { wake, done in
+        NtfyShBridge.shared.sync(reason: "background wake", wake: wake, completion: done)
+    }
+
+    /// The wake's bridge maintenance, after its content result. It runs only inside a UIKit
+    /// background task: the wake is completed before it starts, and its shared-container locks
+    /// must never be held by a suspended app (review-130f F1). Denied a task, it doesn't start.
+    func runWakeMaintenance(finish: BackgroundWakeCompletion) {
+        let wake = finish.wake
+        let ended = Once()
+        var task = UIBackgroundTaskIdentifier.invalid
+        let end = {
+            guard ended.claim() else { return }
+            DispatchQueue.main.async { if task != .invalid { self.endMaintenanceBackgroundTask(task); task = .invalid } }
+        }
+        task = beginMaintenanceBackgroundTask { wake.cancel(); end() }
+        guard task != .invalid else {
+            Log.d(tag, "Background wake: no background time for bridge maintenance")
+            finish.complete()
+            return
+        }
+        wake.onCancel(end)
+        finish.complete()
+        bridgeMaintenance(wake) { end() }
     }
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -493,22 +514,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                 var cancel: () -> Void = {}
                 var task: UIBackgroundTaskIdentifier = .invalid
                 task = self.beginNotificationBackgroundTask { cancel() }
-                // Without a background task too, the alert is reserved before it is scheduled, so an
-                // extension already presenting it, or a delivery already made, keeps this one quiet
-                // (review-130e E5). The claims lock is held only for that short write, and nothing is
-                // written after scheduling: without execution time the app may be suspended at once.
-                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, writeAfterDelivery: task != .invalid,
-                                                   stillNeeded: stillNeeded, delivery: { finished in
+                let schedule: (@escaping (Bool) -> Void) -> Void = { finished in
                     self.notificationScheduler(request) { error in
                         if let error { Log.e(self.tag, "Unable to create notification", error) }
                         finished(error == nil)
                     }
-                }, completion: {
+                }
+                let done = {
                     DispatchQueue.main.async {
                         if task != .invalid { self.endNotificationBackgroundTask(task) }
                         completionHandler?()
                     }
-                })
+                }
+                guard task != .invalid else {
+                    // Denied: no claims lock and no shared write; the app may be suspended at once (review-130f F1).
+                    Store.shared.presentWithoutExecutionTime(message: message, baseUrl: baseUrl, stillNeeded: stillNeeded,
+                                                             delivery: schedule, completion: done)
+                    return
+                }
+                // The task is held from here until `done`, which follows the last locked section.
+                cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, stillNeeded: stillNeeded,
+                                                   delivery: schedule, completion: done)
             }
         }
     }

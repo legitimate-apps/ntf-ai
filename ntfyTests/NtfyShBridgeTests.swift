@@ -3241,9 +3241,9 @@ extension PresentationClaimTests {
     }
 
     /// Red on 81d8a8b (review-130e E5): without a UIKit background task the app scheduled with no
-    /// reservation, so a message the extension already delivered alerted twice. It reserves
-    /// first like the normal path, and marks what it schedules.
-    func testWithoutABackgroundTaskTheAppStillReservesBeforeScheduling() {
+    /// check, so a message the extension already delivered alerted twice. It still checks, now
+    /// from a lock-free read of the claims, and leaves no reservation behind (review-130f F1, F6).
+    func testWithoutABackgroundTaskTheAppStillHonoursADeliveredClaim() {
         let app = AppDelegate()
         app.beginNotificationBackgroundTask = { _ in .invalid }
         var scheduled: [String] = []
@@ -3259,9 +3259,7 @@ extension PresentationClaimTests {
         app.showNotification(baseUrl: "https://e5.example", fresh) { second.fulfill() }
         wait(for: [second], timeout: 5)
         XCTAssertEqual(scheduled, [fresh.id])
-        // Reserved before scheduling; without a task nothing is written after it (the reservation
-        // ages out), as testDeniedBackgroundTimeFailsOpenWithoutFlagWrite pins.
-        XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .reservedElsewhere,
-                       "owned before scheduling")
+        XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .reserved,
+                       "no provisional reservation is left behind")
     }
 }

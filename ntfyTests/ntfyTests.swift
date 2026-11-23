@@ -9530,22 +9530,151 @@ extension AlertedTests {
 }
 
 
+// MARK: Fix round 6 (review-130f F1, F6): no shared lock or write without background time
+
 extension AlertedTests {
-    func testDeniedBackgroundTimeFailsOpenWithoutFlagWrite() throws {
+    /// Shows `msg` with UIKit's background task denied, while spies count every claims locked
+    /// section (each claim read-modify-write, the row stamp's included) and every reservation's
+    /// row lookup (shared SQLite). Returns how many banners were scheduled.
+    private func showDenied(_ msg: Message, base: String, file: StaticString = #filePath, line: UInt = #line) -> Int {
+        let delegate = AppDelegate()
+        delegate.beginNotificationBackgroundTask = { _ in .invalid }
+        delegate.endNotificationBackgroundTask = { _ in XCTFail("no task was acquired", file: file, line: line) }
+        var schedules = 0
+        delegate.notificationScheduler = { _, completed in schedules += 1; completed(nil) }
+        let counter = NSLock()
+        var locked = 0, lookups = 0
+        store.claimsLockedSectionForTesting = { counter.lock(); locked += 1; counter.unlock() }
+        store.reservationLookupForTesting = { counter.lock(); lookups += 1; counter.unlock() }
+        defer { store.claimsLockedSectionForTesting = nil; store.reservationLookupForTesting = nil }
+        let done = expectation(description: "denied delivery completes")
+        delegate.showNotification(baseUrl: base, msg, wake: WakeContext(deadline: 25)) { done.fulfill() }
+        wait(for: [done], timeout: 5)
+        counter.lock(); defer { counter.unlock() }
+        XCTAssertEqual(locked, 0, "the claims lock was taken without background time", file: file, line: line)
+        XCTAssertEqual(lookups, 0, "a reservation (and its shared SQLite lookup) ran without background time", file: file, line: line)
+        return schedules
+    }
+
+    /// Red on be71452 (review-130f F1): the denied branch reserved under the claims lock before
+    /// scheduling. Now it reads the claims without the lock, schedules, and leaves nothing behind,
+    /// so the extension can still take the message (F6: no provisional reservation).
+    func testDeniedAlertWithNoClaimSchedulesWithoutTheLock() throws {
+        let sub = subscription(), msg = message(sub)
+        store.save(notificationsFromMessages: [msg], withSubscription: sub)
+        XCTAssertEqual(showDenied(msg, base: sub.baseUrl!), 1)
+        XCTAssertFalse(try row(sub).alerted, "without execution time no shared-container write may follow scheduling")
+        XCTAssertFalse(store.wasAlerted(message: msg, baseUrl: sub.baseUrl!), "nothing was recorded")
+        XCTAssertEqual(store.reserveAlert(message: msg, baseUrl: sub.baseUrl!, token: "nse", by: .nse), .reserved,
+                       "no provisional reservation is left to suppress or replay another delivery")
+    }
+
+    /// Red on be71452 (review-130f F1): the delivered claim kept it quiet, but only under the lock.
+    func testDeniedAlertWithADeliveredClaimStaysQuietWithoutTheLock() {
+        let sub = subscription(), msg = message(sub)
+        store.recordPresentation(message: msg, baseUrl: sub.baseUrl!, by: .nse, token: "nse")
+        XCTAssertEqual(showDenied(msg, base: sub.baseUrl!), 0, "already delivered by the extension")
+    }
+
+    /// Red on be71452 (review-130f F1): a fresh reservation elsewhere kept it quiet, under the lock.
+    func testDeniedAlertWithAFreshReservationElsewhereStaysQuietWithoutTheLock() {
+        let sub = subscription(), msg = message(sub)
+        XCTAssertEqual(store.reserveAlert(message: msg, baseUrl: sub.baseUrl!, token: "nse", by: .nse), .reserved)
+        XCTAssertEqual(showDenied(msg, base: sub.baseUrl!), 0, "the extension is presenting it")
+        XCTAssertEqual(store.reserveAlert(message: msg, baseUrl: sub.baseUrl!, token: "nse", by: .nse), .reserved,
+                       "the extension's reservation is untouched")
+    }
+
+    /// Red on be71452 (review-130f F1): maintenance started the bridge sync, with its shared locks,
+    /// after completing the wake even when UIKit denied the maintenance task.
+    func testDeniedMaintenanceTaskRunsNoSync() {
+        for granted in [false, true] {
+            let delegate = AppDelegate()
+            var syncs = 0, ended = 0
+            delegate.beginMaintenanceBackgroundTask = { _ in granted ? UIBackgroundTaskIdentifier(rawValue: 71) : .invalid }
+            delegate.endMaintenanceBackgroundTask = { _ in ended += 1 }
+            delegate.bridgeMaintenance = { _, done in syncs += 1; done() }
+            let completed = expectation(description: "the wake completes (granted=\(granted))")
+            let finish = BackgroundWakeCompletion(deadline: BackgroundWakeCompletion.budget) { _ in completed.fulfill() }
+            delegate.runWakeMaintenance(finish: finish)
+            wait(for: [completed], timeout: 2)
+            let settle = expectation(description: "main queue drains")
+            DispatchQueue.main.async { settle.fulfill() }
+            wait(for: [settle], timeout: 2)
+            XCTAssertEqual(syncs, granted ? 1 : 0, "granted=\(granted)")
+            XCTAssertEqual(ended, granted ? 1 : 0, "granted=\(granted)")
+        }
+    }
+
+    /// Pins review-130f F1 item 2 (holds on be71452 too): the task's expiry, arriving while the
+    /// delivery is inside a claims locked section, ends the task only after that section.
+    func testExpiryDuringALockedSectionEndsTheTaskAfterIt() {
         let sub = subscription(), msg = message(sub)
         store.save(notificationsFromMessages: [msg], withSubscription: sub)
         let delegate = AppDelegate()
-        delegate.beginNotificationBackgroundTask = { _ in .invalid }
-        delegate.endNotificationBackgroundTask = { _ in XCTFail("no task was acquired") }
-        var schedules = 0
-        delegate.notificationScheduler = { _, completed in schedules += 1; completed(nil) }
-        let done = expectation(description: "unprotected scheduler fails open")
+        var expire: (() -> Void)?
+        let state = NSLock()
+        var ended = 0, inSection = false, endedInsideSection = false
+        delegate.beginNotificationBackgroundTask = { expire = $0; return UIBackgroundTaskIdentifier(rawValue: 72) }
+        delegate.endNotificationBackgroundTask = { _ in
+            state.lock(); ended += 1; if inSection { endedInsideSection = true }; state.unlock()
+        }
+        delegate.notificationScheduler = { _, completed in completed(nil) }
+        var fired = false
+        store.claimsLockedSectionForTesting = {
+            state.lock(); inSection = true; state.unlock()
+            if !fired {
+                fired = true
+                DispatchQueue.main.sync { expire?() } // the expiry handler runs on main
+                Thread.sleep(forTimeInterval: 0.3) // main is free to run an early end now
+            }
+            state.lock(); inSection = false; state.unlock()
+        }
+        defer { store.claimsLockedSectionForTesting = nil }
+        let done = expectation(description: "delivery completes")
         delegate.showNotification(baseUrl: sub.baseUrl!, msg) { done.fulfill() }
-        wait(for: [done], timeout: 2)
-        XCTAssertEqual(schedules, 1)
-        XCTAssertFalse(try row(sub).alerted, "without execution time no shared-container write may follow scheduling")
+        wait(for: [done], timeout: 5)
+        state.lock(); defer { state.unlock() }
+        XCTAssertTrue(fired, "premise: the expiry arrived inside a locked section")
+        XCTAssertEqual(ended, 1)
+        XCTAssertFalse(endedInsideSection, "the task ended while the claims lock was held")
     }
 }
+
+extension AlertedTests {
+    /// Red on be71452 (review-130f F1 item 2): the expiry's release waited up to two seconds for a
+    /// claims lock held elsewhere before the task could end. It now waits at most
+    /// `expiryLockTimeout`, and the reservation is left to age out.
+    func testExpiryReleaseDoesNotWaitOutAHeldClaimsLock() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("expiry.sqlite")
+        let disk = Store(inMemory: true, storeURL: url)
+        let sub = disk.saveSubscription(baseUrl: "https://expiry-release.example", topic: "door")
+        let msg = message(sub)
+        disk.save(notificationsFromMessages: [msg], withSubscription: sub)
+        let fd = open(url.appendingPathExtension("alerts.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        XCTAssertGreaterThanOrEqual(fd, 0)
+        defer { close(fd) }
+        let scheduling = expectation(description: "reserved, scheduler pending")
+        let finished = expectation(description: "cancelled")
+        let cancel = disk.deliverAlert(message: msg, baseUrl: sub.baseUrl!, delivery: { _ in
+            XCTAssertEqual(flock(fd, LOCK_EX | LOCK_NB), 0, "another process takes the claims lock")
+            scheduling.fulfill()
+        }, completion: { finished.fulfill() })
+        wait(for: [scheduling], timeout: 5)
+        let started = ProcessInfo.processInfo.systemUptime
+        cancel() // the task's expiry; the task ends in the completion
+        wait(for: [finished], timeout: 5)
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
+        XCTAssertLessThan(elapsed, 1, "the expiry waited \(elapsed)s for the claims lock")
+        flock(fd, LOCK_UN)
+        XCTAssertEqual(disk.reserveAlert(message: msg, baseUrl: sub.baseUrl!, token: "nse", by: .nse), .reservedElsewhere,
+                       "the unreleased reservation ages out instead")
+    }
+}
+
 final class NSEAuthFallbackTests: XCTestCase {
     private var server: NSEAuthLoopbackServer!
     private var base: String { "http://127.0.0.1:\(server.port)" }

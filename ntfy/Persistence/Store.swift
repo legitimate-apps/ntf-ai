@@ -861,6 +861,9 @@ class Store: ObservableObject {
         }
     }
 
+    /// Test hook: runs inside every claims read-modify-write, holding the claims lock (review-130f F1).
+    var claimsLockedSectionForTesting: (() -> Void)?
+
     /// Every claim writer and removal is one read-modify-write of the claims file under its lock.
     /// Returns `change`'s value only once committed; nil when the lock or the write failed.
     @discardableResult
@@ -868,6 +871,7 @@ class Store: ObservableObject {
         let now = Date()
         var migrated = false
         let result: R? = presentationClaims.update(timeout: timeout) { stored in
+            claimsLockedSectionForTesting?()
             var claims = stored ?? legacyClaims()
             migrated = stored == nil
             let before = claims
@@ -948,9 +952,9 @@ class Store: ObservableObject {
     }
 
     /// A reservation whose delivery didn't happen (scheduling failed, cancelled): free it at once.
-    func releaseAlert(message: Message, baseUrl: String, token: String) {
+    func releaseAlert(message: Message, baseUrl: String, token: String, timeout: TimeInterval = SharedFileLock.defaultTimeout) {
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
-        updateClaims { claims in
+        updateClaims(timeout: timeout) { claims in
             if let claim = claims[key], claim.state == .reserved, claim.token == token { claims[key] = nil }
         }
     }
@@ -1047,12 +1051,13 @@ class Store: ObservableObject {
     /// delivered. The app marks after a successful scheduler callback and frees the reservation on
     /// failure or cancellation; the extension (`recordBeforeDelivery`) marks immediately before its
     /// synchronous handoff, since the system may suspend it as soon as that handler fires.
-    /// Contention retries on one serial queue, then fails open. `writeAfterDelivery` false (the app
-    /// with no background task) reserves first but writes nothing once the scheduler is called: a
-    /// suspended app must not hold the shared lock, so the reservation is left to age out.
+    /// Contention retries on one serial queue, then fails open. The app calls this only while it
+    /// holds a UIKit background task (without one: `presentWithoutExecutionTime`). Every locked
+    /// section runs on alertQueue, and so does the returned cancel (the task's expiry), so the
+    /// cancel, and the task's end in `completion` after it, always follow the section in progress;
+    /// the cancel's own release waits for the lock at most `expiryLockTimeout` (review-130f F1).
     @discardableResult
     func deliverAlert(message: Message, baseUrl: String, recordBeforeDelivery: Bool = false,
-                      writeAfterDelivery: Bool = true,
                       token: String = UUID().uuidString,
                       stillNeeded: @escaping () -> Bool = { true },
                       delivery: @escaping (@escaping (Bool) -> Void) -> Void,
@@ -1063,10 +1068,10 @@ class Store: ObservableObject {
         var reserved = false
         var activity: NSObjectProtocol?
         let started = ProcessInfo.processInfo.systemUptime
-        func finish(release: Bool = false) {
+        func finish(release: Bool = false, releaseTimeout: TimeInterval = SharedFileLock.defaultTimeout) {
             guard !finished else { return }
             finished = true
-            if release, reserved { self.releaseAlert(message: message, baseUrl: baseUrl, token: token) }
+            if release, reserved { self.releaseAlert(message: message, baseUrl: baseUrl, token: token, timeout: releaseTimeout) }
             if let activity { ProcessInfo.processInfo.endActivity(activity) }
             completion()
         }
@@ -1110,7 +1115,6 @@ class Store: ObservableObject {
                 delivery { success in
                     Self.alertQueue.async {
                         guard !finished else { return }
-                        guard writeAfterDelivery else { finish(); return }
                         if success { self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token) }
                         finish(release: !success)
                     }
@@ -1118,7 +1122,37 @@ class Store: ObservableObject {
             }
         }
         Self.alertQueue.async(execute: attempt)
-        return { Self.alertQueue.async { finish(release: true) } }
+        // The expiry has moments left: a release that can't have the lock at once is left to age out.
+        return { Self.alertQueue.async { finish(release: true, releaseTimeout: Self.expiryLockTimeout) } }
+    }
+
+    /// The app's alert when UIKit denied it background time (review-130f F1). Only the push window
+    /// keeps the app running then, and it may be suspended the moment that ends, so this takes no
+    /// claims lock, writes nothing shared and opens no shared SQLite: suspended holding a lock in
+    /// the app group, the app is killed (0xdead10cc). It reads the claims without the lock (the
+    /// file is replaced atomically, so a read sees one whole version): delivered, or freshly
+    /// reserved by another delivery, stays quiet; otherwise the banner is scheduled and nothing is
+    /// recorded. The row's alerted flag isn't consulted: every delivery stamps the claim before the
+    /// row, and the poll's candidates already excluded alerted rows. The accepted cost is a rare
+    /// duplicate when deliveries overlap. With no reservation left behind, nothing can suppress or
+    /// replay another delivery's alert (review-130f F6).
+    func presentWithoutExecutionTime(message: Message, baseUrl: String, stillNeeded: @escaping () -> Bool = { true },
+                                     delivery: @escaping (@escaping (Bool) -> Void) -> Void,
+                                     suppressed: @escaping () -> Void = {},
+                                     completion: @escaping () -> Void = {}) {
+        let key = Self.claimKey(message: message, baseUrl: baseUrl)
+        Self.alertQueue.async {
+            guard stillNeeded() else { completion(); return }
+            let now = Date()
+            if let claim = self.loadClaims()?[key] {
+                let quiet = claim.state == .delivered
+                    ? now.timeIntervalSince(claim.at) < Self.presentationClaimLifetime
+                    : Self.isFresh(claim, now: now)
+                if quiet { suppressed(); completion(); return }
+            }
+            guard stillNeeded() else { completion(); return }
+            delivery { _ in completion() }
+        }
     }
 
     enum ExpiryClaim: Equatable {
