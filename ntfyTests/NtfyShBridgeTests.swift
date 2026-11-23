@@ -338,8 +338,8 @@ final class NtfyShBridgeTests: XCTestCase {
         }
         sync()
         let garage = topicHash(baseUrl: "https://home.example", topic: "garage")
-        // Three polled messages in a row without a wake-up.
-        wakeDefaults.set(try JSONEncoder().encode([garage: SelfHostedWakeCheck.Entry(misses: 3, lastWake: nil, lastCheck: clock)]),
+        // A "Check again" miss with the connection confirmed.
+        wakeDefaults.set(try JSONEncoder().encode([garage: SelfHostedWakeCheck.Entry(misses: 1, lastWake: nil, lastCheck: clock, watchedSince: clock)]),
                          forKey: SelfHostedWakeCheck.key)
         let report = bridge.report(wakes: wakes)
         XCTAssertEqual(report.groups.map(\.server), ["https://ntfy.sh", "https://home.example"])
@@ -910,7 +910,7 @@ final class NtfyShBridgeTests: XCTestCase {
         "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@.",
         "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@.",
         "Instant banners for ntfy.sh and other servers",
-        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, topic names are sent without that check. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. For your other servers, NTF-AI may ask %@ whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.",
+        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after %@ says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks %@ whether a wake-up for its hash went through. Off, once %@ has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh.",
         "For these topics, opening the app lets it set up or repair banners. NTF-AI also keeps this device's list current in the background when the system allows it, which isn't guaranteed.",
         "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
         "Instant banners", "Watching %lld", "Show %lld more",
@@ -978,11 +978,16 @@ final class NtfyShBridgeTests: XCTestCase {
                         "Removing this device's topics from %@. NTF-AI tries again the next time it runs.",
                         "%@ isn't watching ntfy.sh for this device right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, new messages show when you open the app.",
                         "Not watching ntfy.sh right now", "Will check again shortly",
-                        "NTF-AI checks the next message from this server that arrives within a day."] {
+                        "NTF-AI checks the next message from this server that arrives within a day.",
+                        // Retired in fix round 4 (review-130d D6, D8).
+                        "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too.",
+                        "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them.",
+                        "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them."] {
             XCTAssertFalse(keys.contains(retired), retired)
         }
         XCTAssertFalse(keys.contains { $0.hasPrefix("%@ watches your ntfy.sh topics") })
         XCTAssertFalse(keys.contains { $0.contains("within about a day") })
+        XCTAssertFalse(keys.contains { $0.contains("For your other servers, NTF-AI may ask") })
     }
 
     func testLocalNetworkHostsAreRecognized() {
@@ -1167,28 +1172,29 @@ final class SelfHostedWakeCheckTests: XCTestCase {
 
     private var garageHash: String { topicHash(baseUrl: base, topic: "garage") }
 
+    /// One fresh message found by a poll after "Check again" (`armed`), for the watch that began at
+    /// `watchStart`; the verdict, if a check ran.
     @discardableResult
-    private func arrive(age: TimeInterval = 2, topic: String = "garage", strong: Bool = true) -> SelfHostedWakeCheck.Verdict? {
+    private func arrive(age: TimeInterval = 2, topic: String = "garage", strong: Bool = true, armed: Bool = true,
+                        watch: @escaping () -> Date? = { .distantPast }) -> SelfHostedWakeCheck.Verdict? {
+        if armed { check.arm(hash: topicHash(baseUrl: base, topic: topic)) }
         var verdict: SelfHostedWakeCheck.Verdict?? = .none
         check.messageArrivedByPoll(baseUrl: base, topic: topic, messageTime: clock.addingTimeInterval(-age),
-                                   evidence: { strong }) { verdict = .some($0) }
+                                   watch: watch, evidence: { strong }) { verdict = .some($0) }
         return verdict ?? nil
     }
 
-    /// Red on b0f4a48: a server that never forwarded looked the same as a working one.
-    func testThreeMissesInARowFlagNotSetUpAndAWakeClearsIt() throws {
+    /// Red on b0f4a48: a server that never forwarded looked the same as a working one. Since fix
+    /// round 4 the hard state comes only from a "Check again" miss with the connection confirmed.
+    func testACheckAgainMissFlagsNotSetUpAndAWakeClearsIt() throws {
         XCTAssertEqual(arrive(), .missed)
         XCTAssertEqual(sent.count, 1)
         let request = try XCTUnwrap(sent.first)
         XCTAssertEqual(request.url?.absoluteString, "https://ntfy-me.com/v1/ntfyme/relay-check")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["hash": garageHash])
-        XCTAssertFalse(check.isNotSetUp(hash: garageHash))
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
-        XCTAssertEqual(arrive(), .missed)
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
-        XCTAssertEqual(arrive(), .missed)
         XCTAssertTrue(check.isNotSetUp(hash: garageHash))
+        XCTAssertFalse(check.isArmed(hash: garageHash), "one message per tap")
         check.recordWake(hash: garageHash)
         XCTAssertFalse(check.isNotSetUp(hash: garageHash))
     }
@@ -1198,17 +1204,10 @@ final class SelfHostedWakeCheckTests: XCTestCase {
     func testMissesWithoutConfirmedForwardingAreOnlyUnconfirmed() {
         for _ in 0..<3 {
             XCTAssertEqual(arrive(strong: false), .missed)
-            clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+            clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
         }
         XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed)
         XCTAssertFalse(check.isNotSetUp(hash: garageHash))
-        // "Check again" checks the next message even inside the interval.
-        XCTAssertEqual(arrive(strong: true), .missed)
-        XCTAssertNil(arrive(strong: true), "throttled")
-        check.arm(hash: garageHash)
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
-        XCTAssertEqual(arrive(strong: true), .missed)
-        XCTAssertFalse(check.isArmed(hash: garageHash), "one message per tap")
     }
 
     /// Red on 0c3563e: a wake recorded by the extension while the check was on the wire was
@@ -1226,19 +1225,13 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         XCTAssertNil(check.entry(hash: garageHash)?.weakMisses)
     }
 
-    /// At most one relay check a minute across all topics, so many topics can't burst the relay;
-    /// since fix round 3 a check nobody asked for runs at most once per 10 minutes per install.
+    /// At most one relay check a minute across all topics, so many taps can't burst the relay.
     func testChecksArePacedAcrossTopics() {
         XCTAssertEqual(arrive(topic: "garage"), .missed)
         XCTAssertNil(arrive(topic: "porch"))
         clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
-        XCTAssertNil(arrive(topic: "porch"), "passive: still inside the 10 minutes")
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.passiveInterval - SelfHostedWakeCheck.globalInterval)
         XCTAssertEqual(arrive(topic: "porch"), .missed)
         XCTAssertEqual(sent.count, 2)
-        check.arm(hash: topicHash(baseUrl: base, topic: "garage"))
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
-        XCTAssertEqual(arrive(topic: "garage"), .missed, "armed: the one-minute pace")
     }
 
     func testARelayedWakeUpAtTheMessageTimeIsWorking() {
@@ -1258,20 +1251,18 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         replies = [(429, ""), (500, ""), (200, "nonsense")]
         for _ in 0..<3 {
             XCTAssertEqual(arrive(), .unknown)
-            clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
+            clock = clock.addingTimeInterval(NtfyMeHostCooldown.maxRetryAfter + 1)
         }
         XCTAssertEqual(check.entry(hash: garageHash)?.misses, 0)
     }
 
-    func testNoCheckForOldMessagesRecentWakesOrWithinTenMinutes() {
+    /// Fix round 4 (review-130d D6): nothing is looked up that "Check again" didn't ask for.
+    func testNoCheckUnlessArmedOrForOldMessages() {
+        XCTAssertNil(arrive(armed: false), "nobody asked")
         XCTAssertNil(arrive(age: 300), "the relay keeps 120 s")
         XCTAssertEqual(sent.count, 0)
+        clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
         XCTAssertEqual(arrive(), .missed)
-        XCTAssertNil(arrive(), "throttled")
-        XCTAssertEqual(sent.count, 1)
-        check.recordWake(hash: garageHash)
-        clock = clock.addingTimeInterval(SelfHostedWakeCheck.checkInterval)
-        XCTAssertNil(arrive(), "a wake-up within six hours already proves it works")
         XCTAssertEqual(sent.count, 1)
     }
 
@@ -1282,6 +1273,7 @@ final class SelfHostedWakeCheckTests: XCTestCase {
                  HTTPURLResponse(url: URL(string: "https://x")!, statusCode: 200, httpVersion: nil, headerFields: nil), nil)
         }, schedule: { delay, work in waited = delay; work() }, now: { [unowned self] in self.clock }, stateDirectory: dir)
         arrive(age: 1)
+        XCTAssertGreaterThan(waited, 0)
         XCTAssertEqual(waited, SelfHostedWakeCheck.minMessageAge - 1, accuracy: 0.001)
     }
 
@@ -1291,15 +1283,18 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         let bridge = NtfyShBridge(store: Store(inMemory: true, credentialStore: InMemoryCredentialStore()), defaults: defaults,
                                   network: false, appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock },
                                   stateDirectory: BridgeTestState.directory())
+        check.arm(hash: garageHash)
         for server in ["https://ntfy.sh", "https://ntfy-me.com", base] {
-            SubscriptionManager.checkWakeUps(baseUrl: server, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com")
+            SubscriptionManager.checkWakeUps(baseUrl: server, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com",
+                                             subscribed: { _, _ in true })
         }
         XCTAssertEqual(sent.count, 0, "not admitted: the bridge never accepted this hash")
         var record = BridgeRecord()
         record.acceptedSignature = "t:|h:" + garageHash
         record.lastOutcome = .ok
         bridge.recordFile.update { stored -> (write: Bool, result: Void) in stored = record; return (true, ()) }
-        SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com")
+        SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com",
+                                         subscribed: { _, _ in true })
         XCTAssertEqual(sent.count, 1)
         XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 1, "no confirmed connection: weak")
         XCTAssertEqual(check.entry(hash: garageHash)?.misses, 0)
@@ -1798,6 +1793,8 @@ extension SelfHostedWakeCheckTests {
             work()
         }, now: { now }, stateDirectory: dir)
         var verdict: SelfHostedWakeCheck.Verdict?? = .none
+        let hash = topicHash(baseUrl: "http://192.168.1.20:8099", topic: "garage")
+        check.arm(hash: hash)
         check.messageArrivedByPoll(baseUrl: "http://192.168.1.20:8099", topic: "garage", messageTime: now.addingTimeInterval(-2)) { verdict = .some($0) }
         XCTAssertEqual(sent, 0)
         XCTAssertEqual(verdict, .some(nil))
@@ -1805,8 +1802,10 @@ extension SelfHostedWakeCheckTests {
         let other = SelfHostedWakeCheck(defaults: UserDefaults(suiteName: "SelfHostedWakeCheckTests.admit.\(UUID())")!, relayBaseUrl: "https://ntfy-me.com",
                                         read: { _, _ in sent += 1 }, schedule: { _, work in work() }, now: { now },
                                         stateDirectory: BridgeTestState.directory())
+        other.arm(hash: hash)
+        var watched = true
         other.messageArrivedByPoll(baseUrl: "http://192.168.1.20:8099", topic: "garage", messageTime: now.addingTimeInterval(-2),
-                                   admitted: { false }) { admittedVerdict = .some($0) }
+                                   watch: { defer { watched = false }; return watched ? .distantPast : nil }) { admittedVerdict = .some($0) }
         XCTAssertEqual(sent, 0, "no longer admitted when it runs: not asked")
         XCTAssertEqual(admittedVerdict, .some(nil))
     }
@@ -2357,10 +2356,9 @@ extension NtfyShBridgeTests {
 }
 
 extension SelfHostedWakeCheckTests {
-    /// Load (review-130c): passive relay lookups (nothing armed) at most once per 10 minutes.
-    func testPassiveRelayLookupsAreAtMostOncePerTenMinutes() {
-        XCTAssertEqual(SelfHostedWakeCheck.passiveInterval, 600)
-        XCTAssertGreaterThanOrEqual(SelfHostedWakeCheck.passiveInterval, SelfHostedWakeCheck.globalInterval)
+    /// Load (review-130c): an armed relay lookup at most once a minute across all topics.
+    func testArmedRelayLookupsAreAtMostOnceAMinute() {
+        XCTAssertEqual(SelfHostedWakeCheck.globalInterval, 60)
     }
 }
 
@@ -2474,51 +2472,153 @@ extension PresentationClaimTests {
 // MARK: Device check of build 62: A4 diagnosis from one app open, and the status note
 
 extension SelfHostedWakeCheckTests {
-    /// Red on 6b139b8 (device check of build 62): three messages published while the app was in
-    /// the background, then an app open, never produced a diagnosis: only a message 10-100 s old
-    /// was checked, once per 10 minutes. Now the open's poll counts them at once, with no lookup.
-    func testThreeMessagesNoPushBroughtShowTheDiagnosisOnTheNextOpen() throws {
+    private func admittedBridge(watchStart: Date?, expires: Date? = nil) -> NtfyShBridge {
         let bridge = NtfyShBridge(store: Store(inMemory: true, credentialStore: InMemoryCredentialStore()), defaults: defaults,
                                   network: false, appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock },
                                   stateDirectory: BridgeTestState.directory())
         var record = BridgeRecord()
         record.acceptedSignature = "t:|h:" + garageHash
         record.lastOutcome = .ok
+        record.lastSuccess = watchStart
+        record.watchStarts = watchStart.map { ["h:" + garageHash: $0] }
+        record.expires = expires
         bridge.recordFile.update { stored -> (write: Bool, result: Void) in stored = record; return (true, ()) }
-        func open(_ messages: [Message]) {
-            SubscriptionManager.checkWakeUps(baseUrl: base, topic: "garage", messages: messages, check: check, bridge: bridge,
-                                             appBaseUrl: "https://ntfy-me.com")
-        }
-        open([]) // an earlier visit: the watch is in force from here
-        clock += 3600
+        return bridge
+    }
+
+    private func open(_ messages: [Message], bridge: NtfyShBridge, subscribed: @escaping () -> Bool = { true }) {
+        SubscriptionManager.checkWakeUps(baseUrl: base, topic: "garage", messages: messages, check: check, bridge: bridge,
+                                         appBaseUrl: "https://ntfy-me.com", subscribed: { _, _ in subscribed() })
+    }
+
+    private func messages(agedSeconds ages: [Int64], prefix: String = "bg") -> [Message] {
         let now = Int64(clock.timeIntervalSince1970)
-        let three = [1800, 1200, 600].map { Message(id: "bg\($0)", time: now - Int64($0), event: "message", topic: "garage") }
-        open(three)
-        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed)
+        return ages.map { Message(id: "\(prefix)\($0)", time: now - $0, event: "message", topic: "garage") }
+    }
+
+    /// Red on 1050490 (review-130d D6): three messages no push brought, then the first open since
+    /// the bridge took the topic, showed nothing: that first poll only set where evidence starts.
+    /// Evidence now starts at the bridge's accepted watch, so the first open counts them.
+    func testThreeMissesThenTheFirstOpenShowTheWeakDiagnosis() throws {
+        let bridge = admittedBridge(watchStart: clock)
+        clock += 3600
+        let three = messages(agedSeconds: [1800, 1200, 600])
+        open(three, bridge: bridge)
+        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed, "weak copy only, never notSetUp")
         XCTAssertEqual(sent.count, 0, "no request: ntfy.sh doesn't keep forwarded poll_requests")
-        open(three)
-        XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 3, "each message counts once")
+        open(three, bridge: bridge)
+        XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 3, "each message counts once, by ID")
         check.recordWake(hash: garageHash)
         XCTAssertNil(check.diagnosis(hash: garageHash), "a wake-up clears it")
     }
 
-    /// History from before the watch, fresh messages (the relay check's) and messages from before
-    /// the last wake-up say nothing about forwarding; at most three count per poll.
-    func testPollEvidenceSkipsHistoryFreshMessagesAndAnythingBeforeAWake() {
-        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, times: [clock.addingTimeInterval(-600)]), 0, "a new topic's history")
+    /// Red on 1050490 (review-130d D6): counted by time, two messages in the same second, or one
+    /// polled out of order, counted once or not at all.
+    func testMissesCountByMessageIdNotTime() {
+        let start = clock
         clock += 3600
-        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, times: [clock.addingTimeInterval(-5), clock.addingTimeInterval(-50),
-                                                                           clock.addingTimeInterval(-1800)]), 1)
+        let now = Int64(clock.timeIntervalSince1970)
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: start, messages: [
+            ("a", Date(timeIntervalSince1970: TimeInterval(now - 600))), ("b", Date(timeIntervalSince1970: TimeInterval(now - 600)))]), 2)
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: start, messages: [
+            ("c", Date(timeIntervalSince1970: TimeInterval(now - 1200)))]), 1, "older than the last counted, still new")
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: start, messages: [
+            ("a", Date(timeIntervalSince1970: TimeInterval(now - 600)))]), 0)
+    }
+
+    /// Red on 1050490 (review-130d D6): evidence of an earlier watch carried into the next one.
+    func testANewWatchStartsTheEvidenceOver() {
+        let first = clock
+        clock += 3600
+        let three = messages(agedSeconds: [1800, 1200, 600]).map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) }
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: first, messages: three), 3)
+        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed)
+        let second = clock
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: second, messages: three), 0, "sent before this watch")
+        XCTAssertNil(check.diagnosis(hash: garageHash))
+        check.notWatched(hash: garageHash)
+        XCTAssertNil(check.entry(hash: garageHash)?.watchedSince)
+    }
+
+    /// History from before the watch, fresh messages and messages from before the last wake-up
+    /// say nothing about forwarding; at most three count per poll.
+    func testPollEvidenceSkipsHistoryFreshMessagesAndAnythingBeforeAWake() {
+        let start = clock
+        func found(_ ages: [TimeInterval]) -> Int {
+            check.messagesFoundByPoll(hash: garageHash, watchStart: start,
+                                      messages: ages.map { ("m\(clock.timeIntervalSince1970 - $0)", clock.addingTimeInterval(-$0)) })
+        }
+        XCTAssertEqual(found([600]), 0, "a new topic's history")
+        clock += 3600
+        XCTAssertEqual(found([5, 50, 1800]), 1)
         check.recordWake(hash: garageHash)
         clock += 600
-        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, times: [clock.addingTimeInterval(-900)]), 0, "before the wake-up")
+        XCTAssertEqual(found([900]), 0, "before the wake-up")
         clock += 3600
-        let five = (1...5).map { clock.addingTimeInterval(TimeInterval(-200 * $0)) }
-        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, times: five), SelfHostedWakeCheck.pollEvidenceLimit)
-        check.notWatched(hash: garageHash)
+        XCTAssertEqual(found((1...5).map { TimeInterval(200 * $0) }), SelfHostedWakeCheck.pollEvidenceLimit)
+    }
+
+    /// Red on 1050490 (review-130d D6): every fresh polled message asked ntfy-me.com about its hash.
+    func testThePollPathMakesNoRelayCheckRequest() {
+        let bridge = admittedBridge(watchStart: clock.addingTimeInterval(-3600))
+        open(messages(agedSeconds: [20]), bridge: bridge)
+        clock += 600
+        open(messages(agedSeconds: [20], prefix: "n"), bridge: bridge)
+        XCTAssertEqual(sent.count, 0)
+        check.arm(hash: garageHash)
+        clock += 600
+        open(messages(agedSeconds: [20], prefix: "x"), bridge: bridge)
+        XCTAssertEqual(sent.count, 1, "Check again is the one lookup")
+    }
+
+    /// Red on 1050490 (review-130d D6): an answer that landed after the topic was removed wrote a
+    /// new entry (and a miss) for it.
+    func testALateCheckAgainAnswerAfterUnsubscribeChangesNothing() {
+        var answer: (() -> Void)?
+        check = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", read: { request, done in
+            answer = {
+                done(Data(#"{"relayed":false,"relayed_at":null,"window_seconds":120}"#.utf8),
+                     HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil), nil)
+            }
+        }, schedule: { _, work in work() }, now: { [unowned self] in self.clock }, stateDirectory: dir)
+        let bridge = admittedBridge(watchStart: clock.addingTimeInterval(-3600))
+        var subscribed = true
+        check.arm(hash: garageHash)
+        open(messages(agedSeconds: [20]), bridge: bridge, subscribed: { subscribed })
+        XCTAssertNotNil(answer)
+        subscribed = false
+        check.forget(hash: garageHash)
+        answer?()
+        XCTAssertNil(check.entry(hash: garageHash), "not recreated")
+        // Still subscribed, but forgotten meanwhile (the unsubscribe's own order): still not recreated.
+        subscribed = true
+        check.arm(hash: garageHash)
+        clock += SelfHostedWakeCheck.globalInterval
+        open(messages(agedSeconds: [20], prefix: "y"), bridge: bridge)
+        check.forget(hash: garageHash)
+        answer?()
+        XCTAssertNil(check.entry(hash: garageHash))
+    }
+
+    /// Red on 1050490 (review-130d D6): an expired watch still counted as admitted.
+    func testAnExpiredWatchIsNotAdmitted() {
+        let bridge = admittedBridge(watchStart: clock.addingTimeInterval(-3600), expires: clock.addingTimeInterval(60))
+        XCTAssertNotNil(bridge.watchStart(hash: garageHash))
+        clock += 61
+        XCTAssertFalse(bridge.isAdmitted(hash: garageHash))
         clock += 3600
-        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, times: [clock.addingTimeInterval(-1800)]), 0,
-                       "the bridge stopped holding it: evidence starts again")
+        open(messages(agedSeconds: [1800, 1200, 600]), bridge: bridge)
+        XCTAssertNil(check.diagnosis(hash: garageHash))
+    }
+
+    /// Red on 1050490 (review-130d D6): going inactive cancelled a waiting status read, and
+    /// returning left it idle.
+    func testReturningToTheAppRestartsAWaitingStatusRead() {
+        typealias Rows = NtfyShBridgeStatusRows
+        XCTAssertEqual(Rows.onActive(status: .waiting(until: clock), visible: true, enabled: true), .reschedule)
+        XCTAssertEqual(Rows.onActive(status: nil, visible: true, enabled: true), .read)
+        XCTAssertEqual(Rows.onActive(status: .waiting(until: clock), visible: false, enabled: true), .none)
+        XCTAssertEqual(Rows.onActive(status: .waiting(until: clock), visible: true, enabled: false), .none)
     }
 }
 
@@ -2540,4 +2640,32 @@ private final class RecordingTask: URLSessionDataTask {
     override init() {}
     override func resume() { calls.append("resume") }
     override func cancel() { calls.append("cancel") }
+}
+
+// MARK: Fix round 4 (review-130d D6): the watch start the self-hosted evidence is keyed by
+
+extension NtfyShBridgeTests {
+    /// Red on 1050490: the record kept no per-hash start, so evidence started at the first
+    /// admitted poll. A hash keeps its start across registrations that keep it; a new watch
+    /// (removed and added again, or after a repair) starts anew.
+    func testEachAcceptedHashKeepsItsWatchStart() {
+        let garage = sha("http://192.168.1.20:8099/garage")
+        save("http://192.168.1.20:8099", "garage")
+        sync()
+        let first = clock
+        XCTAssertEqual(bridge.watchStart(hash: garage), first)
+        clock += 3600
+        save("http://192.168.1.20:8099", "porch")
+        sync()
+        XCTAssertEqual(bridge.watchStart(hash: garage), first, "still watched: same watch")
+        XCTAssertEqual(bridge.watchStart(hash: sha("http://192.168.1.20:8099/porch")), clock)
+        clock += 3600
+        _ = store.delete(subscription: store.getSubscription(baseUrl: "http://192.168.1.20:8099", topic: "garage")!)
+        sync()
+        XCTAssertNil(bridge.watchStart(hash: garage))
+        clock += 3600
+        save("http://192.168.1.20:8099", "garage")
+        sync()
+        XCTAssertEqual(bridge.watchStart(hash: garage), clock, "a new watch")
+    }
 }

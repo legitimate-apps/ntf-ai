@@ -317,6 +317,9 @@ struct BridgeRecord: Codable, Equatable {
     var attempting: Int?
     /// The revision the server last accepted (changes on every accepted registration).
     var acceptedRevision: Int?
+    /// When each accepted hash ("h:<hash>") entered the accepted set: the start of its watch, which
+    /// the self-hosted evidence is keyed by (review-130d D6). Kept across replacements that keep it.
+    var watchStarts: [String: Date]?
 
     /// Names and hashes the server may still hold that the current set no longer asks for
     /// (review-130c C2): "t:<name>" and "h:<hash>". Everything, when the setting is off.
@@ -1135,6 +1138,16 @@ final class NtfyShBridge: ObservableObject {
             case 200:
                 next.unwatchable = reply?.unwatchable
                 next.lastOutcome = .ok
+                // A repaired device or a lapsed watch is a new watch for every entry.
+                let lapsed = next.repairRequested == true || next.expires.map { $0 <= now() } ?? false
+                let before = lapsed ? [] : BridgeWatchSet.members(signature: next.acceptedSignature)
+                let starts = lapsed ? [:] : next.watchStarts ?? [:]
+                var kept: [String: Date] = [:]
+                for member in BridgeWatchSet.members(signature: desired.signature) where member.hasPrefix("h:") {
+                    // A hash already watched keeps its start (1.30 betas recorded none: their last success).
+                    kept[member] = starts[member] ?? (before.contains(member) ? next.lastSuccess : nil) ?? now()
+                }
+                next.watchStarts = kept.isEmpty ? nil : kept
                 next.lastSuccess = now()
                 next.acceptedSignature = desired.signature
                 next.acceptedRevision = revision
@@ -1303,14 +1316,20 @@ final class NtfyShBridge: ObservableObject {
         return .watched
     }
 
-    /// The server accepted `hash` in its last successful reply and still knows this device: only
-    /// then can a relay check say anything about the topic's server.
-    func isAdmitted(hash: String) -> Bool {
+    /// The server accepted `hash` in its last successful reply, still knows this device, and the
+    /// watch hasn't expired: only then can a missed wake-up say anything about the topic's server.
+    func isAdmitted(hash: String) -> Bool { watchStart(hash: hash) != nil }
+
+    /// When the current watch of an admitted `hash` began (nil when it isn't admitted). The
+    /// self-hosted evidence counts only messages after it, and a new watch starts it over (D6).
+    func watchStart(hash: String) -> Date? {
         let record = currentRecord
         // The accepted set stands until the next 200 replaces it, so a later failed POST (adding
         // another topic) doesn't un-admit this one.
-        return isEnabled && record.repairRequested != true
-            && BridgeWatchSet.members(signature: record.acceptedSignature).contains("h:" + hash)
+        guard isEnabled, record.repairRequested != true, record.optedOut != true,
+              record.expires.map({ $0 > now() }) ?? true,
+              BridgeWatchSet.members(signature: record.acceptedSignature).contains("h:" + hash) else { return nil }
+        return record.watchStarts?["h:" + hash] ?? record.lastSuccess ?? .distantPast
     }
 
     /// Strong evidence for counting a missed forward on `hash`: admitted, and a status read taken
@@ -1664,7 +1683,7 @@ enum NtfyShBridgeCopy {
     /// What goes where (review-130 #12): ntfy-me.com gets the installation ID, ntfy.sh names and
     /// other servers' hashes, plus hash-only forwarding checks; ntfy.sh gets the anonymous access check.
     static var settingFooter: String {
-        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, topic names are sent without that check. When a topic stops qualifying, or you turn this off, NTF-AI asks \(serverName) to stop watching it. For your other servers, NTF-AI may ask \(serverName) whether a wake-up for a topic's hash went through. Off, ntfy.sh topics and servers whose upstream is ntfy.sh show new messages only when you open the app or refresh.")
+        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after \(serverName) says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks \(serverName) to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks \(serverName) whether a wake-up for its hash went through. Off, once \(serverName) has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh.")
     }
 
     /// Notification status, under the bridge rows, shown only with topics using the bridge (review-130b #10).

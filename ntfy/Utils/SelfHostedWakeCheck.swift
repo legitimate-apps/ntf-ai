@@ -11,15 +11,16 @@ import Foundation
 /// place that sees them is this app's server: it records the time of every wake-up it relays for a
 /// hash, its own and the ntfy.sh bridge's, and answers `POST /v1/ntfyme/relay-check`.
 ///
-/// So when a message from a self-hosted topic reaches the app by a poll (not by a push) while it is
-/// still fresh, ask the relay whether a wake-up for that hash went through around then. Only while
-/// the bridge holds this hash. A few misses in a row while the bridge's ntfy.sh connection was
-/// confirmed up mean the server isn't set up for this address (`notSetUp`); misses without that
-/// confirmation only say no forwarding was confirmed (`unconfirmed`). Any wake-up clears both.
-/// The relay reports acceptance, not delivery to this device.
+/// The automatic evidence is local only (review-130d D6): messages a poll found that no push
+/// brought, counted once each by message ID, from the start of the bridge's current watch of the
+/// hash. Three say only that no forwarding was confirmed (`unconfirmed`). The one network check is
+/// "Check again": it arms the hash, and the next fresh message a poll finds asks the relay whether
+/// its wake-up went through. A miss there while the bridge's ntfy.sh connection was confirmed up
+/// means the server isn't set up for this address (`notSetUp`). Any wake-up clears both. The relay
+/// reports acceptance, not delivery to this device.
 final class SelfHostedWakeCheck {
     struct Entry: Codable, Equatable {
-        /// Misses counted while the bridge's connection was confirmed (strong evidence).
+        /// Misses a "Check again" counted while the bridge's connection was confirmed (strong evidence).
         var misses = 0
         var lastWake: Date?
         var lastCheck: Date?
@@ -29,11 +30,12 @@ final class SelfHostedWakeCheck {
         var armed: Bool?
         /// When it was armed; an arm no message answered lapses after `armLifetime`.
         var armedAt: Date?
-        /// Since when the bridge has held this hash as seen by a poll: messages from before then
-        /// (a new topic's history, a time the bridge was off) say nothing about forwarding.
+        /// The start of the bridge watch this evidence belongs to (the record's `watchStarts`):
+        /// messages from before then say nothing, and a new watch starts the evidence over. 1.30
+        /// beta entries carry none and show nothing until a poll keys them.
         var watchedSince: Date?
-        /// The newest message already counted from a poll, so none is counted twice.
-        var countedThrough: Date?
+        /// Messages already counted from a poll, by ID (newest last, bounded), so none counts twice.
+        var countedIds: [String]?
     }
 
     enum Verdict: Equatable { case relayed, missed, unknown }
@@ -47,15 +49,8 @@ final class SelfHostedWakeCheck {
     static let minMessageAge: TimeInterval = 10
     /// Clock skew allowed between the server's message time and the relay's.
     static let slack: TimeInterval = 5
-    /// At most one check per topic this often.
-    static let checkInterval: TimeInterval = 10 * 60
-    /// And at most one check across all topics this often, so many topics can't burst the relay.
+    /// At most one "Check again" request across all topics this often, so many taps can't burst the relay.
     static let globalInterval: TimeInterval = 60
-    /// A check nobody asked for (not armed by "Check again") runs at most this often per install,
-    /// so diagnostics stay well behind content polls and removals in the server's budget.
-    static let passiveInterval: TimeInterval = 10 * 60
-    /// A wake-up seen this recently means it works; no check needed.
-    static let recentWake: TimeInterval = 6 * 60 * 60
     /// A "Check again" no fresh message answered lapses after this.
     static let armLifetime: TimeInterval = 24 * 60 * 60
     static let key = "selfHostedWakeCheck"
@@ -127,18 +122,20 @@ final class SelfHostedWakeCheck {
     func isNotSetUp(hash: String) -> Bool { diagnosis(hash: hash) == .notSetUp }
 
     func diagnosis(hash: String) -> Diagnosis? {
-        guard let entry = entries[hash] else { return nil }
-        if entry.misses >= Self.missesToFlag { return .notSetUp }
-        if entry.misses + (entry.weakMisses ?? 0) >= Self.missesToFlag { return .unconfirmed }
+        guard let entry = entries[hash], entry.watchedSince != nil else { return nil }
+        if entry.misses > 0 { return .notSetUp }
+        if (entry.weakMisses ?? 0) >= Self.missesToFlag { return .unconfirmed }
         return nil
     }
 
     /// Read-modify-write under the lock the extension also takes, so a wake it records can't be
-    /// overwritten by a check result computed before it. `change` returns false to write nothing.
-    private func update(_ hash: String, _ change: (inout Entry) -> Bool) {
+    /// overwritten by a check result computed before it. `change` returns false to write nothing;
+    /// with `create` false a missing entry stays missing (a late answer can't revive a forgotten topic).
+    private func update(_ hash: String, create: Bool = true, _ change: (inout Entry) -> Bool) {
         let legacy = legacyEntries
         let changed: Bool = file.update { stored in
             var all = stored ?? legacy
+            guard create || all[hash] != nil else { return (false, false) }
             var entry = all[hash] ?? Entry()
             guard change(&entry) else { return (false, false) }
             all[hash] = entry
@@ -199,67 +196,78 @@ final class SelfHostedWakeCheck {
 
     // MARK: Evidence from polls
 
-    /// A message a poll found is counted only once it is this old (younger ones are the relay
-    /// check's, which can still see their forward) and while it is younger than `pollEvidenceAge`.
+    /// A message a poll found is counted only once it is this old (a push can trail it) and while
+    /// it is younger than `pollEvidenceAge`.
     static let pollEvidenceAge: TimeInterval = 12 * 60 * 60
     /// At most this many messages counted from one poll.
     static let pollEvidenceLimit = 3
+    /// Message IDs remembered per hash so none is counted twice.
+    static let countedIdLimit = 50
 
-    /// Messages a poll found that no push brought (device check of build 62: the relay check alone
-    /// needed the app open around three fresh messages). A message the extension received is
-    /// already stored, so a poll's new messages are the ones no wake-up delivered. Each one newer
-    /// than the last wake-up and older than `maxMessageAge` counts as a weak miss (no network
-    /// request: ntfy.sh doesn't cache forwarded poll_requests, so there is nothing to look up).
+    /// Messages a poll found that no push brought (device check of build 62). A message the
+    /// extension received is already stored, so a poll's new messages are the ones no wake-up
+    /// delivered. Each one sent after the bridge's current watch of the hash began (`watchStart`)
+    /// and after the last wake-up, aged `maxMessageAge` to `pollEvidenceAge`, counts once (by ID)
+    /// as a weak miss, with no network request (ntfy.sh doesn't cache forwarded poll_requests).
+    /// A different `watchStart` is a new watch: the evidence of the old one is dropped first.
     /// Weak misses only ever show "No recent forwarding confirmed"; any wake-up clears them.
-    /// The first call for a hash only records where its evidence starts. Returns the misses counted.
+    /// Returns the misses counted.
     @discardableResult
-    func messagesFoundByPoll(hash: String, times: [Date]) -> Int {
+    func messagesFoundByPoll(hash: String, watchStart: Date, messages: [(id: String, time: Date)]) -> Int {
         guard Self.isHash(hash) else { return 0 }
         let current = now()
         var counted = 0
         update(hash) { entry in
-            guard let since = entry.watchedSince else { entry.watchedSince = current; return true }
-            let floor = max(since, entry.lastWake ?? .distantPast, entry.countedThrough ?? .distantPast)
-            let candidates = times.filter { time in
-                let age = current.timeIntervalSince(time)
-                return time > floor && age >= Self.maxMessageAge && age <= Self.pollEvidenceAge
-            }.sorted().suffix(Self.pollEvidenceLimit)
-            guard let newest = candidates.last else { return false }
+            var changed = false
+            if entry.watchedSince != watchStart {
+                let arm = (entry.armed, entry.armedAt, entry.lastWake)
+                entry = Entry()
+                (entry.armed, entry.armedAt, entry.lastWake) = arm
+                entry.watchedSince = watchStart
+                changed = true
+            }
+            let floor = max(watchStart, entry.lastWake ?? .distantPast)
+            let seen = Set(entry.countedIds ?? [])
+            let candidates = messages.filter { message in
+                let age = current.timeIntervalSince(message.time)
+                return !seen.contains(message.id) && message.time > floor && age >= Self.maxMessageAge && age <= Self.pollEvidenceAge
+            }.sorted { $0.time < $1.time }.suffix(Self.pollEvidenceLimit)
+            guard !candidates.isEmpty else { return changed }
             entry.weakMisses = (entry.weakMisses ?? 0) + candidates.count
-            entry.countedThrough = newest
+            entry.countedIds = Array(((entry.countedIds ?? []) + candidates.map(\.id)).suffix(Self.countedIdLimit))
             counted = candidates.count
             return true
         }
         return counted
     }
 
-    /// The bridge doesn't hold this hash now: evidence starts again the next time it does.
+    /// The bridge doesn't hold this hash now: the evidence of the watch that ended goes with it.
     func notWatched(hash: String) {
-        guard entries[hash]?.watchedSince != nil else { return }
-        update(hash) { $0.watchedSince = nil; return true }
+        guard let entry = entries[hash], entry.watchedSince != nil || entry.misses > 0 || entry.weakMisses != nil else { return }
+        update(hash, create: false) { entry in
+            let arm = (entry.armed, entry.armedAt, entry.lastWake)
+            entry = Entry()
+            (entry.armed, entry.armedAt, entry.lastWake) = arm
+            return true
+        }
     }
 
     // MARK: Checking
 
     /// Whether a message at `messageTime` on this hash should be checked now, and after how long;
-    /// a yes also reserves the hash and the global slot. nil: don't check (too old, checked
-    /// recently here or for any topic, a recent wake-up, one already running, the relay asked for a pause).
+    /// a yes also reserves the hash and the global slot. nil: don't check (not armed by "Check
+    /// again", too old, another check within the minute, one already running, the relay asked for a pause).
     func plan(hash: String, messageTime: Date) -> TimeInterval? {
         let current = now()
         let age = current.timeIntervalSince(messageTime)
+        // Nothing is looked up that nobody asked for (review-130d D6).
+        guard isArmed(hash: hash) else { return nil }
         guard age <= Self.maxMessageAge - 1, age > -Self.slack else { return nil }
         guard NtfyMeHostCooldown.blockedUntil(lock, now: current) == nil else { return nil }
-        let entry = entries[hash]
-        let armed = isArmed(hash: hash)
-        if !armed {
-            if let wake = entry?.lastWake, current.timeIntervalSince(wake) < Self.recentWake,
-               entry?.misses == 0, (entry?.weakMisses ?? 0) == 0 { return nil }
-            if let check = entry?.lastCheck, current.timeIntervalSince(check) < Self.checkInterval, check <= current { return nil }
-        }
         processLock.lock(); defer { processLock.unlock() }
         guard !inFlight.contains(hash) else { return nil }
         let globalFree: Bool = lock.withLock { () -> Bool in
-            if let last = defaults.object(forKey: Self.globalKey) as? Date, current.timeIntervalSince(last) < (armed ? Self.globalInterval : Self.passiveInterval), last <= current {
+            if let last = defaults.object(forKey: Self.globalKey) as? Date, current.timeIntervalSince(last) < Self.globalInterval, last <= current {
                 return false
             }
             defaults.set(current, forKey: Self.globalKey)
@@ -270,14 +278,17 @@ final class SelfHostedWakeCheck {
         return max(0, Self.minMessageAge - age)
     }
 
-    /// A message from a self-hosted topic was saved by a poll. Checks only while the relay still
-    /// holds the time, never counts a message whose wake-up arrived while it waited or while the
-    /// check ran, and counts a miss as strong only when `evidence()` holds as the answer lands.
+    /// A fresh message from a self-hosted topic was saved by a poll while "Check again" is armed.
+    /// Checks only while the relay still holds the time, never counts a message whose wake-up
+    /// arrived while it waited or while the check ran, and counts a miss as strong only when
+    /// `evidence()` holds as the answer lands. `watch()` is the topic's current watch start (nil
+    /// once it is unsubscribed, unwatched or expired); the answer applies only to the same watch,
+    /// and never to a topic forgotten meanwhile (review-130d D6).
     func messageArrivedByPoll(baseUrl: String, topic: String, messageTime: Date,
-                              admitted: @escaping () -> Bool = { true },
+                              watch: @escaping () -> Date? = { .distantPast },
                               evidence: @escaping () -> Bool = { false }, completion: ((Verdict?) -> Void)? = nil) {
         let hash = topicHash(baseUrl: baseUrl, topic: topic)
-        guard read != nil, let delay = plan(hash: hash, messageTime: messageTime) else { completion?(nil); return }
+        guard read != nil, let generation = watch(), let delay = plan(hash: hash, messageTime: messageTime) else { completion?(nil); return }
         let started = now()
         schedule(delay) {
             // The push may have landed while we waited, or the dispatch ran late.
@@ -289,24 +300,29 @@ final class SelfHostedWakeCheck {
             }
             // Re-checked at dispatch, not only when planned (review-130b #9): a pause the server
             // asked for meanwhile, the setting turned off or the hash no longer admitted stops it.
-            guard NtfyMeHostCooldown.blockedUntil(self.lock, now: self.now()) == nil, admitted() else {
+            guard NtfyMeHostCooldown.blockedUntil(self.lock, now: self.now()) == nil, watch() == generation else {
                 self.finish(hash); completion?(nil); return
             }
             let asked = self.now()
             self.check(hash: hash, messageTime: messageTime) { verdict in
                 let strong = verdict == .missed && evidence()
-                self.update(hash) { entry in
+                // Unsubscribed, unwatched or watched anew while the answer was on the wire: it says
+                // nothing about the topic as it is now, and must not revive or re-arm it.
+                guard watch() == generation else { self.finish(hash); completion?(nil); return }
+                self.update(hash, create: false) { entry in
+                    guard entry.watchedSince == nil || entry.watchedSince == generation else { return false }
+                    entry.watchedSince = generation
                     entry.lastCheck = self.now()
+                    // This tap is answered; one made while the answer was on the wire stays armed.
+                    if (entry.armedAt ?? .distantPast) <= started { entry.armed = nil; entry.armedAt = nil }
                     // A wake recorded after the check started supersedes its answer.
                     if let wake = entry.lastWake, wake >= asked { return true }
                     switch verdict {
-                    case .relayed: entry.misses = 0; entry.weakMisses = nil; entry.armed = nil
+                    case .relayed: entry.misses = 0; entry.weakMisses = nil
                     case .missed:
                         if strong { entry.misses += 1 } else { entry.weakMisses = (entry.weakMisses ?? 0) + 1 }
-                        entry.armed = nil
-                    case .unknown: entry.armed = nil
+                    case .unknown: break
                     }
-                    if entry.armed == nil { entry.armedAt = nil }
                     return true
                 }
                 self.finish(hash)

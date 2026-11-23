@@ -178,7 +178,15 @@ struct NtfyShBridgeStatusRows: View {
             }
             // Evidence another process wrote while the app was away is read again on return.
             .onChange(of: scenePhase) { phase in
-                if phase == .active { bridge.reload(); revision += 1 } else { stopReading() }
+                guard phase == .active else { stopReading(); return }
+                bridge.reload(); revision += 1
+                // Going inactive cancelled the waiting retry and any read in flight: start them
+                // again while the row is still on screen (review-130d D6).
+                switch Self.onActive(status: status, visible: visible, enabled: enabled) {
+                case .reschedule: status.map(show)
+                case .read: check()
+                case .none: break
+                }
             }
             .onChange(of: enabled) { _ in stopReading(); checked = false; status = nil }
         // Removals the server hasn't confirmed, even with no topic left to show them (review-130c C2).
@@ -237,6 +245,17 @@ struct NtfyShBridgeStatusRows: View {
     }
 
     static let maxHeldRows = 20
+
+    enum Resume: Equatable { case none, reschedule, read }
+
+    /// What returning to the app restarts: a waiting read's retry, or the read that was cancelled
+    /// before it answered. Nothing while the connection row is off screen or the bridge is off.
+    static func onActive(status: NtfyShBridge.Status?, visible: Bool, enabled: Bool) -> Resume {
+        guard visible, enabled else { return .none }
+        guard let status else { return .read }
+        if case .waiting = status { return .reschedule }
+        return .none
+    }
 
     static func serverLabel(_ server: String) -> String {
         server.replacingOccurrences(of: "https://", with: "")

@@ -170,28 +170,35 @@ struct SubscriptionManager {
         }
     }
 
-    /// Messages from a self-hosted server that reached the app by poll: older ones count as weak
-    /// misses at once (`messagesFoundByPoll`); for a fresh one, ask the relay whether its wake-up
-    /// went through (SelfHostedWakeCheck). One relay check per poll, for the newest message only.
-    /// Only while the bridge holds this hash (a forward via ntfy.sh reaches the relay only through
-    /// the bridge); a miss counts as strong evidence only with the bridge's connection confirmed.
+    /// Messages from a self-hosted server that reached the app by poll count, locally, as weak
+    /// misses (`messagesFoundByPoll`), from the start of the bridge's current watch of the hash.
+    /// Only while the bridge holds this hash (a forward via ntfy.sh reaches the device only through
+    /// the bridge). The relay is asked about the newest fresh one only when "Check again" armed it.
     static func checkWakeUps(baseUrl: String, topic: String? = nil, messages: [Message], check: SelfHostedWakeCheck = .shared,
-                             bridge: NtfyShBridge = .shared, appBaseUrl: String = Config.appBaseUrl) {
+                             bridge: NtfyShBridge = .shared, appBaseUrl: String = Config.appBaseUrl,
+                             subscribed: ((String, String) -> Bool)? = nil) {
         let server = normalizeBaseUrl(baseUrl)
         guard server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server) else { return }
         let polled = messages.filter { $0.event == "message" }
         guard let topic = topic ?? polled.first?.topic else { return }
         let hash = topicHash(baseUrl: server, topic: topic)
-        guard bridge.isAdmitted(hash: hash) else { check.notWatched(hash: hash); return }
-        // Every poll, even an empty one, keeps where evidence starts; older messages no push
-        // brought count at once, without a request (device check of build 62).
+        // The answer to an armed check lands on a URLSession queue: read the row on the context's own queue.
+        let isSubscribed = subscribed ?? { baseUrl, topic in
+            let context = Store.shared.context
+            var found = false
+            context.performAndWait { found = Store.shared.getSubscription(baseUrl: baseUrl, topic: topic) != nil }
+            return found
+        }
+        // The watch as it stands: subscribed here, admitted and unexpired on the bridge.
+        let watch = { isSubscribed(baseUrl, topic) ? bridge.watchStart(hash: hash) : nil }
+        guard let start = watch() else { check.notWatched(hash: hash); return }
         let mine = polled.filter { $0.topic == topic }
-        check.messagesFoundByPoll(hash: hash, times: mine.map { Date(timeIntervalSince1970: TimeInterval($0.time)) })
+        check.messagesFoundByPoll(hash: hash, watchStart: start,
+                                  messages: mine.map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) })
         guard let newest = mine.max(by: { $0.time < $1.time }) else { return }
         check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
                                    messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)),
-                                   admitted: { bridge.isAdmitted(hash: hash) },
-                                   evidence: { bridge.forwardingEvidence(hash: hash) })
+                                   watch: watch, evidence: { bridge.forwardingEvidence(hash: hash) })
     }
 
     /// Completion includes saves and all outcomes, rather than only enqueueing the requests.

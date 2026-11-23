@@ -13,9 +13,9 @@ struct ReleaseNotes: Identifiable, Equatable {
     static let shipped: [ReleaseNotes] = [
         ReleaseNotes(version: "1.30.0", bullets: [
             String(localized: "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."),
-            String(localized: "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too."),
-            String(localized: "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them."),
-            String(localized: "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them.")
+            String(localized: "Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too."),
+            String(localized: "Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups."),
+            String(localized: "When the system wakes NTF-AI in the background, it now renews instant banners, so you rarely need to open the app to keep them.")
         ]),
         ReleaseNotes(version: "1.29.0", bullets: [
             String(localized: "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives."),
