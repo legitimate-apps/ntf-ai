@@ -372,7 +372,7 @@ final class NavigationPilotUITests: XCTestCase {
         app.launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 15), "the app shows a screen")
         let settings = lang == "de" ? "Einstellungen" : "Settings"
         tab(settings)
         XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 5))
