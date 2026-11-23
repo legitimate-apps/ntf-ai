@@ -916,6 +916,7 @@ final class NtfyShBridgeTests: XCTestCase {
         "Instant banners", "Watching %lld", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
         "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.",
+        "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.",
         "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.",
         "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.",
         "Over the limit of 100 topics per list, so new messages show when you open the app.",
@@ -2667,5 +2668,267 @@ extension NtfyShBridgeTests {
         save("http://192.168.1.20:8099", "garage")
         sync()
         XCTAssertEqual(bridge.watchStart(hash: garage), clock, "a new watch")
+    }
+}
+
+// MARK: Fix round 4 (review-130d D1, D2, D9, D10)
+
+extension NtfyShBridgeTests {
+    private func syncInWake(seconds: TimeInterval) {
+        let done = expectation(description: "wake")
+        bridge.sync(reason: "wake", deadline: clock.addingTimeInterval(seconds)) { done.fulfill() }
+        wait(for: [done], timeout: 10)
+    }
+
+    private var renewals: Int {
+        BridgeStubProtocol.sent.filter { $0.request.url?.path == "/v1/ntfai/watch/renew" }.count
+    }
+
+    private var ledgerURL: URL { stateDirectory.appendingPathComponent(NtfyShAccessLedger.fileName) }
+
+    /// Holds `path`'s lock from another descriptor (as another process would) until `release` fires.
+    private func holdLock(_ path: String) -> DispatchSemaphore {
+        let holder = SharedFileLock(path: path)
+        let held = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { holder.withLock { held.signal(); release.wait() } }
+        held.wait()
+        return release
+    }
+
+    // D2: removals
+
+    /// Red on e573bc4 (review-130d D2): the server applied a+b but the 200 was lost; after b was
+    /// removed the app compared a with the acknowledged a, showed nothing pending and skipped as
+    /// up to date, so b stayed watched. What an unacknowledged POST may have installed counts.
+    func testADroppedReplyThenARemovalSendsTheShrink() throws {
+        save("https://ntfy.sh", "a")
+        sync()
+        let b = save("https://ntfy.sh", "b")
+        BridgeStubProtocol.reply = { _ in .failure(URLError(.networkConnectionLost)) }
+        sync()
+        XCTAssertEqual(bridge.currentRecord.unconfirmed, ["t:b"])
+        XCTAssertTrue(store.delete(subscription: b))
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 1, "b may still be watched")
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
+        clock += 31 // past the client's backoff
+        let before = watchPosts
+        sync()
+        XCTAssertEqual(watchPosts, before + 1)
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a"])
+        XCTAssertNil(bridge.currentRecord.unconfirmed, "acknowledged")
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 0)
+    }
+
+    /// Red on e573bc4 (review-130d D2): an empty removal required the access ledger, so after a
+    /// failed first removal an unreadable ledger held it (and an opt-out) indefinitely. An empty
+    /// list has no names to decide or to be refused.
+    func testAnEmptyStoreRetriesAFailedRemovalWithoutTheAccessLedger() throws {
+        let a = save("https://ntfy.sh", "a")
+        sync()
+        XCTAssertTrue(store.delete(subscription: a))
+        BridgeStubProtocol.reply = { _ in .success((500, [:], "")) }
+        sync()
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 1)
+        try Data("{not json".utf8).write(to: ledgerURL)
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0}"#)) }
+        clock += 3601
+        let before = watchPosts
+        sync()
+        XCTAssertEqual(watchPosts, before + 1)
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], [])
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 0)
+        XCTAssertFalse(bridge.currentRecord.mayHaveEntries)
+    }
+
+    /// Red on e573bc4 (review-130d D2): turning off with the ledger unreadable sent nothing.
+    func testTurningOffWithAnUnreadableLedgerStillRemoves() throws {
+        save("https://ntfy.sh", "a")
+        sync()
+        try Data("{not json".utf8).write(to: ledgerURL)
+        defaults.set(false, forKey: NtfyShBridge.enabledKey)
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":0}"#)) }
+        let before = watchPosts
+        sync()
+        XCTAssertEqual(watchPosts, before + 1)
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], [])
+    }
+
+    /// Red on e573bc4 (review-130d D2): the extension's opt-out bit was written only when the
+    /// empty POST was about to go, so a wake while the server's pause held it renewed the old list.
+    func testAWakeBetweenTurningOffAndTheFirstPostDoesntRenew() {
+        save("https://ntfy.sh", "a")
+        sync()
+        clock += 8 * 24 * 3600 // renewal due
+        NtfyMeHostCooldown.note(status: 429, retryAfter: "60", lock: bridge.lock, now: clock)
+        defaults.set(false, forKey: NtfyShBridge.enabledKey)
+        let before = watchPosts
+        sync()
+        XCTAssertEqual(watchPosts, before, "the server's pause holds the empty list")
+        XCTAssertEqual(bridge.currentRecord.optedOut, true, "committed before any gate")
+        clock += 61
+        renew(extensionBridge())
+        XCTAssertEqual(renewals, 0)
+    }
+
+    /// Red on e573bc4 (review-130d D2): a known removal waited behind the anonymous checks, which
+    /// can use up a wake. It goes first; the checks then change nothing, so no second list goes.
+    func testAKnownRemovalGoesOutBeforeTheAccessChecks() throws {
+        credentialed("a_q7x", "b_q7x")
+        authReplies { _ in 200 }
+        sync()
+        clock += 25 * 3600 // both due for a recheck, still sendable
+        XCTAssertTrue(store.delete(subscription: try XCTUnwrap(store.getSubscription(baseUrl: "https://ntfy.sh", topic: "b_q7x"))))
+        let before = BridgeStubProtocol.sent.count
+        let posts = watchPosts
+        sync()
+        let paths = BridgeStubProtocol.sent.dropFirst(before).map { $0.request.url?.path ?? "" }
+        let post = try XCTUnwrap(paths.firstIndex(of: "/v1/ntfai/watch"))
+        let check = try XCTUnwrap(paths.firstIndex { $0.hasSuffix("/auth") })
+        XCTAssertLessThan(post, check, "the removal first")
+        let body = try XCTUnwrap(BridgeStubProtocol.sent.dropFirst(before)[before + post].body)
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: body) as? [String: Any])?["ntfy_sh_topics"] as? [String], ["a_q7x"])
+        XCTAssertEqual(watchPosts, posts + 1)
+    }
+
+    // D1: the refusal barrier
+
+    /// Red on e573bc4 (review-130d D1): with no saved login the restart barrier was ignored, so a
+    /// refusal lost with its process let the next replacement resend the name. The status read
+    /// records the names it can report on; each needs a fresh public answer first.
+    func testWithoutALoginALostRefusalStillKeepsTheNameOutAfterARestart() throws {
+        save("https://ntfy.sh", "a_q7x")
+        save("https://ntfy.sh", "b_q7x")
+        sync()
+        XCTAssertEqual(Set(try lastBody()["ntfy_sh_topics"] as? [String] ?? []), ["a_q7x", "b_q7x"])
+        XCTAssertTrue(probes().isEmpty, "no login: no check")
+        clock += 1
+        let holder = SharedFileLock(path: bridge.lock.path)
+        let held = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        BridgeStubProtocol.reply = { _ in
+            DispatchQueue.global().async { holder.withLock { held.signal(); release.wait() } }
+            held.wait()
+            return .success((200, [:], #"{"watching":2,"connected":true,"unwatchable":["a_q7x"]}"#))
+        }
+        _ = status()
+        XCTAssertEqual(bridge.access["a_q7x"]?.state, .refused, "in force in this process")
+        bridge = makeBridge() // killed before the lock freed
+        release.signal()
+        XCTAssertNotEqual(bridge.access["a_q7x"]?.state, .refused)
+        clock += 1
+        authReplies { $0 == "a_q7x" ? 403 : 200 }
+        save("https://ntfy.sh", "c_q7x")
+        let before = BridgeStubProtocol.sent.count
+        sync()
+        XCTAssertEqual(Set(probes(after: before)), ["a_q7x", "b_q7x"], "only the names the read could report on")
+        XCTAssertEqual(Set(try lastBody()["ntfy_sh_topics"] as? [String] ?? []), ["b_q7x", "c_q7x"])
+    }
+
+    /// Red on e573bc4 (review-130d D1): the barrier was the oldest unresolved request, so an old
+    /// orphan before the last 200 masked a newer one after it. The latest one decides.
+    func testTwoPendingRequestsStraddlingTheLast200() throws {
+        credentialed("a_q7x")
+        authReplies { _ in 200 }
+        sync()
+        let checked = clock
+        var ledger = try JSONDecoder().decode(NtfyShAccessLedger.self, from: Data(contentsOf: ledgerURL))
+        ledger.pending = ["dead-run/1": checked.addingTimeInterval(-10), "dead-run/2": checked.addingTimeInterval(5)]
+        ledger.pendingNames = ["dead-run/1": ["a_q7x"], "dead-run/2": ["a_q7x"]]
+        try JSONEncoder().encode(ledger).write(to: ledgerURL)
+        clock += 10
+        authReplies { $0 == "a_q7x" ? 403 : 200 }
+        save("http://192.168.1.20:8099", "garage")
+        let before = BridgeStubProtocol.sent.count
+        sync()
+        XCTAssertEqual(probes(after: before), ["a_q7x"])
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], [])
+        XCTAssertEqual(try lastBody()["hashes"] as? [String], [sha("http://192.168.1.20:8099/garage")])
+    }
+
+    // D9: the cooldown file
+
+    /// Red on e573bc4 (review-130d D9): an unreadable cooldown file read as no pause at all.
+    func testAnUnreadableCooldownIsAShortPauseThenRecovers() throws {
+        let lock = SharedFileLock(path: NSTemporaryDirectory() + "cooldown-\(UUID()).lock")
+        try Data("{not json".utf8).write(to: NtfyMeHostCooldown.file(lock).url)
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(lock, now: clock), clock.addingTimeInterval(60))
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(lock, now: clock.addingTimeInterval(30), userInitiated: true),
+                       clock.addingTimeInterval(60), "from when it was first found, for every request")
+        XCTAssertNil(NtfyMeHostCooldown.blockedUntil(lock, now: clock.addingTimeInterval(61)), "then requests resume")
+        NtfyMeHostCooldown.note(status: 429, retryAfter: "600", lock: lock, now: clock.addingTimeInterval(62))
+        XCTAssertEqual(NtfyMeHostCooldown.file(lock).read()?.serverNotBefore, clock.addingTimeInterval(662), "the next answer rewrites the file")
+    }
+
+    /// Red on e573bc4 (review-130d D9): a pause this process couldn't save stayed in its memory
+    /// only, so the other process kept sending. It is written before this process's next request.
+    func testAPauseThatCouldntBeSavedIsWrittenBeforeTheNextRequest() {
+        let lock = SharedFileLock(path: NSTemporaryDirectory() + "cooldown-\(UUID()).lock")
+        let release = holdLock(lock.path)
+        NtfyMeHostCooldown.note(status: 429, retryAfter: "600", lock: lock, now: clock)
+        release.signal()
+        XCTAssertNil(NtfyMeHostCooldown.file(lock).read()?.serverNotBefore, "not saved yet")
+        XCTAssertEqual(NtfyMeHostCooldown.blockedUntil(lock, now: clock), clock.addingTimeInterval(600))
+        XCTAssertEqual(NtfyMeHostCooldown.file(lock).read()?.serverNotBefore, clock.addingTimeInterval(600), "now the other process sees it")
+    }
+
+    /// Red on e573bc4 (review-130d D9): a save cleared this process's whole unsaved slot after
+    /// releasing the lock, erasing a newer pause noted (and not saved) meanwhile.
+    func testASaveClearsOnlyThePauseItWrote() {
+        let lock = SharedFileLock(path: NSTemporaryDirectory() + "cooldown-\(UUID()).lock")
+        defer { NtfyMeHostCooldown.afterSaveForTesting = nil }
+        NtfyMeHostCooldown.afterSaveForTesting = { [unowned self] in
+            NtfyMeHostCooldown.afterSaveForTesting = nil
+            let release = self.holdLock(lock.path)
+            NtfyMeHostCooldown.note(status: 429, retryAfter: "900", lock: lock, now: self.clock)
+            release.signal()
+        }
+        NtfyMeHostCooldown.note(status: 500, retryAfter: nil, lock: lock, now: clock)
+        XCTAssertEqual(NtfyMeHostCooldown.read(lock, now: clock).serverNotBefore, clock.addingTimeInterval(900))
+    }
+
+    // D10: probe scheduling
+
+    /// Red on e573bc4 (review-130d D10): all five names were marked as rechecking before the first
+    /// check, so when a 429 stopped the round after one, the others lost their valid 200s too.
+    func testEachNameIsMarkedJustBeforeItsOwnCheck() throws {
+        credentialed("t1_q7x", "t2_q7x", "t3_q7x")
+        authReplies { _ in 200 }
+        sync()
+        clock += 25 * 3600 // all due, all still sendable
+        BridgeStubProtocol.reply = { request in
+            request.url?.path.hasSuffix("/auth") == true ? .success((429, ["Retry-After": "3600"], ""))
+                : .success((200, [:], #"{"watching":2,"expires":1900000000}"#))
+        }
+        let before = BridgeStubProtocol.sent.count
+        sync()
+        XCTAssertEqual(probes(after: before), ["t1_q7x"], "the 429 stops the round")
+        XCTAssertEqual(Set(try lastBody()["ntfy_sh_topics"] as? [String] ?? []), ["t2_q7x", "t3_q7x"])
+    }
+
+    /// Red on e573bc4 (review-130d D10): checks could use the last seconds of a wake, leaving no
+    /// time for the list. With too little left for both, the checks wait and the list goes.
+    func testAWakeKeepsTimeForTheListBeforeChecking() throws {
+        credentialed("a_q7x")
+        authReplies { _ in 200 }
+        sync()
+        clock += 25 * 3600
+        save("http://192.168.1.20:8099", "garage")
+        let before = BridgeStubProtocol.sent.count
+        syncInWake(seconds: 6)
+        XCTAssertEqual(probes(after: before), [])
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a_q7x"])
+        XCTAssertEqual(try lastBody()["hashes"] as? [String], [sha("http://192.168.1.20:8099/garage")])
+    }
+
+    /// Review-130d D10: names past the five checked per run say they are waiting their turn.
+    func testTopicsQueuedBehindTheCapSayWaitingToCheck() {
+        credentialed("t1_q7x", "t2_q7x", "t3_q7x", "t4_q7x", "t5_q7x", "t6_q7x", "t7_q7x")
+        let set = bridge.subscribedSet()
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "t1_q7x", set: set, wakes: nil, fcmBound: true), .held(.checkingAccess))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "t6_q7x", set: set, wakes: nil, fcmBound: true), .held(.waitingToCheck))
+        let held = bridge.report(wakes: nil).groups.first?.held ?? []
+        XCTAssertEqual(held.filter { $0.hold == .waitingToCheck }.map(\.topic), ["t6_q7x", "t7_q7x"])
+        XCTAssertTrue(NtfyShBridge.TopicHold.waitingToCheck.isPending)
     }
 }

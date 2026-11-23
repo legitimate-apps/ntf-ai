@@ -59,6 +59,12 @@ struct BridgeWatchSet: Equatable {
         held.first { $0.baseUrl == baseUrl && $0.topic == topic }?.hold
     }
 
+    /// Needs an access check that the next run won't reach: it checks the first
+    /// `maxProbesPerSync` of `needsProbe` (review-130d D10).
+    func isQueuedBehindCap(_ topic: String) -> Bool {
+        (needsProbe.firstIndex(of: topic) ?? 0) >= NtfyShBridge.maxProbesPerSync
+    }
+
     /// - Parameters:
     ///   - subscriptions: every subscription's stored base URL and topic, and whether a credential
     ///     (a saved user or a custom header such as `Authorization`) may be saved for its server:
@@ -74,13 +80,15 @@ struct BridgeWatchSet: Equatable {
     /// - Either way a name ntfy.sh refused (an anonymous 401/403, or the server's `unwatchable`)
     ///   waits for a fresh anonymous 200, whichever evidence is newer deciding.
     ///
-    /// Privacy evidence that may be missing makes a name with a credential wait for a fresh 200
-    /// (review-130c C1): a recheck marked as started (`rechecking`) and not answered yet, or a
-    /// status read or registration whose refusals may not have been saved (`barrier`, the start of
-    /// the oldest such request), keeps any 200 from before it from being reused.
+    /// Privacy evidence that may be missing makes a name wait for a fresh 200 (review-130c C1,
+    /// review-130d D1): a recheck marked as started (`rechecking`) and not answered yet keeps a
+    /// credentialed name's earlier 200 from being reused, and a status read or registration whose
+    /// refusals may not have been saved does the same for every name it could report on, with a
+    /// login or without: `barriers[name]` is the start of the latest such request for that name,
+    /// and `barrier` the latest one whose names aren't known (it covers every name).
     static func compute(subscriptions: [(baseUrl: String, topic: String, hasLogin: Bool)],
-                        access: [String: NtfyShAccess] = [:], barrier: Date? = nil, now: Date = Date(),
-                        appBaseUrl: String = Config.appBaseUrl) -> BridgeWatchSet {
+                        access: [String: NtfyShAccess] = [:], barrier: Date? = nil, barriers: [String: Date] = [:],
+                        now: Date = Date(), appBaseUrl: String = Config.appBaseUrl) -> BridgeWatchSet {
         let appServer = normalizeBaseUrl(appBaseUrl)
         var topics = Set<String>()
         var hashes: [String: (baseUrl: String, topic: String)] = [:]
@@ -98,12 +106,18 @@ struct BridgeWatchSet: Equatable {
                 let answer = access[topic]
                 let mayCheck = answer?.mayCheck(now: now) ?? true
                 let age = answer.map { now.timeIntervalSince($0.checked) } ?? .infinity
+                // A refusal for this name may have been lost: only a public answer newer than that counts.
+                let floor = [barrier, barriers[topic]].compactMap { $0 }.max()
+                let unconfirmed = floor.map { floor in answer.map { $0.state == .unknown || $0.checked < floor } ?? true } ?? false
                 switch answer?.state {
                 case .open? where age >= 0 && age < NtfyShAccess.sendableOpenAge:
+                    if !hasLogin, unconfirmed {
+                        if mayCheck { probe.insert(topic) }
+                        held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .checkingAccess)); continue
+                    }
                     if hasLogin, let answer {
                         let due = age >= NtfyShAccess.recheckOpenAge
-                        let barred = answer.rechecking.map { $0 > answer.checked } == true
-                            || barrier.map { answer.checked < $0 } == true
+                        let barred = answer.rechecking.map { $0 > answer.checked } == true || unconfirmed
                         if due || barred, mayCheck { probe.insert(topic) }
                         // A recheck is running or failed, or a refusal may have been lost: withheld until a fresh 200.
                         let failed = answer.failedAt.map { $0 >= answer.checked } == true
@@ -119,7 +133,7 @@ struct BridgeWatchSet: Equatable {
                     held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .invalidName)); continue
                 default:
                     // Never checked, only failed checks, or a 200 over 36 hours old.
-                    if hasLogin {
+                    if hasLogin || unconfirmed {
                         if mayCheck { probe.insert(topic) }
                         held.append(Entry(baseUrl: baseUrl, topic: topic, hold: .checkingAccess)); continue
                     }
@@ -249,16 +263,33 @@ struct NtfyShAccess: Codable, Equatable {
 struct NtfyShAccessLedger: Codable, Equatable {
     var answers: [String: NtfyShAccess] = [:]
     /// Status reads and registrations sent and not yet handled, by id: their start. A refusal one
-    /// of them reports may be lost with the process, so the oldest start is a barrier (`compute`).
+    /// of them reports may be lost with the process, so it is a barrier for its names (`compute`).
     var pending: [String: Date]?
+    /// The raw ntfy.sh names each pending request can report on (from fix round 4, review-130d
+    /// D1). A pending request without an entry here (written by an earlier build) covers every name.
+    var pendingNames: [String: [String]]?
     /// ntfy.sh asked for a pause on anonymous checks (429) until then.
     var probeNotBefore: Date?
 
-    /// The barrier for a process: requests this process sent are covered by its own memory
+    /// The barriers for a process: requests this process sent are covered by its own memory
     /// (`unsavedAccess`) until it saves their refusals, so only another run's count: one that may
-    /// have died before saving what it learned.
-    func barrier(excludingRun run: String) -> Date? {
-        pending?.filter { !$0.key.hasPrefix(run + "/") }.values.min()
+    /// have died before saving what it learned. Per name, the latest such request's start (any
+    /// unresolved request newer than a 200 may have overturned it, review-130d D1); `all` for
+    /// requests whose names aren't recorded.
+    func barriers(excludingRun run: String) -> (all: Date?, names: [String: Date]) {
+        var all: Date?
+        var names: [String: Date] = [:]
+        for (id, started) in pending ?? [:] where !id.hasPrefix(run + "/") {
+            guard let covered = pendingNames?[id] else { all = max(all ?? started, started); continue }
+            for name in covered { names[name] = max(names[name] ?? started, started) }
+        }
+        return (all, names)
+    }
+
+    /// Removes a request from the barrier list.
+    mutating func resolve(_ id: String) {
+        pending?[id] = nil
+        pendingNames?[id] = nil
     }
 
     static let fileName = "ntfai-bridge-access.json"
@@ -320,13 +351,22 @@ struct BridgeRecord: Codable, Equatable {
     /// When each accepted hash ("h:<hash>") entered the accepted set: the start of its watch, which
     /// the self-hosted evidence is keyed by (review-130d D6). Kept across replacements that keep it.
     var watchStarts: [String: Date]?
+    /// Members ("t:<name>", "h:<hash>") a registration sent and not acknowledged may have installed
+    /// beyond the accepted set (review-130d D2): its 200 can be lost after the server applied it.
+    /// Added before each POST, cleared by the next acknowledged one.
+    var unconfirmed: [String]?
+
+    /// Everything the server may hold for this device: the accepted set and what any
+    /// unacknowledged registration may have added.
+    var mayHold: Set<String> {
+        BridgeWatchSet.members(signature: acceptedSignature).union(unconfirmed ?? [])
+    }
 
     /// Names and hashes the server may still hold that the current set no longer asks for
-    /// (review-130c C2): "t:<name>" and "h:<hash>". Everything, when the setting is off.
+    /// (review-130c C2, review-130d D2): "t:<name>" and "h:<hash>". Everything, when the setting is off.
     func pendingRemovals(desired: BridgeWatchSet?) -> Set<String> {
-        let accepted = BridgeWatchSet.members(signature: acceptedSignature)
-        guard optedOut != true, let desired else { return optedOut == true ? accepted : [] }
-        return accepted.subtracting(BridgeWatchSet.members(signature: desired.signature))
+        guard optedOut != true, let desired else { return optedOut == true ? mayHold : [] }
+        return mayHold.subtracting(BridgeWatchSet.members(signature: desired.signature))
     }
 }
 
@@ -353,15 +393,35 @@ struct NtfyMeHostCooldown: Codable, Equatable {
         SharedStateFile(url: URL(fileURLWithPath: lock.path + ".cooldown.json"), lock: lock)
     }
 
-    /// Pauses this process noted but couldn't save (lock busy), honoured until a save lands.
+    /// Pauses this process noted but couldn't save (lock busy), honoured until a save lands. Each
+    /// has a generation, so a save clears only the value it wrote, never a newer one noted while
+    /// it was writing (review-130d D9).
     private static let unsavedLock = NSLock()
-    private static var unsaved: [String: NtfyMeHostCooldown] = [:]
+    private static var unsaved: [String: (value: NtfyMeHostCooldown, generation: Int)] = [:]
+    private static var generations = 0
+    /// When this process first found the file unreadable (corrupt, or protected before first unlock).
+    private static var unreadableSince: [String: Date] = [:]
+    /// An unreadable file may have held a pause: every request waits this long after this process
+    /// first finds it so (review-130d D9). The next answer from the server rewrites the file.
+    static let unreadablePause: TimeInterval = 60
+    /// Test hook: runs after a save lands, before the unsaved value is cleared.
+    static var afterSaveForTesting: (() -> Void)?
 
-    static func read(_ lock: SharedFileLock) -> NtfyMeHostCooldown {
-        let stored = file(lock).read() ?? NtfyMeHostCooldown()
+    static func read(_ lock: SharedFileLock, now: Date = Date()) -> NtfyMeHostCooldown {
+        let loaded = file(lock).load()
         unsavedLock.lock(); defer { unsavedLock.unlock() }
+        var stored: NtfyMeHostCooldown
+        switch loaded {
+        case .value(let value): stored = value; unreadableSince[lock.path] = nil
+        case .missing: stored = NtfyMeHostCooldown(); unreadableSince[lock.path] = nil
+        case .unreadable:
+            // Not an empty record: a short pause the server may have asked for, then requests resume.
+            let since = unreadableSince[lock.path] ?? now
+            unreadableSince[lock.path] = since
+            stored = NtfyMeHostCooldown(serverNotBefore: since.addingTimeInterval(unreadablePause))
+        }
         guard let pending = unsaved[lock.path] else { return stored }
-        return stored.strongest(with: pending)
+        return stored.strongest(with: pending.value)
     }
 
     /// The later deadline of each kind.
@@ -379,9 +439,13 @@ struct NtfyMeHostCooldown: Codable, Equatable {
         return [server, client].compactMap { $0 }.max()
     }
 
-    /// When automatic requests may run again, or nil if they may run now.
+    /// When automatic requests may run again, or nil if they may run now. Asked before every
+    /// request, so a pause this process couldn't save is written now, for the other process too
+    /// (review-130d D9).
     static func blockedUntil(_ lock: SharedFileLock, now: Date, userInitiated: Bool = false) -> Date? {
-        read(lock).notBefore(now: now, userInitiated: userInitiated)
+        unsavedLock.lock(); let unsavedHere = unsaved[lock.path] != nil; unsavedLock.unlock()
+        if unsavedHere { save(lock) { _ in } }
+        return read(lock, now: now).notBefore(now: now, userInitiated: userInitiated)
     }
 
     /// Record how a request to the server went. An answer other than 429 or 5xx ends only the
@@ -404,24 +468,51 @@ struct NtfyMeHostCooldown: Codable, Equatable {
                 cooldown.clientNotBefore = max(cooldown.clientNotBefore ?? .distantPast, until)
             }
         }
-        let saved: Bool? = file(lock).update { stored in
-            var next = stored ?? NtfyMeHostCooldown()
-            unsavedLock.lock()
-            if let pending = unsaved[lock.path] { next = next.strongest(with: pending) }
-            unsavedLock.unlock()
-            change(&next)
-            stored = next
-            return (true, true)
-        }
+        guard !save(lock, change) else { return }
+        // Not saved: kept in force in this process so a pause is never lost to a busy lock.
+        let onDisk = file(lock).read()
         unsavedLock.lock(); defer { unsavedLock.unlock() }
-        if saved == true {
-            unsaved[lock.path] = nil
-        } else {
-            // Not saved: kept in force in this process so a pause is never lost to a busy lock.
-            var pending = unsaved[lock.path] ?? (file(lock).read() ?? NtfyMeHostCooldown())
-            change(&pending)
-            unsaved[lock.path] = pending
-        }
+        var pending = unsaved[lock.path]?.value ?? onDisk ?? NtfyMeHostCooldown()
+        change(&pending)
+        generations += 1
+        unsaved[lock.path] = (pending, generations)
+    }
+
+    /// Applies `change` to the file, with this process's unsaved pauses merged in, and clears the
+    /// unsaved value it wrote. A file that can't be read is replaced: the answer at hand is the
+    /// newest evidence there is (its pause was honoured meanwhile, `read`). False when not saved.
+    @discardableResult
+    private static func save(_ lock: SharedFileLock, _ change: (inout NtfyMeHostCooldown) -> Void) -> Bool {
+        let stateFile = file(lock)
+        var merged: Int?
+        let saved: Bool? = lock.withLock { () -> Bool? in
+            unsavedLock.lock()
+            let pending = unsaved[lock.path]
+            let since = unreadableSince[lock.path]
+            unsavedLock.unlock()
+            merged = pending?.generation
+            if case .unreadable = stateFile.load() {
+                var next = NtfyMeHostCooldown(serverNotBefore: since.map { $0.addingTimeInterval(unreadablePause) })
+                if let pending { next = next.strongest(with: pending.value) }
+                change(&next)
+                guard (try? JSONEncoder().encode(next).write(to: stateFile.url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])) != nil else { return false }
+                return true
+            }
+            return stateFile.update { stored in
+                var next = stored ?? NtfyMeHostCooldown()
+                if let pending { next = next.strongest(with: pending.value) }
+                change(&next)
+                let write = next != stored
+                if write { stored = next }
+                return (write, true)
+            }
+        } ?? nil
+        guard saved == true else { return false }
+        afterSaveForTesting?()
+        unsavedLock.lock(); defer { unsavedLock.unlock() }
+        if let merged, unsaved[lock.path]?.generation == merged { unsaved[lock.path] = nil }
+        unreadableSince[lock.path] = nil
+        return true
     }
 }
 
@@ -488,6 +579,8 @@ final class NtfyShBridge: ObservableObject {
     static let probeBackoff: TimeInterval = 60 * 60
     /// Below this much time left in a wake, no new request is started.
     static let minimumRequestTime: TimeInterval = 3
+    /// Time an access check leaves in a wake for the removal or replacement after it (review-130d D10).
+    static let registrationReserve: TimeInterval = 5
     /// A status reply saying "connected" counts as strong evidence for a miss this close to it.
     static let connectedEvidenceAge: TimeInterval = 10 * 60
 
@@ -676,8 +769,9 @@ final class NtfyShBridge: ObservableObject {
     func readSubscribedSet() -> BridgeWatchSet? {
         guard let rows = readRows() else { return nil }
         let ledger = loadLedger()
+        let barriers = ledger?.barriers(excludingRun: run)
         return BridgeWatchSet.compute(subscriptions: rows, access: access,
-                                      barrier: ledger == nil ? .distantFuture : ledger?.barrier(excludingRun: run),
+                                      barrier: ledger == nil ? .distantFuture : barriers?.all, barriers: barriers?.names ?? [:],
                                       now: now(), appBaseUrl: appBaseUrl)
     }
 
@@ -738,6 +832,8 @@ final class NtfyShBridge: ObservableObject {
             ledger.answers = ledger.answers.filter { current.timeIntervalSince($0.value.evidenceAt) < 30 * 24 * 60 * 60 }
             ledger.pending = ledger.pending?.filter { current.timeIntervalSince($0.value) < NtfyShAccessLedger.pendingLifetime }
             if ledger.pending?.isEmpty == true { ledger.pending = nil }
+            ledger.pendingNames = ledger.pendingNames?.filter { ledger.pending?[$0.key] != nil }
+            if ledger.pendingNames?.isEmpty == true { ledger.pendingNames = nil }
             let write = stored != ledger
             if write { stored = ledger }
             return (write, true)
@@ -791,7 +887,7 @@ final class NtfyShBridge: ObservableObject {
         unsavedLock.unlock()
         let saved = updateLedger { ledger in
             ledger.answers = Self.merge(ledger.answers, pending)
-            for id in clears { ledger.pending?[id] = nil }
+            for id in clears { ledger.resolve(id) }
         }
         guard saved else {
             Log.w(Self.tag, "Access evidence not saved (lock busy or write failed); kept in force in this process")
@@ -814,11 +910,15 @@ final class NtfyShBridge: ObservableObject {
         return commitEvidence(refusals, clearing: request)
     }
 
-    /// Registers a request that may report refusals, before it is sent. While it stands, another
-    /// run treats every earlier 200 of a credentialed name as unconfirmed (`compute(barrier:)`).
-    private func openBarrier(at started: Date) -> String? {
+    /// Registers a request that may report refusals for `names`, before it is sent. While it
+    /// stands, another run treats every earlier 200 of those names as unconfirmed, with a login
+    /// or without (`compute(barriers:)`, review-130d D1).
+    private func openBarrier(at started: Date, names: [String]) -> String? {
         let id = run + "/" + UUID().uuidString
-        return updateLedger { ledger in ledger.pending = (ledger.pending ?? [:]).merging([id: started]) { a, _ in a } } ? id : nil
+        return updateLedger { ledger in
+            ledger.pending = (ledger.pending ?? [:]).merging([id: started]) { a, _ in a }
+            ledger.pendingNames = (ledger.pendingNames ?? [:]).merging([id: names.sorted()]) { a, _ in a }
+        } ? id : nil
     }
 
     var probeBlockedUntil: Date? {
@@ -826,17 +926,19 @@ final class NtfyShBridge: ObservableObject {
     }
 
     /// `GET https://ntfy.sh/<topic>/auth` with no credentials: 200 when anyone may read it, which is
-    /// exactly what the bridge can do. Sequential; each answer is committed as it lands, and a 429
-    /// stops the round until ntfy.sh's Retry-After (at most a day) or an hour. `completion(false)`
-    /// when an answer couldn't be committed: then the cycle sends no list.
+    /// exactly what the bridge can do. Sequential; each name is marked as being rechecked just
+    /// before its own request and its answer committed as it lands (review-130d D10), and a 429
+    /// stops the round until ntfy.sh's Retry-After (at most a day) or an hour. A wake keeps
+    /// `registrationReserve` for the list that follows. `completion(false)` when a mark or an
+    /// answer couldn't be committed: then the cycle sends no list.
     private func probe(_ topics: [String], deadline: Date?, wake: WakeContext?, completion: @escaping (Bool) -> Void) {
         guard let session, !topics.isEmpty else { completion(true); return }
         var queue = topics
         func next() {
             guard !queue.isEmpty else { completion(true); return }
-            let remaining = remainingTime(deadline, wake)
+            let remaining = remainingTime(deadline, wake) - Self.registrationReserve
             guard remaining >= Self.minimumRequestTime else {
-                Log.d(Self.tag, "Access checks: no time left in this wake; \(queue.count) wait for the next")
+                Log.d(Self.tag, "Access checks: the rest of this wake is kept for the list; \(queue.count) wait for the next")
                 completion(true); return
             }
             let topic = queue.removeFirst()
@@ -846,6 +948,10 @@ final class NtfyShBridge: ObservableObject {
             request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
             // The answer is as old as the request: a refusal reported for a later request is newer.
             let started = now()
+            // Until a fresh answer lands, this name's earlier 200 can't be reused, even after a kill.
+            guard updateLedger({ ledger in
+                if ledger.answers[topic] != nil { ledger.answers[topic]?.rechecking = started }
+            }) else { completion(false); return }
             let once = Once()
             let task = session.dataTask(with: request) { _, response, error in
                 guard once.claim() else { return }
@@ -902,6 +1008,9 @@ final class NtfyShBridge: ObservableObject {
             completion?()
             return
         }
+        // Turned off: the extension stops renewing at once, before any gate can delay the
+        // removal itself (review-130d D2).
+        if !isEnabled { recordOptOut() }
         processLock.lock()
         if inFlight {
             rerunRequested = true
@@ -919,63 +1028,88 @@ final class NtfyShBridge: ObservableObject {
         }
         inFlight = true
         processLock.unlock()
+        let done = { self.finish(completion) }
 
         // Privacy evidence this process couldn't save yet goes first; while it can't be saved,
-        // no list goes out at all (review-130c C1).
-        guard flushUnsavedAccess() else {
-            Log.w(Self.tag, "sync(\(reason)): access evidence couldn't be saved; sending no list this time")
-            finish(completion)
-            return
-        }
+        // no list with names goes out (review-130c C1). Turned off, the list is empty.
+        let flushed = flushUnsavedAccess()
         guard isEnabled, session != nil else {
-            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, completion: completion)
+            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
             return
         }
-        // Pick the names to check and mark each durably as being rechecked, in one critical
-        // section: until a fresh answer lands its earlier 200 can't be reused, even after a kill.
+        guard flushed else {
+            Log.w(Self.tag, "sync(\(reason)): access evidence couldn't be saved; sending no list this time")
+            done()
+            return
+        }
+        // Pick the names to check. Each is marked as being rechecked just before its own check
+        // (`probe`, review-130d D10), so a name the wake never reaches keeps its standing.
         let rows = readRows()
         var plan: [String]?
+        var shrinkFirst = false
         lock.withLock {
-            guard let rows, let ledger = loadLedger() else { return }
-            if let until = ledger.probeNotBefore, until > now() { plan = []; return }
+            guard let rows else { return }
+            guard let ledger = loadLedger() else {
+                // No ntfy.sh name to decide: nothing to check, and the list needs no access evidence.
+                if !rows.contains(where: { NtfyShAddress.isNtfySh(normalizeBaseUrl($0.baseUrl)) }) { plan = [] }
+                return
+            }
+            let barriers = ledger.barriers(excludingRun: run)
             let set = BridgeWatchSet.compute(subscriptions: rows, access: Self.merge(ledger.answers, unsavedAnswers),
-                                             barrier: ledger.barrier(excludingRun: run), now: now(), appBaseUrl: appBaseUrl)
-            let topics = Array(set.needsProbe.prefix(Self.maxProbesPerSync))
-            guard !topics.isEmpty else { plan = []; return }
-            let started = now()
-            guard updateLedger({ ledger in
-                for topic in topics where ledger.answers[topic] != nil { ledger.answers[topic]?.rechecking = started }
-            }) else { return }
-            plan = topics
+                                             barrier: barriers.all, barriers: barriers.names, now: now(), appBaseUrl: appBaseUrl)
+            // A removal already known goes out before the optional checks (review-130d D2). A name
+            // held only until its check isn't known to go: the checks decide it.
+            let awaitingCheck = Set(set.held.filter { $0.hold == .checkingAccess }.map { "t:" + $0.topic })
+            shrinkFirst = recordFile.read().map { !$0.pendingRemovals(desired: set).subtracting(awaitingCheck).isEmpty } ?? false
+            if let until = ledger.probeNotBefore, until > now() { plan = []; return }
+            plan = Array(set.needsProbe.prefix(Self.maxProbesPerSync))
         }
         guard let plan else {
-            Log.w(Self.tag, "sync(\(reason)): couldn't read the subscriptions or record the access checks; sending no list this time")
-            finish(completion)
+            Log.w(Self.tag, "sync(\(reason)): couldn't read the subscriptions or the access answers; sending no list this time")
+            done()
             return
         }
         guard !plan.isEmpty else {
-            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, completion: completion)
+            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
             return
         }
-        Log.d(Self.tag, "sync(\(reason)): checking \(plan.count) ntfy.sh topic(s) anonymously first")
-        probe(plan, deadline: deadline, wake: wake) { saved in
-            guard saved else {
-                Log.w(Self.tag, "sync(\(reason)): an access answer couldn't be saved; sending no list this time")
-                self.finish(completion)
-                return
+        let checkThenRegister = {
+            Log.d(Self.tag, "sync(\(reason)): checking up to \(plan.count) ntfy.sh topic(s) anonymously first")
+            self.probe(plan, deadline: deadline, wake: wake) { saved in
+                guard saved else {
+                    Log.w(Self.tag, "sync(\(reason)): an access answer couldn't be saved; sending no list this time")
+                    done()
+                    return
+                }
+                self.register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
             }
-            self.register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, completion: completion)
         }
+        if shrinkFirst {
+            register(reason: reason + " (removal first)", userInitiated: userInitiated, deadline: deadline, wake: wake,
+                     shrinkOnly: true, done: checkThenRegister)
+        } else {
+            checkThenRegister()
+        }
+    }
+
+    /// Commits the opt-out the extension reads (`optedOut`), so no renewal extends the list while
+    /// the empty one waits for a gate (review-130d D2). Turning on clears it with the next POST.
+    private func recordOptOut() {
+        guard currentRecord.optedOut != true else { return }
+        mutate { $0.optedOut = true }
     }
 
     /// Decides the body and sends it in one critical section under the bridge lock (review-130c
     /// C1): the set is computed from the access evidence committed at that moment, the attempt and
     /// the request's barrier are committed, and the request starts before the lock is released, so
     /// no refusal can be committed between choosing the names and sending them.
-    private func register(reason: String, userInitiated: Bool, deadline: Date?, wake: WakeContext?, completion: (() -> Void)?) {
+    /// - Parameter shrinkOnly: send only what is still wanted of what the server holds, and only
+    ///   when that removes something; `done` runs either way.
+    private func register(reason: String, userInitiated: Bool, deadline: Date?, wake: WakeContext?,
+                          shrinkOnly: Bool = false, done: @escaping () -> Void) {
         guard let session, let url = endpoint else {
             Log.d(Self.tag, "sync(\(reason)): no network in this process")
-            finish(completion)
+            done()
             return
         }
         let enabled = isEnabled
@@ -984,17 +1118,27 @@ final class NtfyShBridge: ObservableObject {
         var dispatched = false
         lock.withLock {
             guard let rows else { note = "subscriptions couldn't be read; leaving the server's list as it is"; return }
-            guard let ledger = loadLedger() else { note = "access answers can't be read; sending nothing"; return }
+            // Only ntfy.sh names need the access answers; an empty list or hashes alone don't (review-130d D2).
+            let ledger = loadLedger()
+            let needsLedger = rows.contains { NtfyShAddress.isNtfySh(normalizeBaseUrl($0.baseUrl)) }
+            guard ledger != nil || !needsLedger else { note = "access answers can't be read; sending nothing"; return }
             let record: BridgeRecord
             switch recordFile.load() {
             case .unreadable: note = "bridge record can't be read; sending nothing"; return
             case .missing: record = legacyRecord() ?? BridgeRecord()
             case .value(let stored): record = stored
             }
-            let computed = enabled
-                ? BridgeWatchSet.compute(subscriptions: rows, access: Self.merge(ledger.answers, unsavedAnswers),
-                                         barrier: ledger.barrier(excludingRun: run), now: now(), appBaseUrl: appBaseUrl)
+            let barriers = ledger?.barriers(excludingRun: run)
+            var computed = enabled
+                ? BridgeWatchSet.compute(subscriptions: rows, access: Self.merge(ledger?.answers ?? [:], unsavedAnswers),
+                                         barrier: barriers?.all, barriers: barriers?.names ?? [:], now: now(), appBaseUrl: appBaseUrl)
                 : .empty
+            if shrinkOnly {
+                let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
+                computed = BridgeWatchSet(ntfyShTopics: computed.ntfyShTopics.filter { accepted.contains("t:" + $0) },
+                                          hashes: computed.hashes.filter { accepted.contains("h:" + $0) })
+                guard !record.pendingRemovals(desired: computed).isEmpty else { note = "no removal pending"; return }
+            }
             let desired: BridgeWatchSet
             switch plan(desired: computed, record: record, userInitiated: userInitiated) {
             case .skip(let why): note = why; return
@@ -1004,7 +1148,15 @@ final class NtfyShBridge: ObservableObject {
             guard remaining >= Self.minimumRequestTime else { note = "no time left in this wake"; return }
             guard let device = deviceId else { return }
             let started = now()
-            guard let barrier = openBarrier(at: started) else { note = "couldn't record the request; not registering now"; return }
+            // Only a list with ntfy.sh names can come back with refusals (review-130d D2).
+            var barrier: String?
+            if !desired.ntfyShTopics.isEmpty {
+                guard let id = openBarrier(at: started, names: desired.ntfyShTopics) else {
+                    note = "couldn't record the request; not registering now"; return
+                }
+                barrier = id
+            }
+            let priorUnconfirmed = record.unconfirmed
             guard let saved = mutate({ next in
                 next.revision = (next.revision ?? 0) + 1
                 next.attempting = next.revision
@@ -1014,8 +1166,11 @@ final class NtfyShBridge: ObservableObject {
                 next.device = device
                 next.optedOut = enabled ? nil : true
                 if !desired.isEmpty { next.mayHaveEntries = true }
+                let extra = BridgeWatchSet.members(signature: desired.signature).union(next.unconfirmed ?? [])
+                    .subtracting(BridgeWatchSet.members(signature: next.acceptedSignature))
+                next.unconfirmed = extra.isEmpty ? nil : extra.sorted()
             }) else {
-                commitEvidence([:], clearing: barrier)
+                if let barrier { commitEvidence([:], clearing: barrier) }
                 note = "couldn't record the attempt; not registering now"
                 return
             }
@@ -1034,8 +1189,8 @@ final class NtfyShBridge: ObservableObject {
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.handle(desired: desired, revision: revision, started: started, barrier: barrier,
-                                data: data, response: response as? HTTPURLResponse, error: error)
-                    self.finish(completion)
+                                priorUnconfirmed: priorUnconfirmed, data: data, response: response as? HTTPURLResponse, error: error)
+                    done()
                 }
             }
             let task = session.dataTask(with: request) { respond($0, $1, $2) }
@@ -1047,7 +1202,7 @@ final class NtfyShBridge: ObservableObject {
         }
         if !dispatched {
             Log.d(Self.tag, "sync(\(reason)): \(note)")
-            finish(completion)
+            done()
         }
     }
 
@@ -1088,8 +1243,10 @@ final class NtfyShBridge: ObservableObject {
             return .skip("waiting until \(until) (server Retry-After or backoff)")
         }
         let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
+        // What the server may hold beyond the list: removals, including what a lost 200 installed (D2).
+        let removals = record.mayHold.subtracting(BridgeWatchSet.members(signature: desired.signature))
         if desired.isEmpty {
-            return record.mayHaveEntries || !accepted.isEmpty ? .send(desired) : .skip("nothing to register")
+            return record.mayHaveEntries || !removals.isEmpty ? .send(desired) : .skip("nothing to register")
         }
         // Admission (42912) limits adding entries only. A list that adds nothing still goes out,
         // and one that adds and removes sends its removals first: what it keeps of the accepted
@@ -1098,25 +1255,29 @@ final class NtfyShBridge: ObservableObject {
            !BridgeWatchSet.members(signature: desired.signature).isSubset(of: accepted) {
             let kept = BridgeWatchSet(ntfyShTopics: desired.ntfyShTopics.filter { accepted.contains("t:" + $0) },
                                       hashes: desired.hashes.filter { accepted.contains("h:" + $0) })
-            if BridgeWatchSet.members(signature: kept.signature) != accepted { return .send(kept) }
+            if BridgeWatchSet.members(signature: kept.signature) != accepted
+                || !record.mayHold.subtracting(BridgeWatchSet.members(signature: kept.signature)).isEmpty { return .send(kept) }
             return .skip("waiting until \(until) for watch admission (42912)")
         }
-        if record.repairRequested == true || record.renewMissed == true { return .send(desired) }
-        if desired.signature == record.acceptedSignature, let success = record.lastSuccess,
+        // Turned back on: the opt-out the extension reads is cleared by this POST.
+        if record.repairRequested == true || record.renewMissed == true || record.optedOut == true { return .send(desired) }
+        if desired.signature == record.acceptedSignature, removals.isEmpty, let success = record.lastSuccess,
            now().timeIntervalSince(success) < Self.refreshInterval, success <= now() {
             return .skip("up to date")
         }
         return .send(desired)
     }
 
-    private func handle(desired: BridgeWatchSet, revision: Int, started: Date, barrier: String,
-                        data: Data?, response: HTTPURLResponse?, error: Error?) {
+    private func handle(desired: BridgeWatchSet, revision: Int, started: Date, barrier: String?,
+                        priorUnconfirmed: [String]?, data: Data?, response: HTTPURLResponse?, error: Error?) {
         let status = error == nil ? response?.statusCode : nil
         struct Reply: Decodable { let watching: Int?; let expires: Double?; let unwatchable: [String]?; let error: String?; let code: Int? }
         let reply = data.flatMap { try? JSONDecoder().decode(Reply.self, from: $0) }
         // Refusals are about the names, not the list: committed first, dated by the request's
         // start, and kept even for a reply to an older registration. This also clears the barrier.
-        recordRefusals(status == 200 ? reply?.unwatchable : nil, asked: started, clearing: barrier)
+        if barrier != nil || reply?.unwatchable?.isEmpty == false {
+            recordRefusals(status == 200 ? reply?.unwatchable : nil, asked: started, clearing: barrier)
+        }
         let retryAfter = response?.value(forHTTPHeaderField: "Retry-After")
         // 42912 is about this network's share of watch entries, not the request budget: it pauses
         // adding entries only, not every request to the server (review-130b #9).
@@ -1129,6 +1290,8 @@ final class NtfyShBridge: ObservableObject {
             if next.attempting == revision { next.attempting = nil }
             guard (next.revision ?? 0) == revision else { obsolete = true; return }
             next.lastHTTPStatus = response?.statusCode
+            // The server's own refusal installed nothing; a lost or failed reply may have (D2).
+            if let status, (400..<500).contains(status) { next.unconfirmed = priorUnconfirmed }
             guard let status else {
                 next.lastOutcome = .network
                 Log.w(Self.tag, "Registration failed: \(error?.localizedDescription ?? "no response"); backing off")
@@ -1151,6 +1314,8 @@ final class NtfyShBridge: ObservableObject {
                 next.lastSuccess = now()
                 next.acceptedSignature = desired.signature
                 next.acceptedRevision = revision
+                // A list replaces the device's whole list: nothing earlier may still be installed.
+                next.unconfirmed = nil
                 next.mayHaveEntries = !desired.isEmpty
                 next.watching = reply?.watching
                 next.expires = reply?.expires.map { Date(timeIntervalSince1970: $0) }
@@ -1229,6 +1394,8 @@ final class NtfyShBridge: ObservableObject {
 
     enum TopicHold: Equatable {
         case needsLogin, refused, checkingAccess, invalidName, overCap
+        /// Needs an access check, queued behind the names checked first (`maxProbesPerSync` per run, review-130d D10).
+        case waitingToCheck
         /// The setting is off (and the server confirmed the removal).
         case bridgeOff
         /// The setting is off and the server may still hold this device's list: removal is pending.
@@ -1266,7 +1433,7 @@ final class NtfyShBridge: ObservableObject {
         }
 
         /// Not a fault: the state is on its way to `.watched`.
-        var isPending: Bool { self == .checkingAccess || self == .registering || self == .pushNotReady }
+        var isPending: Bool { self == .checkingAccess || self == .waitingToCheck || self == .registering || self == .pushNotReady }
     }
 
     /// Why a subscription does or doesn't get instant banners through the bridge.
@@ -1286,7 +1453,7 @@ final class NtfyShBridge: ObservableObject {
             switch hold {
             case .needsLogin: return .held(.needsLogin)
             case .refused: return .held(.refused)
-            case .checkingAccess: return .held(.checkingAccess)
+            case .checkingAccess: return .held(set.isQueuedBehindCap(topic) ? .waitingToCheck : .checkingAccess)
             case .invalidName: return .held(.invalidName)
             case .overCap: return .held(.overCap)
             }
@@ -1374,8 +1541,8 @@ final class NtfyShBridge: ObservableObject {
     func pendingRemoval() -> (count: Int, optOut: Bool) {
         let record = currentRecord
         if !isEnabled || record.optedOut == true {
-            let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
-            return record.mayHaveEntries || !accepted.isEmpty ? (accepted.count, true) : (0, false)
+            let held = record.mayHold
+            return record.mayHaveEntries || !held.isEmpty ? (held.count, true) : (0, false)
         }
         return (record.pendingRemovals(desired: readSubscribedSet()).count, false)
     }
@@ -1613,7 +1780,9 @@ final class NtfyShBridge: ObservableObject {
         let accepted = record.acceptedRevision
         // The answer may report refusals: register it first, so another run can't reuse a 200 it overturns.
         let started = now()
-        guard let barrier = openBarrier(at: started) else {
+        // It can report on the names the server may hold for this device (review-130d D1).
+        let names = record.mayHold.filter { $0.hasPrefix("t:") }.map { String($0.dropFirst(2)) }
+        guard let barrier = openBarrier(at: started, names: names) else {
             Log.d(Self.tag, "Status: couldn't record the read; not asking now")
             deliverStatus(.unavailable, generation: generation)
             return
@@ -1708,6 +1877,8 @@ enum NtfyShBridgeCopy {
             text = String(localized: "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.")
         case .checkingAccess:
             text = String(localized: "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.")
+        case .waitingToCheck:
+            text = String(localized: "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.")
         case .refused:
             text = String(localized: "\(serverName) couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.")
         case .invalidName:

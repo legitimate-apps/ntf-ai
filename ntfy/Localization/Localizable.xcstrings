@@ -38353,6 +38353,53 @@
         }
       }
     },
+    "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet auf die Prüfung, ob dieses Thema auf ntfy.sh öffentlich ist. NTF-AI prüft bei jedem Lauf einige Themen, und dieses ist noch nicht an der Reihe. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando para comprobar si este tópico es público en ntfy.sh. NTF-AI comprueba algunos tópicos cada vez que se ejecuta, y este espera su turno. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de vérification : ce sujet est-il public sur ntfy.sh ? NTF-AI vérifie quelques sujets à chaque exécution, et celui-ci attend son tour. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa di verificare con ntfy.sh se chiunque può leggere l’argomento. NTF-AI verifica alcuni argomenti a ogni esecuzione e questo attende il suo turno. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht op controle of dit onderwerp op ntfy.sh openbaar is. NTF-AI controleert elke keer dat het draait een paar onderwerpen, en dit onderwerp is nog niet aan de beurt. Tot dan verschijnen nieuwe berichten als je de app opent."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oczekiwanie na sprawdzenie, czy ten temat na ntfy.sh jest publiczny. NTF-AI sprawdza kilka tematów przy każdym uruchomieniu, a ten czeka na swoją kolej. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+          }
+        }
+      }
+    },
     "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
