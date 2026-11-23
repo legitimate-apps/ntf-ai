@@ -76,6 +76,8 @@ final class SelfHostedWakeCheck {
     /// The evidence, in its own app-group file: every read goes to disk, so a wake the extension
     /// records is seen by the app at once, not through a stale defaults cache (review-130c C7).
     private let file: SharedStateFile<[String: Entry]>
+    /// The bridge's record, read for direct server watch (1.31): see `isWatchedDirectly`.
+    private let bridgeRecord: SharedStateFile<BridgeRecord>
     static let fileName = "ntfai-wake-check.json"
     private let processLock = NSLock()
     private var inFlight = Set<String>()
@@ -91,6 +93,7 @@ final class SelfHostedWakeCheck {
         self.now = now
         self.lock = lock ?? .at(stateDirectory, NtfyShBridge.lockName)
         self.file = SharedStateFile(name: Self.fileName, directory: stateDirectory, lock: self.lock)
+        self.bridgeRecord = SharedStateFile(name: NtfyShBridge.recordFileName, directory: stateDirectory, lock: self.lock)
         if let read {
             self.read = read
         } else if network {
@@ -124,6 +127,16 @@ final class SelfHostedWakeCheck {
     }
 
     func entry(hash: String) -> Entry? { entries[hash] }
+
+    /// ntf-ai.app may be watching this topic on its server directly (1.31): the server was sent
+    /// it, and no accepted list has removed it since. Its wake-ups then come on this same hash
+    /// whatever the server's own forwarding does, so a wake proves nothing about the server, and
+    /// a message a poll found isn't a forward the server missed. The evidence stays as it was
+    /// before the direct watch, so turning it off shows the server's own diagnosis again (device
+    /// check g2 of build 67: two direct wakes had cleared "No recent forwarding confirmed").
+    func isWatchedDirectly(hash: String) -> Bool {
+        bridgeRecord.read()?.mayHold.contains("s:" + hash) ?? false
+    }
 
     /// What the evidence of the watch that began at `watchStart` says. Evidence of another watch
     /// (an older one before the next poll resets it, or none) says nothing (review-130e E7).
@@ -162,7 +175,7 @@ final class SelfHostedWakeCheck {
     /// A wake-up for this hash reached the device (the extension calls this for every hashed
     /// poll_request). It works, whatever the checks said.
     func recordWake(hash: String) {
-        guard Self.isHash(hash) else { return }
+        guard Self.isHash(hash), !isWatchedDirectly(hash: hash) else { return }
         update(hash) { $0.misses = 0; $0.weakMisses = nil; $0.lastWake = now(); return true }
     }
 
@@ -219,7 +232,7 @@ final class SelfHostedWakeCheck {
     /// Returns the misses counted.
     @discardableResult
     func messagesFoundByPoll(hash: String, watchStart: Date, messages: [(id: String, time: Date)]) -> Int {
-        guard Self.isHash(hash) else { return 0 }
+        guard Self.isHash(hash), !isWatchedDirectly(hash: hash) else { return 0 }
         let current = now()
         var counted = 0
         update(hash) { entry in
@@ -270,6 +283,8 @@ final class SelfHostedWakeCheck {
         let age = current.timeIntervalSince(messageTime)
         // Nothing is looked up that nobody asked for (review-130d D6).
         guard isArmed(hash: hash) else { return nil }
+        // A relayed wake-up from ntf-ai.app's own direct watch would read as the server's forward.
+        guard !isWatchedDirectly(hash: hash) else { return nil }
         guard age <= Self.maxMessageAge - 1, age > -Self.slack else { return nil }
         guard NtfyMeHostCooldown.blockedUntil(lock, now: current) == nil else { return nil }
         processLock.lock(); defer { processLock.unlock() }

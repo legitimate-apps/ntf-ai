@@ -167,6 +167,9 @@ struct NtfyShBridgeStatusRows: View {
     @State private var revision = 0
     @State private var expanded = Set<String>()
     @State private var visible = false
+    /// Rows that start the status read when they come on screen: the connection row, and each
+    /// directly watched server's state (it can be on screen while the connection row isn't).
+    @State private var onScreen = Set<String>()
     /// The read scheduled for when the server's pause ends; cancelled when the screen leaves,
     /// the app goes inactive or the setting changes (review-130c C7).
     @State private var retry: DispatchWorkItem?
@@ -186,7 +189,7 @@ struct NtfyShBridgeStatusRows: View {
                 bridge.reload(); revision += 1
                 // Going inactive cancelled the waiting retry and any read in flight: start them
                 // again while the row is still on screen (review-130d D6).
-                switch Self.onActive(status: status, visible: visible, enabled: enabled) {
+                switch Self.onActive(status: status, visible: visible, enabled: enabled, stale: bridge.directStatusUnsettled) {
                 case .reschedule: status.map(show)
                 case .read: check()
                 case .none: break
@@ -232,6 +235,8 @@ struct NtfyShBridgeStatusRows: View {
             }
             if enabled, let panel = NtfyShBridge.directWatchPanel(group: group, optedIn: bridge.isDirectWatched(group.server)) {
                 DirectWatchPanelView(bridge: bridge, server: group.server, panel: panel)
+                    .onAppear { if panel == .on { appeared("direct " + group.server) } }
+                    .onDisappear { disappeared("direct " + group.server) }
             }
         }
         if enabled {
@@ -239,8 +244,8 @@ struct NtfyShBridgeStatusRows: View {
             if !set.isEmpty {
                 NotificationStatusRow(title: NtfyShBridgeCopy.connection,
                                       value: status.map(NtfyShBridgeCopy.status) ?? NtfyShBridgeCopy.checking)
-                    .onAppear { visible = true; check() }
-                    .onDisappear { visible = false; stopReading() }
+                    .onAppear { appeared("connection") }
+                    .onDisappear { disappeared("connection") }
             }
             // About the topics listed above: nothing listed, no note (device check of build 62).
             if report.listsTopics {
@@ -256,12 +261,13 @@ struct NtfyShBridgeStatusRows: View {
     enum Resume: Equatable { case none, reschedule, read }
 
     /// What returning to the app restarts: a waiting read's retry, or the read that was cancelled
-    /// before it answered. Nothing while the connection row is off screen or the bridge is off.
-    static func onActive(status: NtfyShBridge.Status?, visible: Bool, enabled: Bool) -> Resume {
+    /// before it answered, or a new one when what is shown is `stale` (a direct watch the last
+    /// read doesn't settle). Nothing while the status rows are off screen or the bridge is off.
+    static func onActive(status: NtfyShBridge.Status?, visible: Bool, enabled: Bool, stale: Bool = false) -> Resume {
         guard visible, enabled else { return .none }
         guard let status else { return .read }
         if case .waiting = status { return .reschedule }
-        return .none
+        return stale ? .read : .none
     }
 
     static func serverLabel(_ server: String) -> String {
@@ -297,11 +303,24 @@ struct NtfyShBridgeStatusRows: View {
         }
     }
 
+    private func appeared(_ row: String) {
+        onScreen.insert(row)
+        visible = true
+        check()
+    }
+
+    private func disappeared(_ row: String) {
+        guard onScreen.remove(row) != nil, onScreen.isEmpty else { return }
+        visible = false
+        stopReading()
+    }
+
+    /// The list first, then its status, read again while a direct watch's word isn't settled.
     private func check() {
         guard !checked else { return }
         checked = true
         bridge.sync(reason: "status screen opened") {
-            bridge.fetchStatus { show($0) }
+            bridge.followDirectStatus { show($0) }
         }
     }
 
@@ -530,6 +549,13 @@ struct DirectWatchServerView: View {
             }
         }
         .navigationTitle(label)
+        // Its state row says what the last status read said: read again when that isn't settled.
+        // After this turn of the run loop, so the screen it covers stops its reads first.
+        .onAppear {
+            DispatchQueue.main.async {
+                if bridgeOn, bridge.isDirectWatched(server), bridge.directStatusUnsettled { bridge.followDirectStatus() }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
             bridge.reload(); revision += 1
         }

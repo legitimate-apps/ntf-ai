@@ -911,7 +911,11 @@ final class NtfyShBridge: ObservableObject {
         }
         defaults.set(servers.sorted(), forKey: DirectWatch.settingKey)
         BridgeStateSignal.announce()
-        sync(reason: on ? "direct watch turned on" : "direct watch turned off", userInitiated: true)
+        // The user's own action: once the list is accepted, ask how the watch is doing until the
+        // server says, so the screen moves past "Connecting…" by itself (device check g2, build 67).
+        sync(reason: on ? "direct watch turned on" : "direct watch turned off", userInitiated: true) {
+            if on { self.followDirectStatus() }
+        }
     }
 
     /// A server with no subscription left (unsubscribed or deleted) loses its opt-in, so adding it
@@ -2122,10 +2126,63 @@ final class NtfyShBridge: ObservableObject {
     /// changed). Refusals it reports are still recorded: they are about the names.
     func cancelStatus() {
         processLock.lock()
+        followGeneration += 1
         statusGeneration += 1
         statusWaiters = []
         statusInFlight = false
         processLock.unlock()
+    }
+
+    /// Gaps between the status reads that follow a direct watch while its word isn't settled.
+    /// The server says "pending" until its stream to the user's server opens, a few seconds.
+    var directFollowDelays: [TimeInterval] = [2, 3, 5, 10, 20, 30]
+    private var followGeneration = 0
+
+    /// A server this device has the app's server watch directly, and the list holding it was
+    /// accepted, but no status read describes that list yet, or the last one said "pending".
+    /// Then the screen says "Connecting…" from what it knows, not from what the server said.
+    var directStatusUnsettled: Bool {
+        guard isEnabled else { return false }
+        let record = currentRecord
+        let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
+        let held = subscribedSet().servers.filter { server in
+            server.topics.contains { accepted.contains("s:" + topicHash(baseUrl: server.baseUrl, topic: $0)) }
+        }
+        guard !held.isEmpty else { return false }
+        guard record.statusRevision != nil, record.statusRevision == record.acceptedRevision else { return true }
+        return held.contains { (record.directStatus?[$0.baseUrl]?.state ?? "pending") == "pending" }
+    }
+
+    /// Reads the status now and again (`directFollowDelays`) while `directStatusUnsettled`, so an
+    /// accepted list's "Connecting…" turns into what the server reports without the user acting.
+    /// Each answer goes to `completion`. Stops at a pause or an error (the screen's own retry
+    /// handles a pause), at `cancelStatus`, or when a newer follow starts.
+    func followDirectStatus(completion: ((Status) -> Void)? = nil) {
+        processLock.lock()
+        followGeneration += 1
+        let generation = followGeneration
+        processLock.unlock()
+        followStep(generation: generation, attempt: 0, completion: completion)
+    }
+
+    private func followStep(generation: Int, attempt: Int, completion: ((Status) -> Void)?) {
+        fetchStatus { status in
+            completion?(status)
+            guard self.isCurrentFollow(generation), attempt < self.directFollowDelays.count, self.directStatusUnsettled else { return }
+            switch status {
+            case .connected, .notConnected: break
+            default: return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.directFollowDelays[attempt]) {
+                guard self.isCurrentFollow(generation) else { return }
+                self.followStep(generation: generation, attempt: attempt + 1, completion: completion)
+            }
+        }
+    }
+
+    private func isCurrentFollow(_ generation: Int) -> Bool {
+        processLock.lock(); defer { processLock.unlock() }
+        return generation == followGeneration
     }
 
     private func isCurrentStatus(_ generation: Int) -> Bool {

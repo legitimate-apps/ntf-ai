@@ -3486,6 +3486,134 @@ extension NtfyShBridgeTests {
 }
 
 
+/// 1.31 fix round 2 (device check g2 of build 67, ntfy.envs.net): the status screen's word for a
+/// direct watch. Red on 6bd8de9.
+extension NtfyShBridgeTests {
+    private static let connectedStatus = #"""
+        {"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"connected"}]}
+        """#
+
+    /// Turning it on reached "Connected" only after a status read nobody asked for: the row said
+    /// "Connecting…" for 7 minutes while the watch was already waking the phone.
+    func testTurningOnReachesConnectedWithoutTheUserActing() {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(5) { self.bridge.directWatchState(Self.home) == NtfyShBridgeCopy.directConnected }
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnected)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: nil, fcmBound: true), .watched,
+                       "the server row counts the topic once the server says it listens")
+    }
+
+    /// Turning it off left the server reading "1 topic watched" with no diagnosis: the direct
+    /// watch's own wake-ups (same hash) had been counted as the server forwarding.
+    func testTurningOffBringsBackTheServersOwnDiagnosisAndTheOffer() throws {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        sync()
+        let wakes = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", network: false,
+                                        now: { [unowned self] in self.clock }, stateDirectory: stateDirectory)
+        let hash = topicHash(baseUrl: Self.home, topic: "door")
+        let start = try XCTUnwrap(bridge.watchStart(hash: hash))
+        clock += 3600
+        let missed = [-300.0, -250, -200].enumerated().map { (id: "m\($0.offset)", time: clock.addingTimeInterval($0.element)) }
+        XCTAssertEqual(wakes.messagesFoundByPoll(hash: hash, watchStart: start, messages: missed), 3)
+        let before = bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true)
+        XCTAssertEqual(before, .held(.noForwardingConfirmed))
+
+        // On: ntf-ai.app's own wake-ups and the messages a poll finds say nothing about the server.
+        optIn([Self.home])
+        sync()
+        wakes.recordWake(hash: hash)
+        clock += 300
+        wakes.messagesFoundByPoll(hash: hash, watchStart: start, messages: [(id: "d1", time: clock.addingTimeInterval(-200))])
+        wakes.recordWake(hash: hash)
+
+        // Off, and the server confirmed the removal: the diagnosis from before, and the offer back.
+        optIn([])
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [Any])?.count, 0)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true), before)
+        let group = try XCTUnwrap(bridge.report(wakes: wakes).groups.first { $0.server == Self.home })
+        XCTAssertEqual(group.watching, 0, "the server row says no topics watched yet, as before the offer")
+        XCTAssertEqual(NtfyShBridge.directWatchPanel(group: group, optedIn: false, appBaseUrl: "https://ntfy-me.com"), .offer)
+
+        // A wake-up now is the server's own forward again, and clears it.
+        wakes.recordWake(hash: hash)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true), .watched)
+    }
+}
+
+/// The follow-up reads behind the fix above: how long they go on, and what stops them.
+extension NtfyShBridgeTests {
+    private func statusReads() -> Int {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "GET" && $0.request.url?.path == "/v1/ntfai/watch" }.count
+    }
+
+    func testAPendingWatchIsReadAgainUntilTheServerSaysConnected() {
+        var answers = ["pending", "pending", "connected"]
+        stubDirect(open: ["door"])
+        let direct = BridgeStubProtocol.reply
+        BridgeStubProtocol.reply = { request in
+            guard request.httpMethod == "GET", request.url?.path == "/v1/ntfai/watch" else { return direct(request) }
+            let state = answers.count > 1 ? answers.removeFirst() : answers[0]
+            return .success((200, [:], #"{"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"\#(state)"}]}"#))
+        }
+        bridge.directFollowDelays = [0.05, 0.05, 0.05, 0.05, 0.05]
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(5) { self.bridge.directWatchState(Self.home) == NtfyShBridgeCopy.directConnected }
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnected)
+        XCTAssertFalse(bridge.directStatusUnsettled)
+        let reads = statusReads()
+        XCTAssertEqual(reads, 3, "two pending answers, then connected")
+        waitUntil(0.5) { false }
+        XCTAssertEqual(statusReads(), reads, "settled: no more reads")
+    }
+
+    func testFollowUpReadsAreBoundedAndStopWhenTheScreenLeaves() {
+        stubDirect(open: ["door"], status: #"{"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"pending"}]}"#)
+        bridge.directFollowDelays = [0.05, 0.05]
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(3) { self.statusReads() >= 3 }
+        waitUntil(0.5) { false }
+        XCTAssertEqual(statusReads(), 3, "one read, then one per delay, then it stops")
+        XCTAssertTrue(bridge.directStatusUnsettled)
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnecting)
+
+        bridge.directFollowDelays = [0.2, 0.2]
+        bridge.followDirectStatus()
+        waitUntil(2) { self.statusReads() >= 4 }
+        bridge.cancelStatus()
+        waitUntil(0.8) { false }
+        XCTAssertEqual(statusReads(), 4, "cancelled with the screen: no further read")
+    }
+
+    func testNothingToFollowWithoutADirectWatch() {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        sync()
+        XCTAssertFalse(bridge.directStatusUnsettled, "not opted in")
+        optIn([Self.home])
+        sync()
+        XCTAssertTrue(bridge.directStatusUnsettled, "accepted, no status read for it yet")
+        readStatus()
+        XCTAssertFalse(bridge.directStatusUnsettled)
+        bridge.setEnabled(false)
+        XCTAssertFalse(bridge.directStatusUnsettled, "bridge off")
+    }
+
+    /// Back in the app with a direct watch the last read doesn't settle: read again.
+    func testReturningToTheAppReadsAgainWhenTheDirectWatchIsUnsettled() {
+        typealias Rows = NtfyShBridgeStatusRows
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: true, enabled: true), .none)
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: true, enabled: true, stale: true), .read)
+        XCTAssertEqual(Rows.onActive(status: .waiting(until: clock), visible: true, enabled: true, stale: true), .reschedule)
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: false, enabled: true, stale: true), .none)
+    }
+}
+
 extension NtfyShBridgeTests {
     /// The wake-up check tests the upstream route; a server ntf-ai.app watches directly doesn't use it.
     func testDirectlyWatchedServersLeaveTheWakeupCheckList() {
