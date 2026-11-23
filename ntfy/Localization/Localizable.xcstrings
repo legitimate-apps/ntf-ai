@@ -37012,54 +37012,6 @@
         }
       }
     },
-    "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.": {
-      "comment": "What's New 1.30.0",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffentliche Themen auf ntfy.sh bekommen sofortige Banner, auch wenn ein Login für ntfy.sh gespeichert ist. Ein Thema, das diesen Login braucht, sagt das, und seine Nachrichten erscheinen, wenn du die App öffnest."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los tópicos públicos de ntfy.sh reciben avisos instantáneos aunque tengas guardadas credenciales para ntfy.sh. Un tópico que necesita esas credenciales lo indica, y sus mensajes aparecen al abrir la app."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les sujets publics sur ntfy.sh reçoivent des bannières instantanées même avec des identifiants de connexion ntfy.sh enregistrés. Un sujet qui en a besoin l’indique, et ses messages s’affichent à l’ouverture de l’app."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gli argomenti pubblici su ntfy.sh ricevono banner istantanei anche con credenziali salvate per ntfy.sh. Un argomento che richiede quelle credenziali lo indica, e i suoi messaggi compaiono quando apri l’app."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Openbare onderwerpen op ntfy.sh krijgen directe meldingen, ook met opgeslagen inloggegevens voor ntfy.sh. Een onderwerp dat die inloggegevens nodig heeft, meldt dat, en de berichten verschijnen als je de app opent."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Publiczne tematy na ntfy.sh dostają natychmiastowe banery, nawet gdy zapisano dane logowania do ntfy.sh. Temat, który ich wymaga, informuje o tym, a jego wiadomości pojawiają się po otwarciu aplikacji."
-          }
-        }
-      }
-    },
     "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.": {
       "comment": "What's New 1.29.0",
       "extractionState": "manual",
@@ -37440,53 +37392,6 @@
         }
       }
     },
-    "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Für neue Nachrichten kam kein Weckruf an, daher ist dieser Server nicht für sofortige Banner eingerichtet. Bitte den Admin, upstream-base-url auf https://ntfy.sh und base-url auf genau %@ zu setzen, die Adresse, die diese App nutzt. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No llegó ningún aviso de activación para los mensajes recientes, así que este servidor no está configurado para avisos instantáneos. Pide a su administrador que ponga upstream-base-url en https://ntfy.sh y base-url exactamente en %@, la dirección que usa esta app. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun réveil n’est arrivé pour les messages récents : ce serveur n’est pas configuré pour les bannières instantanées. Demandez à son administrateur de régler upstream-base-url sur https://ntfy.sh et base-url exactement sur %@, l’adresse utilisée par cette app. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non è arrivato alcun risveglio per i messaggi recenti, quindi questo server non è configurato per i banner immediati. Chiedi al suo amministratore di impostare upstream-base-url su https://ntfy.sh e base-url esattamente su %@, l’indirizzo usato da questa app. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Er kwam geen wekbericht voor recente berichten, dus deze server is niet ingesteld voor directe meldingen. Vraag de beheerder om upstream-base-url op https://ntfy.sh te zetten en base-url op precies %@, het adres dat deze app gebruikt. Tot dan verschijnen nieuwe berichten als je de app opent."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dla ostatnich wiadomości nie przyszło żadne wybudzenie, więc ten serwer nie jest skonfigurowany do natychmiastowych banerów. Poproś administratora, aby ustawił upstream-base-url na https://ntfy.sh, a base-url dokładnie na %@, adres używany przez tę aplikację. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
-          }
-        }
-      }
-    },
     "%@ couldn't take this device's list. NTF-AI tries again the next time it runs. Until then, messages that would come through ntfy.sh show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
@@ -37671,53 +37576,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Natychmiastowe banery przez ntfy.sh są wyłączone w Ustawieniach. Wiadomości, które przyszłyby przez ntfy.sh, pojawią się po otwarciu aplikacji."
-          }
-        }
-      }
-    },
-    "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly %@. Check again to test with the next message.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly %@. Check again to test with the next message."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Für diesen Server wurde zuletzt keine Weiterleitung bestätigt. Wenn keine Banner kommen, ist seine upstream-base-url vielleicht nicht https://ntfy.sh oder seine base-url nicht genau %@. Mit „Erneut prüfen“ wird die nächste Nachricht getestet."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se ha confirmado ningún reenvío reciente para este servidor. Si no llegan avisos, puede que su upstream-base-url no sea https://ntfy.sh o que su base-url no sea exactamente %@. Usa «Comprobar de nuevo» para probar con el siguiente mensaje."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun relais récent n’a été confirmé pour ce serveur. Si les bannières n’arrivent pas, sa valeur upstream-base-url n’est peut-être pas https://ntfy.sh, ou sa valeur base-url pas exactement %@. Touchez « Vérifier à nouveau » pour tester avec le prochain message."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nessun inoltro recente confermato per questo server. Se i banner non arrivano, il suo upstream-base-url potrebbe non essere https://ntfy.sh o il suo base-url non esattamente %@. Usa «Controlla di nuovo» per provare con il prossimo messaggio."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voor deze server is geen recent doorsturen bevestigd. Komen er geen meldingen, dan is de upstream-base-url misschien niet https://ntfy.sh of de base-url niet precies %@. Gebruik 'Opnieuw controleren' om het met het volgende bericht te testen."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dla tego serwera nie potwierdzono ostatnio żadnego przekazania. Jeśli banery nie przychodzą, jego upstream-base-url może nie być https://ntfy.sh albo base-url nie jest dokładnie %@. Użyj „Sprawdź ponownie”, aby przetestować następną wiadomość."
           }
         }
       }
@@ -38353,53 +38211,6 @@
         }
       }
     },
-    "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wartet auf die Prüfung, ob dieses Thema auf ntfy.sh öffentlich ist. NTF-AI prüft bei jedem Lauf einige Themen, und dieses ist noch nicht an der Reihe. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esperando para comprobar si este tópico es público en ntfy.sh. NTF-AI comprueba algunos tópicos cada vez que se ejecuta, y este espera su turno. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En attente de vérification : ce sujet est-il public sur ntfy.sh ? NTF-AI vérifie quelques sujets à chaque exécution, et celui-ci attend son tour. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In attesa di verificare con ntfy.sh se chiunque può leggere l’argomento. NTF-AI verifica alcuni argomenti a ogni esecuzione e questo attende il suo turno. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wacht op controle of dit onderwerp op ntfy.sh openbaar is. NTF-AI controleert elke keer dat het draait een paar onderwerpen, en dit onderwerp is nog niet aan de beurt. Tot dan verschijnen nieuwe berichten als je de app opent."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Oczekiwanie na sprawdzenie, czy ten temat na ntfy.sh jest publiczny. NTF-AI sprawdza kilka tematów przy każdym uruchomieniu, a ten czeka na swoją kolej. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
-          }
-        }
-      }
-    },
     "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
@@ -38537,53 +38348,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ może teraz nie obserwować wszystkich tematów ntfy.sh tego urządzenia. Może ponownie się łączyć lub czekać, aż ntfy.sh przyjmie więcej żądań. Do tego czasu niektóre nowe wiadomości mogą pojawić się dopiero po otwarciu aplikacji."
-          }
-        }
-      }
-    },
-    "NTF-AI checks the next eligible message from this server that arrives within 24 hours.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI checks the next eligible message from this server that arrives within 24 hours."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI prüft die nächste geeignete Nachricht von diesem Server, die innerhalb von 24 Stunden eintrifft."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI comprueba el siguiente mensaje apto de este servidor que llegue en las próximas 24 horas."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI vérifie le prochain message éligible de ce serveur qui arrive dans les 24 heures."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI controlla il prossimo messaggio idoneo da questo server che arriva entro 24 ore."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI controleert het volgende geschikte bericht van deze server dat binnen 24 uur binnenkomt."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NTF-AI sprawdzi następną kwalifikującą się wiadomość z tego serwera, która przyjdzie w ciągu doby."
           }
         }
       }
@@ -38919,97 +38683,333 @@
         }
       }
     },
-    "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after %@ says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks %@ whether a wake-up for its hash went through. Off, once %@ has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after %@ says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks %@ whether a wake-up for its hash went through. Off, once %@ has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An: NTF-AI sendet %@ eine nur dafür erzeugte Installations-ID, die Namen deiner ntfy.sh-Themen und einen Hash jeder Themenadresse auf deinen anderen Servern. %@ beobachtet diese Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht eintrifft; der Dienst sieht Nachrichten im Durchlauf und speichert keinen Nachrichtentext. Hast du Zugangsdaten für ntfy.sh gespeichert, oder kann NTF-AI das nicht feststellen, fragt es ntfy.sh zuerst ohne deine Zugangsdaten, ob jedes Thema für alle lesbar ist, und sendet nur Themen, die jeder lesen kann. Ohne gespeicherte Zugangsdaten wird ein Themenname bei der ersten Anmeldung ohne diese Prüfung gesendet. Etwa einen Tag nachdem %@ meldet, dass es ein Thema nicht beobachten kann, prüft NTF-AI noch einmal, ob jeder es lesen kann, mit oder ohne Zugangsdaten. Erfüllt ein Thema die Bedingungen nicht mehr, oder schaltest du dies aus, bittet NTF-AI %@, es nicht mehr zu beobachten. Tippst du bei einem Thema auf deinen anderen Servern auf „Erneut prüfen“, fragt NTF-AI %@, ob ein Wecksignal für dessen Hash durchkam. Aus: Sobald %@ sie entfernt hat, bekommen ntfy.sh-Themen und Themen auf Servern mit ntfy.sh als Upstream keine sofortigen Banner mehr und zeigen neue Nachrichten erst, wenn du die App öffnest oder aktualisierst."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activado, NTF-AI envía a %@ un ID de instalación creado solo para esto, los nombres de tus tópicos de ntfy.sh y un hash de cada dirección de tópico de tus otros servidores. %@ vigila esos tópicos en ntfy.sh y despierta este dispositivo cuando llega un mensaje; ve los mensajes de paso y no guarda su texto. Si guardaste credenciales para ntfy.sh, o NTF-AI no puede saber si lo hiciste, NTF-AI pregunta primero a ntfy.sh, sin tus credenciales, si cualquiera puede leer cada tópico, y solo envía los tópicos que cualquiera puede leer. Sin credenciales guardadas, el nombre de un tópico se envía sin esa comprobación la primera vez que se registra. Aproximadamente un día después de que %@ indique que no puede vigilar un tópico, NTF-AI comprueba una vez más si cualquiera puede leerlo, con o sin credenciales. Cuando un tópico deja de cumplir los requisitos, o desactivas esta opción, NTF-AI pide a %@ que deje de vigilarlo. Cuando tocas Comprobar de nuevo en un tópico de tus otros servidores, NTF-AI pregunta a %@ si llegó un aviso de activación para su hash. Desactivado, una vez que %@ los haya quitado, los tópicos de ntfy.sh y los tópicos de servidores cuyo upstream es ntfy.sh dejan de recibir avisos instantáneos y muestran mensajes nuevos solo al abrir la app o actualizar."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activé, NTF-AI envoie à %@ un identifiant d’installation créé uniquement pour cela, les noms de vos sujets ntfy.sh et une empreinte de chaque adresse de sujet sur vos autres serveurs. %@ surveille ces sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message ; il voit les messages au passage et n’en conserve aucun texte. Si vous avez enregistré des identifiants de connexion pour ntfy.sh, ou si NTF-AI ne peut pas le savoir, NTF-AI demande d’abord à ntfy.sh, sans vos identifiants de connexion, si chaque sujet est lisible par tous, et n’envoie que les sujets lisibles par tous. Sans identifiants de connexion enregistrés, le nom d’un sujet est envoyé sans cette vérification lors de son premier enregistrement. Environ un jour après que %@ a indiqué ne pas pouvoir surveiller un sujet, NTF-AI vérifie une fois de plus s’il est lisible par tous, avec ou sans identifiants de connexion. Quand un sujet ne remplit plus les conditions, ou si vous désactivez cette option, NTF-AI demande à %@ de cesser de le surveiller. Quand vous touchez Vérifier à nouveau pour un sujet de vos autres serveurs, NTF-AI demande à %@ si un réveil pour son empreinte est passé. Désactivé, une fois que %@ les a retirés, les sujets ntfy.sh et les sujets des serveurs dont l’amont est ntfy.sh ne reçoivent plus de bannières instantanées et n’affichent les nouveaux messages qu’à l’ouverture de l’app ou à l’actualisation."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Attivo, NTF-AI invia a %@ un ID di installazione creato solo per questo, i nomi dei tuoi argomenti ntfy.sh e un hash di ogni indirizzo di argomento sugli altri tuoi server. %@ osserva questi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio; vede i messaggi di passaggio e non ne conserva il testo. Se hai salvato credenziali per ntfy.sh, o NTF-AI non può saperlo, NTF-AI chiede prima a ntfy.sh, senza le tue credenziali, se chiunque può leggere ogni argomento, e invia solo gli argomenti che chiunque può leggere. Senza credenziali salvate, il nome di un argomento viene inviato senza questa verifica alla prima registrazione. Circa un giorno dopo che %@ ha segnalato di non poter osservare un argomento, NTF-AI verifica ancora una volta se chiunque può leggerlo, con o senza credenziali. Quando un argomento non soddisfa più i requisiti, o disattivi questa opzione, NTF-AI chiede a %@ di smettere di osservarlo. Quando tocchi Controlla di nuovo per un argomento sugli altri tuoi server, NTF-AI chiede a %@ se un risveglio per il suo hash è passato. Disattivo, una volta che %@ li ha rimossi, gli argomenti ntfy.sh e gli argomenti dei server con upstream ntfy.sh smettono di ricevere banner istantanei e mostrano i nuovi messaggi solo quando apri l’app o aggiorni."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aan: NTF-AI stuurt %@ een installatie-ID die alleen hiervoor is gemaakt, de namen van je ntfy.sh-onderwerpen en een hash van elk onderwerpadres op je andere servers. %@ houdt die onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt; het ziet berichten in het voorbijgaan en bewaart geen berichttekst. Heb je inloggegevens voor ntfy.sh opgeslagen, of kan NTF-AI dat niet nagaan, dan vraagt NTF-AI eerst aan ntfy.sh, zonder je inloggegevens, of iedereen elk onderwerp kan lezen, en stuurt alleen onderwerpen die iedereen kan lezen. Zonder opgeslagen inloggegevens wordt een onderwerpnaam bij de eerste registratie zonder die controle verstuurd. Ongeveer een dag nadat %@ meldt dat het een onderwerp niet in de gaten kan houden, controleert NTF-AI nog één keer of iedereen het kan lezen, met of zonder inloggegevens. Voldoet een onderwerp niet meer, of zet je dit uit, dan vraagt NTF-AI %@ om het niet langer in de gaten te houden. Tik je bij een onderwerp op je andere servers op Opnieuw controleren, dan vraagt NTF-AI %@ of een wekbericht voor de hash ervan is doorgekomen. Uit: zodra %@ ze heeft verwijderd, krijgen ntfy.sh-onderwerpen en onderwerpen op servers met ntfy.sh als upstream geen directe meldingen meer en tonen ze nieuwe berichten pas als je de app opent of vernieuwt."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Włączone: NTF-AI wysyła do %@ identyfikator instalacji utworzony tylko w tym celu, nazwy Twoich tematów na ntfy.sh i hash każdego adresu tematu na Twoich innych serwerach. %@ obserwuje te tematy na ntfy.sh i wybudza to urządzenie, gdy przyjdzie wiadomość; widzi wiadomości w przelocie i nie przechowuje ich treści. Jeśli zapisano dane logowania do ntfy.sh albo NTF-AI nie może tego ustalić, NTF-AI najpierw pyta ntfy.sh, bez Twoich danych logowania, czy każdy temat jest dostępny do odczytu dla wszystkich, i wysyła tylko tematy, które każdy może czytać. Bez zapisanych danych logowania nazwa tematu jest wysyłana bez tego sprawdzenia przy pierwszej rejestracji. Mniej więcej dzień po tym, jak %@ zgłosi, że nie może obserwować tematu, NTF-AI sprawdza jeszcze raz, czy każdy może go czytać, z danymi logowania lub bez nich. Gdy temat przestaje spełniać warunki albo wyłączysz tę funkcję, NTF-AI prosi %@ o zaprzestanie jego obserwowania. Gdy stukniesz Sprawdź ponownie przy temacie na innym serwerze, NTF-AI pyta %@, czy wybudzenie dla jego hasha dotarło. Wyłączone: gdy %@ je usunie, tematy na ntfy.sh i tematy na serwerach z ntfy.sh jako serwerem nadrzędnym przestają dostawać natychmiastowe banery i pokazują nowe wiadomości dopiero po otwarciu aplikacji lub odświeżeniu."
-          }
-        }
-      }
-    },
-    "When the system wakes NTF-AI in the background, it now renews instant banners, so you rarely need to open the app to keep them.": {
+    "Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.": {
       "comment": "What's New 1.30.0",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When the system wakes NTF-AI in the background, it now renews instant banners, so you rarely need to open the app to keep them."
+            "value": "Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wenn das System die App im Hintergrund aktiviert, erneuert NTF-AI jetzt die sofortigen Banner, sodass du die App selten öffnen musst, um sie zu behalten."
+            "value": "Öffentliche Themen auf ntfy.sh können auch mit gespeicherten ntfy.sh-Zugangsdaten sofortige Banner erhalten. Öffne oder aktualisiere die App, um neue Nachrichten für Themen zu sehen, die eine Anmeldung erfordern."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cuando el sistema activa NTF-AI en segundo plano, ahora renueva los avisos instantáneos, así que rara vez necesitas abrir la app para mantenerlos."
+            "value": "Los tópicos públicos de ntfy.sh pueden recibir avisos instantáneos aunque tengas guardadas credenciales de ntfy.sh. Si un tópico requiere iniciar sesión, abre o actualiza la app para ver sus mensajes nuevos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lorsque le système réactive l’app en arrière-plan, NTF-AI renouvelle désormais les bannières instantanées : vous avez donc rarement besoin d’ouvrir l’app pour les conserver."
+            "value": "Les sujets publics sur ntfy.sh peuvent recevoir des bannières instantanées même si des identifiants de connexion ntfy.sh sont enregistrés. Pour les sujets qui nécessitent une connexion, ouvrez ou actualisez l’app pour voir les nouveaux messages."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quando il sistema riattiva NTF-AI in background, ora rinnova i banner istantanei, quindi raramente devi aprire l’app per mantenerli."
+            "value": "Gli argomenti pubblici su ntfy.sh possono ricevere banner istantanei anche se hai salvato le credenziali di ntfy.sh. Per gli argomenti che richiedono l’accesso, apri o aggiorna l’app per vedere i nuovi messaggi."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als het systeem NTF-AI op de achtergrond activeert, vernieuwt het nu de directe meldingen, dus je hoeft de app zelden te openen om ze te houden."
+            "value": "Openbare onderwerpen op ntfy.sh kunnen ook met opgeslagen ntfy.sh-inloggegevens directe meldingen krijgen. Voor onderwerpen waarvoor je moet inloggen, open of vernieuw je de app om nieuwe berichten te zien."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gdy system wybudza NTF-AI w tle, aplikacja odnawia teraz natychmiastowe banery, więc rzadko musisz ją otwierać, aby je zachować."
+            "value": "Publiczne tematy na ntfy.sh mogą otrzymywać natychmiastowe banery nawet po zapisaniu danych logowania do ntfy.sh. Aby zobaczyć nowe wiadomości z tematów wymagających logowania, otwórz lub odśwież aplikację."
+          }
+        }
+      }
+    },
+    "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup.": {
+      "comment": "What's New 1.30.0",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn das System NTF-AI im Hintergrund aktiviert, kann die App den Empfang sofortiger Banner verlängern. Bleiben die Banner aus, öffne NTF-AI, um die Push-Einrichtung zu aktualisieren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando el sistema activa NTF-AI en segundo plano, la app puede renovar los avisos instantáneos. Si dejan de llegar, abre NTF-AI para actualizar la configuración de las notificaciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lorsque le système réactive NTF-AI en arrière-plan, l’app peut renouveler la réception des bannières instantanées. Si elles cessent d’arriver, ouvrez NTF-AI pour actualiser la configuration des notifications."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quando il sistema riattiva NTF-AI in background, l’app può rinnovare la ricezione dei banner istantanei. Se smettono di arrivare, apri NTF-AI per aggiornare la configurazione delle notifiche."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als het systeem NTF-AI op de achtergrond activeert, kan de app de ontvangst van directe meldingen verlengen. Komen ze niet meer binnen, open dan NTF-AI om de meldingsinstellingen te vernieuwen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gdy system wybudzi NTF-AI w tle, aplikacja może odnowić odbieranie natychmiastowych banerów. Jeśli przestaną przychodzić, otwórz NTF-AI, aby odświeżyć konfigurację powiadomień."
+          }
+        }
+      }
+    },
+    "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Prüfung steht noch aus, ob dieses Thema auf ntfy.sh für alle lesbar ist. Öffne oder aktualisiere die App, um in der Zwischenzeit neue Nachrichten zu sehen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está pendiente la comprobación de si cualquiera puede leer este tópico en ntfy.sh. Mientras tanto, abre o actualiza la app para ver los mensajes nuevos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de l’accès public à ce sujet sur ntfy.sh est en attente. En attendant, ouvrez ou actualisez l’app pour voir les nouveaux messages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La verifica dell’accesso pubblico a questo argomento su ntfy.sh è in attesa. Nel frattempo, apri o aggiorna l’app per vedere i nuovi messaggi."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De controle of iedereen dit onderwerp op ntfy.sh kan lezen staat nog open. Open of vernieuw de app om ondertussen nieuwe berichten te zien."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdzenie, czy każdy może czytać ten temat na ntfy.sh, jeszcze się nie odbyło. W tym czasie otwórz lub odśwież aplikację, aby zobaczyć nowe wiadomości."
+          }
+        }
+      }
+    },
+    "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Weiterleitungsdienst hat für die zuletzt geprüfte Nachricht kein Wecksignal bestätigt. Falls das wiederholt passiert, bitte den Serveradmin, die Weiterleitungseinstellungen zu prüfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de reenvío no confirmó un aviso de activación para el último mensaje comprobado. Si vuelve a ocurrir, pide al administrador del servidor que revise la configuración de reenvío."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le relais n’a pas confirmé de signal de réveil pour le dernier message vérifié. Si cela se reproduit, demandez à l’administrateur du serveur de vérifier les paramètres de transfert."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il servizio di inoltro non ha confermato un segnale di riattivazione per l’ultimo messaggio verificato. Se succede di nuovo, chiedi all’amministratore del server di controllare le impostazioni di inoltro."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De doorstuurdienst heeft geen wekbericht bevestigd voor het laatst gecontroleerde bericht. Als dit vaker gebeurt, vraag dan je serverbeheerder om de instellingen voor doorsturen te controleren."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usługa przekazywania nie potwierdziła sygnału wybudzenia dla ostatniej sprawdzonej wiadomości. Jeśli to się powtarza, poproś administratora serwera o sprawdzenie ustawień przekazywania."
+          }
+        }
+      }
+    },
+    "No recent forwarding confirmed for this topic. Tap Check again to check the next eligible message.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recent forwarding confirmed for this topic. Tap Check again to check the next eligible message."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für dieses Thema wurde zuletzt keine Weiterleitung bestätigt. Tippe auf „Erneut prüfen“, um die nächste geeignete Nachricht zu prüfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se confirmó ningún reenvío reciente para este tópico. Toca «Comprobar de nuevo» para comprobar el siguiente mensaje apto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun transfert récent confirmé pour ce sujet. Touchez « Vérifier à nouveau » pour vérifier le prochain message admissible."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun inoltro recente confermato per questo argomento. Tocca «Controlla di nuovo» per controllare il prossimo messaggio idoneo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen recent doorsturen bevestigd voor dit onderwerp. Tik op ‘Opnieuw controleren’ om het volgende geschikte bericht te controleren."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak potwierdzonego niedawnego przekazania dla tego tematu. Stuknij „Sprawdź ponownie”, aby sprawdzić następną kwalifikującą się wiadomość."
+          }
+        }
+      }
+    },
+    "NTF-AI will try to check the next eligible message it fetches for this topic within 24 hours.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI will try to check the next eligible message it fetches for this topic within 24 hours."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI versucht, die nächste geeignete Nachricht zu prüfen, die es innerhalb von 24 Stunden für dieses Thema abruft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI intentará comprobar el siguiente mensaje apto que obtenga para este tópico en las próximas 24 horas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI essaiera de vérifier le prochain message admissible qu’il récupère pour ce sujet dans les 24 heures."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI proverà a controllare il prossimo messaggio idoneo che recupera per questo argomento entro 24 ore."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI probeert het volgende geschikte bericht te controleren dat het binnen 24 uur voor dit onderwerp ophaalt."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NTF-AI spróbuje sprawdzić następną kwalifikującą się wiadomość, którą pobierze dla tego tematu w ciągu 24 godzin."
+          }
+        }
+      }
+    },
+    "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to %@ without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks %@ to stop watching it. If you tap Check again, NTF-AI can send %@ the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks %@ to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through %@ continues.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to %@ without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks %@ to stop watching it. If you tap Check again, NTF-AI can send %@ the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks %@ to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through %@ continues."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An: NTF-AI sendet %@ eine nur dafür erzeugte Installations-ID, die Namen deiner ntfy.sh-Themen und einen Hash jeder Themenadresse auf deinen anderen Servern. %@ beobachtet diese Themen auf ntfy.sh und weckt dieses Gerät, wenn eine Nachricht eintrifft; der Dienst sieht Nachrichten im Durchlauf und speichert keinen Nachrichtentext. Hast du Zugangsdaten für ntfy.sh gespeichert, oder kann NTF-AI das nicht feststellen, fragt es ntfy.sh zuerst ohne deine Zugangsdaten, ob jedes Thema für alle lesbar ist, und sendet nur Themen, die jeder lesen kann. Ohne gespeicherte Zugangsdaten kann NTF-AI einen Themennamen bei der ersten Registrierung ungeprüft an %@ senden. Wenn der Zugriff verweigert wurde oder nach einer unterbrochenen Anfrage unklar ist, kann NTF-AI erneut ohne deine Zugangsdaten bei ntfy.sh nachfragen. Erfüllt ein Thema die Bedingungen nicht mehr, bittet NTF-AI %@, es nicht mehr zu beobachten. Tippst du auf „Erneut prüfen“, kann NTF-AI %@ den Hash des Themas senden, sobald die App innerhalb von 24 Stunden eine dafür geeignete Nachricht abruft. Wenn du unter „Weiterleitung prüfen“ dem Versand einer Testnachricht zustimmst, sendet die App den Hash ebenfalls. Schaltest du dies aus, bittet NTF-AI %@, die Beobachtung zu beenden. Sobald die Themen entfernt sind, bekommen sie über ntfy.sh keine sofortigen Banner mehr. Die direkte Zustellung über %@ läuft weiter."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activado, NTF-AI envía a %@ un ID de instalación creado solo para esto, los nombres de tus tópicos de ntfy.sh y un hash de cada dirección de tópico de tus otros servidores. %@ vigila esos tópicos en ntfy.sh y despierta este dispositivo cuando llega un mensaje; ve los mensajes de paso y no guarda su texto. Si guardaste credenciales para ntfy.sh, o NTF-AI no puede saber si lo hiciste, NTF-AI pregunta primero a ntfy.sh, sin tus credenciales, si cualquiera puede leer cada tópico, y solo envía los tópicos que cualquiera puede leer. Si no hay credenciales guardadas, NTF-AI puede enviar inicialmente el nombre de un tópico a %@ sin comprobarlo. Si se denegó el acceso o una solicitud interrumpida dejó dudas sobre el acceso, NTF-AI puede volver a preguntar a ntfy.sh sin usar tus credenciales. Cuando un tópico deja de cumplir los requisitos, NTF-AI pide a %@ que deje de vigilarlo. Si tocas «Comprobar de nuevo», NTF-AI puede enviar a %@ el hash del tópico cuando la app obtenga un mensaje apto de ese tópico en las próximas 24 horas. También envía el hash si autorizas el envío de un mensaje de prueba en «Comprobar avisos de servidor propio». Al desactivar esta opción, NTF-AI pide a %@ que deje de vigilarlos. Cuando quite los tópicos, dejarán de recibir avisos instantáneos a través de ntfy.sh. La entrega directa a través de %@ continúa."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé, NTF-AI envoie à %@ un identifiant d’installation créé uniquement pour cela, les noms de vos sujets ntfy.sh et une empreinte de chaque adresse de sujet sur vos autres serveurs. %@ surveille ces sujets sur ntfy.sh et réveille cet appareil à l’arrivée d’un message ; il voit les messages au passage et n’en conserve aucun texte. Si vous avez enregistré des identifiants de connexion pour ntfy.sh, ou si NTF-AI ne peut pas le savoir, NTF-AI demande d’abord à ntfy.sh, sans vos identifiants de connexion, si chaque sujet est lisible par tous, et n’envoie que les sujets lisibles par tous. Sans identifiants de connexion enregistrés, NTF-AI peut envoyer à %@ le nom d’un sujet lors de son premier enregistrement sans le vérifier. Si l’accès a été refusé ou reste incertain après une requête interrompue, NTF-AI peut interroger à nouveau ntfy.sh sans utiliser vos identifiants de connexion. Quand un sujet ne remplit plus les conditions, NTF-AI demande à %@ de cesser de le surveiller. Si vous touchez « Vérifier à nouveau », NTF-AI peut envoyer à %@ l’empreinte du sujet lorsque l’app récupère un message admissible pour ce sujet dans les 24 heures. L’app envoie aussi cette empreinte si vous autorisez l’envoi d’un message de test dans « Vérifier les réveils auto-hébergés ». Si vous désactivez cette option, NTF-AI demande à %@ de cesser la surveillance. Une fois les sujets retirés, ils ne reçoivent plus de bannières instantanées via ntfy.sh. La distribution directe via %@ continue."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attivo, NTF-AI invia a %@ un ID di installazione creato solo per questo, i nomi dei tuoi argomenti ntfy.sh e un hash di ogni indirizzo di argomento sugli altri tuoi server. %@ osserva questi argomenti su ntfy.sh e riattiva questo dispositivo quando arriva un messaggio; vede i messaggi di passaggio e non ne conserva il testo. Se hai salvato credenziali per ntfy.sh, o NTF-AI non può saperlo, NTF-AI chiede prima a ntfy.sh, senza le tue credenziali, se chiunque può leggere ogni argomento, e invia solo gli argomenti che chiunque può leggere. Senza credenziali salvate, NTF-AI può inviare a %@ il nome di un argomento alla prima registrazione senza verificarlo. Se l’accesso è stato negato o è rimasto incerto dopo una richiesta interrotta, NTF-AI può chiedere di nuovo a ntfy.sh senza usare le tue credenziali. Quando un argomento non soddisfa più i requisiti, NTF-AI chiede a %@ di smettere di osservarlo. Se tocchi «Controlla di nuovo», NTF-AI può inviare a %@ l’hash dell’argomento quando l’app recupera un messaggio idoneo per quell’argomento entro 24 ore. Invia l’hash anche se autorizzi un messaggio di prova in «Verifica risveglio dal tuo server». Se disattivi questa opzione, NTF-AI chiede a %@ di smettere di osservarli. Una volta rimossi, gli argomenti non ricevono più banner istantanei tramite ntfy.sh. La consegna diretta tramite %@ continua."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aan: NTF-AI stuurt %@ een installatie-ID die alleen hiervoor is gemaakt, de namen van je ntfy.sh-onderwerpen en een hash van elk onderwerpadres op je andere servers. %@ houdt die onderwerpen op ntfy.sh in de gaten en wekt dit apparaat als er een bericht binnenkomt; het ziet berichten in het voorbijgaan en bewaart geen berichttekst. Heb je inloggegevens voor ntfy.sh opgeslagen, of kan NTF-AI dat niet nagaan, dan vraagt NTF-AI eerst aan ntfy.sh, zonder je inloggegevens, of iedereen elk onderwerp kan lezen, en stuurt alleen onderwerpen die iedereen kan lezen. Zonder opgeslagen inloggegevens kan NTF-AI bij de eerste registratie een onderwerpnaam zonder controle naar %@ sturen. Als toegang is geweigerd of na een onderbroken verzoek onzeker blijft, kan NTF-AI het opnieuw aan ntfy.sh vragen zonder je inloggegevens te gebruiken. Voldoet een onderwerp niet meer, dan vraagt NTF-AI %@ om het niet langer in de gaten te houden. Tik je op ‘Opnieuw controleren’, dan kan NTF-AI de hash van het onderwerp naar %@ sturen zodra de app binnen 24 uur een geschikt bericht voor dat onderwerp ophaalt. De app stuurt de hash ook als je in ‘Activering via eigen server controleren’ toestemming geeft om een testbericht te sturen. Zet je dit uit, dan vraagt NTF-AI %@ om te stoppen met in de gaten houden. Zodra de onderwerpen zijn verwijderd, krijgen ze geen directe meldingen meer via ntfy.sh. Rechtstreekse bezorging via %@ gaat door."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Włączone: NTF-AI wysyła do %@ identyfikator instalacji utworzony tylko w tym celu, nazwy Twoich tematów na ntfy.sh i hash każdego adresu tematu na Twoich innych serwerach. %@ obserwuje te tematy na ntfy.sh i wybudza to urządzenie, gdy przyjdzie wiadomość; widzi wiadomości w przelocie i nie przechowuje ich treści. Jeśli zapisano dane logowania do ntfy.sh albo NTF-AI nie może tego ustalić, NTF-AI najpierw pyta ntfy.sh, bez Twoich danych logowania, czy każdy temat jest dostępny do odczytu dla wszystkich, i wysyła tylko tematy, które każdy może czytać. Bez zapisanych danych logowania NTF-AI może przy pierwszej rejestracji wysłać nazwę tematu do %@ bez jej sprawdzania. Jeśli odmówiono dostępu albo po przerwanym żądaniu dostęp jest niepewny, NTF-AI może ponownie zapytać ntfy.sh bez używania Twoich danych logowania. Gdy temat przestaje spełniać warunki, NTF-AI prosi %@ o zaprzestanie jego obserwowania. Jeśli stukniesz „Sprawdź ponownie”, NTF-AI może wysłać hash tematu do %@, gdy aplikacja pobierze kwalifikującą się wiadomość dla tego tematu w ciągu 24 godzin. Aplikacja wysyła hash również wtedy, gdy w „Sprawdź sygnały z własnego serwera” zezwolisz na wysłanie wiadomości testowej. Gdy wyłączysz tę funkcję, NTF-AI prosi %@ o zaprzestanie obserwowania. Po usunięciu tematów przestają one dostawać natychmiastowe banery przez ntfy.sh. Bezpośrednie dostarczanie przez %@ działa dalej."
           }
         }
       }

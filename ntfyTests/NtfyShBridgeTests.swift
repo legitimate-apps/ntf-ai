@@ -346,8 +346,7 @@ final class NtfyShBridgeTests: XCTestCase {
         XCTAssertEqual(report.groups[0].watching, 2)
         XCTAssertEqual(report.groups[0].held, [.init(topic: "bad name", hold: .invalidName)])
         XCTAssertEqual(report.groups[1].watching, 1)
-        XCTAssertEqual(report.groups[1].held, [.init(topic: "garage", hold: .notSetUp(address: "https://home.example"))])
-        XCTAssertTrue(NtfyShBridgeCopy.reason(.notSetUp(address: "https://home.example")).contains("https://home.example"))
+        XCTAssertEqual(report.groups[1].held, [.init(topic: "garage", hold: .checkMissed)])
         // A wake-up clears it.
         wakes.recordWake(hash: garage)
         XCTAssertEqual(bridge.report(wakes: wakes).groups[1].held, [])
@@ -910,13 +909,13 @@ final class NtfyShBridgeTests: XCTestCase {
         "For instant banners from your own server, set upstream-base-url to https://ntfy.sh, the usual setting, which keeps the official ntfy app working too, or to %@. With no upstream, messages arrive when you refresh. See %@.",
         "For instant banners from your own server, set upstream-base-url to %@. https://ntfy.sh, the usual setting, works only while Instant banners for ntfy.sh and other servers is on in Settings. With no upstream, messages arrive when you refresh. See %@.",
         "Instant banners for ntfy.sh and other servers",
-        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after %@ says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks %@ to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks %@ whether a wake-up for its hash went through. Off, once %@ has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh.",
+        "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to %@ without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks %@ to stop watching it. If you tap Check again, NTF-AI can send %@ the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks %@ to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through %@ continues.",
         "For these topics, opening the app lets it set up or repair banners. NTF-AI also keeps this device's list current in the background when the system allows it, which isn't guaranteed.",
         "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
         "Instant banners", "Watching %lld", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
         "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.",
-        "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.",
+        "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.",
         "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.",
         "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.",
         "Over the limit of 100 topics per list, so new messages show when you open the app.",
@@ -927,10 +926,10 @@ final class NtfyShBridgeTests: XCTestCase {
         "%@ no longer has this device's list. NTF-AI sends it again the next time it runs; if banners don't return, open NTF-AI.",
         "%@ may not be watching all of this device's ntfy.sh topics right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, some new messages may show only when you open the app.",
         "This device hasn't finished push setup for this topic yet. Until then, new messages show when you open the app.",
-        "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly %@. Check again to test with the next message.",
-        "Check again", "NTF-AI checks the next eligible message from this server that arrives within 24 hours.", "Pending", "Unavailable, will retry",
+        "No recent forwarding confirmed for this topic. Tap Check again to check the next eligible message.",
+        "Check again", "NTF-AI will try to check the next eligible message it fetches for this topic within 24 hours.", "Pending", "Unavailable, will retry",
         "This message isn't available from %@ right now. It may have expired, the server may not keep messages, or it may not have arrived there yet.",
-        "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.",
+        "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings.",
         "Last registration", "Never", "Bridge connection",
         "Checking…", "Accepted", "Rejected by the server", "Rate limited, will retry", "Bridge full, will retry",
         "Server error, will retry", "No connection, will retry", "Connected", "Some topics may be waiting for push", "Waiting to retry", "Waiting to retry after %@",
@@ -951,6 +950,24 @@ final class NtfyShBridgeTests: XCTestCase {
                     XCTAssertNotEqual(value, key, "\(language) is untranslated: \(key)")
                 }
             }
+        }
+    }
+
+    /// Red on 81d8a8b (review-130e E1): the footer named only "Check again" as a hash lookup, left
+    /// out the approved test in "Check self-hosted wake-ups" and the recovery after an interrupted
+    /// request. Every language names both actions with the catalog's own button labels.
+    func testTheFooterNamesBothHashChecksWithTheButtonLabels() throws {
+        let footer = Self.newKeys.first { $0.hasPrefix("On, NTF-AI sends") }!
+        XCTAssertTrue(footer.contains("interrupted request"))
+        XCTAssertFalse(footer.contains("once more"))
+        for language in ["en", "de", "es", "fr", "it", "nl", "pl"] {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)), language)
+            let text = bundle.localizedString(forKey: footer, value: nil, table: nil)
+            for label in ["Check again", "Check self-hosted wake-ups"] {
+                let local = bundle.localizedString(forKey: label, value: nil, table: nil)
+                XCTAssertTrue(text.contains(local), "\(language): \(local)")
+            }
+            XCTAssertEqual(text.components(separatedBy: "%@").count - 1, 7, language)
         }
     }
 
@@ -983,12 +1000,20 @@ final class NtfyShBridgeTests: XCTestCase {
                         // Retired in fix round 4 (review-130d D6, D8).
                         "Topics added as http://ntfy.sh or www.ntfy.sh get instant banners too.",
                         "Notification status lists each topic that won't get instant banners and why, including a self-hosted server that isn't set up for them.",
-                        "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them."] {
+                        "Background wake-ups now renew instant banners, so you rarely need to open the app to keep them.",
+                        // Retired in fix round 5 (review-130e E1, E2, E7, E8).
+                        "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app.",
+                        "When the system wakes NTF-AI in the background, it now renews instant banners, so you rarely need to open the app to keep them.",
+                        "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.",
+                        "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly %@, the address this app uses. Until then, new messages show when you open the app.",
+                        "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly %@. Check again to test with the next message.",
+                        "NTF-AI checks the next eligible message from this server that arrives within 24 hours."] {
             XCTAssertFalse(keys.contains(retired), retired)
         }
         XCTAssertFalse(keys.contains { $0.hasPrefix("%@ watches your ntfy.sh topics") })
         XCTAssertFalse(keys.contains { $0.contains("within about a day") })
         XCTAssertFalse(keys.contains { $0.contains("For your other servers, NTF-AI may ask") })
+        XCTAssertFalse(keys.contains { $0.contains("isn't set up for instant banners") }, "no setup verdict from one lookup (review-130e E2)")
     }
 
     func testLocalNetworkHostsAreRecognized() {
@@ -1194,21 +1219,22 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         XCTAssertEqual(request.url?.absoluteString, "https://ntfy-me.com/v1/ntfyme/relay-check")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["hash": garageHash])
-        XCTAssertTrue(check.isNotSetUp(hash: garageHash))
+        XCTAssertEqual(check.diagnosis(hash: garageHash, watchStart: .distantPast), .checkMissed)
         XCTAssertFalse(check.isArmed(hash: garageHash), "one message per tap")
         check.recordWake(hash: garageHash)
-        XCTAssertFalse(check.isNotSetUp(hash: garageHash))
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: .distantPast))
     }
 
     /// Red on 0c3563e (review-130 #8): misses while the bridge's connection wasn't confirmed told
-    /// the admin to fix a server that may be fine. Weak evidence says only "not confirmed".
-    func testMissesWithoutConfirmedForwardingAreOnlyUnconfirmed() {
+    /// the admin to fix a server that may be fine. Since fix round 5 (review-130e E2) such a
+    /// "Check again" answer says nothing, and never feeds the automatic count.
+    func testCheckMissesWithoutConfirmedForwardingSayNothing() {
         for _ in 0..<3 {
             XCTAssertEqual(arrive(strong: false), .missed)
             clock = clock.addingTimeInterval(SelfHostedWakeCheck.globalInterval)
         }
-        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed)
-        XCTAssertFalse(check.isNotSetUp(hash: garageHash))
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: .distantPast))
+        XCTAssertNil(check.entry(hash: garageHash)?.weakMisses)
     }
 
     /// Red on 0c3563e: a wake recorded by the extension while the check was on the wire was
@@ -1297,7 +1323,7 @@ final class SelfHostedWakeCheckTests: XCTestCase {
         SubscriptionManager.checkWakeUps(baseUrl: base, messages: [m], check: check, bridge: bridge, appBaseUrl: "https://ntfy-me.com",
                                          subscribed: { _, _ in true })
         XCTAssertEqual(sent.count, 1)
-        XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 1, "no confirmed connection: weak")
+        XCTAssertNil(check.entry(hash: garageHash)?.weakMisses, "no confirmed connection: says nothing")
         XCTAssertEqual(check.entry(hash: garageHash)?.misses, 0)
     }
 }
@@ -1762,15 +1788,16 @@ extension NtfyShBridgeTests {
 }
 
 extension SelfHostedWakeCheckTests {
-    /// Red on 15669a0 (review-130b #8): "Check again" was view state, so an inconclusive check left
-    /// it armed forever. It clears on any verdict and lapses after a day.
-    func testCheckAgainClearsOnAnyVerdictAndLapses() {
+    /// Red on 15669a0 (review-130b #8): "Check again" was view state, so it never ended. It now
+    /// clears on an answer, stays for the next message after an inconclusive check (review-130e
+    /// E7), and lapses after a day.
+    func testCheckAgainStaysAfterAnInconclusiveCheckAndLapses() {
         let hash = topicHash(baseUrl: "http://192.168.1.20:8099", topic: "garage")
         check.arm(hash: hash)
         XCTAssertTrue(check.isArmed(hash: hash))
         replies = [(500, "")]
         XCTAssertEqual(check.messageArrivedByPollVerdict(baseUrl: "http://192.168.1.20:8099", topic: "garage", at: clock), .unknown)
-        XCTAssertFalse(check.isArmed(hash: hash), "an inconclusive check ends the arm")
+        XCTAssertTrue(check.isArmed(hash: hash), "an inconclusive check keeps the arm")
         check.arm(hash: hash)
         clock = clock.addingTimeInterval(SelfHostedWakeCheck.armLifetime + 1)
         XCTAssertFalse(check.isArmed(hash: hash), "lapsed")
@@ -2501,16 +2528,17 @@ extension SelfHostedWakeCheckTests {
     /// the bridge took the topic, showed nothing: that first poll only set where evidence starts.
     /// Evidence now starts at the bridge's accepted watch, so the first open counts them.
     func testThreeMissesThenTheFirstOpenShowTheWeakDiagnosis() throws {
-        let bridge = admittedBridge(watchStart: clock)
+        let start = clock
+        let bridge = admittedBridge(watchStart: start)
         clock += 3600
         let three = messages(agedSeconds: [1800, 1200, 600])
         open(three, bridge: bridge)
-        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed, "weak copy only, never notSetUp")
+        XCTAssertEqual(check.diagnosis(hash: garageHash, watchStart: start), .unconfirmed, "weak copy only")
         XCTAssertEqual(sent.count, 0, "no request: ntfy.sh doesn't keep forwarded poll_requests")
         open(three, bridge: bridge)
         XCTAssertEqual(check.entry(hash: garageHash)?.weakMisses, 3, "each message counts once, by ID")
         check.recordWake(hash: garageHash)
-        XCTAssertNil(check.diagnosis(hash: garageHash), "a wake-up clears it")
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: start), "a wake-up clears it")
     }
 
     /// Red on 1050490 (review-130d D6): counted by time, two messages in the same second, or one
@@ -2533,10 +2561,10 @@ extension SelfHostedWakeCheckTests {
         clock += 3600
         let three = messages(agedSeconds: [1800, 1200, 600]).map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) }
         XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: first, messages: three), 3)
-        XCTAssertEqual(check.diagnosis(hash: garageHash), .unconfirmed)
+        XCTAssertEqual(check.diagnosis(hash: garageHash, watchStart: first), .unconfirmed)
         let second = clock
         XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: second, messages: three), 0, "sent before this watch")
-        XCTAssertNil(check.diagnosis(hash: garageHash))
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: second))
         check.notWatched(hash: garageHash)
         XCTAssertNil(check.entry(hash: garageHash)?.watchedSince)
     }
@@ -2609,7 +2637,57 @@ extension SelfHostedWakeCheckTests {
         XCTAssertFalse(bridge.isAdmitted(hash: garageHash))
         clock += 3600
         open(messages(agedSeconds: [1800, 1200, 600]), bridge: bridge)
-        XCTAssertNil(check.diagnosis(hash: garageHash))
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: clock.addingTimeInterval(-2 * 3600 - 61)))
+        XCTAssertNil(check.entry(hash: garageHash)?.weakMisses)
+    }
+
+    /// Red on 81d8a8b (review-130e E7): after a repair the bridge's new watch began, but until the
+    /// next poll the screens showed the old watch's diagnosis, and a poll that read the old watch
+    /// before the new one began took the entry back to it.
+    func testAnOldWatchsEvidenceShowsNothingDuringTheNextWatch() {
+        let first = clock
+        clock += 3600
+        let three = messages(agedSeconds: [1800, 1200, 600]).map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) }
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: first, messages: three), 3)
+        let bridge = admittedBridge(watchStart: clock)
+        let second = clock
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: second), "the new watch has no evidence yet")
+        XCTAssertEqual(bridge.topicState(baseUrl: base, topic: "garage", wakes: check), .watched)
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: second, messages: []), 0)
+        clock += 60
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: first, messages: three), 0, "a late poll of the old watch")
+        XCTAssertEqual(check.entry(hash: garageHash)?.watchedSince, second)
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: first))
+    }
+
+    /// Red on 81d8a8b (review-130e E7): a check planned just inside the 24 hours of its tap sent
+    /// the hash after they ended; the arm was checked when planned, not when dispatched.
+    func testAnArmThatLapsesBeforeDispatchSendsNothing() {
+        check.arm(hash: garageHash)
+        clock += SelfHostedWakeCheck.armLifetime - 3
+        XCTAssertNil(arrive(age: 2, armed: false), "dispatched 8 s later, past the 24 hours")
+        XCTAssertEqual(sent.count, 0)
+    }
+
+    /// Red on 81d8a8b (review-130e E7): a timeout ended the tap as if it were an answer.
+    func testATimeoutIsInconclusiveAndLeavesTheTapArmed() {
+        replies = [(504, "")]
+        XCTAssertEqual(arrive(), .unknown)
+        XCTAssertTrue(check.isArmed(hash: garageHash))
+        XCTAssertNil(check.diagnosis(hash: garageHash, watchStart: .distantPast))
+        XCTAssertNil(check.entry(hash: garageHash)?.lastCheck, "no answer recorded")
+    }
+
+    /// Red on 81d8a8b (review-130e E2): one "Check again" miss read as a verdict on the server's
+    /// setup ("isn't set up") and named only one of the two forwarding routes.
+    func testOneCheckMissIsAnObservationAboutThatMessage() {
+        let bridge = admittedBridge(watchStart: clock.addingTimeInterval(-3600))
+        XCTAssertEqual(arrive(watch: { bridge.watchStart(hash: self.garageHash) }), .missed)
+        XCTAssertEqual(bridge.topicState(baseUrl: base, topic: "garage", wakes: check), .held(.checkMissed))
+        let text = NtfyShBridgeCopy.reason(.checkMissed, selfHosted: true)
+        XCTAssertEqual(text, String(localized: "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings."))
+        XCTAssertFalse(text.contains("set up"))
+        XCTAssertNil(check.entry(hash: garageHash)?.weakMisses, "kept apart from the automatic count")
     }
 
     /// Red on 1050490 (review-130d D6): going inactive cancelled a waiting status read, and

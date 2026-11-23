@@ -12,10 +12,10 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
         ReleaseNotes(version: "1.30.0", bullets: [
-            String(localized: "Public ntfy.sh topics get instant banners even with an ntfy.sh login saved. A topic that needs that login says so, and its messages show when you open the app."),
+            String(localized: "Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages."),
             String(localized: "Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too."),
             String(localized: "Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups."),
-            String(localized: "When the system wakes NTF-AI in the background, it now renews instant banners, so you rarely need to open the app to keep them.")
+            String(localized: "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup.")
         ]),
         ReleaseNotes(version: "1.29.0", bullets: [
             String(localized: "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives."),

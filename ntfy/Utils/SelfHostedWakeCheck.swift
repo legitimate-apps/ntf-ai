@@ -15,12 +15,16 @@ import Foundation
 /// brought, counted once each by message ID, from the start of the bridge's current watch of the
 /// hash. Three say only that no forwarding was confirmed (`unconfirmed`). The one network check is
 /// "Check again": it arms the hash, and the next fresh message a poll finds asks the relay whether
-/// its wake-up went through. A miss there while the bridge's ntfy.sh connection was confirmed up
-/// means the server isn't set up for this address (`notSetUp`). Any wake-up clears both. The relay
-/// reports acceptance, not delivery to this device.
+/// its wake-up went through. Its answer is kept apart from the automatic count (review-130e E2): a
+/// miss while the bridge's ntfy.sh connection was confirmed up says only that this one message had
+/// no confirmed wake-up (`checkMissed`), not how the server is set up. A timeout, an error or a
+/// skipped check is inconclusive and leaves the arm in place (E7). Any wake-up clears both. The
+/// relay reports acceptance, not delivery to this device. Evidence is read and written only for
+/// the bridge's current watch of the hash (E7).
 final class SelfHostedWakeCheck {
     struct Entry: Codable, Equatable {
-        /// Misses a "Check again" counted while the bridge's connection was confirmed (strong evidence).
+        /// The last "Check again" answer was a miss while the bridge's connection was confirmed
+        /// (non-zero); never fed by the automatic count, cleared by a relayed answer or a wake-up.
         var misses = 0
         var lastWake: Date?
         var lastCheck: Date?
@@ -39,7 +43,9 @@ final class SelfHostedWakeCheck {
     }
 
     enum Verdict: Equatable { case relayed, missed, unknown }
-    enum Diagnosis: Equatable { case notSetUp, unconfirmed }
+    /// `checkMissed`: the last "Check again" found no confirmed wake-up for its message.
+    /// `unconfirmed`: the automatic count saw `missesToFlag` messages arrive with no push.
+    enum Diagnosis: Equatable { case checkMissed, unconfirmed }
 
     /// Consecutive misses before the subscription shows a diagnosis.
     static let missesToFlag = 3
@@ -119,11 +125,11 @@ final class SelfHostedWakeCheck {
 
     func entry(hash: String) -> Entry? { entries[hash] }
 
-    func isNotSetUp(hash: String) -> Bool { diagnosis(hash: hash) == .notSetUp }
-
-    func diagnosis(hash: String) -> Diagnosis? {
-        guard let entry = entries[hash], entry.watchedSince != nil else { return nil }
-        if entry.misses > 0 { return .notSetUp }
+    /// What the evidence of the watch that began at `watchStart` says. Evidence of another watch
+    /// (an older one before the next poll resets it, or none) says nothing (review-130e E7).
+    func diagnosis(hash: String, watchStart: Date?) -> Diagnosis? {
+        guard let watchStart, let entry = entries[hash], entry.watchedSince == watchStart else { return nil }
+        if entry.misses > 0 { return .checkMissed }
         if (entry.weakMisses ?? 0) >= Self.missesToFlag { return .unconfirmed }
         return nil
     }
@@ -169,8 +175,7 @@ final class SelfHostedWakeCheck {
     /// Armed and not lapsed. The screens show this, so it clears when the check completes (any
     /// verdict), the topic is forgotten, or the arm times out (review-130b #8).
     func isArmed(hash: String) -> Bool {
-        guard let entry = entries[hash], entry.armed == true else { return false }
-        guard let at = entry.armedAt else { return true }
+        guard let entry = entries[hash], entry.armed == true, let at = entry.armedAt else { return false }
         let age = now().timeIntervalSince(at)
         return age >= -Self.slack && age < Self.armLifetime
     }
@@ -219,6 +224,9 @@ final class SelfHostedWakeCheck {
         var counted = 0
         update(hash) { entry in
             var changed = false
+            // A poll that read the watch before a newer one began must not take the entry back (E7):
+            // watch starts only move forward (each is the time of a committed 200).
+            if let stored = entry.watchedSince, stored > watchStart { return false }
             if entry.watchedSince != watchStart {
                 let arm = (entry.armed, entry.armedAt, entry.lastWake)
                 entry = Entry()
@@ -289,6 +297,7 @@ final class SelfHostedWakeCheck {
                               evidence: @escaping () -> Bool = { false }, completion: ((Verdict?) -> Void)? = nil) {
         let hash = topicHash(baseUrl: baseUrl, topic: topic)
         guard read != nil, let generation = watch(), let delay = plan(hash: hash, messageTime: messageTime) else { completion?(nil); return }
+        guard let tap = entries[hash]?.armedAt else { finish(hash); completion?(nil); return }
         let started = now()
         schedule(delay) {
             // The push may have landed while we waited, or the dispatch ran late.
@@ -303,12 +312,20 @@ final class SelfHostedWakeCheck {
             guard NtfyMeHostCooldown.blockedUntil(self.lock, now: self.now()) == nil, watch() == generation else {
                 self.finish(hash); completion?(nil); return
             }
+            // The tap this check answers is still the one in force and inside its 24 hours (E7): an
+            // arm that lapsed or was answered meanwhile isn't a reason to send the hash.
+            guard let armedAt = self.entries[hash]?.armedAt, armedAt >= tap, self.isArmed(hash: hash) else {
+                self.finish(hash); completion?(nil); return
+            }
             let asked = self.now()
             self.check(hash: hash, messageTime: messageTime) { verdict in
                 let strong = verdict == .missed && evidence()
                 // Unsubscribed, unwatched or watched anew while the answer was on the wire: it says
                 // nothing about the topic as it is now, and must not revive or re-arm it.
                 guard watch() == generation else { self.finish(hash); completion?(nil); return }
+                // A timeout, an error or an unreadable answer is inconclusive (E7): the tap stays
+                // armed for the next eligible message, and nothing is counted.
+                guard verdict != .unknown else { self.finish(hash); completion?(verdict); return }
                 self.update(hash, create: false) { entry in
                     guard entry.watchedSince == nil || entry.watchedSince == generation else { return false }
                     entry.watchedSince = generation
@@ -319,8 +336,9 @@ final class SelfHostedWakeCheck {
                     if let wake = entry.lastWake, wake >= asked { return true }
                     switch verdict {
                     case .relayed: entry.misses = 0; entry.weakMisses = nil
-                    case .missed:
-                        if strong { entry.misses += 1 } else { entry.weakMisses = (entry.weakMisses ?? 0) + 1 }
+                    // Only this one result, kept apart from the automatic count (E2). A miss with
+                    // the connection unconfirmed says nothing about the server.
+                    case .missed: if strong { entry.misses = 1 }
                     case .unknown: break
                     }
                     return true

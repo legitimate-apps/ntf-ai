@@ -1411,10 +1411,11 @@ final class NtfyShBridge: ObservableObject {
         case upstreamPending
         /// The server watches it, but this device hasn't confirmed the push binding yet.
         case pushNotReady
-        /// Self-hosted: strong evidence that no wake-up is forwarded; `address` is the one used in the app.
-        case notSetUp(address: String)
-        /// Self-hosted: recent messages arrived without a confirmed forward, but the evidence is weak.
-        case noForwardingConfirmed(address: String)
+        /// Self-hosted: the last "Check again" found no confirmed wake-up for its message, while
+        /// the bridge's connection was confirmed. About that message, not the server's setup (review-130e E2).
+        case checkMissed
+        /// Self-hosted: recent messages arrived without a confirmed forward (the automatic, weak count).
+        case noForwardingConfirmed
 
         /// True of every topic on the server, so the status screen says it once instead of per topic.
         var isServerWide: Bool {
@@ -1427,7 +1428,7 @@ final class NtfyShBridge: ObservableObject {
         /// A self-hosted diagnosis the user can retest with the next message.
         var offersCheckAgain: Bool {
             switch self {
-            case .notSetUp, .noForwardingConfirmed: return true
+            case .checkMissed, .noForwardingConfirmed: return true
             default: return false
             }
         }
@@ -1474,9 +1475,10 @@ final class NtfyShBridge: ObservableObject {
         // A reading of the list the server accepted then; one about an older list says nothing now.
         if record.statusConnected == false, record.statusRevision == record.acceptedRevision { return .held(.upstreamPending) }
         if !ntfySh, let wakes {
-            switch wakes.diagnosis(hash: hash) {
-            case .notSetUp?: return .held(.notSetUp(address: normalizeBaseUrl(baseUrl)))
-            case .unconfirmed?: return .held(.noForwardingConfirmed(address: normalizeBaseUrl(baseUrl)))
+            // Only the evidence of the watch in force now (review-130e E7).
+            switch wakes.diagnosis(hash: hash, watchStart: watchStart(hash: hash)) {
+            case .checkMissed?: return .held(.checkMissed)
+            case .unconfirmed?: return .held(.noForwardingConfirmed)
             case nil: break
             }
         }
@@ -1852,7 +1854,7 @@ enum NtfyShBridgeCopy {
     /// What goes where (review-130 #12): ntfy-me.com gets the installation ID, ntfy.sh names and
     /// other servers' hashes, plus hash-only forwarding checks; ntfy.sh gets the anonymous access check.
     static var settingFooter: String {
-        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, a topic name is sent without that check when it is first registered. About a day after \(serverName) says it can't watch a topic, NTF-AI checks once more whether anyone can read it, with or without a login. When a topic stops qualifying, or you turn this off, NTF-AI asks \(serverName) to stop watching it. When you tap Check again for a topic on your other servers, NTF-AI asks \(serverName) whether a wake-up for its hash went through. Off, once \(serverName) has removed them, ntfy.sh topics and topics on servers whose upstream is ntfy.sh stop getting instant banners and show new messages only when you open the app or refresh.")
+        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to \(serverName) without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks \(serverName) to stop watching it. If you tap Check again, NTF-AI can send \(serverName) the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks \(serverName) to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through \(serverName) continues.")
     }
 
     /// Notification status, under the bridge rows, shown only with topics using the bridge (review-130b #10).
@@ -1878,7 +1880,7 @@ enum NtfyShBridgeCopy {
         case .checkingAccess:
             text = String(localized: "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.")
         case .waitingToCheck:
-            text = String(localized: "Waiting to check whether this topic is public on ntfy.sh. NTF-AI checks a few topics each time it runs, and this one is waiting its turn. Until then, new messages show when you open the app.")
+            text = String(localized: "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.")
         case .refused:
             text = String(localized: "\(serverName) couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.")
         case .invalidName:
@@ -1899,17 +1901,17 @@ enum NtfyShBridgeCopy {
             text = String(localized: "\(serverName) may not be watching all of this device's ntfy.sh topics right now. It may be reconnecting, or waiting until ntfy.sh accepts more requests. Until then, some new messages may show only when you open the app.")
         case .pushNotReady:
             text = String(localized: "This device hasn't finished push setup for this topic yet. Until then, new messages show when you open the app.")
-        case .notSetUp(let address):
-            text = String(localized: "No wake-up arrived for recent messages, so this server isn't set up for instant banners. Ask its admin to set upstream-base-url to https://ntfy.sh and base-url to exactly \(address), the address this app uses. Until then, new messages show when you open the app.")
-        case .noForwardingConfirmed(let address):
-            text = String(localized: "No recent forwarding confirmed for this server. If banners don't come, its upstream-base-url may not be https://ntfy.sh, or its base-url may not be exactly \(address). Check again to test with the next message.")
+        case .checkMissed:
+            text = String(localized: "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings.")
+        case .noForwardingConfirmed:
+            text = String(localized: "No recent forwarding confirmed for this topic. Tap Check again to check the next eligible message.")
         }
         guard selfHosted, hold == .bridgeOff || hold == .bridgeUnavailable || hold == .removalPending else { return text }
         return text + " " + directUpstreamNote
     }
 
     static var checkAgain: String { String(localized: "Check again") }
-    static var checkArmed: String { String(localized: "NTF-AI checks the next eligible message from this server that arrives within 24 hours.") }
+    static var checkArmed: String { String(localized: "NTF-AI will try to check the next eligible message it fetches for this topic within 24 hours.") }
 
     /// Notification status while ntfy-me.com still holds names this device no longer sends (review-130c C2).
     static func removing(_ count: Int) -> String { String(localized: "Removing \(count) topics from \(serverName)") }
