@@ -3484,3 +3484,72 @@ extension NtfyShBridgeTests {
         }
     }
 }
+
+/// Not a test: seeds the installed app's real store and shared bridge state for the 1.31 screen
+/// captures (`NavigationPilotUITests.testCaptureDirectWatch131`). Runs only with
+/// `TEST_RUNNER_NTFY_131_SEED=1`; skipped in every ordinary run. The seed also writes a server
+/// pause, so the captured app makes no request to the app's server or ntfy.sh.
+final class DirectWatchCaptureSeed: XCTestCase {
+    func testSeedDirectWatchCaptureFixture() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["NTFY_131_SEED"] == "1", "capture fixture only")
+        let now = Date()
+        let start = now.addingTimeInterval(-3 * 60 * 60)
+        let offer = "https://home.example.net", on = "https://nas.example.org"
+        let lab = "https://lab.example.com", pi = "https://pi.example.io"
+        let store = Store()
+        for row in store.getSubscriptions() ?? [] { _ = store.delete(subscription: row) }
+        for (server, topic) in [("https://ntfy.sh", "news-q7x"), (offer, "alerts"), (offer, "backups"),
+                                (on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp"), ("https://ntfy-me.com", "own-q7x")] {
+            store.setFcmSubscribed(store.saveSubscription(baseUrl: server, topic: topic), true)
+        }
+        let defaults = NtfyShBridge.defaults
+        defaults.set(true, forKey: NtfyShBridge.enabledKey)
+        defaults.set([on, lab, pi], forKey: DirectWatch.settingKey)
+        defaults.set("0123456789abcdef0123456789abcdef", forKey: NtfyShBridge.deviceIdKey)
+        let bridge = NtfyShBridge(store: store, defaults: defaults, network: false)
+        let directory = SharedStateFile<BridgeRecord>.sharedDirectory
+        // A server pause far ahead: no registration, renewal or status read goes out.
+        _ = NtfyMeHostCooldown.file(.at(directory, NtfyShBridge.lockName)).update { value in
+            value = NtfyMeHostCooldown(serverNotBefore: now.addingTimeInterval(7 * 24 * 60 * 60), clientNotBefore: nil, failures: 0)
+            return (true, ())
+        }
+        _ = bridge.accessFile.update { ledger in
+            var next = NtfyShAccessLedger()
+            next.answers["news-q7x"] = NtfyShAccess(state: .open, checked: now)
+            for (server, topic) in [(on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp")] {
+                next.answers[DirectWatch.accessKey(server: server, topic: topic)] = NtfyShAccess(state: .open, checked: now)
+            }
+            next.probeNotBefore = now.addingTimeInterval(7 * 24 * 60 * 60)
+            ledger = next
+            return (true, ())
+        }
+        let set = try XCTUnwrap(bridge.readSubscribedSet())
+        XCTAssertEqual(set.servers.map(\.baseUrl), [lab, on, pi])
+        var record = BridgeRecord()
+        record.device = "0123456789abcdef0123456789abcdef"
+        record.lastAttempt = now; record.lastSuccess = now; record.lastOutcome = .ok; record.lastHTTPStatus = 200
+        record.acceptedSignature = set.signature
+        record.revision = 1; record.acceptedRevision = 1
+        record.mayHaveEntries = true
+        record.expires = now.addingTimeInterval(30 * 24 * 60 * 60)
+        record.watching = set.ntfyShTopics.count + set.hashes.count
+        record.watchStarts = Dictionary(uniqueKeysWithValues: set.hashes.map { ("h:" + $0, start) })
+        record.statusConnected = true; record.statusAt = now; record.statusRevision = 1
+        record.directStatus = [on: .init(state: "connected", unwatchable: ["cams": "needs_login"]),
+                               lab: .init(state: "unreachable", unwatchable: [:])]
+        _ = bridge.recordFile.update { value in value = record; return (true, ()) }
+        // home.example.net: the last "Check again" missed (alerts), weak misses (backups).
+        var missed = SelfHostedWakeCheck.Entry(); missed.misses = 1; missed.watchedSince = start
+        var weak = SelfHostedWakeCheck.Entry(); weak.weakMisses = 3; weak.watchedSince = start
+        _ = SharedStateFile<[String: SelfHostedWakeCheck.Entry]>(name: SelfHostedWakeCheck.fileName).update { value in
+            value = [topicHash(baseUrl: offer, topic: "alerts"): missed, topicHash(baseUrl: offer, topic: "backups"): weak]
+            return (true, ())
+        }
+        let check = NtfyShBridge(store: store, defaults: defaults, network: false)
+        XCTAssertEqual(check.topicState(baseUrl: on, topic: "door", fcmBound: true), .watched)
+        XCTAssertEqual(check.topicState(baseUrl: on, topic: "cams", fcmBound: true), .held(.directWatch(.needsLogin)))
+        XCTAssertEqual(check.topicState(baseUrl: lab, topic: "sensors", fcmBound: true), .held(.directWatchUnreachable))
+        XCTAssertEqual(check.topicState(baseUrl: pi, topic: "temp", fcmBound: true), .held(.directWatchConnecting))
+        XCTAssertEqual(check.topicState(baseUrl: offer, topic: "backups", fcmBound: true), .held(.noForwardingConfirmed))
+    }
+}
