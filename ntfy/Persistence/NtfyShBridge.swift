@@ -2298,7 +2298,11 @@ enum NtfyShBridgeCopy {
     }
 
     static var instantBanners: String { String(localized: "Instant banners") }
-    static func watching(_ count: Int) -> String { String(localized: "Watching \(count)") }
+    /// Says what it counts, so a server with nothing watched yet doesn't read as unwatched beside
+    /// "Watched by ntf-ai.app".
+    static func watching(_ count: Int) -> String {
+        count == 0 ? String(localized: "No topics watched yet") : String(localized: "\(count) topics watched")
+    }
 
     /// A self-hosted server can wake this device without the bridge when its upstream is ntfy-me.com.
     static var directUpstreamNote: String {

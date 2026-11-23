@@ -93,14 +93,17 @@ struct NotificationStatusView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.backgroundRefreshStatusDidChangeNotification)) { _ in delegate.refreshNotificationSettings() }
     }
 
+    /// Servers ntf-ai.app watches directly: their topics don't wake through the upstream route the check tests.
+    private var directWatched: Set<String> { Config.ntfyShBridgeEnabled ? NtfyShBridge.shared.directServers : [] }
+
     private var selfHostedSubscriptions: [Subscription] {
         subscriptions.subscriptions.filter {
-            Self.offersWakeupCheck(baseUrl: $0.baseUrl ?? "")
+            Self.offersWakeupCheck(baseUrl: $0.baseUrl ?? "", directWatched: directWatched)
         }
     }
 
-    static func offersWakeupCheck(baseUrl: String) -> Bool {
-        guard RelayCheck.isSecureBase(baseUrl), let hostname = URL(string: baseUrl)?.host?.lowercased() else { return false }
+    static func offersWakeupCheck(baseUrl: String, directWatched: Set<String> = []) -> Bool {
+        guard !directWatched.contains(normalizeBaseUrl(baseUrl)), RelayCheck.isSecureBase(baseUrl), let hostname = URL(string: baseUrl)?.host?.lowercased() else { return false }
         let host = hostname.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let appHost = URL(string: Config.appBaseUrl)?.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
         // The app's own server under either name (ntfy-me.com, ntf-ai.app) and ntfy.sh, www forms too.
@@ -441,7 +444,8 @@ struct DirectWatchPanelView: View {
                     .textSelection(.enabled)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
+                    // A fill, not a background colour: it reads on the cell in light and dark.
+                    .background(Color(.tertiarySystemFill))
                     .cornerRadius(6)
                 Button(copied ? NtfyShBridgeCopy.copied : NtfyShBridgeCopy.copySetting) {
                     UIPasteboard.general.string = NtfyShBridgeCopy.offerFixSetting
@@ -450,7 +454,7 @@ struct DirectWatchPanelView: View {
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("direct-watch-copy-\(label)")
                 Text(NtfyShBridgeCopy.offerWatch).font(.subheadline).padding(.top, 4)
-                Text(NtfyShBridgeCopy.disclosure(label)).font(.footnote).foregroundColor(.secondary)
+                Text(NtfyShBridgeCopy.disclosure(label)).font(.subheadline).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button(NtfyShBridgeCopy.turnOn) { bridge.setDirectWatch(server, on: true) }
                     .buttonStyle(.borderless)
@@ -511,7 +515,9 @@ struct DirectWatchServerView: View {
                     footer: VStack(alignment: .leading, spacing: 6) {
                         Text(local ? NtfyShBridgeCopy.directWatchLocal : NtfyShBridgeCopy.disclosure(label))
                         if !local, !bridgeOn { Text(NtfyShBridgeCopy.directWatchNeedsBridge) }
-                    }) {
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)) {
                 Toggle(NtfyShBridgeCopy.directWatchToggle, isOn: Binding(
                     get: { bridge.isDirectWatched(server) },
                     set: { bridge.setDirectWatch(server, on: $0); revision += 1 }

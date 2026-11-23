@@ -38379,53 +38379,6 @@
         }
       }
     },
-    "Watching %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Watching %lld"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld beobachtet"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vigilando %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld surveillés"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld osservati"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld in de gaten"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obserwowane: %lld"
-          }
-        }
-      }
-    },
     "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
@@ -40138,6 +40091,214 @@
           "stringUnit": {
             "state": "translated",
             "value": "Włączone: NTF-AI wysyła do %@ identyfikator instalacji utworzony tylko w tym celu, nazwy Twoich tematów na ntfy.sh i hash każdego adresu tematu na Twoich innych serwerach. %@ obserwuje te tematy na ntfy.sh i wybudza to urządzenie, gdy przyjdzie wiadomość; widzi wiadomości w przelocie i nie przechowuje ich treści. Jeśli zapisano dane logowania do ntfy.sh albo NTF-AI nie może tego ustalić, NTF-AI najpierw pyta ntfy.sh, bez Twoich danych logowania, czy każdy temat jest dostępny do odczytu dla wszystkich, i wysyła tylko tematy, które każdy może czytać. Bez zapisanych danych logowania NTF-AI może przy pierwszej rejestracji wysłać nazwę tematu do %@ bez jej sprawdzania. Jeśli odmówiono dostępu albo po przerwanym żądaniu dostęp jest niepewny, NTF-AI może ponownie zapytać ntfy.sh bez używania Twoich danych logowania. Gdy temat przestaje spełniać warunki, NTF-AI prosi %@ o zaprzestanie jego obserwowania. Jeśli stukniesz „Sprawdź ponownie”, NTF-AI może wysłać hash tematu do %@, gdy aplikacja pobierze kwalifikującą się wiadomość dla tego tematu w ciągu 24 godzin. Aplikacja wysyła hash również wtedy, gdy w „Sprawdź sygnały z własnego serwera” zezwolisz na wysłanie wiadomości testowej. Gdy wyłączysz tę funkcję, NTF-AI prosi %@ o zaprzestanie obserwowania. Po usunięciu tematów przestają one dostawać natychmiastowe banery przez ntfy.sh. Bezpośrednie dostarczanie przez %@ działa dalej."
+          }
+        }
+      }
+    },
+    "No topics watched yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No topics watched yet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Themen beobachtet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no se vigila ningún tópico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun sujet surveillé pour l’instant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun argomento osservato"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog geen onderwerpen in de gaten gehouden"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak obserwowanych tematów"
+          }
+        }
+      }
+    },
+    "%lld topics watched": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld topic watched"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld topics watched"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Thema beobachtet"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Themen beobachtet"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tópico vigilado"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tópicos vigilados"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tópicos vigilados"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld sujet surveillé"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld sujets surveillés"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld sujets surveillés"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld argomento osservato"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld argomenti osservati"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld argomenti osservati"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld onderwerp in de gaten"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld onderwerpen in de gaten"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld obserwowany temat"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld obserwowane tematy"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld obserwowanych tematów"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld obserwowanego tematu"
+                }
+              }
+            }
           }
         }
       }

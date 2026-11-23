@@ -912,7 +912,7 @@ final class NtfyShBridgeTests: XCTestCase {
         "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to %@ without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks %@ to stop watching it. If you tap Check again, NTF-AI can send %@ the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks %@ to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through %@ continues.",
         "For these topics, opening the app lets it set up or repair banners. NTF-AI also keeps this device's list current in the background when the system allows it, which isn't guaranteed.",
         "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
-        "Instant banners", "Watching %lld", "Show %lld more",
+        "Instant banners", "No topics watched yet", "%lld topics watched", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
         "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app.",
         "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.",
@@ -3482,6 +3482,25 @@ extension NtfyShBridgeTests {
         for phrase in ["ntf-ai.app connects to home.example", "public topics", "sees each message as it passes", "keeps none", "Off by default"] {
             XCTAssertTrue(text.contains(phrase), phrase)
         }
+    }
+}
+
+
+extension NtfyShBridgeTests {
+    /// The wake-up check tests the upstream route; a server ntf-ai.app watches directly doesn't use it.
+    func testDirectlyWatchedServersLeaveTheWakeupCheckList() {
+        XCTAssertTrue(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home))
+        XCTAssertTrue(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home, directWatched: ["https://other.example.org"]))
+        XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home, directWatched: [normalizeBaseUrl(Self.home)]))
+        XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home + "/", directWatched: [normalizeBaseUrl(Self.home)]),
+                       "the same server however the row stores it")
+    }
+
+    /// The server header counts topics; it must not read as "watching nothing" beside "Watched by".
+    func testTheServerHeaderSaysWhatItCounts() {
+        XCTAssertEqual(NtfyShBridgeCopy.watching(0), "No topics watched yet")
+        XCTAssertEqual(NtfyShBridgeCopy.watching(1), "1 topic watched")
+        XCTAssertEqual(NtfyShBridgeCopy.watching(3), "3 topics watched")
     }
 }
 
