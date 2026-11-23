@@ -276,7 +276,7 @@ final class NtfyShBridgeTests: XCTestCase {
         let probes = { BridgeStubProtocol.sent.filter { $0.request.url?.path.hasSuffix("/auth") == true }.count }
         XCTAssertEqual(probes(), 1, "a 429 stops the round")
         XCTAssertEqual(bridge.probeBlockedUntil, clock.addingTimeInterval(3600))
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "b", wakes: nil), .held(.checkingAccess))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "b", wakes: nil), .held(.waitingToCheck), "no check out now (review-130e E8)")
         clock = clock.addingTimeInterval(1800)
         sync()
         XCTAssertEqual(probes(), 1, "no check inside the hour")
@@ -1511,7 +1511,7 @@ extension NtfyShBridgeTests {
         sync()
         XCTAssertTrue(BridgeStubProtocol.sent.contains { $0.request.url?.path == "/a_q7x/auth" }, "checked first")
         XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.checkingAccess))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.waitingToCheck), "no check out now (review-130e E8)")
     }
 
     /// Red on 15669a0 (review-130b #4): a name the server already held stayed in every
@@ -1527,7 +1527,7 @@ extension NtfyShBridgeTests {
         }
         sync()
         XCTAssertEqual(bridge.subscribedSet().ntfyShTopics, [])
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.checkingAccess))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "a_q7x", fcmBound: true), .held(.waitingToCheck), "no check out now (review-130e E8)")
         XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], [], "the replacement drops it")
         clock += 2 * 3600
         BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
@@ -2999,14 +2999,267 @@ extension NtfyShBridgeTests {
         XCTAssertEqual(try lastBody()["hashes"] as? [String], [sha("http://192.168.1.20:8099/garage")])
     }
 
-    /// Review-130d D10: names past the five checked per run say they are waiting their turn.
+    /// Review-130d D10, and review-130e E8: a name whose check hasn't been sent, queued behind the
+    /// cap or among the first five, says it is waiting; none says "Checking" while nothing is out.
     func testTopicsQueuedBehindTheCapSayWaitingToCheck() {
         credentialed("t1_q7x", "t2_q7x", "t3_q7x", "t4_q7x", "t5_q7x", "t6_q7x", "t7_q7x")
         let set = bridge.subscribedSet()
-        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "t1_q7x", set: set, wakes: nil, fcmBound: true), .held(.checkingAccess))
+        XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "t1_q7x", set: set, wakes: nil, fcmBound: true), .held(.waitingToCheck))
         XCTAssertEqual(bridge.topicState(baseUrl: "https://ntfy.sh", topic: "t6_q7x", set: set, wakes: nil, fcmBound: true), .held(.waitingToCheck))
         let held = bridge.report(wakes: nil).groups.first?.held ?? []
-        XCTAssertEqual(held.filter { $0.hold == .waitingToCheck }.map(\.topic), ["t6_q7x", "t7_q7x"])
+        XCTAssertEqual(held.filter { $0.hold == .waitingToCheck }.count, 7)
+        XCTAssertTrue(held.allSatisfy { $0.hold != .checkingAccess })
         XCTAssertTrue(NtfyShBridge.TopicHold.waitingToCheck.isPending)
+    }
+}
+
+// MARK: Fix round 5 (review-130e E4, E8, E9)
+
+extension NtfyShBridgeTests {
+    private func watchBodies(after index: Int) -> [[String]] {
+        BridgeStubProtocol.sent.dropFirst(index).filter { $0.request.url?.path == "/v1/ntfai/watch" }.compactMap { sent in
+            sent.body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["ntfy_sh_topics"] as? [String]
+        }
+    }
+
+    /// What the Settings toggle does: `@AppStorage` writes the setting, then `onChange` syncs.
+    private func turnOffAsSettingsDoes() {
+        defaults.set(false, forKey: NtfyShBridge.enabledKey)
+        bridge.sync(reason: "setting turned off", userInitiated: true)
+    }
+
+    // E9: the probe cutoff
+
+    /// Red on 81d8a8b (review-130e E9): a check that kept receiving data outlived its inactivity
+    /// timeout and ran until the wake ended, so the list after it never went. It is cancelled at
+    /// the cutoff, `registrationReserve` before the wake's end, and the list still goes.
+    func testACheckStillRunningAtTheCutoffIsCancelledAndTheListStillGoes() throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [TricklingAuthProtocol.self]
+        bridge = NtfyShBridge(store: store, defaults: defaults, session: URLSession(configuration: config),
+                              appBaseUrl: "https://ntfy-me.com", now: { [unowned self] in self.clock }, stateDirectory: stateDirectory)
+        TricklingAuthProtocol.reset()
+        credentialed("a_q7x")
+        save("http://192.168.1.20:8099", "garage")
+        let wake = WakeContext(deadline: 9)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 9) { wake.cancel() } // the wake's watchdog
+        let done = expectation(description: "wake")
+        let began = Date()
+        bridge.sync(reason: "wake", wake: wake) { done.fulfill() }
+        wait(for: [done], timeout: 15)
+        XCTAssertEqual(TricklingAuthProtocol.counts.checks, 1, "the check started")
+        XCTAssertGreaterThanOrEqual(TricklingAuthProtocol.counts.chunks, 3, "and kept making progress")
+        let bodies = TricklingAuthProtocol.counts.lists
+        XCTAssertEqual(bodies.count, 1, "the list still went")
+        XCTAssertEqual(bodies.first?["hashes"] as? [String], [sha("http://192.168.1.20:8099/garage")])
+        XCTAssertEqual(bodies.first?["ntfy_sh_topics"] as? [String], [], "the unanswered name waits")
+        XCTAssertLessThan(Date().timeIntervalSince(began), 8.5, "before the wake ended")
+    }
+
+    /// Red on 81d8a8b (review-130e E9): the time left was computed before the name's mark was
+    /// committed and not checked after, so a slow commit could start a check past the cutoff.
+    /// It starts none, takes the mark back (nothing can answer it) and the list keeps the name.
+    func testAMarkThatCrossesTheCutoffStartsNoCheck() throws {
+        credentialed("a_q7x")
+        authReplies { _ in 200 }
+        sync()
+        clock += 25 * 3600 // due for its recheck, still sendable
+        save("http://192.168.1.20:8099", "garage")
+        bridge.afterProbeMarkForTesting = { _ in Thread.sleep(forTimeInterval: 1.5) } // cutoff 4 s away: 2.5 s left
+        let before = BridgeStubProtocol.sent.count
+        syncInWake(seconds: 9)
+        XCTAssertEqual(probes(after: before), [])
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a_q7x"], "an unsent check doesn't withhold the name")
+        XCTAssertEqual(try lastBody()["hashes"] as? [String], [sha("http://192.168.1.20:8099/garage")])
+    }
+
+    // E4: an opt-out crossing a captured setting
+
+    /// Red on 81d8a8b (review-130e E4): a registration read the setting as on, paused in the row
+    /// read while the user turned it off, then sent the list and cleared `optedOut` before the
+    /// empty one. The setting's generation is committed with the record and checked before the POST.
+    func testTurningOffDuringTheRowReadSendsNoListAndKeepsTheOptOut() {
+        save("https://ntfy.sh", "a")
+        sync()
+        save("https://ntfy.sh", "b")
+        var reads = 0
+        bridge.readSubscriptions = { [unowned self] in
+            reads += 1
+            if reads == 2 { self.turnOffAsSettingsDoes() } // during the registration's own read
+            return self.store.getSubscriptions()
+        }
+        let before = BridgeStubProtocol.sent.count
+        var optedOut: Bool?
+        let done = expectation(description: "race")
+        bridge.sync(reason: "race") { optedOut = self.bridge.currentRecord.optedOut; done.fulfill() }
+        wait(for: [done], timeout: 5)
+        XCTAssertGreaterThanOrEqual(reads, 2)
+        XCTAssertEqual(optedOut, true, "the stale registration didn't clear the opt-out")
+        waitUntil { self.watchBodies(after: before).count >= 1 }
+        spin(0.3)
+        XCTAssertEqual(watchBodies(after: before), [[]], "only the removal the opt-out queued")
+        XCTAssertEqual(bridge.currentRecord.optedOut, true)
+    }
+
+    /// Red on 81d8a8b (review-130e E4): the round kept checking after the setting was turned off.
+    func testTurningOffDuringTheChecksStopsThem() {
+        credentialed("t1_q7x", "t2_q7x")
+        authReplies { _ in 200 }
+        bridge.afterProbeMarkForTesting = { [unowned self] topic in
+            if topic == "t1_q7x" { self.turnOffAsSettingsDoes() }
+        }
+        let before = BridgeStubProtocol.sent.count
+        sync()
+        spin(0.3)
+        XCTAssertEqual(probes(after: before), ["t1_q7x"])
+        XCTAssertTrue(watchBodies(after: before).allSatisfy { $0.isEmpty }, "no list after the opt-out")
+    }
+
+    /// Red on 81d8a8b (review-130e E4): a topic removed during the round was still checked,
+    /// disclosing its name to ntfy.sh.
+    func testATopicRemovedDuringTheChecksIsNotChecked() throws {
+        credentialed("t1_q7x", "t2_q7x")
+        authReplies { _ in 200 }
+        bridge.afterProbeMarkForTesting = { [unowned self] topic in
+            guard topic == "t1_q7x", let row = self.store.getSubscription(baseUrl: "https://ntfy.sh", topic: "t2_q7x") else { return }
+            XCTAssertTrue(self.store.delete(subscription: row))
+        }
+        sync()
+        XCTAssertEqual(probes(), ["t1_q7x"])
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["t1_q7x"])
+    }
+
+    // E8: "Checking" only for a check that was sent
+
+    /// Red on 81d8a8b (review-130e E8): the first five names needing a check all said "Checking"
+    /// whether or not any request was out. Only the one being checked does; the rest wait.
+    func testOnlyTheNameBeingCheckedSaysChecking() {
+        credentialed("t1_q7x", "t2_q7x", "t3_q7x", "t4_q7x", "t5_q7x", "t6_q7x")
+        let issued = expectation(description: "t1 checked")
+        let release = DispatchSemaphore(value: 0)
+        BridgeStubProtocol.reply = { request in
+            guard request.url?.path.hasSuffix("/auth") == true else { return .success((200, [:], #"{"watching":5,"expires":1900000000}"#)) }
+            if request.url?.pathComponents.dropLast().last == "t1_q7x" { issued.fulfill(); release.wait() }
+            return .success((200, [:], ""))
+        }
+        let done = expectation(description: "sync")
+        bridge.sync(reason: "check") { done.fulfill() }
+        wait(for: [issued], timeout: 5)
+        let state = { (topic: String) in
+            self.bridge.topicState(baseUrl: "https://ntfy.sh", topic: topic, set: self.bridge.subscribedSet(), wakes: nil, fcmBound: true)
+        }
+        XCTAssertEqual(state("t1_q7x"), .held(.checkingAccess))
+        XCTAssertEqual(state("t2_q7x"), .held(.waitingToCheck), "planned for this run, not sent yet")
+        XCTAssertEqual(state("t6_q7x"), .held(.waitingToCheck), "behind the cap")
+        release.signal()
+        wait(for: [done], timeout: 10)
+        XCTAssertFalse(bridge.isCheckIssued("t1_q7x"))
+        XCTAssertEqual(state("t6_q7x"), .held(.waitingToCheck))
+    }
+}
+
+/// Answers an access check with a 200 and then a byte every 0.3 s until cancelled (a slow check
+/// that keeps making progress); accepts every list and keeps its body.
+private final class TricklingAuthProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var checks = 0, chunks = 0
+    private static var bodies: [[String: Any]] = []
+    static var counts: (checks: Int, chunks: Int, lists: [[String: Any]]) {
+        lock.lock(); defer { lock.unlock() }
+        return (checks, chunks, bodies)
+    }
+    static func reset() { lock.lock(); checks = 0; chunks = 0; bodies = []; lock.unlock() }
+
+    private let queue = DispatchQueue(label: "trickling-auth")
+    private var stopped = false
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let url = request.url else { return }
+        if url.path.hasSuffix("/auth") {
+            Self.lock.lock(); Self.checks += 1; Self.lock.unlock()
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!,
+                                cacheStoragePolicy: .notAllowed)
+            tick()
+            return
+        }
+        var body = request.httpBody
+        if body == nil, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var data = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable { let n = stream.read(&buffer, maxLength: buffer.count); if n <= 0 { break }; data.append(buffer, count: n) }
+            body = data
+        }
+        if let body, let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            Self.lock.lock(); Self.bodies.append(json); Self.lock.unlock()
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!,
+                            cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"{"watching":1,"expires":1900000000}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    private func tick() {
+        queue.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, !self.stopped else { return }
+            Self.lock.lock(); Self.chunks += 1; Self.lock.unlock()
+            self.client?.urlProtocol(self, didLoad: Data("x".utf8))
+            self.tick()
+        }
+    }
+
+    override func stopLoading() { queue.sync { stopped = true } }
+}
+
+// MARK: Fix round 5 (review-130e E5): the app's alert within a wake
+
+extension PresentationClaimTests {
+    /// Red on 81d8a8b (review-130e E5): the wake was checked before the reservation only, so a
+    /// lookup that stalled past the wake's end still scheduled a late banner. Checked again right
+    /// before scheduling: nothing is scheduled and the reservation is freed for the extension.
+    func testAWakeThatEndsDuringTheReservationLookupSchedulesNothing() {
+        let app = AppDelegate()
+        app.beginNotificationBackgroundTask = { _ in UIBackgroundTaskIdentifier(rawValue: 51) }
+        app.endNotificationBackgroundTask = { _ in }
+        var scheduled = 0
+        app.notificationScheduler = { _, done in scheduled += 1; done(nil) }
+        var uptime: TimeInterval = 1000
+        let clockLock = NSLock()
+        let wake = WakeContext(deadline: 5, uptime: { clockLock.lock(); defer { clockLock.unlock() }; return uptime })
+        Store.shared.reservationLookupForTesting = { clockLock.lock(); uptime += 10; clockLock.unlock() } // stalls past the deadline
+        defer { Store.shared.reservationLookupForTesting = nil }
+        let message = Message(id: "e5a-\(UUID().uuidString)", time: 1_800_000_000, event: "message", topic: "e5-door", message: "open")
+        let finished = expectation(description: "presented or not")
+        app.showNotification(baseUrl: "https://e5.example", message, wake: wake) { finished.fulfill() }
+        wait(for: [finished], timeout: 5)
+        Store.shared.reservationLookupForTesting = nil
+        XCTAssertEqual(scheduled, 0, "no banner after the wake ended")
+        XCTAssertFalse(wake.isCancelled, "the watchdog hadn't fired: the time left decided")
+        XCTAssertEqual(Store.shared.reserveAlert(message: message, baseUrl: "https://e5.example", token: "nse", by: .nse), .reserved,
+                       "the app's reservation was released")
+    }
+
+    /// Red on 81d8a8b (review-130e E5): without a UIKit background task the app scheduled with no
+    /// reservation, so a message the extension already delivered alerted twice. It reserves
+    /// first like the normal path, and marks what it schedules.
+    func testWithoutABackgroundTaskTheAppStillReservesBeforeScheduling() {
+        let app = AppDelegate()
+        app.beginNotificationBackgroundTask = { _ in .invalid }
+        var scheduled: [String] = []
+        app.notificationScheduler = { request, done in scheduled.append(request.identifier); done(nil) }
+        let delivered = Message(id: "e5b-\(UUID().uuidString)", time: 1_800_000_000, event: "message", topic: "e5-door", message: "open")
+        Store.shared.recordPresentation(message: delivered, baseUrl: "https://e5.example", by: .nse, token: "nse")
+        let first = expectation(description: "delivered elsewhere")
+        app.showNotification(baseUrl: "https://e5.example", delivered) { first.fulfill() }
+        wait(for: [first], timeout: 5)
+        XCTAssertEqual(scheduled, [], "already delivered by the extension")
+        let fresh = Message(id: "e5c-\(UUID().uuidString)", time: 1_800_000_000, event: "message", topic: "e5-door", message: "new")
+        let second = expectation(description: "new message")
+        app.showNotification(baseUrl: "https://e5.example", fresh) { second.fulfill() }
+        wait(for: [second], timeout: 5)
+        XCTAssertEqual(scheduled, [fresh.id])
+        XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .passive,
+                       "owned and marked delivered")
     }
 }

@@ -59,12 +59,6 @@ struct BridgeWatchSet: Equatable {
         held.first { $0.baseUrl == baseUrl && $0.topic == topic }?.hold
     }
 
-    /// Needs an access check that the next run won't reach: it checks the first
-    /// `maxProbesPerSync` of `needsProbe` (review-130d D10).
-    func isQueuedBehindCap(_ topic: String) -> Bool {
-        (needsProbe.firstIndex(of: topic) ?? 0) >= NtfyShBridge.maxProbesPerSync
-    }
-
     /// - Parameters:
     ///   - subscriptions: every subscription's stored base URL and topic, and whether a credential
     ///     (a saved user or a custom header such as `Authorization`) may be saved for its server:
@@ -355,6 +349,10 @@ struct BridgeRecord: Codable, Equatable {
     /// beyond the accepted set (review-130d D2): its 200 can be lost after the server applied it.
     /// Added before each POST, cleared by the next acknowledged one.
     var unconfirmed: [String]?
+    /// Bumped, with the record, each time the setting is committed (the Settings toggle, or an
+    /// opt-out found by a sync). A sync that read the setting under an older value sends no list
+    /// and starts no further check (review-130e E4); the sync the change queued sends the new one.
+    var enablement: Int?
 
     /// Everything the server may hold for this device: the accepted set and what any
     /// unacknowledged registration may have added.
@@ -601,6 +599,8 @@ final class NtfyShBridge: ObservableObject {
     private let session: URLSession?
     private let appBaseUrl: String
     private let now: () -> Date
+    /// The monotonic clock the access checks' cutoff is kept on (review-130e E9).
+    private let uptime: () -> TimeInterval
     let lock: SharedFileLock
     /// The record's own app-group file (from 1.30; 1.29 kept it in the shared defaults).
     let recordFile: SharedStateFile<BridgeRecord>
@@ -623,11 +623,13 @@ final class NtfyShBridge: ObservableObject {
     init(store: Store, defaults: UserDefaults = NtfyShBridge.defaults, session: URLSession? = nil,
          network: Bool = true, appBaseUrl: String = Config.appBaseUrl, now: @escaping () -> Date = Date.init,
          lock: SharedFileLock? = nil, stateDirectory: URL = SharedStateFile<BridgeRecord>.sharedDirectory,
-         isExtension: Bool = Bundle.main.bundlePath.hasSuffix(".appex"), observesCredentialChanges: Bool = false) {
+         isExtension: Bool = Bundle.main.bundlePath.hasSuffix(".appex"), observesCredentialChanges: Bool = false,
+         uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.store = store
         self.defaults = defaults
         self.appBaseUrl = appBaseUrl
         self.now = now
+        self.uptime = uptime
         self.lock = lock ?? .at(stateDirectory, Self.lockName)
         self.recordFile = SharedStateFile(name: Self.recordFileName, directory: stateDirectory, lock: self.lock)
         self.accessFile = SharedStateFile(name: NtfyShAccessLedger.fileName, directory: stateDirectory, lock: self.lock)
@@ -714,8 +716,17 @@ final class NtfyShBridge: ObservableObject {
 
     func setEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: Self.enabledKey)
+        // Committed after the setting, so a sync that sees the new generation also sees the new
+        // setting; one that read the old generation sends nothing (review-130e E4).
+        mutate { record in
+            record.enablement = (record.enablement ?? 0) + 1
+            if !enabled { record.optedOut = true }
+        }
         sync(reason: enabled ? "setting turned on" : "setting turned off", userInitiated: true)
     }
+
+    /// The setting's generation as committed now.
+    private var enablement: Int { currentRecord.enablement ?? 0 }
 
     /// 32 lowercase hex characters, made once per install (under the shared lock, so the app and
     /// the extension can't each make one) and tied to nothing else.
@@ -928,33 +939,61 @@ final class NtfyShBridge: ObservableObject {
     /// `GET https://ntfy.sh/<topic>/auth` with no credentials: 200 when anyone may read it, which is
     /// exactly what the bridge can do. Sequential; each name is marked as being rechecked just
     /// before its own request and its answer committed as it lands (review-130d D10), and a 429
-    /// stops the round until ntfy.sh's Retry-After (at most a day) or an hour. A wake keeps
-    /// `registrationReserve` for the list that follows. `completion(false)` when a mark or an
-    /// answer couldn't be committed: then the cycle sends no list.
-    private func probe(_ topics: [String], deadline: Date?, wake: WakeContext?, completion: @escaping (Bool) -> Void) {
+    /// stops the round until ntfy.sh's Retry-After (at most a day) or an hour. `completion(false)`
+    /// when a mark or an answer couldn't be committed: then the cycle sends no list.
+    ///
+    /// In a wake the checks end at a cutoff on the monotonic clock, `registrationReserve` before
+    /// the wake's deadline (review-130e E9): none starts after it, the time left is checked again
+    /// after each mark, and a check still running at the cutoff is cancelled, so the list that
+    /// follows keeps its time. Before each check the setting's generation and the subscriptions
+    /// are read again: no check after the setting changed, none for a topic removed during the
+    /// round (review-130e E4).
+    private func probe(_ topics: [String], generation: Int, deadline: Date?, wake: WakeContext?, completion: @escaping (Bool) -> Void) {
         guard let session, !topics.isEmpty else { completion(true); return }
+        let budget = remainingTime(deadline, wake) - Self.registrationReserve
+        let cutoff = budget.isFinite ? uptime() + budget : nil
+        let left = { cutoff.map { $0 - self.uptime() } ?? .infinity }
         var queue = topics
         func next() {
             guard !queue.isEmpty else { completion(true); return }
-            let remaining = remainingTime(deadline, wake) - Self.registrationReserve
-            guard remaining >= Self.minimumRequestTime else {
+            guard left() >= Self.minimumRequestTime else {
                 Log.d(Self.tag, "Access checks: the rest of this wake is kept for the list; \(queue.count) wait for the next")
                 completion(true); return
             }
+            guard enablement == generation, isEnabled else {
+                Log.d(Self.tag, "Access checks: the setting changed; the sync it queued decides")
+                completion(true); return
+            }
             let topic = queue.removeFirst()
+            guard let rows = readRows() else { completion(true); return }
+            guard rows.contains(where: { NtfyShAddress.isNtfySh(normalizeBaseUrl($0.baseUrl)) && $0.topic == topic }) else {
+                Log.d(Self.tag, "Access checks: a topic was removed during the round; not checked")
+                next(); return
+            }
             guard let url = URL(string: NtfyShAddress.canonical + "/" + topic + "/auth") else { next(); return }
-            var request = URLRequest(url: url)
-            request.timeoutInterval = min(15, remaining - 1)
-            request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
             // The answer is as old as the request: a refusal reported for a later request is newer.
             let started = now()
             // Until a fresh answer lands, this name's earlier 200 can't be reused, even after a kill.
+            var prior: Date?
             guard updateLedger({ ledger in
+                prior = ledger.answers[topic]?.rechecking
                 if ledger.answers[topic] != nil { ledger.answers[topic]?.rechecking = started }
             }) else { completion(false); return }
+            afterProbeMarkForTesting?(topic)
+            let remaining = left()
+            guard remaining >= Self.minimumRequestTime else {
+                // Nothing was sent, so nothing can come back: the name keeps its standing.
+                unmark(topic, started: started, prior: prior)
+                Log.d(Self.tag, "Access checks: the cutoff passed while marking; \(queue.count + 1) wait for the next")
+                completion(true); return
+            }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = min(15, remaining - 1)
+            request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
             let once = Once()
             let task = session.dataTask(with: request) { _, response, error in
                 guard once.claim() else { return }
+                self.setIssued(topic, false)
                 let http = response as? HTTPURLResponse
                 let status = error == nil ? http?.statusCode : nil
                 Log.d(Self.tag, "Access check: HTTP \(status.map(String.init) ?? "none")")
@@ -971,13 +1010,49 @@ final class NtfyShBridge: ObservableObject {
                 }
                 next()
             }
+            // Marked issued before it can answer, so a finished check never shows as running.
+            setIssued(topic, true)
             guard start(task, deadline: deadline, wake: wake) else {
                 // The wake ended between the check above and the start: nothing was sent.
                 once.claim()
+                setIssued(topic, false)
+                unmark(topic, started: started, prior: prior)
                 completion(true); return
+            }
+            BridgeStateSignal.announce()
+            if let cutoff {
+                DispatchQueue.global().asyncAfter(deadline: .now() + max(0, cutoff - uptime())) { [weak task] in
+                    guard let task, task.state == .running else { return }
+                    Log.d(Self.tag, "Access check cancelled at the cutoff; the wake's last seconds are for the list")
+                    task.cancel()
+                }
             }
         }
         next()
+    }
+
+    /// Test hook: runs after a name's recheck mark is committed, before its request.
+    var afterProbeMarkForTesting: ((String) -> Void)?
+
+    /// Takes back a recheck mark whose request was never sent, unless a newer one replaced it.
+    private func unmark(_ topic: String, started: Date, prior: Date?) {
+        updateLedger { ledger in
+            if ledger.answers[topic]?.rechecking == started { ledger.answers[topic]?.rechecking = prior }
+        }
+    }
+
+    /// Names whose anonymous check this instance sent and hasn't seen answered (review-130e E8).
+    private var issuedChecks = Set<String>()
+
+    private func setIssued(_ topic: String, _ issued: Bool) {
+        unsavedLock.lock(); defer { unsavedLock.unlock() }
+        if issued { issuedChecks.insert(topic) } else { issuedChecks.remove(topic) }
+    }
+
+    /// An access check for `topic` is out and its answer hasn't landed: the topic shows "Checking".
+    func isCheckIssued(_ topic: String) -> Bool {
+        unsavedLock.lock(); defer { unsavedLock.unlock() }
+        return issuedChecks.contains(topic)
     }
 
     /// What should be registered now: empty when the setting is off.
@@ -1029,12 +1104,14 @@ final class NtfyShBridge: ObservableObject {
         inFlight = true
         processLock.unlock()
         let done = { self.finish(completion) }
+        // Read before the setting, so a change committed after this read makes this sync stale.
+        let generation = enablement
 
         // Privacy evidence this process couldn't save yet goes first; while it can't be saved,
         // no list with names goes out (review-130c C1). Turned off, the list is empty.
         let flushed = flushUnsavedAccess()
         guard isEnabled, session != nil else {
-            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
+            register(reason: reason, userInitiated: userInitiated, generation: generation, deadline: deadline, wake: wake, done: done)
             return
         }
         guard flushed else {
@@ -1070,22 +1147,22 @@ final class NtfyShBridge: ObservableObject {
             return
         }
         guard !plan.isEmpty else {
-            register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
+            register(reason: reason, userInitiated: userInitiated, generation: generation, deadline: deadline, wake: wake, done: done)
             return
         }
         let checkThenRegister = {
             Log.d(Self.tag, "sync(\(reason)): checking up to \(plan.count) ntfy.sh topic(s) anonymously first")
-            self.probe(plan, deadline: deadline, wake: wake) { saved in
+            self.probe(plan, generation: generation, deadline: deadline, wake: wake) { saved in
                 guard saved else {
                     Log.w(Self.tag, "sync(\(reason)): an access answer couldn't be saved; sending no list this time")
                     done()
                     return
                 }
-                self.register(reason: reason, userInitiated: userInitiated, deadline: deadline, wake: wake, done: done)
+                self.register(reason: reason, userInitiated: userInitiated, generation: generation, deadline: deadline, wake: wake, done: done)
             }
         }
         if shrinkFirst {
-            register(reason: reason + " (removal first)", userInitiated: userInitiated, deadline: deadline, wake: wake,
+            register(reason: reason + " (removal first)", userInitiated: userInitiated, generation: generation, deadline: deadline, wake: wake,
                      shrinkOnly: true, done: checkThenRegister)
         } else {
             checkThenRegister()
@@ -1096,7 +1173,10 @@ final class NtfyShBridge: ObservableObject {
     /// the empty one waits for a gate (review-130d D2). Turning on clears it with the next POST.
     private func recordOptOut() {
         guard currentRecord.optedOut != true else { return }
-        mutate { $0.optedOut = true }
+        mutate { record in
+            record.optedOut = true
+            record.enablement = (record.enablement ?? 0) + 1
+        }
     }
 
     /// Decides the body and sends it in one critical section under the bridge lock (review-130c
@@ -1105,7 +1185,9 @@ final class NtfyShBridge: ObservableObject {
     /// no refusal can be committed between choosing the names and sending them.
     /// - Parameter shrinkOnly: send only what is still wanted of what the server holds, and only
     ///   when that removes something; `done` runs either way.
-    private func register(reason: String, userInitiated: Bool, deadline: Date?, wake: WakeContext?,
+    /// - Parameter generation: the setting's generation the sync began under; a newer one
+    ///   committed since (an opt-out) means this one sends nothing (review-130e E4).
+    private func register(reason: String, userInitiated: Bool, generation: Int, deadline: Date?, wake: WakeContext?,
                           shrinkOnly: Bool = false, done: @escaping () -> Void) {
         guard let session, let url = endpoint else {
             Log.d(Self.tag, "sync(\(reason)): no network in this process")
@@ -1127,6 +1209,9 @@ final class NtfyShBridge: ObservableObject {
             case .unreadable: note = "bridge record can't be read; sending nothing"; return
             case .missing: record = legacyRecord() ?? BridgeRecord()
             case .value(let stored): record = stored
+            }
+            guard (record.enablement ?? 0) == generation else {
+                note = "the setting changed since this sync began; the sync it queued sends the list"; return
             }
             let barriers = ledger?.barriers(excludingRun: run)
             var computed = enabled
@@ -1394,7 +1479,8 @@ final class NtfyShBridge: ObservableObject {
 
     enum TopicHold: Equatable {
         case needsLogin, refused, checkingAccess, invalidName, overCap
-        /// Needs an access check, queued behind the names checked first (`maxProbesPerSync` per run, review-130d D10).
+        /// Needs an access check that hasn't been sent: queued behind the names checked first
+        /// (`maxProbesPerSync` per run, review-130d D10), or not yet reachable in a run (review-130e E8).
         case waitingToCheck
         /// The setting is off (and the server confirmed the removal).
         case bridgeOff
@@ -1454,7 +1540,8 @@ final class NtfyShBridge: ObservableObject {
             switch hold {
             case .needsLogin: return .held(.needsLogin)
             case .refused: return .held(.refused)
-            case .checkingAccess: return .held(set.isQueuedBehindCap(topic) ? .waitingToCheck : .checkingAccess)
+            // "Checking" only while its request is out; queued or not yet eligible, it waits (review-130e E8).
+            case .checkingAccess: return .held(isCheckIssued(topic) ? .checkingAccess : .waitingToCheck)
             case .invalidName: return .held(.invalidName)
             case .overCap: return .held(.overCap)
             }

@@ -470,7 +470,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     /// wake is checked again right before the claim and the scheduler (review-130d D3). The message
     /// is saved either way and shows in the app.
     func showNotification(baseUrl: String, _ message: Message, wake: WakeContext? = nil, completionHandler: (() -> Void)? = nil) {
-        let stillNeeded = { wake?.isCancelled != true }
+        // Ended (the watchdog cancelled it) or out of time even if the watchdog is late (review-130e E5).
+        let stillNeeded = { wake.map { !$0.isCancelled && $0.remaining > 0 } ?? true }
         let user = Store.shared.getBasicUser(baseUrl: baseUrl)
         let displayName = Store.shared.subscriptionDisplayName(baseUrl: baseUrl, topic: message.topic)
         let soundName = Store.shared.topicSoundName(baseUrl: baseUrl, topic: message.topic, library: soundLibrary)
@@ -492,15 +493,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
                 var cancel: () -> Void = {}
                 var task: UIBackgroundTaskIdentifier = .invalid
                 task = self.beginNotificationBackgroundTask { cancel() }
-                guard task != .invalid else {
-                    // Without execution time, avoid a shared-container lock or a post-schedule write.
-                    // Delivery is recoverable; suppressing an uncertain first alert is not.
-                    self.notificationScheduler(request) { error in
-                        if let error { Log.e(self.tag, "Unable to create notification", error) }
-                        completionHandler?()
-                    }
-                    return
-                }
+                // Without a background task too, the alert is reserved before it is scheduled, so an
+                // extension already presenting it, or a delivery already made, keeps this one quiet
+                // (review-130e E5). The claims lock is held only for its short write.
                 cancel = Store.shared.deliverAlert(message: message, baseUrl: baseUrl, stillNeeded: stillNeeded, delivery: { finished in
                     self.notificationScheduler(request) { error in
                         if let error { Log.e(self.tag, "Unable to create notification", error) }

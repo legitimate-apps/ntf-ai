@@ -907,10 +907,14 @@ class Store: ObservableObject {
         now.timeIntervalSince(claim.at) < reservationLifetime && claim.at <= now.addingTimeInterval(5)
     }
 
+    /// Test hook: runs at the start of `reserveAlert`, before its row lookup (review-130e E5).
+    var reservationLookupForTesting: (() -> Void)?
+
     /// Reserve the alert for `token` (review-130c C5): delivered is passive, a fresh reservation by
     /// another delivery is `reservedElsewhere`; otherwise (nothing, a stale reservation, our own) it is ours.
     func reserveAlert(message: Message, baseUrl: String, token: String, by owner: AlertOwner = .current,
                       timeout: TimeInterval = SharedFileLock.defaultTimeout) -> AlertReservation {
+        reservationLookupForTesting?()
         if rowWasAlerted(message: message, baseUrl: baseUrl) { return .passive }
         let key = Self.claimKey(message: message, baseUrl: baseUrl)
         let now = Date()
@@ -1090,6 +1094,9 @@ class Store: ObservableObject {
             case .reserved:
                 reserved = true
             }
+            // The lookup and the claims lock can outlast the wake (review-130e E5): the app checks
+            // again now, immediately before scheduling, and frees the reservation instead.
+            guard recordBeforeDelivery || stillNeeded() else { finish(release: true); return }
             if recordBeforeDelivery {
                 let owned = self.recordPresentation(message: message, baseUrl: baseUrl, by: .current, token: token,
                                                     requireOwnership: reserved)
