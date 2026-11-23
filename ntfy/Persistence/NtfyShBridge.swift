@@ -1965,7 +1965,7 @@ enum NtfyShBridgeCopy {
         case .needsLogin:
             text = String(localized: "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.")
         case .checkingAccess:
-            text = String(localized: "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.")
+            text = String(localized: "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app.")
         case .waitingToCheck:
             text = String(localized: "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.")
         case .refused:

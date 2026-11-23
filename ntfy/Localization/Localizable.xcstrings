@@ -38164,49 +38164,49 @@
         }
       }
     },
-    "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.": {
+    "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app."
+            "value": "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Es wird geprüft, ob dieses Thema auf ntfy.sh öffentlich ist. NTF-AI prüft, wenn es das nächste Mal läuft, etwa einmal am Tag. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
+            "value": "Es wird geprüft, ob dieses Thema auf ntfy.sh öffentlich ist. Bis dahin erscheinen neue Nachrichten, wenn du die App öffnest."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comprobando si este tópico es público en ntfy.sh. NTF-AI lo comprueba la próxima vez que se ejecute, más o menos una vez al día. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
+            "value": "Comprobando si este tópico es público en ntfy.sh. Hasta entonces, los mensajes nuevos aparecen al abrir la app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vérification en cours : ce sujet est-il public sur ntfy.sh ? NTF-AI vérifie à sa prochaine exécution, environ une fois par jour. En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
+            "value": "Vérification en cours : ce sujet est-il public sur ntfy.sh ? En attendant, les nouveaux messages s’affichent à l’ouverture de l’app."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verifica in corso con ntfy.sh se chiunque può leggere l’argomento. NTF-AI verifica alla prossima esecuzione, circa una volta al giorno. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
+            "value": "Verifica in corso con ntfy.sh se chiunque può leggere l’argomento. Fino ad allora i nuovi messaggi compaiono quando apri l’app."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Er wordt gecontroleerd of dit onderwerp op ntfy.sh openbaar is. NTF-AI controleert wanneer het weer draait, ongeveer eens per dag. Tot dan verschijnen nieuwe berichten als je de app opent."
+            "value": "Er wordt gecontroleerd of dit onderwerp op ntfy.sh openbaar is. Tot dan verschijnen nieuwe berichten als je de app opent."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprawdzanie, czy ten temat na ntfy.sh jest publiczny. NTF-AI sprawdzi to przy najbliższej okazji, gdy aplikacja będzie działać, mniej więcej raz na dobę. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
+            "value": "Sprawdzanie, czy ten temat na ntfy.sh jest publiczny. Do tego czasu nowe wiadomości pojawią się po otwarciu aplikacji."
           }
         }
       }

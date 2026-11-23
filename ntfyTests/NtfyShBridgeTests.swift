@@ -914,7 +914,7 @@ final class NtfyShBridgeTests: XCTestCase {
         "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
         "Instant banners", "Watching %lld", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
-        "Checking whether this topic is public on ntfy.sh. NTF-AI checks when it next runs, about once a day. Until then, new messages show when you open the app.",
+        "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app.",
         "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.",
         "%@ couldn't watch this topic on ntfy.sh, so it gets no instant banners for now. NTF-AI checks again when it next runs, about once a day. Until then, new messages show when you open the app.",
         "This address or topic name can't be watched on ntfy.sh, so new messages show when you open the app.",
