@@ -110,6 +110,27 @@ class DocsAgree(unittest.TestCase):
                     self.assertIn('"kind":"choice","multi":true', texts[name])
                     self.assertIn('`multi` is not a kind', texts[name])
 
+    def test_050_images_and_files_are_documented(self):
+        n = check_docs.load_cli(ROOT)
+        texts = check_docs.cli_surfaces(n, ROOT)
+        if GUIDE:
+            texts['guide'] = check_docs.brand(check_docs.read(GUIDE), GUIDE)
+        for name, text in texts.items():
+            if name in ('ntf ask --help',):
+                continue
+            with self.subTest(surface=name):
+                self.assertRegex(text, r'(?i)from NTF-AI 1\.32 and ntf 0\.5\.0')
+                self.assertIn('5 MB', text)
+        for name in ('SKILL.md', 'README.md', 'AGENTS-snippet.md', 'guide'):
+            if name in texts:
+                with self.subTest(surface=name):
+                    self.assertIn('15 MB', texts[name])
+                    self.assertRegex(texts[name], r'3 hours|3 h\b')
+        if GUIDE:
+            whats_new = texts['guide'].split("## What's new for agents", 1)[1]
+            first_bullet = next(l for l in whats_new.splitlines() if l.strip().startswith('- '))
+            self.assertIn('From NTF-AI 1.32 and ntf 0.5.0:', first_bullet)
+
     def test_guide_agrees_with_the_code(self):
         self.assertEqual(check_docs.check(ROOT, guide=GUIDE, app=APP), [])
 

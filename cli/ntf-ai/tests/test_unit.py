@@ -475,7 +475,7 @@ class McpTests(unittest.TestCase):
         self.assertIn("2026-07-28", d["result"]["supportedVersions"])
         self.assertTrue(d["result"]["instructions"].startswith(n.LEAD))
         names = [t["name"] for t in l["result"]["tools"]]
-        self.assertEqual(names, ["notify", "ask", "ack", "subscribe_link", "status", "withdraw"])
+        self.assertEqual(names, ["notify", "ask", "read", "ack", "subscribe_link", "status", "withdraw"])
         self.assertIn("attach", l["result"]["tools"][0]["inputSchema"]["properties"])
         self.assertIn("attach", l["result"]["tools"][1]["inputSchema"]["properties"])
 

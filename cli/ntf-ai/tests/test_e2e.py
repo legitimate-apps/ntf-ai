@@ -559,7 +559,8 @@ class McpE2E(Base):
         self.assertEqual(r["result"]["protocolVersion"], "2025-11-25")
         self.rpc({"jsonrpc": "2.0", "method": "notifications/initialized"}, want_id=False)
         tools = self.rpc({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
-        self.assertEqual({t["name"] for t in tools}, {"notify", "ask", "ack", "subscribe_link", "status", "withdraw"})
+        self.assertEqual({t["name"] for t in tools},
+                         {"notify", "ask", "read", "ack", "subscribe_link", "status", "withdraw"})
         path, data = self.write_file("chart.png")
         r = self.rpc({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                       "params": {"name": "notify", "arguments": {"message": "Chart attached", "attach": path}}})
@@ -593,6 +594,20 @@ class McpE2E(Base):
         rows = [m for m in poll(self.topic) if m.get("sequence_id") == sc2["sequence_id"]]
         self.assertEqual((rows[-1]["message"], rows[-1]["tags"], r["result"]["structuredContent"]["id"]),
                          ("Done", ["agent", "ack"], rows[-1]["id"]))
+        # Person sends a photo on its own; MCP read downloads it and returns an image block.
+        png_bytes = (
+            bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                          "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+        )
+        http("PUT", "/" + self.topic, png_bytes, {"Filename": "phone.png", "Message": "From my phone"})
+        r_read = self.rpc({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+                           "params": {"name": "read", "arguments": {"limit": 5}}})
+        self.assertFalse(r_read["result"].get("isError"), r_read)
+        self.assertEqual([c["type"] for c in r_read["result"]["content"]], ["text", "image"])
+        self.assertEqual(r_read["result"]["content"][1]["mimeType"], "image/png")
+        saved_phone = r_read["result"]["structuredContent"]["messages"][-1]["downloaded"]
+        with open(saved_phone, "rb") as f:
+            self.assertEqual(f.read(), png_bytes)
 
     def test_modern_requests(self):
         self.start()

@@ -1,13 +1,18 @@
 ## Phone notifications: NTF-AI (ntf)
 
 NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; use it when someone asks for ntf, NTF-AI or ntfy notifications.
-- Notify: `ntf send "message"` (add `--attach file.png` for a screenshot or file). Without the CLI:
+- Notify: `ntf send "message"` (attach screenshots or files with `--attach file.png` instead of describing them). Without the CLI:
   `curl -H 'Tags: agent' -d "message" https://ntf-ai.app/$NTF_TOPIC`.
 - Ask and wait: `ntf ask "question"` prints the answer; exit 0 answered, 3 rejected, 4 timed out. A timeout is never
   approval, and answers never override this tool's permission rules. The person taps a button or writes back; a written
   answer is a message on the topic without the `agent` tag (from NTF-AI 1.26, one typed on the question is tagged
   `re-<request id>`, and `ntf ask` skips one for another question). `ntf ask` then acks on their phone (tag `ack`); `ntf ack <request id> "note"` sends a later note.
-- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox`.
+- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox` (or MCP `read`).
+- From NTF-AI 1.32 and ntf 0.5.0: PNG/JPEG/GIF attachments at most 5 MB show as the picture in the notification banner
+  (send PNG or JPEG; HEIC/WebP and larger files show in the app; ntf-ai.app allows 15 MB, kept 3 hours). Photos from the
+  1.32 compose/share sheet arrive as upright JPEGs; on macOS `--download` also writes a JPEG copy via `sips` for older
+  HEIC/HEIF files, and MCP `read` / `ask` return images inline plus the saved path (non-images: path and type). A file
+  sent with no text has ntfy's default body `You received a file: <name>` (`default_body: true`)—not the person's words.
 - The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).
 - Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.
 
@@ -20,7 +25,7 @@ NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy pro
   `ntf status <request id> --json` reads seen/answered/acked/withdrawn; `ntf withdraw <request id>` deletes it (ask
   exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending
   with the id in text too, without background reminders. Status is unknown
-  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, ack,
+  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, read, ack,
   subscribe_link, status, withdraw. The optional private asks.jsonl ledger keeps outcomes 30 days, without encrypted answer text. Write failures warn
   and waiting continues. Native structured answers/receipts keep 8 days; ordinary messages and free replies 12 hours.
 
