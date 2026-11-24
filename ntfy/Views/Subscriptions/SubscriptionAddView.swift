@@ -151,7 +151,7 @@ struct SubscriptionAddView: View {
                             .disableAutocorrection(true)
                     }
                 }
-                if let user = store.getBasicUser(baseUrl: selectedBaseUrl) {
+                if let user = store.getTransportCredential(baseUrl: selectedBaseUrl) {
                     Section {
                         NavigationLink(isActive: $showAccountTopics) {
                             AccountTopicsView(baseURL: selectedBaseUrl, user: user, store: store) { urls in
@@ -277,7 +277,7 @@ struct SubscriptionAddView: View {
     private func subscribeOrShowLoginAction() {
         loading = true
         addError = nil
-        let user = store.getBasicUser(baseUrl: selectedBaseUrl)
+        let user = store.getTransportCredential(baseUrl: selectedBaseUrl)
         // checkAuth's handler runs on a URLSession delegate queue, so everything below — SwiftUI @State
         // writes and Core Data through subscriptionManager/store — has to be hopped onto main.
         ApiService.shared.checkAuth(baseUrl: selectedBaseUrl, topic: sanitizedTopic, user: user) { result in
@@ -561,7 +561,8 @@ struct SubscriptionAddView_Previews: PreviewProvider {
 enum SubscriptionAddServer {
     static func selectedBaseUrl(useAnother: Bool, input: String, defaultBaseUrl: String) -> String {
         let alternate = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalizeBaseUrl(useAnother && !alternate.isEmpty ? alternate : defaultBaseUrl)
+        // Any spelling of ntfy.sh is stored as https://ntfy.sh, the address its wake-ups are named under.
+        return NtfyShAddress.ingress(normalizeBaseUrl(useAnother && !alternate.isEmpty ? alternate : defaultBaseUrl))
     }
 
     static func placeholder(defaultBaseUrl: String) -> String {
@@ -572,7 +573,8 @@ enum SubscriptionAddServer {
 /// Shared by single-topic subscribe and account imports; server-specific delivery guidance wins.
 enum SubscriptionPermissionCopy {
     static func message(baseUrl: String, topicURL: String, topicCount: Int) -> String {
-        if let hint = Config.ntfyShDeliveryHint(baseUrl: baseUrl) { return hint }
+        // With the bridge on, ntfy.sh topics get lock-screen banners like any other, so ask as usual.
+        if !Config.ntfyShBridgeEnabled, let hint = Config.ntfyShDeliveryHint(baseUrl: baseUrl, bridgeOn: false) { return hint }
         if topicCount > 1 {
             return String(localized: "Allow notifications so messages sent to the topics you added show up on your lock screen, even when the app is closed. You'll be asked for permission next.")
         }

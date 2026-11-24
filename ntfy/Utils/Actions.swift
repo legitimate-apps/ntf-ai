@@ -3,20 +3,42 @@ import Foundation
 struct Actions {
     static let shared = Actions()
     private let tag = "Actions"
-    private let supportedActions = ["view", "http", "copy"]
-    
+    static let supportedActions = ["view", "http", "copy"]
+    private static var loggedTypes = Set<String>()
+    private static let logLock = NSLock()
+
+    /// The actions this build can show, from storage or the wire. Each action is read on its own, so
+    /// one this build can't read (an unknown type, a missing label) never hides the others. Storage
+    /// keeps the raw JSON (`Message.rawActions`), so what is skipped here is still there (SPEC 4).
     func parse(_ actions: String?) -> [Action]? {
         guard let actions = actions, actions != "",
               let data = actions.data(using: .utf8) else { return nil }
-        do {
-            return try JSONDecoder().decode([Action].self, from: data)
-                .filter { supportedActions.contains($0.action) }
-        } catch {
-            Log.e(tag, "Unable to parse actions: \(error.localizedDescription)", error)
+        guard let raw = try? JSONDecoder().decode([JSONValue].self, from: data) else {
+            Log.e(tag, "Unable to parse actions")
             return nil
         }
+        return known(raw)
     }
-    
+
+    func known(_ raw: [JSONValue]) -> [Action] {
+        raw.compactMap { value -> Action? in
+            guard let data = JSONValue.compact(value)?.data(using: .utf8),
+                  let action = try? JSONDecoder().decode(Action.self, from: data) else { return nil }
+            guard Self.supportedActions.contains(action.action) else {
+                Self.logOnce(action.action, tag: tag)
+                return nil
+            }
+            return action
+        }
+    }
+
+    private static func logOnce(_ type: String, tag: String) {
+        logLock.lock()
+        let first = loggedTypes.insert(type).inserted
+        logLock.unlock()
+        if first { Log.d(tag, "Keeping action type \(type) in storage; not shown") }
+    }
+
     func encode(_ actions: [Action]?) -> String {
         guard let actions = actions else { return "" }
         if let actionsData = try? JSONEncoder().encode(actions) {

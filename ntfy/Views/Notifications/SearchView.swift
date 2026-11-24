@@ -32,13 +32,12 @@ struct SearchView: View {
             List {
                 let days = Notification.groupedByDay(results.notifications, date: { $0.date() })
                 ForEach(days, id: \.day) { group in
-                    Section(header: DayHeader(title: Notification.daySectionTitle(for: group.day))) {
-                        ForEach(group.items, id: \.objectID) { notification in
-                            MessageCard(notification: notification, showsTopic: true,
-                                        open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) })
-                                .listRowInsets(CardSpacing.rowInsets)
-                                .modifier(MessageRowActions(notification: notification))
-                        }
+                    DayHeaderRow(day: group.day)
+                    ForEach(group.items, id: \.objectID) { notification in
+                        MessageCard(notification: notification, showsTopic: true,
+                                    open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) })
+                            .modifier(CardRowInsets())
+                            .modifier(MessageRowActions(notification: notification))
                     }
                 }
                 if results.hasOlder {
@@ -46,7 +45,7 @@ struct SearchView: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .modifier(ReadableCardWidth())
         }
     }

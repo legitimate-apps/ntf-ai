@@ -55,6 +55,7 @@ struct NotificationStatusView: View {
             NotificationStatusRow(title: DeliveryHealthCopy.pushRegistration, value:
                       delegate.hasPushRegistration ? DeliveryHealthCopy.registered : DeliveryHealthCopy.waiting)
             NotificationStatusRow(title: DeliveryHealthCopy.pendingTopics, value: String(pendingCount))
+            NtfyShBridgeStatusRows(bridge: NtfyShBridge.shared, subscriptionCount: subscriptions.subscriptions.count)
             ForEach(delegate.notificationSwitches.warnings(), id: \.self, content: warningRow)
             if delegate.notificationAuthorizationStatus == .notDetermined {
                 Button(DeliveryHealthCopy.allowNotifications) {
@@ -149,6 +150,188 @@ struct NotificationStatusView: View {
 }
 
 
+/// What the ntfy.sh bridge watches for this device and whether it is live, so a user (or a
+/// feedback report's reader) can see why ntfy.sh and upstream-ntfy.sh banners do or don't come.
+struct NtfyShBridgeStatusRows: View {
+    @ObservedObject var bridge: NtfyShBridge
+    /// Re-reads the watch set when topics are added or removed while the screen is open.
+    let subscriptionCount: Int
+    @AppStorage(Config.ntfyShBridgeKey, store: NtfyShBridge.defaults) private var enabled = true
+    @State private var status: NtfyShBridge.Status?
+    @State private var checked = false
+    /// Bumped when the bridge, the access cache or a wake check changes in any process.
+    @State private var revision = 0
+    @State private var expanded = Set<String>()
+    @State private var visible = false
+    /// The read scheduled for when the server's pause ends; cancelled when the screen leaves,
+    /// the app goes inactive or the setting changes (review-130c C7).
+    @State private var retry: DispatchWorkItem?
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        let _ = revision
+        let set = bridge.subscribedSet()
+        let report = bridge.report()
+        NotificationStatusRow(title: NtfyShBridgeCopy.settingTitle, value: enabled ? NtfyShBridgeCopy.on : NtfyShBridgeCopy.off)
+            .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
+                bridge.reload(); revision += 1
+            }
+            // Evidence another process wrote while the app was away is read again on return.
+            .onChange(of: scenePhase) { phase in
+                guard phase == .active else { stopReading(); return }
+                bridge.reload(); revision += 1
+                // Going inactive cancelled the waiting retry and any read in flight: start them
+                // again while the row is still on screen (review-130d D6).
+                switch Self.onActive(status: status, visible: visible, enabled: enabled) {
+                case .reschedule: status.map(show)
+                case .read: check()
+                case .none: break
+                }
+            }
+            .onChange(of: enabled) { _ in stopReading(); checked = false; status = nil }
+        // Removals the server hasn't confirmed, even with no topic left to show them (review-130c C2).
+        // Off with topics left, their server rows already say the list is being removed.
+        if report.removing > 0 && !report.optOutPending || report.optOutPending && report.groups.isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "clock").foregroundColor(.secondary).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    if report.removing > 0 {
+                        Text(NtfyShBridgeCopy.removing(report.removing))
+                        Text(NtfyShBridgeCopy.removalUnconfirmed).font(.subheadline).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(NtfyShBridgeCopy.reason(.removalPending)).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("bridge-removing")
+        }
+        // Per server: how many topics are watched, then each topic that won't get banners and why.
+        ForEach(report.groups, id: \.server) { group in
+            let selfHosted = group.server != NtfyShAddress.canonical
+            NotificationStatusRow(title: Self.serverLabel(group.server),
+                                  value: enabled ? NtfyShBridgeCopy.watching(group.watching) : NtfyShBridgeCopy.off)
+            if let hold = group.serverWide {
+                heldRow(server: group.server, topic: nil, hold: hold, selfHosted: selfHosted)
+                    .accessibilityIdentifier("bridge-held-server-\(Self.serverLabel(group.server))")
+            }
+            let held = group.topicHeld
+            let shown = expanded.contains(group.server) ? held : Array(held.prefix(Self.maxHeldRows))
+            ForEach(shown, id: \.topic) { row in
+                heldRow(server: group.server, topic: row.topic, hold: row.hold, selfHosted: selfHosted)
+                    .accessibilityIdentifier("bridge-held-\(row.topic)")
+            }
+            if held.count > shown.count {
+                Button(NtfyShBridgeCopy.showMore(held.count - shown.count)) { expanded.insert(group.server) }
+                    .accessibilityIdentifier("bridge-show-more-\(Self.serverLabel(group.server))")
+            }
+        }
+        if enabled {
+            NotificationStatusRow(title: NtfyShBridgeCopy.lastRegistration, value: NtfyShBridgeCopy.lastRegistration(bridge.record))
+            if !set.isEmpty {
+                NotificationStatusRow(title: NtfyShBridgeCopy.connection,
+                                      value: status.map(NtfyShBridgeCopy.status) ?? NtfyShBridgeCopy.checking)
+                    .onAppear { visible = true; check() }
+                    .onDisappear { visible = false; stopReading() }
+            }
+            // About the topics listed above: nothing listed, no note (device check of build 62).
+            if report.listsTopics {
+                Text(NtfyShBridgeCopy.renewalNote).font(.footnote).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("bridge-renewal-note")
+            }
+        }
+    }
+
+    static let maxHeldRows = 20
+
+    enum Resume: Equatable { case none, reschedule, read }
+
+    /// What returning to the app restarts: a waiting read's retry, or the read that was cancelled
+    /// before it answered. Nothing while the connection row is off screen or the bridge is off.
+    static func onActive(status: NtfyShBridge.Status?, visible: Bool, enabled: Bool) -> Resume {
+        guard visible, enabled else { return .none }
+        guard let status else { return .read }
+        if case .waiting = status { return .reschedule }
+        return .none
+    }
+
+    static func serverLabel(_ server: String) -> String {
+        server.replacingOccurrences(of: "https://", with: "")
+    }
+
+    /// One topic and its reason, or (topic nil) a reason that holds for every topic on the server.
+    @ViewBuilder
+    private func heldRow(server: String, topic: String?, hold: NtfyShBridge.TopicHold, selfHosted: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: hold.isPending ? "clock" : "exclamationmark.triangle.fill")
+                .foregroundColor(hold.isPending ? .secondary : .orange).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                if let topic { Text(topic) }
+                Text(NtfyShBridgeCopy.reason(hold, selfHosted: selfHosted)).font(topic == nil ? .body : .subheadline)
+                    .foregroundColor(topic == nil ? .primary : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        if let topic, hold.offersCheckAgain {
+            let hash = topicHash(baseUrl: server, topic: topic)
+            // Driven by the stored check (review-130b #8): it clears when the check completes, the
+            // topic is removed, or the arm times out.
+            if SelfHostedWakeCheck.shared.isArmed(hash: hash) {
+                Text(NtfyShBridgeCopy.checkArmed).font(.footnote).foregroundColor(.secondary)
+            } else {
+                Button(NtfyShBridgeCopy.checkAgain) {
+                    NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge) { show($0) }
+                }
+                .accessibilityIdentifier("bridge-check-again-\(topic)")
+            }
+        }
+    }
+
+    private func check() {
+        guard !checked else { return }
+        checked = true
+        bridge.sync(reason: "status screen opened") {
+            bridge.fetchStatus { show($0) }
+        }
+    }
+
+    /// A read skipped for the server's pause says so and runs again when the pause ends, while
+    /// the screen is open (review-130b #7).
+    private func show(_ next: NtfyShBridge.Status) {
+        status = next
+        retry?.cancel()
+        retry = nil
+        guard case .waiting(let until) = next, visible, enabled else { return }
+        let work = DispatchWorkItem {
+            guard visible, enabled else { return }
+            bridge.fetchStatus { show($0) }
+        }
+        retry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, until.timeIntervalSinceNow + 1), execute: work)
+    }
+
+    /// Drops the scheduled read and the read in flight.
+    private func stopReading() {
+        retry?.cancel()
+        retry = nil
+        bridge.cancelStatus()
+        checked = false
+    }
+}
+
+/// "Check again" on a self-hosted topic: check its next message whatever the throttles say, and
+/// refresh the bridge's connection evidence the diagnosis rests on.
+enum NtfyShBridgeCheckAgain {
+    static func run(hash: String, bridge: NtfyShBridge = .shared, wakes: SelfHostedWakeCheck = .shared,
+                    status: ((NtfyShBridge.Status) -> Void)? = nil) {
+        wakes.arm(hash: hash)
+        bridge.fetchStatus { status?($0) }
+    }
+}
+
 /// Consent is local to a selected topic. The relay API never sees this message or its credentials.
 struct RelayTopicCheckView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -222,7 +405,7 @@ struct RelayCheckContentView: View {
                 }
             }
             Section(header: Text(String(localized: "Server setup"))) {
-                Text(String(localized: "Your server's upstream-base-url must be \(normalizeBaseUrl(Config.appBaseUrl)). Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
+                Text(String(localized: "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or \(normalizeBaseUrl(Config.appBaseUrl)). Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery."))
                     .font(.footnote).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

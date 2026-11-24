@@ -42,6 +42,33 @@ enum HostedServer {
     }
 }
 
+/// iOS blocks connections to a server on the local network until the user allows Local Network
+/// access, and the refused request fails as "The Internet connection appears to be offline."
+/// For such a server, say what to do instead of reporting a false offline state.
+enum LocalNetworkHint {
+    static func isLocalHost(_ baseUrl: String) -> Bool {
+        guard let host = URLComponents(string: baseUrl)?.host?.lowercased(), !host.isEmpty else { return false }
+        if host == "localhost" { return false }
+        if !host.contains(".") && !host.contains(":") { return true }
+        for suffix in [".local", ".lan", ".home", ".home.arpa", ".internal"] where host.hasSuffix(suffix) { return true }
+        let octets = host.split(separator: ".").compactMap { UInt8($0) }
+        if octets.count == 4 && host.split(separator: ".").count == 4 {
+            switch (octets[0], octets[1]) {
+            case (10, _), (192, 168), (169, 254): return true
+            case (172, let b) where (16...31).contains(b): return true
+            default: return false
+            }
+        }
+        let v6 = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return v6.contains(":") && (v6.hasPrefix("fe80:") || v6.hasPrefix("fc") || v6.hasPrefix("fd"))
+    }
+
+    static func message(for error: Error, baseUrl: String) -> String? {
+        guard (error as? URLError)?.code == .notConnectedToInternet, isLocalHost(baseUrl) else { return nil }
+        return String(localized: "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again.")
+    }
+}
+
 func topicUrl(baseUrl: String, topic: String) -> String {
     return "\(normalizeBaseUrl(baseUrl))/\(topic)"
 }
@@ -54,8 +81,62 @@ func topicAuthUrl(baseUrl: String, topic: String) -> String {
     return "\(normalizeBaseUrl(baseUrl))/\(topic)/auth"
 }
 
+/// Every spelling of ntfy.sh that reaches the same API: http or https, `www.`, any case, the
+/// default port, a trailing slash. ntfy.sh names its topics under exactly `https://ntfy.sh`, and
+/// that is the address the bridge hashes for a wake-up.
+enum NtfyShAddress {
+    static let canonical = "https://ntfy.sh"
+
+    /// `https://ntfy.sh` for any spelling of it, nil for anything else (including a path under it).
+    static func canonicalize(_ baseUrl: String) -> String? {
+        var value = baseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        while value.hasSuffix("/") { value.removeLast() }
+        if ["ntfy.sh", "www.ntfy.sh"].contains(value.lowercased()) { return canonical }
+        guard let parts = URLComponents(string: value), let scheme = parts.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = parts.host?.lowercased(), host == "ntfy.sh" || host == "www.ntfy.sh",
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              parts.path.isEmpty, parts.port == nil || parts.port == (scheme == "https" ? 443 : 80) else { return nil }
+        return canonical
+    }
+
+    static func isNtfySh(_ baseUrl: String) -> Bool { canonicalize(baseUrl) != nil }
+
+    /// For new subscriptions (Add sheet, links, managed configuration): store ntfy.sh as
+    /// `https://ntfy.sh`, anything else as typed.
+    static func ingress(_ baseUrl: String) -> String { canonicalize(baseUrl) ?? baseUrl }
+
+    /// A request URL on any ntfy.sh alias, moved to `https://ntfy.sh` with its path and query kept.
+    /// Rows saved as `http://ntfy.sh` or `www.ntfy.sh` keep their stored spelling (and with it
+    /// their notifications, read state, cursor, mute, sound and encryption keys); only the
+    /// transport changes, as `HostedServer.requestURL` does for the app's own alias.
+    static func transportURL(_ url: URL) -> URL {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = parts.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = parts.host?.lowercased(), host == "ntfy.sh" || host == "www.ntfy.sh",
+              parts.user == nil, parts.password == nil,
+              parts.port == nil || parts.port == (scheme == "https" ? 443 : 80) else { return url }
+        guard scheme != "https" || parts.host != "ntfy.sh" || parts.port != nil else { return url }
+        parts.scheme = "https"; parts.host = "ntfy.sh"; parts.port = nil
+        return parts.url ?? url
+    }
+}
+
+/// The address a server hashes when it forwards a wake-up for one of its topics. Stored rows keep
+/// their spelling; only this identity is canonical, so a row saved as `http://ntfy.sh` binds the
+/// same FCM topic the bridge wakes.
+func pushIdentityBaseUrl(_ baseUrl: String) -> String {
+    NtfyShAddress.canonicalize(baseUrl) ?? normalizeBaseUrl(baseUrl)
+}
+
+/// The hash 1.29 and earlier bound, from the stored spelling. Only for tearing those names down.
+func legacyTopicHash(baseUrl: String, topic: String) -> String {
+    let digest = SHA256.hash(data: Data(topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: topic).utf8))
+    return digest.compactMap { String(format: "%02x", $0) }.joined()
+}
+
 func topicHash(baseUrl: String, topic: String) -> String {
-    let data = Data(topicUrl(baseUrl: normalizeBaseUrl(baseUrl), topic: topic).utf8)
+    let data = Data(topicUrl(baseUrl: pushIdentityBaseUrl(baseUrl), topic: topic).utf8)
     let digest = SHA256.hash(data: data)
     return digest.compactMap { String(format: "%02x", $0)}.joined()
 }
@@ -112,6 +193,24 @@ func parseNonEmojiTags(_ tags: String?) -> [String] {
         .filter { !ProtocolTag.isHidden($0) && EmojiManager.shared.getEmojiByAlias(alias: $0) == nil }
 }
 
+/// A link the app opens for a message: its click URL or a `view` action's URL. A tap opens it with
+/// no further question, so only the web and the system's mail, phone and message composers qualify;
+/// any other scheme (`shortcuts://`, `file:`, another app's deep link) is refused, so a message
+/// can't launch an arbitrary app or action by being tapped.
+enum ClickURL {
+    static let schemes: Set<String> = ["http", "https", "mailto", "tel", "sms"]
+
+    static func url(from click: String?) -> URL? {
+        guard let click = click?.trimmingCharacters(in: .whitespacesAndNewlines), !click.isEmpty,
+              let url = URL(string: click), let scheme = url.scheme?.lowercased(), schemes.contains(scheme) else { return nil }
+        if scheme == "http" || scheme == "https" { return url.host?.isEmpty == false ? url : nil }
+        return url
+    }
+
+    /// A `view` action whose URL the app would open; any other kind of action passes.
+    static func allows(_ action: Action) -> Bool { action.action != "view" || url(from: action.url) != nil }
+}
+
 /// Tags the agent protocol passes between `ntf` and the app. They steer behaviour and are never
 /// shown, as chips or emoji. `agent` is not one of them: it says who wrote the message, so it shows.
 enum ProtocolTag {
@@ -129,7 +228,19 @@ enum ProtocolTag {
 
     static func isNoReply(_ tag: String) -> Bool { tag.lowercased() == noReply }
 
-    static func isHidden(_ tag: String) -> Bool { isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) }
+    /// On a written answer from 1.27 on: the body is a structured answer to a typed question
+    /// (agent protocol v2, SPEC 2), sent with `re-<sequence>`.
+    static let answer = "ans"
+
+    static func isAnswer(_ tag: String) -> Bool { tag.lowercased() == answer }
+
+    /// `@name` on an agent's message names the agent (SPEC 6); shown as the sender, not a tag.
+    /// Only a tag that names an agent is hidden; any other `@` tag stays a chip, as before 1.27.
+    static func isIdentity(_ tag: String) -> Bool { AgentIdentity.name(tags: [tag]) != nil }
+
+    static func isHidden(_ tag: String) -> Bool {
+        isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) || isAnswer(tag) || isIdentity(tag)
+    }
 }
 
 /// The agent's confirmation that it got the person's answer (ACK-SPEC, build 48): a message on the
@@ -191,6 +302,27 @@ enum AgentAck {
         var answer: String?
         /// The id of the question version it confirms: a new question on the sequence waits again.
         var version: String
+        /// `ntf withdraw` took the question back (a `message_delete` on its sequence, SPEC 7) rather
+        /// than confirm it: kept with the acks so the app and the extension share it.
+        var withdrawn: Bool? = nil
+    }
+
+    /// A person's answer to a question, seen on its topic (a message tagged `ans` and `re-<sequence>`):
+    /// the answer in words, never the raw body, so a form reads "Branch: main · Replicas: 2".
+    struct SeenAnswer: Codable, Equatable {
+        /// The answer message's own id and time.
+        var id: String
+        var time: Int64
+        /// The answer in words.
+        var label: String
+        /// Written text or a form: the page says "You replied" and shows `label` under it.
+        var written: Bool
+        /// The id of the question version it answers.
+        var version: String
+        /// Read from an end-to-end encrypted message, so it came from someone with the topic's
+        /// password. Only such an answer silences the question's banner and reminders: on a plain
+        /// topic any writer could have sent it.
+        var verified: Bool? = nil
     }
 
     enum Outcome: Equatable {
@@ -315,6 +447,53 @@ final class AckLog: ObservableObject {
             }
         }
         if let data = try? JSONEncoder().encode(records) { defaults.set(data, forKey: Self.defaultsKey) }
+        lock.unlock()
+        changed()
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(Self.darwinName as CFString), nil, nil, true)
+        return true
+    }
+
+    /// Answers to a question seen on its topic (agent protocol v2, SPEC 2): a message tagged `ans`
+    /// and `re-<sequence>`, sent from this device or another one. The store keeps no row for it;
+    /// the question shows it instead. Kept beside the acks, so the app and the extension share it
+    /// and the same redraw covers both.
+    static let answersKey = "agentAnswers.v1"
+
+    private func answers() -> [String: AgentAck.SeenAnswer] {
+        guard let data = defaults.data(forKey: Self.answersKey),
+              let decoded = try? JSONDecoder().decode([String: AgentAck.SeenAnswer].self, from: data) else { return [:] }
+        return decoded
+    }
+
+    /// The answer seen for this version of the question, if any.
+    func answer(forKey key: String, version: String?) -> AgentAck.SeenAnswer? {
+        lock.lock(); defer { lock.unlock() }
+        guard let answer = answers()[key], version == nil || answer.version == version else { return nil }
+        return answer
+    }
+
+    /// Keeps the newest answer per question version. False when one as new or newer is already there.
+    @discardableResult
+    func saveAnswer(_ answer: AgentAck.SeenAnswer, forKey key: String) -> Bool {
+        lock.lock()
+        var entries = answers()
+        // For one question version an answer read from an encrypted message outranks a plain one,
+        // which any topic writer can publish: a plain answer never replaces it, it always replaces a
+        // plain one. Between answers of the same standing the newest wins.
+        if let current = entries[key], current.version == answer.version, current.id == answer.id
+            || ((current.verified == true) == (answer.verified == true) ? current.time > answer.time
+                                                                          : current.verified == true) {
+            lock.unlock()
+            return false
+        }
+        entries[key] = answer
+        if entries.count > Self.limit {
+            for old in entries.sorted(by: { $0.value.time < $1.value.time }).prefix(entries.count - Self.limit) {
+                entries.removeValue(forKey: old.key)
+            }
+        }
+        if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: Self.answersKey) }
         lock.unlock()
         changed()
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),

@@ -281,6 +281,87 @@ final class NavigationPilotUITests: XCTestCase {
         captureAX("empty-topic-list")
         XCTAssertTrue(app.staticTexts["No topics yet"].exists)
     }
+    /// Settings, "Use buttons without unlocking": off by default, and one tap turns it on.
+    func testCaptureLockScreenButtonsSetting() {
+        launchList()
+        tab("Settings")
+        let toggle = app.switches["settings-buttons-without-unlocking"]
+        for _ in 0..<8 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "0")
+        captureAX("lockscreen-buttons-off")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        captureAX("lockscreen-buttons-on")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+    }
+    /// The ntfy.sh bridge: its Settings toggle and disclosure, its Notification status rows, and the
+    /// add-topic footers for ntfy.sh and for a self-hosted server.
+    func testCaptureNtfyShBridge() {
+        launchList()
+        tab("Settings")
+        let toggle = app.switches["settings-ntfysh-bridge"]
+        for _ in 0..<8 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "1", "on by default")
+        app.swipeUp(velocity: .slow)
+        if !toggle.isHittable { app.swipeDown(velocity: .slow) }
+        captureAX("bridge-setting")
+        let watched = app.staticTexts["ntfy.sh"].firstMatch
+        for _ in 0..<8 { if watched.exists && watched.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(watched.exists)
+        captureAX("bridge-status")
+        tab("Topics")
+        tapEither("Add topic", "Add")
+        XCTAssertTrue(app.navigationBars["Add topic"].waitForExistence(timeout: 5))
+        let other = app.switches["Use another server"].firstMatch
+        for _ in 0..<4 where !other.exists || !other.isHittable { app.collectionViews.firstMatch.swipeUp() }
+        other.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let server = app.textFields["subscription-server-url"].firstMatch
+        XCTAssertTrue(server.waitForExistence(timeout: 3))
+        server.tap()
+        app.typeText("https://ntfy.sh")
+        app.navigationBars["Add topic"].tap()
+        captureAX("add-footer-ntfysh")
+        server.tap()
+        server.press(forDuration: 1.0)
+        if app.menuItems["Select All"].waitForExistence(timeout: 2) { app.menuItems["Select All"].tap() }
+        app.typeText("https://ntfy.example.com")
+        app.navigationBars["Add topic"].tap()
+        captureAX("add-footer-selfhosted")
+        app.buttons["Cancel"].tap()
+    }
+    /// 1.30: Notification status per server, each topic without banners and why, and the same
+    /// reason in Topic details. Needs `seed130.py`'s fixture (no live bridge or ntfy.sh calls).
+    /// `NTFY_130_VARIANT=off|full` names the captures for the other fixtures.
+    func testCaptureBridgeStates130() {
+        let variant = ProcessInfo.processInfo.environment["NTFY_130_VARIANT"] ?? "main"
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
+        openTopics()
+        tab("Settings")
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        let first = app.staticTexts["ntfy.sh"].firstMatch
+        for _ in 0..<10 { if first.exists && first.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(first.exists, "the ntfy.sh group row")
+        captureAX("b130-status-\(variant)")
+        let last = app.otherElements["bridge-held-garage"].firstMatch
+        if !(last.exists && last.isHittable) { app.swipeUp(velocity: .slow); captureAX("b130-status-\(variant)-more") }
+        guard variant == "main" else { return }
+        for topic in ["family-private-q7x", "garage"] {
+            // A fresh launch for each topic; the sheet's close control differs between iPhone and iPad.
+            app.terminate(); app.launch()
+            openTopics()
+            let row = app.staticTexts[topic].firstMatch
+            for _ in 0..<6 { if row.exists && row.isHittable { break }; app.swipeUp() }
+            row.tap()
+            app.navigationBars.buttons["Topic actions"].tap()
+            app.buttons["Topic details"].tap()
+            XCTAssertTrue(app.staticTexts["Instant banners"].waitForExistence(timeout: 5))
+            captureAX("b130-details-\(topic)")
+        }
+    }
     func testCaptureSavedUserRow() {
         app.launch()
         openTopics()
@@ -1335,7 +1416,7 @@ extension NavigationPilotUITests {
         guard reply.exists else { return }
         reply.tap(); app.typeText("Locked it from the app, thanks"); pause(); shot("agent-reply-typing")
         app.buttons["reply-send"].firstMatch.tap()
-        let receipt = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'You replied'")).firstMatch
+        let receipt = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Reply sent'")).firstMatch
         XCTAssertTrue(receipt.waitForExistence(timeout: 5), "the typed answer is recorded as a reply")
         pause(0.5); shot("agent-reply-sent")
     }

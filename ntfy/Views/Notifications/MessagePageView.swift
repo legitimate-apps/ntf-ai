@@ -17,6 +17,7 @@ struct MessagePageView: View {
     @ObservedObject private var waiting = WaitingObservable.shared
     @State private var browserURL: URL?
     @State private var showCopied = false
+    @State private var shareRequest: ShareRequest?
     @State private var scrollToReply = UUID()
     @State private var replyTyped = false
 
@@ -78,9 +79,15 @@ struct MessagePageView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if #available(iOS 16.0, *) {
-                    ShareLink(item: notification.shareText)
-                        .accessibilityLabel(String(localized: "Share"))
+                if notification.encryptionState != .locked {
+                    Button {
+                        shareRequest = .message(notification, onCopied: copied)
+                    } label: {
+                        Image(systemName: AppSymbol.share)
+                    }
+                    .accessibilityLabel(String(localized: "Share"))
+                    .accessibilityIdentifier("message-share")
+                    .shareSheet($shareRequest)
                 }
                 Menu {
                     Button {
@@ -124,6 +131,14 @@ struct MessagePageView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if let name = notification.agentName {
+                HStack(spacing: 8) {
+                    AgentAvatar(notification: notification, name: name, size: 28)
+                    Text(name).font(.subheadline.weight(.semibold)).foregroundColor(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("agent-name")
+            }
             MessageTitleLine(notification: notification, font: .title3.weight(.semibold), lineLimit: nil)
                 .accessibilityAddTraits(.isHeader)
             let tags = notification.nonEmojiTags()
@@ -157,12 +172,29 @@ struct MessagePageView: View {
 
     // MARK: Answers
 
+    private var detection: AskSchema.Detection { notification.askDetection }
+
     private var items: [ActionBarItem] {
-        ActionBarItem.items(actions: notification.answerableActions(), click: clickURL, context: .page)
+        ActionBarItem.items(actions: notification.shownActions(detection), click: clickURL, context: .page)
     }
 
     private var replyAction: Action? {
-        notification.answerableActions().first { BannerReply.destination(for: $0) != nil }
+        notification.shownActions(detection).first { BannerReply.destination(for: $0) != nil }
+    }
+
+    /// A typed question still open here: not past its deadline.
+    private var openSchema: AskSchema? {
+        guard let schema = detection.schema, !schema.isExpired() else { return nil }
+        return schema
+    }
+
+    /// Expired or needing a newer app: a line says so.
+    private var hasStatusLine: Bool {
+        switch detection {
+        case .unsupported: return true
+        case .native(let schema, _): return schema.expires != nil
+        case .none: return false
+        }
     }
 
     /// An agent's question with buttons only: a written reply goes to its topic (AgentReply).
@@ -171,10 +203,7 @@ struct MessagePageView: View {
             && AgentReply.offersField(tags: parseAllTags(notification.tags), actions: notification.answerableActions())
     }
 
-    private var clickURL: URL? {
-        guard let click = notification.click, !click.isEmpty else { return nil }
-        return URL(string: click)
-    }
+    private var clickURL: URL? { ClickURL.url(from: notification.click) }
 
     private var receipt: AgentReceipt {
         AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
@@ -187,41 +216,63 @@ struct MessagePageView: View {
 
     /// Answered here, or the agent confirmed (or settled) the question: the receipt replaces the answers.
     private var isSettled: Bool {
-        AnswerState(notification: notification, log: log).showsReceipt() || receipt.resolved
+        AnswerState(notification: notification, log: log, acks: acks).showsReceipt() || receipt.resolved
     }
 
     private var hasAnswerArea: Bool {
         if isSettled {
             let receipt = receipt
-            return receipt.answer != nil || receipt.agent != nil || receipt.showsClosed || !links.isEmpty
+            return !AnswerSummary(receipt: receipt).isEmpty || receipt.showsClosed || !links.isEmpty
         }
-        return !items.isEmpty || replyAction != nil || offersAgentReply
+        return !items.isEmpty || replyAction != nil || offersAgentReply || hasStatusLine
     }
 
     @ViewBuilder private var answerArea: some View {
-        let state = AnswerState(notification: notification, log: log)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
         VStack(spacing: 10) {
             if isSettled {
                 let receipt = receipt
                 if receipt.showsClosed {
                     ReceiptClosedLine(receipt: receipt, font: .subheadline)
-                } else if receipt.answer != nil || receipt.agent != nil {
-                    AgentReceiptTimeline(receipt: receipt)
+                } else if !AnswerSummary(receipt: receipt).isEmpty {
+                    AnsweredView(summary: AnswerSummary(receipt: receipt), place: .page)
                 }
                 if !links.isEmpty {
                     ActionBar(items: links, run: run)
                 }
             } else {
-                if state.failed { AnswerReceiptView(failed: true, failedLabel: state.failedLabel) }
-                if !items.isEmpty {
-                    ActionBar(items: items, prominentId: Self.prominentAnswer(firstAnswerId: prominentId,
-                                                                         replyTyped: replyTyped && state.sendingActionId == nil && state.sentLabel() == nil),
+                if state.failed { AnswerFailedLine(failedLabel: state.failedLabel, toAgent: state.locks) }
+                if hasStatusLine {
+                    AskStatusLine(notification: notification, detection: detection)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                // A typed question's links read as links, above its answer (DESIGN-REVIEW-v2 F5).
+                if detection.schema != nil, !links.isEmpty {
+                    AskLinks(items: links, run: run)
+                }
+                if let schema = openSchema {
+                    AskAnswerView(notification: notification, schema: schema, place: .page, sending: state.sending) { body, summary, written in
+                        AgentReply.sendAnswer(body, summary: summary, written: written, to: notification, store: store)
+                    }
+                } else if detection.schema != nil {
+                    // Past its deadline the control stays visible but can't send.
+                    AskAnswerView(notification: notification, schema: detection.schema!, place: .page, disabled: true) { _, _, _ in }
+                }
+                let bar = detection.schema == nil ? items : items.filter(\.isAnswer)
+                if !bar.isEmpty {
+                    ActionBar(items: bar,
+                              prominentId: detection.schema == nil
+                                  ? Self.prominentAnswer(firstAnswerId: prominentId,
+                                                         replyTyped: replyTyped && state.sendingActionId == nil && state.sentLabel() == nil)
+                                  : nil,
                               sendingId: state.sendingActionId,
                               sentLabel: state.sentLabel(), failedLabel: state.failedLabel, recipient: topicName, run: run)
                 }
-                if replyAction != nil || offersAgentReply {
+                if (replyAction != nil || offersAgentReply) && (detection.schema == nil || (openSchema != nil && detection.schema?.kind != .text)) {
                     let row = Self.replyRow(answerSent: state.sentLabel() != nil)
                     ReplyField(placeholder: String(localized: "Reply to \(topicName)"),
+                               // Beside a typed answer's Send, this one is "Reply" (DESIGN-REVIEW-v2 F6).
+                               sendTitle: detection.schema == nil ? nil : String(localized: "Reply"),
                                phase: state.replyPhase(replyActionId: replyAction?.id),
                                disabled: state.sending, held: row == .held, focusOnAppear: focusReply,
                                onFocus: { if answersInline { scrollToReply = UUID() } },
@@ -310,11 +361,18 @@ struct PinnedAnswerBar<Bar: View>: ViewModifier {
 /// is on its way, shows a check when the agent has it, and shakes if it didn't get there.
 struct ReplyField: View {
     let placeholder: String
+    /// Send's title when another Send shares the screen; nil for "Send".
+    var sendTitle: String? = nil
     var phase: AnswerPhase = .idle
     var disabled = false
     /// Kept in the layout but out of sight, reach and VoiceOver while an answer shows its check.
     var held = false
     var focusOnAppear = false
+    /// A typed question's text limit (SPEC 2); nil for a free reply.
+    var maxLength: Int? = nil
+    /// A typed question's answer is a value the agent acts on (a branch, a host), so the keyboard
+    /// leaves it as typed: no capital first letter, no autocorrection. A free reply keeps both.
+    var verbatim = false
     /// Called when the field gains focus, so an inline answer area can scroll it above the keyboard.
     var onFocus: () -> Void = {}
     /// Whether the field holds something to send, as it changes.
@@ -326,6 +384,8 @@ struct ReplyField: View {
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var busy: Bool { phase == .sending || phase == .sent }
+    private var tooLong: Bool { maxLength.map { trimmed.count > $0 } ?? false }
+    private var sendable: Bool { !trimmed.isEmpty && !tooLong }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -342,20 +402,29 @@ struct ReplyField: View {
                 .accessibilityIdentifier("reply-field")
             Button {
                 let value = trimmed
-                guard !value.isEmpty else { return }
+                guard sendable else { return }
                 // The text stays until the answer is through: on success the receipt replaces this
                 // field; on failure the person can send it again without retyping.
                 send(value)
                 focused = false
             } label: {
-                Text(phase == .sent ? String(localized: "Sent") : String(localized: "Send"))
-                    .frame(minWidth: 52)
+                Text(phase == .sent ? String(localized: "Sent") : sendTitle ?? String(localized: "Send"))
             }
             .answerButtonStyle(.primary, phase: phase, expands: false)
-            .disabled(trimmed.isEmpty || disabled)
-            .accessibilityLabel(String(localized: "Send"))
+            .disabled(!sendable || disabled)
+            .accessibilityLabel(sendTitle == nil ? String(localized: "Send") : String(localized: "Send reply"))
             .accessibilityValue(phase == .sending ? String(localized: "Sending") : phase == .sent ? String(localized: "Sent") : "")
             .accessibilityIdentifier("reply-send")
+        }
+        .overlay(alignment: .topTrailing) {
+            // Near the limit, how many characters are left; past it, in red.
+            if let maxLength, trimmed.count > maxLength * 4 / 5 {
+                Text(verbatim: "\(trimmed.count)/\(maxLength)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundColor(tooLong ? .red : .secondary)
+                    .offset(y: -16)
+                    .accessibilityIdentifier("reply-count")
+            }
         }
         .modifier(HeldOut(held: held))
         .onAppear {
@@ -368,6 +437,10 @@ struct ReplyField: View {
     }
 
     @ViewBuilder private var field: some View {
+        if verbatim { input.disableAutocapitalization().disableAutocorrection(true) } else { input }
+    }
+
+    @ViewBuilder private var input: some View {
         if #available(iOS 16.0, *) {
             TextField(placeholder, text: $text, axis: .vertical).lineLimit(1...5)
         } else {

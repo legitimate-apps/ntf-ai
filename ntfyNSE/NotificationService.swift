@@ -39,29 +39,48 @@ class NotificationService: UNNotificationServiceExtension {
             let muted = newValue.map { store?.isTopicMuted(baseUrl: $0.baseUrl, topic: $0.message.topic) ?? false } ?? false
             presentationLock.lock(); defer { presentationLock.unlock() }
             processedIdentity = newValue
-            expiryIsQuiet = alerted || muted
+            // Only a delivered claim counts as alerted, and this extension marks its own only
+            // immediately before its handoff, so the evidence is never our own (review-130c C5).
+            // The two reasons latched here are final: a delivery, or the user's mute.
+            expiryIsQuiet = expiryIsQuiet || alerted || muted
         }
     }
     private var quietHours = QuietHours.load()
     private var expiryIsQuiet = false
     private var processedIdentity: (message: Message, baseUrl: String)?
-    /// Settled before the slow steps of a presentation: true when this extension alerts the
-    /// message, false when the app or an earlier delivery already did. Nil means not claimed.
-    private var alertClaim: Bool? {
+    /// What the reservation taken before the slow steps of a presentation found (review-130d D4).
+    enum AlertDecision: Equatable {
+        /// This extension alerts the message (reserved, or the claims couldn't be had).
+        case ours
+        /// The app or an earlier delivery already delivered it: final, and quiet at expiry too.
+        case delivered
+        /// Another delivery holds a fresh reservation. Provisional: it may still fail and release
+        /// it, so the handoff and the expiry both check the claims again before choosing silence.
+        case elsewhere
+    }
+    /// Settled before the slow steps of a presentation. Nil means not claimed.
+    private var alertClaim: AlertDecision? {
         get { presentationLock.lock(); defer { presentationLock.unlock() }; return claimedAlert }
         set {
             presentationLock.lock(); defer { presentationLock.unlock() }
             claimedAlert = newValue
-            if newValue == false { expiryIsQuiet = true }
+            // Only a delivery is evidence for silence; a reservation elsewhere is not (review-130d D4).
+            if newValue == .delivered { expiryIsQuiet = true }
         }
     }
-    private var claimedAlert: Bool?
+    private var claimedAlert: AlertDecision?
+    /// This request's delivery token: its reservation and delivered mark in the claims file.
+    private var claimToken = UUID().uuidString
+    /// One monotonic deadline from entry, shared by every step (review-130 #5).
+    private(set) var deadline = ExtensionDeadline()
+    /// Tests shorten the self-imposed cutoff.
+    var processingBudget: TimeInterval = NotificationServiceTiming.processingBudget
 
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         // On a Mac this process can outlive the banner and receive its taps; pass them to the app.
-        NotificationResponseRelay.installInExtensionIfNeeded()
-        NotificationExtensionLifetime.shared.requestStarted()
-        if self.store == nil { self.store = makeStore() }
+        // The deadline, the one-shot gate, the fallback and the watchdog come first, before any store
+        // work (review-130b #5): a slow store open can't delay the handoff past the system's limit.
+        deadline = ExtensionDeadline(budget: processingBudget)
         self.deliveryGate = NotificationDeliveryGate { output in
             // Release builds expose only presentation metadata, never message or account content.
             os_log("NSE handoff soundRequested=%{public}d interruptionLevel=%{public}ld",
@@ -69,11 +88,22 @@ class NotificationService: UNNotificationServiceExtension {
                    output.sound == nil ? 0 : 1, output.interruptionLevel.rawValue)
             contentHandler(output)
         }
-        quietHours = QuietHours.load()
+        // At the deadline, hand off the best attempt ourselves, before iOS cuts the extension off;
+        // anything that lands later finds the one-shot gate closed.
+        let gate = deliveryGate
+        DispatchQueue.global().asyncAfter(deadline: .now() + processingBudget) { [weak self] in
+            guard let self, self.deliveryGate === gate, gate?.isPending == true else { return }
+            Log.w(self.tag, "Deadline reached; delivering the best attempt")
+            if let content = self.bestAttemptContent { self.deliver(content, expiring: true) }
+        }
         presentationMessage = nil
-        alertIdentity = nil
+        presentationLock.lock(); processedIdentity = nil; expiryIsQuiet = false; claimToken = UUID().uuidString; presentationLock.unlock()
         alertClaim = nil
-        self.bestAttemptContent = (fallbackContent(request).mutableCopy() as? UNMutableNotificationContent)
+        self.bestAttemptContent = alertingFallback(request)
+        NotificationResponseRelay.installInExtensionIfNeeded()
+        NotificationExtensionLifetime.shared.requestStarted()
+        if self.store == nil { self.store = makeStore() }
+        quietHours = QuietHours.load()
 
         if let bestAttemptContent = bestAttemptContent {
             let userInfo = bestAttemptContent.userInfo
@@ -115,6 +145,34 @@ class NotificationService: UNNotificationServiceExtension {
     /// The push exactly as received, unless its text is an end-to-end encrypted body: a server that
     /// sends full messages (not poll requests) puts the JWE in the alert, and every early-exit path
     /// would otherwise show that ciphertext on the lock screen.
+    /// False once this request was handed to iOS: late callbacks (reconcile, attachment, avatar,
+    /// fetch) then stop before any store or presentation work.
+    private var isPending: Bool { deliveryGate?.isPending == true }
+
+    private var token: String { presentationLock.lock(); defer { presentationLock.unlock() }; return claimToken }
+
+    /// The best attempt installed at entry, before any store work: the push as received, alerting
+    /// by its priority with the default sound (a payload without a sound would otherwise expire
+    /// silent). Only evidence downgrades it later: an ack, mute, quiet hours, or a claim showing the
+    /// message was already alerted. Critical alerts need a store read, so the entry fallback for a
+    /// priority-5 message is time-sensitive until the message is formatted.
+    private func alertingFallback(_ request: UNNotificationRequest) -> UNMutableNotificationContent? {
+        guard let content = fallbackContent(request).mutableCopy() as? UNMutableNotificationContent else { return nil }
+        let message = Message.from(userInfo: content.userInfo)
+        if let message, AgentAck.isAck(tags: message.tags) { return content }
+        let mapped = message ?? Message(id: "", time: 0, event: "message", topic: "")
+        content.configureInterruption(message: mapped, criticalEnabled: false, criticalAuthorized: false)
+        // A mute or quiet hours holds even before the store opens: the app keeps a small policy
+        // snapshot (hash to topic, mute deadline) for this (review-130c C6).
+        let policy = NotificationPolicySnapshot.file.read() ?? NotificationPolicySnapshot()
+        if policy.isQuiet(userInfo: content.userInfo, quietHours: QuietHours.load()) {
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.relevanceScore = 0
+        }
+        return content
+    }
+
     private func fallbackContent(_ request: UNNotificationRequest) -> UNNotificationContent {
         UNNotificationContent.encryptionSafeFallback(request.content)
     }
@@ -128,7 +186,9 @@ class NotificationService: UNNotificationServiceExtension {
         if let presentationMessage { final.configureInterruption(message: presentationMessage.message, soundName: presentationMessage.soundName) }
         if !expiring { final.applyTopicMute() }
         let handoff = { (output: UNNotificationContent) -> Bool in
-            guard self.deliveryGate?.deliver(output) == true else {
+            // iOS gets an immutable snapshot: nothing still running can change what it shows.
+            let snapshot = (output.copy() as? UNNotificationContent) ?? output
+            guard self.deliveryGate?.deliver(snapshot) == true else {
                 Log.w(self.tag, "Ignoring late notification delivery after the content handler already fired")
                 return false
             }
@@ -142,8 +202,19 @@ class NotificationService: UNNotificationServiceExtension {
             if let identity = processedIdentity {
                 info["base_url"] = identity.baseUrl; info["topic"] = identity.message.topic
             }
-            let quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
+            var quiet = expiryIsQuiet || quietHours.isQuiet(userInfo: info) || AgentAck.isAck(tags: processedIdentity?.message.tags)
+            let identity = processedIdentity
+            let token = claimToken
             presentationLock.unlock()
+            // One ownership protocol with the app (review-130c C5): the claims lock is tried for at
+            // most 100 ms. Delivered by another delivery is passive; our reservation, none or a
+            // busy lock alerts (marked delivered first when the lock was had). Marked immediately
+            // before the handoff below. A reservation seen earlier elsewhere never latched silence,
+            // so it is read again here: released or still held, it alerts (review-130d D4).
+            if !quiet, let identity, let store,
+               store.claimAtExpiry(message: identity.message, baseUrl: identity.baseUrl, token: token) == .alreadyAlerted {
+                quiet = true
+            }
             if quiet { final.sound = nil; final.interruptionLevel = .passive; final.relevanceScore = 0 }
             _ = handoff(final)
             return
@@ -157,36 +228,53 @@ class NotificationService: UNNotificationServiceExtension {
             quiet.relevanceScore = 0
             _ = handoff(quiet)
         }
-        if let claim = alertClaim {
-            if claim { _ = handoff(final) } else { passive() }
+        switch alertClaim {
+        case .ours?:
+            // Ours since the reservation: marked delivered immediately before the handoff, unless
+            // another delivery took the reservation over meanwhile; then it alerts, not us (review-130d D4).
+            if let identity = alertIdentity, isPending, let store,
+               !store.recordPresentation(message: identity.message, baseUrl: identity.baseUrl, by: .nse, token: token,
+                                         requireOwnership: true) {
+                passive()
+                return
+            }
+            _ = handoff(final)
             return
+        case .delivered?:
+            passive()
+            return
+        case .elsewhere?, nil:
+            break // Reserve now (waiting briefly for a reservation elsewhere to settle), then hand off.
         }
         guard let identity = alertIdentity, let store else {
             _ = handoff(final)
             return
         }
         let gate = deliveryGate
-        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
+        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true, token: token,
                            stillNeeded: { gate?.isPending == true }, delivery: { finished in
             finished(handoff(final))
         }, suppressed: passive)
     }
 
-    /// Records the alert for a stored message before category registration and the attachment
-    /// download, not at the handoff. Once the content handler is pending, iOS shows this push whether
-    /// the extension finishes, expires (best attempt) or is killed (original payload), and expiry
-    /// itself may not touch the store. A later presenting poll then sees `alerted` and stays quiet.
+    /// Reserves the alert for this request before category registration and the attachment
+    /// download (review-130c C5). A reservation is not a delivery: the app's poll sees it as
+    /// someone presenting now and stays passive while it is fresh (30 s), and this extension marks
+    /// it delivered only immediately before its handoff. Already delivered is passive; reserved by
+    /// another delivery is provisional and asked again later (`AlertDecision.elsewhere`). An
+    /// unavailable claims file alerts (a rare duplicate beats a lost alert).
     private func claimAlert(then next: @escaping () -> Void) {
         guard let identity = alertIdentity, let store else { next(); return }
-        let gate = deliveryGate
-        let proceed = { (alerting: Bool) in
-            self.alertClaim = alerting
-            DispatchQueue.global(qos: .userInitiated).async(execute: next)
+        let token = self.token
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard self.isPending else { return }
+            switch store.reserveAlert(message: identity.message, baseUrl: identity.baseUrl, token: token, by: .nse) {
+            case .reserved, .unavailable: self.alertClaim = .ours
+            case .passive: self.alertClaim = .delivered
+            case .reservedElsewhere: self.alertClaim = .elsewhere
+            }
+            next()
         }
-        // If expiry already handed off, neither closure runs and nothing remains to present.
-        store.deliverAlert(message: identity.message, baseUrl: identity.baseUrl, recordBeforeDelivery: true,
-                           stillNeeded: { gate?.isPending == true },
-                           delivery: { _ in proceed(true) }, suppressed: { proceed(false) })
     }
     
     private func handleMessage(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ received: Message) {
@@ -196,6 +284,7 @@ class NotificationService: UNNotificationServiceExtension {
             content.sound = nil
             content.interruptionLevel = .passive
             content.relevanceScore = 0
+            bestAttemptContent = content
         }
         // Save notification first so attachment downloads can update persistent state. What comes back
         // is the message as stored: decrypted for an end-to-end encrypted topic (or its "Encrypted
@@ -208,7 +297,9 @@ class NotificationService: UNNotificationServiceExtension {
         if case .reconcile(let poll) = result {
             let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: received.topic, baseUrl: baseUrl, event: received.event)
             bestAttemptContent = placeholder
-            ApiService.shared.poll(poll, timeout: NotificationServiceTiming.pollTimeout) { messages, _ in
+            ApiService.shared.poll(poll, timeout: deadline.timeout(NotificationServiceTiming.pollTimeout, reserve: 3)) { messages, _ in
+                // Handed off already (expiry): no store or presentation work after it.
+                guard self.isPending else { return }
                 guard let messages else { self.deliver(placeholder); return }
                 guard let presentations = Store.shared.save(notificationsFromMessages: messages, polledWith: poll) else {
                     self.deliver(placeholder)
@@ -228,6 +319,18 @@ class NotificationService: UNNotificationServiceExtension {
         }
         if case .acknowledged(let ack, let questionTitle) = result {
             deliverAcknowledgement(request, content, baseUrl, ack, questionTitle: questionTitle)
+            return
+        }
+        if case .answered = result {
+            // The person's own answer, perhaps from their other device: its question already shows
+            // it. Dropping the push needs the filtering entitlement, so it is a passive receipt
+            // removed right after delivery, and again when the app next runs.
+            content.relevanceScore = 0
+            deliverSynchronizationReceipt(content, baseUrl, received)
+            let identifier = request.identifier
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+            }
             return
         }
         guard case .stored(let message) = result else {
@@ -295,11 +398,21 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     private func handlePresentation(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool = false) {
-        bestAttemptContent = content
+        // The best attempt stays what it is (a poll_request's ready placeholder, or the push as
+        // received) until `presentClaimed` has formatted this message (review-130b #5).
+        guard isPending else { return }
+        // A poll_request claimed its alert before fetching: the row exists now, so mark it. A
+        // reservation that was elsewhere then is asked for again.
+        if let claim = alertClaim, claim != .elsewhere {
+            // Marked delivered at the handoff, not here (review-130c C5).
+            DispatchQueue.global(qos: .userInitiated).async { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
+            return
+        }
         claimAlert { self.presentClaimed(content, baseUrl, message, reconciled: reconciled) }
     }
 
     private func presentClaimed(_ content: UNMutableNotificationContent, _ baseUrl: String, _ message: Message, reconciled: Bool) {
+        guard isPending else { return }
         let user = store?.getBasicUser(baseUrl: baseUrl)
         let displayName = store?.subscriptionDisplayName(baseUrl: baseUrl, topic: message.topic)
         let soundName = store?.topicSoundName(baseUrl: baseUrl, topic: message.topic, library: soundLibrary)
@@ -316,15 +429,34 @@ class NotificationService: UNNotificationServiceExtension {
             message: message,
             baseUrl: baseUrl,
             user: user,
-            timeout: reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout
+            timeout: deadline.timeout(reconciled ? NotificationServiceTiming.reconciliationAttachmentTimeout : NotificationServiceTiming.attachmentTimeout),
+            stillNeeded: { [weak self] in self?.isPending == true }
         ) {
-            self.deliver(content)
+            guard self.isPending else { return }
+            self.presentAsAgent(content, baseUrl: baseUrl, message: message, reconciled: reconciled)
         }
+    }
+
+    /// An agent's message with an `@name` tag shows as a message from that agent (SPEC 6). Its
+    /// picture is fetched only where `AgentIdentity.avatarAllowed` says so; any failure, including a
+    /// build without the Communication Notifications capability, delivers today's banner.
+    private func presentAsAgent(_ content: UNMutableNotificationContent, baseUrl: String, message: Message, reconciled: Bool) {
+        guard let name = AgentIdentity.name(tags: message.tags) else { deliver(content); return }
+        let conversation = AgentIdentity.conversationIdentifier(topicURL: topicUrl(baseUrl: baseUrl, topic: message.topic), name: name)
+        let finish = { (avatar: Data?) in
+            guard self.isPending else { return }
+            let shown = AgentIdentity.communicationContent(content, name: name, avatar: avatar, conversation: conversation,
+                                                           donate: message.encryption != .decrypted)
+            self.bestAttemptContent = (shown.mutableCopy() as? UNMutableNotificationContent) ?? content
+            self.deliver(shown)
+        }
+        AgentAvatarStore.shared.avatar(for: message, baseUrl: baseUrl, network: !reconciled) { finish($0) }
     }
     
     private func handlePollRequest(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ pollRequest: Message) {
         // The server's mutable alert omits aps.sound. Every fallback needs an explicit policy.
         content.configureInterruption(message: pollRequest)
+        bestAttemptContent = content
         let pollId = pollRequest.pollId ?? pollRequest.id
         let preferredBaseUrl = bestAttemptContent?.userInfo["base_url"] as? String
         guard let subscription = store?.findSubscriptionMatch(
@@ -341,24 +473,44 @@ class NotificationService: UNNotificationServiceExtension {
         
         // Even a failed fetch/expiry must not re-alert a known id. Unknown ids fail open.
         alertIdentity = (Message(id: pollId, time: pollRequest.time, event: "message", topic: subscription.topic), subscription.baseUrl)
-        // Install the safe topic-named fallback before starting the fetch, including expiry.
+        // Install the safe topic-named fallback before anything else, including expiry.
         let placeholder = NotificationHealth.fetchFailureContent(request.content, topic: subscription.topic, baseUrl: subscription.baseUrl)
         placeholder.configureInterruption(message: pollRequest,
             soundName: store?.topicSoundName(baseUrl: subscription.baseUrl, topic: subscription.topic, library: soundLibrary))
         bestAttemptContent = placeholder
-        // Poll original server
+        // Claim the alert by message id before fetching: if the fallback is what shows (fetch
+        // failure or expiry), a later ~poll that loads the message stays quiet; if the app already
+        // alerted it, this push is passive.
+        claimAlert {
+            self.fetchPolled(request, content, pollRequest, pollId: pollId, subscription: subscription, placeholder: placeholder)
+        }
+        if normalizeBaseUrl(subscription.baseUrl) != normalizeBaseUrl(Config.appBaseUrl) {
+            // Maintenance after the fallback is in place, never waited on.
+            // A wake-up arrived for this hash: the server is set up (clears "not set up").
+            SelfHostedWakeCheck.shared.recordWake(hash: pollRequest.topic)
+            // Someone who lives on banners may never open the app: renew (never replace) the
+            // bridge's registration, at most hourly and only when a week old.
+            NtfyShBridge.shared.renewFromExtensionIfStale()
+        }
+    }
+
+    private func fetchPolled(_ request: UNNotificationRequest, _ content: UNMutableNotificationContent, _ pollRequest: Message,
+                             pollId: String, subscription: (baseUrl: String, topic: String), placeholder: UNMutableNotificationContent) {
         let user = store?.getBasicUser(baseUrl: subscription.baseUrl)
-        // The extension only needs contentHandler to be called from the async callback
-        ApiService.shared.poll(
-            baseUrl: subscription.baseUrl,
-            topic: subscription.topic,
-            messageId: pollId,
-            user: user,
-            timeout: NotificationServiceTiming.pollTimeout
-        ) { message, error in
+        // A wake-up can beat the server's own cache write, so "not stored yet" is asked again
+        // (SingleMessagePoll) unless the wake is old; a real error still fails at once.
+        let age = pollRequest.time > 0 ? Date().timeIntervalSince1970 - TimeInterval(pollRequest.time) : nil
+        let pollDeadline = min(deadline.clock() + NotificationServiceTiming.pollTimeout, deadline.end - 2)
+        SingleMessagePoll.run(deadline: pollDeadline, delays: SingleMessagePoll.delays(messageAge: age), clock: deadline.clock, fetch: { timeout, done in
+            ApiService.shared.poll(baseUrl: subscription.baseUrl, topic: subscription.topic, messageId: pollId,
+                                   user: user, timeout: timeout, completionHandler: done)
+        }) { message, error, attempts in
+            guard self.isPending else { return }
             guard let message = message else {
-                Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
-                self.deliver(NotificationHealth.fetchFailureContent(placeholder, topic: subscription.topic, failure: PollFailure.classify(error)))
+                Log.w(self.tag, "Error fetching poll request message topic=\(pollRequest.topic), pollId=\(pollId), attempts=\(attempts), subscription=\(topicUrl(baseUrl: subscription.baseUrl, topic: subscription.topic))", error)
+                let missing = error is PollMissingResult ? shortUrl(url: normalizeBaseUrl(subscription.baseUrl)) : nil
+                self.deliver(NotificationHealth.fetchFailureContent(placeholder, topic: subscription.topic,
+                                                                    failure: PollFailure.classify(error), missingOn: missing))
                 return
             }
             self.handleMessage(request, content, subscription.baseUrl, message)

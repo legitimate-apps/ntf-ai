@@ -18,9 +18,9 @@ enum TopicPublisher {
             return
         }
         let baseURL = subscription.baseUrl ?? ""
-        let credential = store.getBasicUser(baseUrl: baseURL)
-        guard store.getUser(baseUrl: baseURL) == nil || credential != nil,
-              case .success = store.credentialStore.readHTTPHeaders(baseUrl: baseURL) else {
+        let (credential, hasAccount) = store.transportLogin(baseUrl: baseURL)
+        guard !hasAccount || credential != nil,
+              case .success = store.credentialStore.readTransportHTTPHeaders(baseUrl: baseURL) else {
             completion(.failure(Failure(message: String(localized: "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent."))))
             return
         }

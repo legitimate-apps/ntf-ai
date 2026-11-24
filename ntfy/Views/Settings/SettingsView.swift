@@ -9,6 +9,9 @@ struct SettingsView: View {
     @AppStorage(TopicServerAddressPolicy.preferenceKey) private var showServerAddresses = TopicServerAddressPolicy.defaultValue
     @AppStorage(InAppBrowser.preferenceKey) private var openWebLinksInApp = false
     @AppStorage(AgentAck.showKey, store: AgentAck.defaults) private var showAgentConfirmations = true
+    @AppStorage(AgentReminder.settingKey, store: AgentAck.defaults) private var agentReminders = true
+    @AppStorage(LockScreenButtons.key, store: LockScreenButtons.defaults) private var buttonsWithoutUnlocking = false
+    @AppStorage(Config.ntfyShBridgeKey, store: NtfyShBridge.defaults) private var ntfyShBridge = true
     @State private var userDialog: UserDialog?
     
     var body: some View {
@@ -32,9 +35,28 @@ struct SettingsView: View {
                     NavigationLink(String(localized: "Quiet hours")) { QuietHoursView() }
                     AttachmentAutoDownloadView()
                 }
+                Section(footer: Text(NtfyShBridgeCopy.settingFooter)) {
+                    Toggle(NtfyShBridgeCopy.settingTitle, isOn: $ntfyShBridge)
+                        .accessibilityIdentifier("settings-ntfysh-bridge")
+                        .onChange(of: ntfyShBridge) { on in
+                            NtfyShBridge.shared.sync(reason: on ? "setting turned on" : "setting turned off", userInitiated: true)
+                        }
+                }
+                // On a Mac every button opens the app, so there is nothing to allow.
+                if !ProcessInfo.processInfo.isiOSAppOnMac {
+                    Section(footer: Text(String(localized: "Buttons such as Approve work from the Lock Screen without Face ID, Touch ID or your passcode. Anyone holding your device could tap them."))) {
+                        Toggle(String(localized: "Use buttons without unlocking"), isOn: $buttonsWithoutUnlocking)
+                            .accessibilityIdentifier("settings-buttons-without-unlocking")
+                            .onChange(of: buttonsWithoutUnlocking) { _ in LockScreenButtons.applyToRegisteredCategories() }
+                    }
+                }
                 Section(footer: Text(String(localized: "Shows a receipt and the agent's note when an agent confirms your answer. Confirmations are always silent."))) {
                     Toggle(String(localized: "Show agent confirmations"), isOn: $showAgentConfirmations)
                         .accessibilityIdentifier("settings-agent-confirmations")
+                }
+                Section(footer: Text(String(localized: "An agent can remind you of a question you haven't answered: up to three times, at least five minutes apart. Off, reminders arrive silently."))) {
+                    Toggle(String(localized: "Agent reminders"), isOn: $agentReminders)
+                        .accessibilityIdentifier("settings-agent-reminders")
                 }
                 NotificationStatusView()
                 RetentionSettingsView(store: store)
@@ -53,6 +75,7 @@ struct SettingsView: View {
                         ServerHeadersView(defaultBaseUrl: store.getDefaultBaseUrl())
                     }
                 }
+                FeedbackSettingsSection()
                 Section(header: Text(String(localized: "About"))) {
                     AboutView()
                 }
@@ -65,11 +88,13 @@ struct SettingsView: View {
                 onSave: { baseUrl, username, credential in
                     guard let credential else { return false }
                     let saved = store.saveUser(baseUrl: baseUrl, credential: credential)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if saved { userDialog = nil }
                     return saved
                 },
                 onDelete: { user in
                     let deleted = store.delete(user: user)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if deleted { userDialog = nil }
                     return deleted
                 },

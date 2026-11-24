@@ -17,8 +17,22 @@ final class WaitingRuleTests: XCTestCase {
                method: nil, headers: nil, body: nil, clear: nil)
     }
 
-    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil) -> Bool {
-        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, now: now)
+    private func waits(_ actions: [Action], age: TimeInterval = 60, entry: AnswerEntry? = nil, tags: [String] = ["agent"]) -> Bool {
+        WaitingRule.isWaiting(actions: actions, time: now.addingTimeInterval(-age), entry: entry, tags: tags, now: now)
+    }
+
+    /// Only an agent's question waits: a plain ntfy message with a button ("Toggle light" from Home
+    /// Assistant) is not a question, so it stays under Activity and doesn't badge the Inbox tab.
+    func testOnlyAnAgentsQuestionWaits() {
+        XCTAssertFalse(waits([act("http")], tags: []), "a plain http button is not an agent's question")
+        XCTAssertFalse(waits([replyLink], tags: ["house"]), "nor is a plain reply link")
+        XCTAssertTrue(waits([act("http")], tags: ["agent"]))
+        XCTAssertTrue(waits([act("http")], tags: ["Agent"]), "the agent tag in any case")
+        let typed = Action(id: "ask", action: "view", label: "Answer",
+                           url: "https://ntf-ai.app/docs/agents#ask-v2=" + TopicEncryption.base64urlEncode(Data(#"{"v":2,"kind":"text"}"#.utf8)),
+                           method: nil, headers: nil, body: nil, clear: nil)
+        XCTAssertNotEqual(AskSchema.detect(in: [typed]), .none, "fixture: a typed question")
+        XCTAssertTrue(waits([typed], tags: []), "a typed question waits without the agent tag")
     }
 
     func testHTTPAndReplyActionsWaitButLinksAndCopyDoNot() {
@@ -50,13 +64,12 @@ final class WaitingRuleTests: XCTestCase {
     }
 
 
-    func testUrgentThenHighThenNewest() {
-        let old = now.addingTimeInterval(-3600)
-        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 3, now), "urgent leads even when older")
-        XCTAssertTrue(WaitingRule.precedes(priority: 4, time: old, 3, now))
-        XCTAssertTrue(WaitingRule.precedes(priority: 5, time: old, 4, now))
-        XCTAssertTrue(WaitingRule.precedes(priority: 3, time: now, 1, old), "default and low share a rank")
-        XCTAssertFalse(WaitingRule.precedes(priority: 3, time: old, 3, now))
+    func testNewestFirstWhateverThePriority() {
+        let old = now.addingTimeInterval(-6 * 86_400)
+        XCTAssertTrue(WaitingRule.precedes(time: now, id: "b", old, "a"), "a newer ask leads an older one")
+        XCTAssertFalse(WaitingRule.precedes(time: old, id: "a", now, "b"), "an old urgent ask no longer jumps ahead")
+        XCTAssertTrue(WaitingRule.precedes(time: now, id: "b", now, "a"), "same second: the id breaks the tie")
+        XCTAssertFalse(WaitingRule.precedes(time: now, id: "a", now, "a"))
     }
 }
 
@@ -90,9 +103,11 @@ final class WaitingStoreTests: XCTestCase {
     }
 
     private func message(_ id: String, sequence: String, age: TimeInterval = 600, event: String = "message",
-                         text: String? = "Deploy v2?", actions: [Action]? = nil) -> Message {
-        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: event, topic: "deploys",
-                message: text, actions: actions, sequenceID: sequence)
+                         text: String? = "Deploy v2?", actions: [Action]? = nil, tags: [String]? = ["agent"]) -> Message {
+        var message = Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: event, topic: "deploys",
+                              message: text, actions: actions, sequenceID: sequence)
+        message.tags = tags
+        return message
     }
 
     private func save(_ messages: Message...) {
@@ -102,6 +117,28 @@ final class WaitingStoreTests: XCTestCase {
 
     private var waitingIDs: [String] {
         store.waitingNotifications(log: log, now: now).compactMap(\.id)
+    }
+
+    /// A Home Assistant style alert with a button is not waiting on you; an agent's question beside it is.
+    func testAPlainButtonMessageIsNotWaiting() {
+        let toggle = Action(id: "toggle", action: "http", label: "Toggle light", url: "https://ha.example/api/light",
+                            method: "POST", headers: nil, body: nil, clear: nil)
+        save(message("ha-1", sequence: "ha-1", age: 30, text: "Motion in the hallway", actions: [toggle], tags: nil),
+             message("q-1", sequence: "q-1", age: 60, actions: [http()]))
+        XCTAssertEqual(waitingIDs, ["q-1"], "only the agent's question waits")
+    }
+
+    /// The queue reads newest to oldest. Ranked by priority, a six-day-old urgent prompt sat above
+    /// a six-hour-old high one and the list looked shuffled (operator's screenshot, 2026-11-21).
+    func testWaitingIsNewestFirstWhateverThePriority() {
+        var urgentOld = message("urgent-old", sequence: "urgent-old", age: 6 * 86_400, actions: [http()])
+        urgentOld.priority = 5
+        var highNew = message("high-new", sequence: "high-new", age: 6 * 3600, actions: [http()])
+        highNew.priority = 4
+        var lowNewest = message("low-newest", sequence: "low-newest", age: 60, actions: [http()])
+        lowNewest.priority = 2
+        save(urgentOld, highNew, lowNewest)
+        XCTAssertEqual(waitingIDs, ["low-newest", "high-new", "urgent-old"])
     }
 
     /// `re-<sequence>` marks the person's own written answer: never a question, even with buttons.
@@ -210,6 +247,55 @@ final class WaitingStoreTests: XCTestCase {
         log.dismiss(try key("b"), now: now)
         log.record(try key("c"), AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now, ok: false))
         XCTAssertEqual(waitingIDs, ["c"])
+    }
+
+    /// "Clear all" (operator, 2026-11-19, 55 stale broker prompts): every listed question leaves
+    /// Waiting and the tab badge, and stays gone after a relaunch; the messages stay in their topic
+    /// with live buttons; a question that arrives afterwards waits as normal; Undo puts them back.
+    func testClearAllEmptiesWaitingSurvivesRelaunchAndKeepsTheMessages() throws {
+        let live = Date()
+        func question(_ id: String, age: TimeInterval) -> Message {
+            var m = Message(id: id, time: Int64(live.addingTimeInterval(-age).timeIntervalSince1970), event: "message",
+                            topic: "deploys", message: "Approve \(id)?", actions: [http()], sequenceID: id)
+            m.tags = ["agent"]
+            return m
+        }
+        save(question("q1", age: 900), question("q2", age: 600), question("q3", age: 300))
+        let waiting = WaitingObservable(store: store, log: log)
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q3", "q2", "q1"])
+
+        waiting.clearAll()
+        XCTAssertEqual(waiting.notifications.count, 0, "Waiting and the tab badge (its count) are empty")
+        XCTAssertEqual(waiting.lastClear?.count, 3, "Undo is offered for the three")
+        XCTAssertEqual(subscription.notificationCount(), 3, "no message is deleted")
+        for row in try XCTUnwrap(subscription.notifications?.allObjects as? [ntfy.Notification]) {
+            XCTAssertFalse(AnswerState(notification: row, log: log).answered, "\(row.id ?? "") keeps its buttons in the topic and Activity")
+        }
+
+        let relaunched = AnswerLog(defaults: UserDefaults(suiteName: suite)!)
+        XCTAssertEqual(store.waitingNotifications(log: relaunched, now: live).count, 0, "cleared after a relaunch")
+
+        save(question("q4", age: 10))
+        waiting.refresh()
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q4"], "a question after the clear waits")
+
+        waiting.undoClear()
+        XCTAssertNil(waiting.lastClear)
+        XCTAssertEqual(waiting.notifications.compactMap(\.id), ["q4", "q3", "q2", "q1"], "Undo puts the cleared ones back")
+        XCTAssertEqual(store.waitingNotifications(log: AnswerLog(defaults: UserDefaults(suiteName: suite)!), now: live).count, 4,
+                       "and the undo is saved too")
+    }
+
+    /// Undo never takes back an answer made after the clear.
+    func testUndoClearKeepsAnAnswerMadeSince() throws {
+        save(message("u1", sequence: "u1", age: 600, actions: [http()]), message("u2", sequence: "u2", age: 300, actions: [http()]))
+        let keys = try store.waitingNotifications(log: log, now: now).map { try XCTUnwrap(AnswerKey(notification: $0)) }
+        let cleared = log.dismissAll(keys, now: now)
+        XCTAssertEqual(waitingIDs, [])
+        let u1 = try XCTUnwrap(keys.first { $0.sequence == "u1" })
+        log.record(u1, AnswerEntry(kind: .tap, label: "Approve", text: nil, at: now.addingTimeInterval(5), ok: true))
+        log.restore(cleared)
+        XCTAssertEqual(waitingIDs, ["u2"], "u1 stays answered; u2 waits again")
     }
 
     func testOlderThanSevenDaysDoesNotWait() {
@@ -663,10 +749,38 @@ final class AgentAckTests: XCTestCase {
         XCTAssertNotNil(try receipt(shows: true).agent)
     }
 
-    // VERDICT-ack-48 M1: green means the agent got it; your own answer wears the up-arrow.
+    // VERDICT-ack-48 M1: green means the agent got it; your chosen answer wears a plain check in
+    // its own Forest, never the agent's filled green one.
     func testYourAnswerNeverWearsTheAgentsCheck() {
-        XCTAssertEqual(AnswerReceiptView.answeredIcon, "arrow.up.circle.fill")
-        XCTAssertNotEqual(AnswerReceiptView.answeredIcon, "checkmark.circle.fill")
+        XCTAssertEqual(AnsweredView.choiceIcon, "checkmark")
+        XCTAssertEqual(AnsweredView.agentIcon, "checkmark.circle.fill")
+        XCTAssertNotEqual(AnsweredView.choiceIcon, AnsweredView.agentIcon)
+    }
+
+    // 2026-11-18: answered here, the chosen answer and "Sent"; then the agent's word with its note.
+    func testTheAnsweredStateSaysEachThingOnce() throws {
+        save(question())
+        let row = try XCTUnwrap(rows.first)
+        let key = try XCTUnwrap(AnswerKey(notification: row))
+        let answeredAt = now.addingTimeInterval(-120)
+        log.record(key, AnswerEntry(kind: .tap, label: "Lock", text: nil, at: answeredAt, ok: true))
+        XCTAssertEqual(AnswerSummary(receipt: try receipt()), AnswerSummary(choice: .picked("Lock"), statuses: [.sent(answeredAt)]))
+        save(ack("a-1", "Locking it now", age: 60))
+        let summary = AnswerSummary(receipt: try receipt())
+        XCTAssertEqual(summary.choice, .picked("Lock"))
+        XCTAssertEqual(summary.statuses.count, 2)
+        XCTAssertEqual(summary.statuses.first, .sent(answeredAt))
+        guard case .agentGot(_, let note) = summary.statuses.last else { return XCTFail("the agent's word comes last") }
+        XCTAssertEqual(note, "Locking it now")
+    }
+
+    // A written reply keeps its words: "Reply sent", with the text as the answer.
+    func testAWrittenReplyKeepsItsText() throws {
+        save(question())
+        let key = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(rows.first)))
+        let at = now.addingTimeInterval(-30)
+        log.record(key, AnswerEntry(kind: .reply, label: "", text: "After lunch", at: at, ok: true))
+        XCTAssertEqual(AnswerSummary(receipt: try receipt()), AnswerSummary(choice: .replied("After lunch"), statuses: [.replySent(at)]))
     }
 
     // iPad check 48: an ack the extension records must redraw an open page in the app. Two logs
@@ -685,8 +799,9 @@ final class AgentAckTests: XCTestCase {
 
     // 48b re-check: a long agent note was cut at 4 lines with no other place to read it.
     func testTheAgentsNoteIsNeverCutButYourReplyIs() {
-        XCTAssertNil(AgentReceiptTimeline.detailLineLimit(id: "receipt-agent"))
-        XCTAssertEqual(AgentReceiptTimeline.detailLineLimit(id: "receipt-you"), 4)
+        XCTAssertNil(AnsweredView.noteLineLimit(.page))
+        XCTAssertNotNil(AnsweredView.noteLineLimit(.card))
+        XCTAssertGreaterThanOrEqual(AnsweredView.replyLineLimit(.page), 4)
     }
 
     // M2: answered on another device or by a compose reply, the page still names the answer.
@@ -726,5 +841,331 @@ final class AgentAckTests: XCTestCase {
         XCTAssertEqual(parseNonEmojiTags("agent,ack,deploy,ACK"), ["agent", "deploy"])
         XCTAssertEqual(parseEmojiTags("ack,thumbsup"), ["👍"])
         XCTAssertEqual(parseNonEmojiTags("acknowledged,backup"), ["acknowledged", "backup"], "only the exact tag")
+    }
+}
+
+/// The person's answer to a typed question (`ans` plus `re-<sequence>`, agent protocol v2) is no
+/// row of its own and never unread: its question shows it in words, whichever device sent it. Red
+/// on 9da561b, where "prod" or form JSON showed as its own unread row.
+final class AnswerRowTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+    private var subscription: Subscription!
+    private var removals: [SequenceRemoval] = []
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func defaults() -> UserDefaults {
+        let name = "answer-row-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        // Topic passwords in memory, not the Keychain: an unsigned test host has no Keychain access
+        // (-34018), so a stored password read back as nothing and the encrypted cases failed.
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore(), topicSecrets: InMemoryTopicSecretStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+        store.ackLog = acks
+        store.reminderDefaults = defaults()
+        removals = []
+        store.notificationRemover = { [weak self] in self?.removals.append($0) }
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "ops")
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private static let choice: [String: Any] = ["v": 2, "kind": "choice", "options": [
+        ["k": "staging", "l": "Staging"], ["k": "prod", "l": "Production"], ["k": "both", "l": "Both"]]]
+    private static let form: [String: Any] = ["v": 2, "kind": "form", "fields": [
+        ["k": "branch", "l": "Branch", "kind": "text"], ["k": "replicas", "l": "Replicas", "kind": "number"]]]
+
+    private func carrier(_ schema: [String: Any]) -> Action {
+        let data = try! JSONSerialization.data(withJSONObject: schema, options: [.sortedKeys])
+        return Action(id: "ask", action: "view", label: "Answer in NTF-AI",
+                      url: "https://ntf-ai.app/docs/agents#ask-v2=" + TopicEncryption.base64urlEncode(data),
+                      method: nil, headers: nil, body: nil, clear: nil)
+    }
+
+    private func question(_ schema: [String: Any] = AnswerRowTests.choice, id: String = "q-1", sequence: String = "deploy",
+                          age: TimeInterval = 600) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "ops",
+                message: "Where should this go?", title: "Deploy", priority: 4, tags: ["agent"], actions: [carrier(schema)],
+                sequenceID: sequence)
+    }
+
+    private func reply(_ id: String, _ body: String, tags: [String], age: TimeInterval = 60) -> Message {
+        Message(id: id, time: Int64(now.addingTimeInterval(-age).timeIntervalSince1970), event: "message", topic: "ops",
+                message: body, priority: 3, tags: tags)
+    }
+
+    @discardableResult
+    private func save(_ messages: Message...) -> [Message] {
+        let presented = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+        return presented
+    }
+
+    private var rows: [ntfy.Notification] {
+        let request = ntfy.Notification.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "time", ascending: true)]
+        return (try? store.context.fetch(request)) ?? []
+    }
+
+    private func row(_ id: String) throws -> ntfy.Notification { try XCTUnwrap(rows.first { $0.id == id }, id) }
+
+    private func receipt(_ id: String = "q-1") throws -> AgentReceipt {
+        AgentReceipt(notification: try row(id), log: log, acks: acks, shows: true)
+    }
+
+    // MARK: rows and unread counts
+
+    func testAChoiceAnswerIsNoRowAndNeverUnread() throws {
+        save(question())
+        XCTAssertEqual(store.totalUnreadCount(), 1, "the question")
+        let presented = save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(presented.map(\.id), [], "the person's own answer never alerts")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "the answer is not its own row")
+        XCTAssertEqual(store.totalUnreadCount(), 1, "badge and Inbox: the answer adds nothing")
+        XCTAssertEqual(store.unreadCount(baseUrl: "https://agents.example", topic: "ops"), 1, "the topic's count")
+    }
+
+    func testAnAnswerInTheSameBatchAsItsQuestionIsNoRow() {
+        save(question(), reply("a-1", "prod", tags: ["ans", "re-deploy"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        XCTAssertEqual(store.totalUnreadCount(), 1, "only the question")
+    }
+
+    func testAPushedAnswerIsNotStoredOrPresented() {
+        save(question())
+        let result = store.ingest(pushedMessage: reply("a-1", "prod", tags: ["re-deploy", "ans"]),
+                                  baseUrl: "https://agents.example", topic: "ops")
+        XCTAssertNotNil(result)
+        XCTAssertNil(result?.message, "nothing to present: \(String(describing: result))")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        XCTAssertEqual(store.totalUnreadCount(), 1, "only the question")
+    }
+
+    func testAnEncryptedAnswerIsNoRow() throws {
+        _ = store.setEncryptionPassword("correct horse", for: subscription)
+        let key = try XCTUnwrap(store.encryptionKey(baseUrl: "https://agents.example", topic: "ops"))
+        save(question())
+        let cipher = try TopicEncryption.encrypt(EncryptedPayload(message: "prod", tags: ["re-deploy", "ans"]), key: key)
+        save(reply("a-1", cipher, tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"], "decrypted, then folded into its question")
+        XCTAssertEqual(store.totalUnreadCount(), 0, "an answer from someone with the password settles the question")
+        XCTAssertEqual(try receipt().answerText, "Production")
+        XCTAssertTrue(removals.contains { $0.sequence == "deploy" && $0.keepingID == "a-1" }, "its banner goes")
+    }
+
+    // MARK: the question shows the answer
+
+    func testTheQuestionShowsTheChoiceLabelBeforeAndAfterTheAck() throws {
+        save(question())
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        var receipt = try receipt()
+        XCTAssertNil(receipt.answer, "not recorded here: never \"You answered\"")
+        XCTAssertEqual(receipt.namedAnswer, "Production", "\"Answered Production\": the label, never the key")
+        XCTAssertEqual(receipt.answerText, "Production")
+        XCTAssertNil(receipt.agent, "no ack yet")
+        let state = AnswerState(notification: try row("q-1"), log: log, acks: acks)
+        XCTAssertTrue(state.answered, "the controls give way to the receipt")
+        XCTAssertEqual(state.entry?.seen, true, "the card says \"Answered\", not \"You answered\"")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), [], "out of Waiting on you")
+        // ntf 0.4's ack names no answer.
+        save(Message(id: "k-1", time: Int64(now.addingTimeInterval(-30).timeIntervalSince1970), event: "message", topic: "ops",
+                     message: "\u{2713} Got your reply", priority: 1, tags: ["agent", "ack"], sequenceID: "deploy"))
+        receipt = try self.receipt()
+        XCTAssertEqual(receipt.agent, .got(now.addingTimeInterval(-30), note: nil))
+        XCTAssertEqual(receipt.answerText, "Production", "\"Agent got it · Production\"")
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    func testAFormAnswerReadsWithItsFieldLabels() throws {
+        save(question(Self.form))
+        save(reply("a-1", #"{"branch":"main","replicas":2}"#, tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+        let receipt = try receipt()
+        XCTAssertEqual(receipt.namedAnswer, "Branch: main · Replicas: 2")
+        XCTAssertFalse(receipt.answerText?.contains("{") ?? true, "never raw JSON")
+    }
+
+    func testAnAnswerMadeHereKeepsItsOwnReceipt() throws {
+        save(question())
+        let key = try XCTUnwrap(AnswerKey(notification: try row("q-1")))
+        log.record(key, AnswerEntry(kind: .tap, label: "Production", text: nil, at: now.addingTimeInterval(-61), ok: true))
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(try receipt().answer?.at, now.addingTimeInterval(-61), "recorded here: \"You answered Production\"")
+        XCTAssertNil(try receipt().answer?.seen)
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1"])
+    }
+
+    // MARK: what stays
+
+    func testMessagesThatOnlyLookLikeAnswersStay() throws {
+        save(question())
+        save(reply("x-1", "ans is a word", tags: ["ans"]),
+             reply("x-2", "prod", tags: ["re-deploy", "answer"]),
+             reply("x-3", "prod", tags: ["ans", "re-other"]))
+        XCTAssertEqual(Set(rows.compactMap(\.id)), ["q-1", "x-1", "x-2", "x-3"], "no `ans` with a `re-` naming a question here")
+        XCTAssertEqual(try row("x-1").read, false, "`ans` without `re-` is an ordinary message")
+        XCTAssertNil(try receipt().answer, "neither one answered the question")
+    }
+
+    func testAnAnswerWhoseQuestionIsGoneStaysReadable() throws {
+        save(reply("a-1", #"{"branch":"main","replicas":2}"#, tags: ["re-expired", "ans"]))
+        let orphan = try row("a-1")
+        XCTAssertEqual(orphan.display.title, "branch: main · replicas: 2", "readable, never raw JSON")
+        XCTAssertEqual(orphan.read, true, "the person's own answer is never unread")
+        save(reply("a-2", "prod", tags: ["re-gone", "ans"]))
+        XCTAssertEqual(try row("a-2").display.title, "prod")
+    }
+
+    func testAFreeReplyStaysVisibleAndRead() throws {
+        save(question())
+        let presented = save(reply("r-1", "Teal please", tags: ["re-deploy"]))
+        XCTAssertEqual(presented.map(\.id), [])
+        XCTAssertEqual(rows.compactMap(\.id), ["q-1", "r-1"], "the person's reply stays")
+        XCTAssertEqual(try row("r-1").read, true, "never unread")
+        XCTAssertEqual(try row("r-1").display.title, "Teal please")
+    }
+
+    // MARK: what an answer can't claim (security review, 2026-11-17)
+
+    func testAnAnswerOlderThanTheQuestionIsAnOrdinaryRow() throws {
+        save(question(age: 60))
+        let presented = save(reply("f-1", "prod", tags: ["re-deploy", "ans"], age: 600))
+        XCTAssertEqual(Set(rows.compactMap(\.id)), ["q-1", "f-1"], "sent before the question: no answer to it")
+        XCTAssertEqual(presented.map(\.id), ["f-1"], "an ordinary message")
+        XCTAssertEqual(try row("f-1").read, false)
+        XCTAssertEqual(try row("q-1").read, false)
+        XCTAssertNil(try receipt().namedAnswer, "the question stays unanswered")
+        XCTAssertEqual(store.waitingNotifications(log: log, now: now).compactMap(\.id), ["q-1"])
+    }
+
+    func testAnUnverifiedAnswerKeepsTheQuestionsBannerAndUnread() throws {
+        save(question())
+        save(reply("a-1", "prod", tags: ["re-deploy", "ans"]))
+        XCTAssertEqual(try row("q-1").read, false, "a plain topic's answer could be anyone's")
+        XCTAssertFalse(removals.contains { $0.sequence == "deploy" }, "the question's banner stays")
+    }
+
+    private func remind(_ verifiedAnswer: Bool) throws -> [Message] {
+        var clock = now
+        store.reminderClock = { clock }
+        store.reminderLog = ReminderLog(defaults: defaults())
+        let reminded: [String: Any] = Self.choice.merging(["rem": 1]) { $1 }
+        if verifiedAnswer {
+            _ = store.setEncryptionPassword("correct horse", for: subscription)
+        }
+        save(question(age: 0))
+        clock += 60
+        if verifiedAnswer {
+            let key = try XCTUnwrap(store.encryptionKey(baseUrl: "https://agents.example", topic: "ops"))
+            let cipher = try TopicEncryption.encrypt(EncryptedPayload(message: "prod", tags: ["re-deploy", "ans"]), key: key)
+            save(reply("a-1", cipher, tags: ["re-deploy", "ans"], age: -60))
+        } else {
+            save(reply("a-1", "prod", tags: ["re-deploy", "ans"], age: -60))
+        }
+        clock += 600
+        return save(question(reminded, id: "q-2", age: -660))
+    }
+
+    func testAnUnverifiedAnswerDoesNotSilenceAReminder() throws {
+        XCTAssertEqual(try remind(false).map(\.isUpdate), [false], "the reminder alerts")
+    }
+
+    func testAnEncryptedAnswerSilencesAReminder() throws {
+        XCTAssertEqual(try remind(true).map(\.isUpdate), [true], "answered by someone with the password: stays quiet")
+    }
+
+    private func seen(_ id: String, at time: Int64, _ label: String, verified: Bool) -> AgentAck.SeenAnswer {
+        AgentAck.SeenAnswer(id: id, time: time, label: label, written: false, version: "q-1", verified: verified ? true : nil)
+    }
+
+    func testALaterPlainAnswerDoesNotReplaceAnEncryptedOne() {
+        XCTAssertTrue(acks.saveAnswer(seen("a1", at: 100, "Production", verified: true), forKey: "k"))
+        XCTAssertFalse(acks.saveAnswer(seen("a2", at: 200, "Staging", verified: false), forKey: "k"))
+        let kept = acks.answer(forKey: "k", version: "q-1")
+        XCTAssertEqual(kept?.label, "Production")
+        XCTAssertEqual(kept?.verified, true, "the reminder stays silenced")
+    }
+
+    func testAnEncryptedAnswerReplacesAPlainOneEvenIfOlder() {
+        XCTAssertTrue(acks.saveAnswer(seen("a1", at: 200, "Staging", verified: false), forKey: "k"))
+        XCTAssertTrue(acks.saveAnswer(seen("a2", at: 100, "Production", verified: true), forKey: "k"))
+        XCTAssertEqual(acks.answer(forKey: "k", version: "q-1")?.label, "Production")
+        XCTAssertTrue(acks.saveAnswer(seen("a3", at: 300, "Canary", verified: true), forKey: "k"), "a newer encrypted one still wins")
+        XCTAssertFalse(acks.saveAnswer(seen("a4", at: 250, "Dev", verified: true), forKey: "k"), "an older encrypted one does not")
+        XCTAssertEqual(acks.answer(forKey: "k", version: "q-1")?.label, "Canary")
+    }
+}
+
+/// Folding the Inbox's two sections (operator, 2026-11-17: "it should be a dropdown tappable to
+/// close hide, by the header"): each section's state is its own and outlives the app.
+final class SectionFoldTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let suite = "SectionFoldTests"
+
+    override func setUp() {
+        super.setUp()
+        UserDefaults().removePersistentDomain(forName: suite)
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    func testFoldedSectionStaysFoldedAfterRelaunchAndOnlyThatSection() {
+        let first = SectionFold(defaults: defaults)
+        XCTAssertFalse(first.isCollapsed(SectionFold.activity), "sections start open")
+        first.toggle(SectionFold.activity)
+        XCTAssertTrue(first.isCollapsed(SectionFold.activity))
+
+        let relaunched = SectionFold(defaults: defaults)
+        XCTAssertTrue(relaunched.isCollapsed(SectionFold.activity), "a folded section is still folded on the next launch")
+        XCTAssertFalse(relaunched.isCollapsed(SectionFold.waiting), "folding Activity leaves Waiting on you open")
+
+        relaunched.toggle(SectionFold.activity)
+        XCTAssertFalse(SectionFold(defaults: defaults).isCollapsed(SectionFold.activity), "opening it again is kept too")
+    }
+
+    func testWaitingAndActivityFoldIndependently() {
+        let fold = SectionFold(defaults: defaults)
+        fold.setCollapsed(SectionFold.waiting, true)
+        XCTAssertNotEqual(SectionFold.waiting, SectionFold.activity)
+        XCTAssertFalse(fold.isCollapsed(SectionFold.activity), "folding Waiting on you leaves Activity open")
+        fold.setCollapsed(SectionFold.activity, true)
+        fold.setCollapsed(SectionFold.waiting, false)
+        let relaunched = SectionFold(defaults: defaults)
+        XCTAssertFalse(relaunched.isCollapsed(SectionFold.waiting))
+        XCTAssertTrue(relaunched.isCollapsed(SectionFold.activity))
+    }
+
+    func testFoldedWaitingHeaderStillSaysHowManyAreWaiting() {
+        let folded = FoldHeaderAccessibility(title: "Waiting on you", count: 3, collapsed: true)
+        XCTAssertEqual(folded.label, "Waiting on you, 3")
+        XCTAssertEqual(folded.value, String(localized: "Collapsed"))
+        let open = FoldHeaderAccessibility(title: "Waiting on you", count: 3, collapsed: false)
+        XCTAssertEqual(open.label, folded.label, "the count is said whether the section is open or folded")
+        XCTAssertEqual(open.value, String(localized: "Expanded"))
+        XCTAssertEqual(FoldHeaderAccessibility(title: "Activity", count: nil, collapsed: true).label, "Activity")
+    }
+
+    func testFoldHeaderIsAHeaderButtonWithAFullSizeTarget() {
+        let a11y = FoldHeaderAccessibility(title: "Activity", count: nil, collapsed: false)
+        XCTAssertTrue(a11y.traits.contains(.isHeader), "VoiceOver's headings rotor still finds it")
+        XCTAssertTrue(a11y.traits.contains(.isButton), "VoiceOver says it can be activated")
+        XCTAssertGreaterThanOrEqual(FoldHeaderAccessibility.minimumHitHeight, 44)
     }
 }

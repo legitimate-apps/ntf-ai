@@ -47,6 +47,10 @@ enum DeliveryHealthCopy {
     static func fetchFailure(topic: String) -> String {
         String(localized: "New message on \(topic). Open the app to load it.")
     }
+    /// Every read said the message isn't there (review-130b #11): possible causes, not a claim it vanished.
+    static func missingMessage(server: String) -> String {
+        String(localized: "This message isn't available from \(server) right now. It may have expired, the server may not keep messages, or it may not have arrived there yet.")
+    }
     static func authFetchFailure(topic: String) -> String {
         String(localized: "New message on \(topic), but the server refused the sign-in. Open the app to check your user for this server.")
     }
@@ -68,13 +72,15 @@ enum NotificationHealth {
 
     /// Overwrite every server-controlled presentation field, preserving routing metadata only.
     /// This is also the best attempt installed BEFORE fetching, so expiry cannot show ciphertext.
-    static func fetchFailureContent(_ content: UNNotificationContent, topic: String, baseUrl: String? = nil, event: String = "message", failure: PollFailure? = nil) -> UNMutableNotificationContent {
+    /// `missingOn`: the server (as shown) that consistently answered "no such message".
+    static func fetchFailureContent(_ content: UNNotificationContent, topic: String, baseUrl: String? = nil, event: String = "message", failure: PollFailure? = nil, missingOn: String? = nil) -> UNMutableNotificationContent {
         let safe = (content.mutableCopy() as? UNMutableNotificationContent) ?? UNMutableNotificationContent()
         safe.title = topic
         safe.subtitle = ""
         safe.body = event == "message_clear" || event == "message_delete"
             ? DeliveryHealthCopy.controlFailure(topic: topic)
-            : failure == .unauthorized ? DeliveryHealthCopy.authFetchFailure(topic: topic) : DeliveryHealthCopy.fetchFailure(topic: topic)
+            : failure == .unauthorized ? DeliveryHealthCopy.authFetchFailure(topic: topic)
+            : missingOn.map(DeliveryHealthCopy.missingMessage(server:)) ?? DeliveryHealthCopy.fetchFailure(topic: topic)
         if event == "message_clear" || event == "message_delete" {
             safe.sound = nil
             safe.interruptionLevel = .passive
@@ -179,17 +185,18 @@ struct PollTiming {
     }
 
     /// RFC 9110: nonnegative integer delta-seconds or HTTP-date. Ignore malformed input.
-    static func retryDelay(_ value: String?, now: Date) -> TimeInterval? {
+    /// Capped at `cap` (polls: the stock one hour).
+    static func retryDelay(_ value: String?, now: Date, cap: TimeInterval = 3600) -> TimeInterval? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
         if value.allSatisfy({ $0.isASCII && $0.isNumber }), let seconds = Double(value), seconds.isFinite {
-            return min(seconds, 3600)
+            return min(seconds, cap)
         }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         for format in ["EEE, dd MMM yyyy HH:mm:ss 'GMT'", "EEEE, dd-MMM-yy HH:mm:ss 'GMT'", "EEE MMM d HH:mm:ss yyyy"] {
             formatter.dateFormat = format
-            if let date = formatter.date(from: value) { return min(3600, max(0, date.timeIntervalSince(now))) }
+            if let date = formatter.date(from: value) { return min(cap, max(0, date.timeIntervalSince(now))) }
         }
         return nil
     }
@@ -384,15 +391,18 @@ final class ServerCooldown {
 }
 
 /// Expiry always uses the latest safe presentation, including a successful fetch before attachments.
+/// The extension's best attempt, kept as an immutable snapshot (review-130b #5): code still working
+/// on the content it stored can't change what an expiry hands to iOS. Reads return a fresh copy.
 final class NotificationBestAttempt {
     private let lock = NSLock()
-    private var current: UNMutableNotificationContent
-    init(_ content: UNMutableNotificationContent) { current = content }
+    private var current: UNNotificationContent
+    init(_ content: UNMutableNotificationContent) { current = content.copy() as! UNNotificationContent }
     var content: UNMutableNotificationContent {
-        lock.lock(); defer { lock.unlock() }; return current
+        lock.lock(); defer { lock.unlock() }; return current.mutableCopy() as! UNMutableNotificationContent
     }
     func replace(with content: UNMutableNotificationContent) {
-        lock.lock(); defer { lock.unlock() }; current = content
+        let snapshot = content.copy() as! UNNotificationContent
+        lock.lock(); defer { lock.unlock() }; current = snapshot
     }
 }
 

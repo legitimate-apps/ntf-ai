@@ -17,7 +17,8 @@ final class BackgroundHTTPActionTests: XCTestCase {
     }
 
     func testRegisteredIOSOptionsAndLegacyCategoryMigration() throws {
-        let actions = [action(), action("view"), action("copy")]
+        // A view action needs an openable URL to be offered on the banner (ClickURL.allows).
+        let actions = [action(), action("view", url: "https://example.com/pr/1"), action("copy")]
         let message = try XCTUnwrap(Message.from(userInfo: userInfo(actions)))
         let content = UNMutableNotificationContent()
         let oldCanonical = actions.map { "\($0.id)\u{1f}\($0.label)" }.joined(separator: "\u{1e}")
@@ -61,6 +62,153 @@ final class BackgroundHTTPActionTests: XCTestCase {
         XCTAssertNotEqual(UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false),
                           UNMutableNotificationContent.actionCategoryIdentifier(for: changed, onMac: false))
         XCTAssertEqual(UNMutableNotificationContent.notificationActions(for: buttons + buttons, onMac: false).count, 4)
+    }
+
+    // MARK: Settings, "Use buttons without unlocking"
+
+    func testButtonsWithoutUnlockingDropAuthenticationOnlyForIPhoneHTTP() {
+        let buttons = [action(id: "http"), action("view", id: "view"), action("copy", id: "copy")]
+        let options = { (mac: Bool, on: Bool) in
+            UNMutableNotificationContent.notificationActions(for: buttons, onMac: mac, withoutUnlock: on).map(\.options)
+        }
+        XCTAssertEqual(options(false, false), [.authenticationRequired, .foreground, .foreground], "off by default asks for Face ID")
+        XCTAssertEqual(options(false, true), [[], .foreground, .foreground], "on, Approve runs from the Lock Screen")
+        XCTAssertEqual(options(true, false), [.foreground, .foreground, .foreground])
+        XCTAssertEqual(options(true, true), [.foreground, .foreground, .foreground], "a Mac always opens the app")
+        // A reply still unlocks: the setting is for buttons.
+        let reply = UNMutableNotificationContent.notificationActions(for: [replyLinkAction()], onMac: false, withoutUnlock: true)
+        XCTAssertEqual(reply.map(\.options), [.authenticationRequired])
+
+        let id = { (on: Bool) in UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: on) }
+        XCTAssertNotEqual(id(false), id(true), "a new delivery after a toggle must not reuse the old category")
+        XCTAssertEqual(UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: true, withoutUnlock: false),
+                       UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: true, withoutUnlock: true))
+    }
+
+    func testButtonsWithoutUnlockingIsOffByDefaultAndReadFromTheAppGroup() throws {
+        let suite = "lockscreen-buttons-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertFalse(LockScreenButtons.enabled(defaults))
+        defaults.set(true, forKey: LockScreenButtons.key)
+        XCTAssertTrue(LockScreenButtons.enabled(defaults))
+    }
+
+    func testDeliveryRegistersTheSavedSetting() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        for on in [true, false] {
+            shared.set(on, forKey: LockScreenButtons.key)
+            let message = try XCTUnwrap(Message.from(userInfo: userInfo([action(), action("copy")])))
+            let content = UNMutableNotificationContent()
+            let registered = expectation(description: "registered on worker")
+            DispatchQueue.global().async {
+                content.modify(message: message, baseUrl: "http://127.0.0.1")
+                registered.fulfill()
+            }
+            wait(for: [registered], timeout: 10)
+            let read = expectation(description: "category options")
+            UNUserNotificationCenter.current().getNotificationCategories { categories in
+                let options = categories.first { $0.identifier == content.categoryIdentifier }?.actions.map(\.options)
+                XCTAssertEqual(options, [on ? [] : .authenticationRequired, .foreground])
+                read.fulfill()
+            }
+            wait(for: [read], timeout: 5)
+        }
+    }
+
+    func testToggleRewritesDeliveredCategories() throws {
+        let http = UNNotificationAction(identifier: "a", title: "Approve", options: [])
+        let view = UNNotificationAction(identifier: "v", title: "Open", options: .foreground)
+        let reply = UNTextInputNotificationAction(identifier: "r", title: "Reply", options: .authenticationRequired,
+                                                  textInputButtonTitle: "Send", textInputPlaceholder: "Reply")
+        let ours = UNNotificationCategory(identifier: UNMutableNotificationContent.categoryPrefix + "abc",
+                                          actions: [http, view, reply], intentIdentifiers: [], options: .customDismissAction)
+        let foreign = UNNotificationCategory(identifier: "other", actions: [http], intentIdentifiers: [], options: [])
+        let off = LockScreenButtons.rewrite([ours, foreign], withoutUnlock: false)
+        let rewritten = try XCTUnwrap(off.first { $0.identifier == ours.identifier })
+        XCTAssertEqual(rewritten.actions.map(\.options), [.authenticationRequired, .foreground, .authenticationRequired],
+                       "turning the setting off asks for Face ID on approvals already on screen")
+        XCTAssertTrue(rewritten.actions[2] is UNTextInputNotificationAction)
+        XCTAssertEqual(rewritten.actions.map(\.identifier), ["a", "v", "r"])
+        XCTAssertEqual(rewritten.options, .customDismissAction)
+        XCTAssertEqual(off.first { $0.identifier == "other" }?.actions.map(\.options), [[]], "never touch another category")
+        let on = LockScreenButtons.rewrite([rewritten], withoutUnlock: true)
+        XCTAssertEqual(on.first?.actions.map(\.options), [[], .foreground, .authenticationRequired])
+    }
+
+    /// Off after on: a delivery that built its buttons while the setting was on, then registered after it
+    /// was turned off, must still land with Face ID required (the write that lands last re-applies it).
+    func testRegistrationAfterTurningOffReappliesAuthentication() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        let buttons = [action(id: "http"), action("copy", id: "copy")]
+        let stale = UNNotificationCategory(
+            identifier: UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: true),
+            actions: UNMutableNotificationContent.notificationActions(for: buttons, onMac: false, withoutUnlock: true),
+            intentIdentifiers: [], options: .customDismissAction)
+        XCTAssertEqual(stale.actions.map(\.options), [[], .foreground])
+        shared.set(false, forKey: LockScreenButtons.key)
+        let registered = expectation(description: "registered on worker")
+        DispatchQueue.global().async {
+            UNMutableNotificationContent.registerCategorySynchronously(stale)
+            registered.fulfill()
+        }
+        wait(for: [registered], timeout: 10)
+        let read = expectation(description: "category options")
+        UNUserNotificationCenter.current().getNotificationCategories { categories in
+            XCTAssertEqual(categories.first { $0.identifier == stale.identifier }?.actions.map(\.options),
+                           [.authenticationRequired, .foreground])
+            read.fulfill()
+        }
+        wait(for: [read], timeout: 5)
+    }
+
+    /// The toggle's path: a category left on the old setting (say, written by the extension just before
+    /// the person turned it off) is rewritten in place, and `matches` sees the difference.
+    func testTogglePathRewritesRegisteredCategoriesToTheSavedSetting() throws {
+        let shared = LockScreenButtons.defaults
+        let saved = shared.object(forKey: LockScreenButtons.key)
+        defer { shared.set(saved, forKey: LockScreenButtons.key) }
+        let buttons = [action(id: "http"), action("copy", id: "copy")]
+        let stale = UNNotificationCategory(
+            identifier: UNMutableNotificationContent.actionCategoryIdentifier(for: buttons, onMac: false, withoutUnlock: true),
+            actions: UNMutableNotificationContent.notificationActions(for: buttons, onMac: false, withoutUnlock: true),
+            intentIdentifiers: [], options: [])
+        XCTAssertTrue(LockScreenButtons.matches([stale], withoutUnlock: true))
+        XCTAssertFalse(LockScreenButtons.matches([stale], withoutUnlock: false))
+        shared.set(true, forKey: LockScreenButtons.key)
+        let added = expectation(description: "added while on")
+        UNMutableNotificationContent.writeCategories(adding: stale) { added.fulfill() }
+        wait(for: [added], timeout: 10)
+        shared.set(false, forKey: LockScreenButtons.key)
+        let toggled = expectation(description: "toggle rewrite")
+        // Nothing is delivered in the test host, so pruning would drop the category; read the
+        // rewrite through `rewrite` and the converged write through a fresh registration instead.
+        XCTAssertEqual(LockScreenButtons.rewrite([stale], withoutUnlock: false).first?.actions.map(\.options),
+                       [.authenticationRequired, .foreground])
+        UNMutableNotificationContent.writeCategories(adding: stale) { toggled.fulfill() }
+        wait(for: [toggled], timeout: 10)
+        let read = expectation(description: "read")
+        UNUserNotificationCenter.current().getNotificationCategories { categories in
+            XCTAssertTrue(LockScreenButtons.matches(categories, withoutUnlock: false))
+            XCTAssertEqual(categories.first { $0.identifier == stale.identifier }?.actions.map(\.options),
+                           [.authenticationRequired, .foreground])
+            read.fulfill()
+        }
+        wait(for: [read], timeout: 5)
+    }
+
+    /// Backup to the category rewrite: with the setting off, a locked http tap is refused; unlocked,
+    /// on, on a Mac, or not an http button, it runs.
+    func testLockedTapThroughAStaleCategoryIsRefusedWhenOff() {
+        XCTAssertFalse(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: true, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: true, protectedDataAvailable: false, onMac: false))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: true, enabled: false, protectedDataAvailable: false, onMac: true))
+        XCTAssertTrue(LockScreenButtons.mayRun(httpButton: false, enabled: false, protectedDataAvailable: false, onMac: false))
     }
 
     private func replyLinkAction() -> Action {
@@ -226,6 +374,110 @@ final class BackgroundHTTPActionTests: XCTestCase {
         }
     }
 
+}
+
+/// Operator, 2026-11-18: a plain ntfy button ("Toggle light", "Restart service") is meant to be pressed
+/// again and again. Since 1.26 the app locked every `http` button to its first press. Only an agent's
+/// question takes one answer; any other message keeps its buttons, and every press runs.
+final class RepeatableButtonTests: XCTestCase {
+    private var store: Store!
+    private var log: AnswerLog!
+    private var acks: AckLog!
+    private var suites: [String] = []
+
+    private func defaults() -> UserDefaults {
+        let name = "repeatable-tests-\(UUID().uuidString)"
+        suites.append(name)
+        return UserDefaults(suiteName: name)!
+    }
+
+    override func setUp() {
+        super.setUp()
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        log = AnswerLog(defaults: defaults())
+        acks = AckLog(defaults: defaults())
+    }
+
+    override func tearDown() {
+        suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
+        store = nil
+        super.tearDown()
+    }
+
+    private func row(port: UInt16, label: String, tags: [String]?) throws -> (ntfy.Notification, Action) {
+        let button = Action(id: UUID().uuidString, action: "http", label: label, url: "http://127.0.0.1:\(port)/approve",
+                            method: "POST", headers: nil, body: nil, clear: nil)
+        let subscription = store.saveSubscription(baseUrl: "http://127.0.0.1:\(port)", topic: "home")
+        let message = Message(id: "m-1", time: Int64(Date().timeIntervalSince1970), event: "message", topic: "home",
+                              message: "Hallway", tags: tags, actions: [button], sequenceID: "hall")
+        _ = store.save(notificationsFromMessages: [message], withSubscription: subscription)
+        store.context.processPendingChanges()
+        let request = ntfy.Notification.fetchRequest()
+        return (try XCTUnwrap(try store.context.fetch(request).first), button)
+    }
+
+    /// Presses `button`, answers with `status`, and waits for the log to hold that press.
+    private func press(_ button: Action, on row: ntfy.Notification, server: ActionLoopbackServer, status: Int,
+                       received: XCTestExpectation) {
+        let key = AnswerKey(notification: row)
+        let before = log.entry(for: key)?.at
+        MessageActionRunner(notification: row, openURL: { _ in }, answerLog: log).run(button)
+        wait(for: [received], timeout: 5)
+        server.respond(status: status)
+        let logged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let entry = self.log.entry(for: key) else { return false }
+            return entry.at != before && self.log.sendingActionId(key) == nil
+        }, object: nil)
+        wait(for: [logged], timeout: 5)
+    }
+
+    private func pause(_ seconds: TimeInterval) {
+        let done = expectation(description: "pause")
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { done.fulfill() }
+        wait(for: [done], timeout: seconds + 2)
+    }
+
+    func testAPlainMessagesButtonRunsEveryPressAndKeepsItsButtons() throws {
+        let server = try ActionLoopbackServer()
+        defer { server.stop() }
+        let ready = expectation(description: "listener ready")
+        server.start { ready.fulfill() }; wait(for: [ready], timeout: 5)
+        let first = expectation(description: "first press"), second = expectation(description: "second press")
+        var requests = 0
+        server.received = { requests += 1; (requests == 1 ? first : second).fulfill() }
+        let (row, button) = try row(port: server.port, label: "Toggle light", tags: ["bulb"])
+
+        press(button, on: row, server: server, status: 200, received: first)
+        var state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.sentLabel(), "Toggle light", "the press shows its check")
+        XCTAssertFalse(state.showsReceipt(now: Date().addingTimeInterval(3600)), "then the buttons come back, never a receipt")
+
+        // Pressed again once the check has gone: it runs again.
+        pause(AnswerState.hold(locks: false))
+        press(button, on: row, server: server, status: 400, received: second)
+        XCTAssertEqual(requests, 2, "both presses reached the server")
+        state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.failedLabel, "Toggle light", "the latest press failed, and says so")
+        XCTAssertFalse(state.showsReceipt(now: Date().addingTimeInterval(3600)))
+    }
+
+    func testAnAgentsQuestionTakesOneAnswer() throws {
+        let server = try ActionLoopbackServer()
+        defer { server.stop() }
+        let ready = expectation(description: "listener ready")
+        server.start { ready.fulfill() }; wait(for: [ready], timeout: 5)
+        let first = expectation(description: "the answer")
+        server.received = { first.fulfill() }
+        let (row, button) = try row(port: server.port, label: "Approve", tags: ["agent"])
+
+        press(button, on: row, server: server, status: 200, received: first)
+        let state = AnswerState(notification: row, log: log, acks: acks)
+        XCTAssertEqual(state.sentLabel(), "Approve")
+        XCTAssertTrue(state.showsReceipt(now: Date().addingTimeInterval(AnswerState.sentHold)), "the answer takes the buttons' place")
+        XCTAssertEqual(AnswerSummary(receipt: AgentReceipt(notification: row, log: log, acks: acks, shows: true)).choice,
+                       .picked("Approve"))
+    }
 }
 
 // Adapted from NSEAuthLoopbackServer's Network listener and complete-request-line framing.

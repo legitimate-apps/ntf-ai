@@ -46,6 +46,7 @@ struct NotificationListView: View {
     @State private var showQuietOptions = false
     @State private var showSoundOptions = false
     @State private var showQRCodeSheet = false
+    @State private var shareRequest: ShareRequest?
     @State private var showComposeSheet = false
     @State private var showUserEditor = false
     @State private var sendingTest = false
@@ -205,10 +206,12 @@ struct NotificationListView: View {
                 onSave: { baseUrl, _, credential in
                     guard let credential, store.saveUser(baseUrl: baseUrl, credential: credential) else { return false }
                     showUserEditor = false
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     Task { _ = await pollOnce() }
                     return true
                 }, onDelete: { user in
                     let deleted = store.delete(user: user)
+                    NtfyShBridge.shared.sync(reason: "login changed")
                     if deleted { showUserEditor = false }
                     return deleted
                 }, onCancel: { showUserEditor = false })
@@ -222,8 +225,9 @@ struct NotificationListView: View {
                               isShowing: $showConnectSheet)
                 .environmentObject(store)
         }
-        // Cards on the grouped background (C2): each message its own rounded surface.
-        .listStyle(.insetGrouped)
+        // One level of inset, as in the Inbox (operator, 2026-11-17): rows edge to edge with
+        // hairlines between them, not cards inside the screen's margins.
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .modifier(CompactDayBreaks())
         .navigationTitle(subscription.shortDisplayName())
@@ -307,7 +311,8 @@ struct NotificationListView: View {
         }
         .sheet(isPresented: $showQRCodeSheet) {
             TopicQRCodeView(baseUrl: subscription.baseUrl ?? "", topic: subscription.topicName(),
-                            isShowing: $showQRCodeSheet)
+                            isShowing: $showQRCodeSheet,
+                            topicShare: .topic(subscription, store: store, onCopied: showCopyConfirmation))
         }
     }
     
@@ -340,18 +345,17 @@ struct NotificationListView: View {
         }
         // One header per day, so each row shows only its time.
         ForEach(Notification.groupedByDay(notificationsModel.notifications, date: { $0.date() }), id: \.day) { group in
-            Section(header: DayHeader(title: Notification.daySectionTitle(for: group.day))
-                .modifier(CompactDayHeaderInsets())) {
-                ForEach(group.items, id: \.self) { notification in
-                    let held = heldUnread.ids.contains(notification.objectID)
-                    MessageCard(notification: notification, heldUnread: held,
-                                open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
-                                onCopy: showCopyConfirmation)
-                        .listRowInsets(CardSpacing.rowInsets)
-                        .modifier(MessageRowActions(notification: notification, heldUnread: held,
-                                                    onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
-                                                    onCopy: showCopyConfirmation))
-                }
+            // The day is a row, not a pinned section header, so scrolled rows never show through it.
+            DayHeaderRow(day: group.day)
+            ForEach(group.items, id: \.self) { notification in
+                let held = heldUnread.ids.contains(notification.objectID)
+                MessageCard(notification: notification, heldUnread: held,
+                            open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                            onCopy: showCopyConfirmation)
+                    .modifier(CardRowInsets())
+                    .modifier(MessageRowActions(notification: notification, heldUnread: held,
+                                                onReleaseHeldUnread: { heldUnread.release(notification.objectID) },
+                                                onCopy: showCopyConfirmation))
             }
         }
         if notificationsModel.hasOlder {
@@ -396,6 +400,19 @@ struct NotificationListView: View {
                 Button { sendTestNotification() } label: {
                     Label(String(localized: "Send test"), systemImage: AppSymbol.test)
                 }
+                // Step 2 of Add topic, again whenever another agent should use this topic.
+                Button { showConnectSheet = true } label: {
+                    Label(String(localized: "Connect an agent"), systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .accessibilityIdentifier("topic-connect-agent")
+                // Sharing, together: the link with its commands, the code, the bare publish URL.
+                Button(action: shareTopic) {
+                    Label(String(localized: "Share topic"), systemImage: AppSymbol.share)
+                }
+                .accessibilityIdentifier("topic-share")
+                Button { showQRCodeSheet = true } label: {
+                    Label(String(localized: "Show QR code"), systemImage: AppSymbol.qrCode)
+                }
                 // The publish URL is what every script needs. Once a topic has messages the
                 // empty-state copy buttons are gone, so keep it one tap away here.
                 Button {
@@ -406,14 +423,6 @@ struct NotificationListView: View {
                     }
                 } label: {
                     Label(String(localized: "Copy publish URL"), systemImage: AppSymbol.copyLink)
-                }
-                // Step 2 of Add topic, again whenever another agent should use this topic.
-                Button { showConnectSheet = true } label: {
-                    Label(String(localized: "Connect an agent"), systemImage: "point.3.connected.trianglepath.dotted")
-                }
-                .accessibilityIdentifier("topic-connect-agent")
-                Button { showQRCodeSheet = true } label: {
-                    Label(String(localized: "Show QR code"), systemImage: AppSymbol.qrCode)
                 }
             }
             Section {
@@ -469,6 +478,7 @@ struct NotificationListView: View {
         }
         .accessibilityLabel(String(localized: "Topic actions"))
         .accessibilityIdentifier("topic-actions")
+        .shareSheet($shareRequest)
         // Anchored to More, where both were chosen, so the iOS 26 popover points at the ellipsis
         // rather than the title (attached to the list it anchored to the whole screen).
         .confirmationDialog(String(localized: "Delete all messages in \(subscription.shortDisplayName())?"),
@@ -489,6 +499,10 @@ struct NotificationListView: View {
         TopicServerAddressPolicy.showsAddress(name: subscription.shortDisplayName(),
                                               showAddresses: showServerAddresses,
                                               ambiguousNames: ambiguousNames)
+    }
+
+    private func shareTopic() {
+        shareRequest = .topic(subscription, store: store, onCopied: showCopyConfirmation)
     }
 
     private func sendTestNotification(firstRun: Bool = false) {
@@ -643,11 +657,6 @@ struct TopicPublishHelpView: View {
                     .font(.footnote)
                     .buttonStyle(.borderless)
             }
-            if let docs = URL(string: Config.docsUrl) {
-                Link(String(localized: "Full ntfy reference docs"), destination: docs)
-                    .font(.footnote)
-                    .buttonStyle(.borderless)
-            }
         }
         .padding(.vertical, 24)
     }
@@ -698,13 +707,33 @@ struct TopicPublishHelpView: View {
 
 struct TopicDetailsView: View {
     @ObservedObject var subscription: Subscription
+    @ObservedObject private var bridge = NtfyShBridge.shared
     @Environment(\.dismiss) private var dismiss
+    /// Bumped when the bridge, the access cache or a wake check changes in any process.
+    @State private var revision = 0
 
     private var subscribedValue: String {
         guard let date = subscription.subscribedAt else {
             return String(localized: "Subscription date unknown", defaultValue: "Unknown")
         }
         return date.formatted(.dateTime.year().month(.abbreviated).day().hour().minute())
+    }
+
+    /// Whether this topic gets instant banners, and why not (NtfyShBridge.topicState).
+    private var bannerState: NtfyShBridge.TopicState? {
+        guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return nil }
+        _ = revision
+        return bridge.topicState(baseUrl: baseUrl, topic: topic, fcmBound: subscription.fcmSubscribed)
+    }
+
+    private var selfHosted: Bool {
+        guard let baseUrl = subscription.baseUrl else { return false }
+        return !NtfyShAddress.isNtfySh(baseUrl)
+    }
+
+    private var bannerHold: NtfyShBridge.TopicHold? {
+        if case .held(let hold)? = bannerState { return hold }
+        return nil
     }
 
     var body: some View {
@@ -728,6 +757,32 @@ struct TopicDetailsView: View {
                         Text(String(localized: "The subscription date was not recorded for this topic."))
                     }
                 }
+                if let state = bannerState {
+                    Section {
+                        NotificationStatusRow(title: NtfyShBridgeCopy.instantBanners,
+                                              value: bannerHold == nil ? NtfyShBridgeCopy.on
+                                                : (bannerHold?.isPending == true ? NtfyShBridgeCopy.pending : NtfyShBridgeCopy.off))
+                            .accessibilityIdentifier("topic-instant-banners")
+                        if let hold = bannerHold, hold.offersCheckAgain, let baseUrl = subscription.baseUrl, let topic = subscription.topic {
+                            let hash = topicHash(baseUrl: baseUrl, topic: topic)
+                            // Driven by the stored check (review-130b #8): it clears when the check
+                            // completes, the topic is removed, or the arm times out.
+                            if SelfHostedWakeCheck.shared.isArmed(hash: hash) {
+                                Text(NtfyShBridgeCopy.checkArmed).font(.footnote).foregroundColor(.secondary)
+                            } else {
+                                Button(NtfyShBridgeCopy.checkAgain) {
+                                    NtfyShBridgeCheckAgain.run(hash: hash, bridge: bridge)
+                                }
+                                .accessibilityIdentifier("topic-check-again")
+                            }
+                        }
+                    } footer: {
+                        if let hold = bannerHold { Text(NtfyShBridgeCopy.reason(hold, selfHosted: selfHosted)) }
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ntfyShBridgeStateChanged)) { _ in
+                bridge.reload(); revision += 1
             }
             .navigationTitle(String(localized: "Topic details"))
             .navigationBarTitleDisplayMode(.inline)
@@ -771,21 +826,6 @@ private struct CompactDayBreaks: ViewModifier {
             content
                 .listSectionSpacing(.compact)
                 .environment(\.defaultMinListHeaderHeight, 0)
-        } else {
-            content
-        }
-    }
-}
-
-/// A plain List pads each section header by about 12 pt above and below; at a day break that
-/// added to the rows' own insets and opened an 80 pt gap. Keep the header's horizontal margin.
-private struct CompactDayHeaderInsets: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-                .listRowInsets(.vertical, 0)
         } else {
             content
         }

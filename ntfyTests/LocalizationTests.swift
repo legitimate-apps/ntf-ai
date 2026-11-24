@@ -98,7 +98,7 @@ final class LocalizationTests: XCTestCase {
             "The encryption password is unavailable. Unlock your device or set the topic password again. Nothing was sent.",
             "This topic is end-to-end encrypted, but its password can't be read right now, so the test message would go out unencrypted. Try again after unlocking your device, or set the password again.",
             "With a password, messages are encrypted by whoever sends them, in transit and on the server: the server, Google and Apple see only ciphertext. Once they arrive they are stored readable on this device. The password stays on this device only and isn't backed up, so a restored or new device needs it entered again. Senders need the same password; see \"How to send encrypted messages\".",
-            "Your server's upstream-base-url must be %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
+            "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
             "%@ received a wake-up for this topic at %@, and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.",
             "The server sign-in is unavailable. Unlock your device or sign in again in Settings. Nothing was sent.",
             "Topics could not be read. Unlock your device and open NTF-AI, then try again.",
@@ -156,7 +156,6 @@ final class LocalizationTests: XCTestCase {
         let historicalOrProductNames: Set<String> = [
             "Priority 4 and 5 messages can now break through Focus and the Notification Summary when Time Sensitive notifications are allowed in iOS and Focus settings.",
             "Notification status now shows iOS settings that hide or delay alerts.",
-            "For instant delivery from your own server, add \"%@\" to its config. Without it, messages may arrive with significant delay. A server has one upstream; using %@ stops instant delivery to the official ntfy iOS app on that server. See %@.",
         ]
         XCTAssertTrue(historicalOrProductNames.isSubset(of: Set(strings.keys)))
         let ios = try NSRegularExpression(pattern: #"\biOS\b"#)
@@ -456,6 +455,125 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testLocalNetworkPermissionAndSubscribeHintResolveInEveryBundledLanguage() throws {
+        let key = "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again."
+        let hint: [String: String] = [
+            "de": "NTF-AI konnte diesen Server in deinem lokalen Netzwerk nicht erreichen. Erlaube den Zugriff auf das lokale Netzwerk, wenn danach gefragt wird, oder aktiviere „Lokales Netzwerk“ unter Einstellungen > NTF-AI, und tippe dann erneut auf „Abonnieren“.",
+            "en": "NTF-AI couldn't reach this server on your local network. Allow local network access when asked, or turn on Local Network in Settings > NTF-AI, then tap Subscribe again.",
+            "es": "NTF-AI no pudo conectar con este servidor de tu red local. Permite el acceso a la red local cuando se te pida, o activa Red local en Ajustes > NTF-AI, y luego toca Suscribirse de nuevo.",
+            "fr": "NTF-AI n’a pas pu joindre ce serveur sur votre réseau local. Autorisez l’accès au réseau local lorsque cela vous est demandé, ou activez Réseau local dans Réglages > NTF-AI, puis touchez à nouveau S’abonner.",
+            "it": "NTF-AI non è riuscita a raggiungere questo server nella tua rete locale. Consenti l’accesso alla rete locale quando richiesto, oppure attiva Rete locale in Impostazioni > NTF-AI, poi tocca di nuovo Iscriviti.",
+            "nl": "NTF-AI kon deze server in je lokale netwerk niet bereiken. Sta toegang tot het lokale netwerk toe als daarom wordt gevraagd, of zet Lokaal netwerk aan in Instellingen > NTF-AI, en tik dan opnieuw op Abonneren.",
+            "pl": "NTF-AI nie może połączyć się z tym serwerem w Twojej sieci lokalnej. Zezwól na dostęp do sieci lokalnej, gdy pojawi się prośba, lub włącz Sieć lokalna w Ustawienia > NTF-AI, a następnie ponownie stuknij Subskrybuj."
+        ]
+        let permission: [String: String] = [
+            "de": "NTF-AI verbindet sich nur mit ntfy-Servern",
+            "en": "NTF-AI connects to ntfy servers on your local network",
+            "es": "NTF-AI se conecta a servidores ntfy",
+            "fr": "NTF-AI se connecte aux serveurs ntfy",
+            "it": "NTF-AI si collega ai server ntfy",
+            "nl": "NTF-AI maakt alleen verbinding met ntfy-servers",
+            "pl": "NTF-AI łączy się z serwerami ntfy"
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(hint.keys))
+        for (language, text) in hint {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), text, language)
+            let purpose = bundle.localizedString(forKey: "NSLocalNetworkUsageDescription", value: nil, table: "InfoPlist")
+            XCTAssertTrue(purpose.hasPrefix(try XCTUnwrap(permission[language])), language)
+        }
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription"), "iOS shows (null) in the Local Network prompt without it")
+    }
+
+    func testVersion130ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.30.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.30.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 4)
+        let expected: [String: [String]] = [
+            "en": ["Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.", "Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too.", "Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups.", "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup."],
+            "de": ["Öffentliche Themen auf ntfy.sh können auch mit gespeicherten ntfy.sh-Zugangsdaten sofortige Banner erhalten. Öffne oder aktualisiere die App, um neue Nachrichten für Themen zu sehen, die eine Anmeldung erfordern.", "Öffentliche Themen, die als http://ntfy.sh oder www.ntfy.sh hinzugefügt wurden, können jetzt auch sofortige Banner bekommen.", "Der Benachrichtigungsstatus zeigt für jedes Thema die Banner-Probleme, die er finden kann, auch einen eigenen Server, der Wecksignale möglicherweise nicht weiterleitet.", "Wenn das System NTF-AI im Hintergrund aktiviert, kann die App den Empfang sofortiger Banner verlängern. Bleiben die Banner aus, öffne NTF-AI, um die Push-Einrichtung zu aktualisieren."],
+            "es": ["Los tópicos públicos de ntfy.sh pueden recibir avisos instantáneos aunque tengas guardadas credenciales de ntfy.sh. Si un tópico requiere iniciar sesión, abre o actualiza la app para ver sus mensajes nuevos.", "Los tópicos públicos añadidos como http://ntfy.sh o www.ntfy.sh también pueden recibir avisos instantáneos.", "Estado de notificaciones muestra los problemas con los avisos que puede detectar en cada tópico, incluido un servidor propio que quizá no esté reenviando las activaciones.", "Cuando el sistema activa NTF-AI en segundo plano, la app puede renovar los avisos instantáneos. Si dejan de llegar, abre NTF-AI para actualizar la configuración de las notificaciones."],
+            "it": ["Gli argomenti pubblici su ntfy.sh possono ricevere banner istantanei anche se hai salvato le credenziali di ntfy.sh. Per gli argomenti che richiedono l’accesso, apri o aggiorna l’app per vedere i nuovi messaggi.", "Anche gli argomenti pubblici aggiunti come http://ntfy.sh o www.ntfy.sh possono ricevere banner istantanei.", "Stato notifiche mostra i problemi dei banner che riesce a trovare per ogni argomento, compreso un server tuo che potrebbe non inoltrare i risvegli.", "Quando il sistema riattiva NTF-AI in background, l’app può rinnovare la ricezione dei banner istantanei. Se smettono di arrivare, apri NTF-AI per aggiornare la configurazione delle notifiche."],
+            "pl": ["Publiczne tematy na ntfy.sh mogą otrzymywać natychmiastowe banery nawet po zapisaniu danych logowania do ntfy.sh. Aby zobaczyć nowe wiadomości z tematów wymagających logowania, otwórz lub odśwież aplikację.", "Publiczne tematy dodane jako http://ntfy.sh lub www.ntfy.sh też mogą dostawać natychmiastowe banery.", "Stan powiadomień pokazuje problemy z banerami, które może wykryć dla każdego tematu, także własny serwer, który może nie przekazywać wybudzeń.", "Gdy system wybudzi NTF-AI w tle, aplikacja może odnowić odbieranie natychmiastowych banerów. Jeśli przestaną przychodzić, otwórz NTF-AI, aby odświeżyć konfigurację powiadomień."],
+            "nl": ["Openbare onderwerpen op ntfy.sh kunnen ook met opgeslagen ntfy.sh-inloggegevens directe meldingen krijgen. Voor onderwerpen waarvoor je moet inloggen, open of vernieuw je de app om nieuwe berichten te zien.", "Openbare onderwerpen die zijn toegevoegd als http://ntfy.sh of www.ntfy.sh kunnen ook directe meldingen krijgen.", "Meldingsstatus toont per onderwerp de problemen met meldingen die het kan vinden, ook een eigen server die wekberichten mogelijk niet doorstuurt.", "Als het systeem NTF-AI op de achtergrond activeert, kan de app de ontvangst van directe meldingen verlengen. Komen ze niet meer binnen, open dan NTF-AI om de meldingsinstellingen te vernieuwen."],
+            "fr": ["Les sujets publics sur ntfy.sh peuvent recevoir des bannières instantanées même si des identifiants de connexion ntfy.sh sont enregistrés. Pour les sujets qui nécessitent une connexion, ouvrez ou actualisez l’app pour voir les nouveaux messages.", "Les sujets publics ajoutés en tant que http://ntfy.sh ou www.ntfy.sh peuvent aussi recevoir des bannières instantanées.", "État des notifications indique les problèmes de bannières qu’il peut détecter pour chaque sujet, y compris un serveur personnel qui ne transmet peut-être pas les réveils.", "Lorsque le système réactive NTF-AI en arrière-plan, l’app peut renouveler la réception des bannières instantanées. Si elles cessent d’arriver, ouvrez NTF-AI pour actualiser la configuration des notifications."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
+    func testVersion129ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.29.0" })
+        XCTAssertEqual(release.bullets.count, 3)
+        let expected: [String: [String]] = [
+            "en": ["Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.", "Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too.", "You can turn this off anytime in Settings."],
+            "de": ["Themen auf ntfy.sh bekommen jetzt sofortige Banner: ntfy-me.com beobachtet sie und weckt dein Gerät, wenn eine Nachricht ankommt.", "Dein eigener ntfy-Server bekommt sofortige Banner mit der üblichen Einstellung upstream-base-url: https://ntfy.sh, und die offizielle ntfy-App funktioniert weiter.", "Du kannst das jederzeit in den Einstellungen ausschalten."],
+            "es": ["Los tópicos de ntfy.sh ahora reciben avisos instantáneos: ntfy-me.com los vigila y activa tu dispositivo cuando llega un mensaje.", "Tu propio servidor ntfy recibe avisos instantáneos con su ajuste habitual, upstream-base-url: https://ntfy.sh, y la app oficial de ntfy sigue funcionando.", "Puedes desactivarlo cuando quieras en Ajustes."],
+            "it": ["Gli argomenti su ntfy.sh ora ricevono banner istantanei: ntfy-me.com li osserva e riattiva il dispositivo quando arriva un messaggio.", "Il tuo server ntfy riceve banner istantanei con la sua impostazione abituale, upstream-base-url: https://ntfy.sh, e l’app ufficiale di ntfy continua a funzionare.", "Puoi disattivarlo quando vuoi in Impostazioni."],
+            "pl": ["Tematy na ntfy.sh dostają teraz natychmiastowe banery: ntfy-me.com je obserwuje i budzi urządzenie, gdy przychodzi wiadomość.", "Twój własny serwer ntfy dostaje natychmiastowe banery przy zwykłym ustawieniu upstream-base-url: https://ntfy.sh, a oficjalna aplikacja ntfy nadal działa.", "Możesz to w każdej chwili wyłączyć w Ustawieniach."],
+            "nl": ["Onderwerpen op ntfy.sh krijgen nu directe meldingen: ntfy-me.com houdt ze in de gaten en wekt je apparaat als er een bericht binnenkomt.", "Je eigen ntfy-server krijgt directe meldingen met de gebruikelijke instelling upstream-base-url: https://ntfy.sh, en de officiële ntfy-app blijft werken.", "Je kunt dit altijd uitzetten in Instellingen."],
+            "fr": ["Les sujets sur ntfy.sh reçoivent désormais des bannières instantanées : ntfy-me.com les surveille et réveille votre appareil à l’arrivée d’un message.", "Votre propre serveur ntfy reçoit des bannières instantanées avec son réglage habituel, upstream-base-url: https://ntfy.sh, et l’app ntfy officielle continue de fonctionner.", "Vous pouvez le désactiver à tout moment dans Réglages."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
+    func testVersion128ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.28.0" })
+        XCTAssertEqual(release.bullets.count, 7)
+        let expected: [String: [String]] = [
+            "en": ["Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back.", "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity.", "Waiting on you lists the newest question first.", "Plain buttons can be tapped again, and an answered question shows the answer you chose.", "Share a topic, a message or a file, or copy a topic's curl or ntf command.", "Send feedback from Settings, or shake your device to open the form.", "New setting: Use buttons without unlocking lets you answer from the lock screen."],
+            "de": ["„Alle entfernen“ leert „Wartet auf dich“ auf einmal: Halte die Überschrift gedrückt. „Widerrufen“ holt alles zurück.", "Nur Fragen von Agenten warten auf dich. Mitteilungen mit einfachen Tasten, etwa ein Smart-Home-Alarm, bleiben unter „Aktivität“.", "„Wartet auf dich“ zeigt die neueste Frage zuerst.", "Einfache Tasten lassen sich erneut tippen, und eine beantwortete Frage zeigt deine gewählte Antwort.", "Teile ein Thema, eine Nachricht oder eine Datei, oder kopiere den curl- oder ntf-Befehl eines Themas.", "Sende Feedback in den Einstellungen, oder schüttle dein Gerät, um das Formular zu öffnen.", "Neue Einstellung: Mit „Tasten ohne Entsperren verwenden“ antwortest du direkt vom Sperrbildschirm."],
+            "es": ["Quitar todas vacía Esperando tu respuesta de una vez: mantén pulsado su encabezado. Deshacer lo recupera.", "Solo las preguntas de agentes esperan tu respuesta. Los mensajes con botones simples, como una alerta de domótica, quedan en Actividad.", "Esperando tu respuesta muestra primero la pregunta más reciente.", "Los botones simples se pueden volver a pulsar, y una pregunta respondida muestra la respuesta que elegiste.", "Comparte un tópico, un mensaje o un archivo, o copia el comando curl o ntf de un tópico.", "Envía comentarios desde Ajustes, o agita el dispositivo para abrir el formulario.", "Nuevo ajuste: Usar botones sin desbloquear te deja responder desde la pantalla bloqueada."],
+            "it": ["Rimuovi tutte svuota In attesa di una tua risposta in un colpo: tieni premuta l’intestazione. Annulla ripristina tutto.", "Solo le domande degli agenti aspettano una tua risposta. I messaggi con semplici pulsanti, come un avviso della casa smart, restano in Attività.", "In attesa di una tua risposta mostra per prima la domanda più recente.", "I pulsanti semplici si possono toccare di nuovo, e una domanda con risposta mostra la risposta che hai scelto.", "Condividi un argomento, un messaggio o un file, oppure copia il comando curl o ntf di un argomento.", "Invia un feedback da Impostazioni, oppure scuoti il dispositivo per aprire il modulo.", "Nuova impostazione: Usa i pulsanti senza sbloccare ti permette di rispondere dalla schermata di blocco."],
+            "pl": ["Wyczyść wszystkie opróżnia Czeka na twoją odpowiedź naraz: przytrzymaj nagłówek. Cofnij przywraca wszystko.", "Na twoją odpowiedź czekają tylko pytania od agentów. Wiadomości ze zwykłymi przyciskami, jak alert inteligentnego domu, zostają w Aktywności.", "Czeka na twoją odpowiedź pokazuje najpierw najnowsze pytanie.", "Zwykłe przyciski można nacisnąć ponownie, a pytanie z odpowiedzią pokazuje wybraną odpowiedź.", "Udostępnij temat, wiadomość lub plik albo skopiuj polecenie curl lub ntf dla tematu.", "Wyślij opinię w Ustawieniach albo potrząśnij urządzeniem, aby otworzyć formularz.", "Nowe ustawienie: Używaj przycisków bez odblokowania pozwala odpowiadać z ekranu blokady."],
+            "nl": ["Alles wissen leegt Wacht op jou in één keer: houd de kop ingedrukt. Ongedaan maken zet alles terug.", "Alleen vragen van agents wachten op jou. Berichten met gewone knoppen, zoals een slimme-huismelding, blijven bij Activiteit.", "Wacht op jou toont de nieuwste vraag eerst.", "Gewone knoppen kun je opnieuw tikken, en een beantwoorde vraag toont het antwoord dat je koos.", "Deel een onderwerp, een bericht of een bestand, of kopieer de curl- of ntf-opdracht van een onderwerp.", "Stuur feedback via Instellingen, of schud je apparaat om het formulier te openen.", "Nieuwe instelling: met Knoppen gebruiken zonder ontgrendelen antwoord je vanaf het toegangsscherm."],
+            "fr": ["Tout effacer vide En attente de votre réponse d’un coup : maintenez le doigt sur son en-tête. Annuler rétablit tout.", "Seules les questions des agents attendent votre réponse. Les messages avec de simples boutons, comme une alerte domotique, restent dans Activité.", "En attente de votre réponse affiche d’abord la question la plus récente.", "Les boutons simples peuvent être touchés à nouveau, et une question répondue affiche la réponse choisie.", "Partagez un sujet, un message ou un fichier, ou copiez la commande curl ou ntf d’un sujet.", "Envoyez un avis depuis Réglages, ou secouez votre appareil pour ouvrir le formulaire.", "Nouveau réglage : Utiliser les boutons sans déverrouiller vous permet de répondre depuis l’écran verrouillé."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
+    func testVersion127ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.27.0" })
+        XCTAssertEqual(release.bullets.count, 5)
+        let expected: [String: [String]] = [
+            "en": ["Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app.", "See which agent is asking, with its name and picture in the app and in notifications.", "Questions with a deadline show the time left, and an agent can withdraw a question it no longer needs.", "Agent reminders: an unanswered question can alert you again, or remind you silently.", "Answer buttons are easier to read in light and dark mode."],
+            "de": ["Agenten können nach einer Auswahl, einer Zahl, einem Datum, einem Text oder einem kurzen Formular fragen, und du antwortest direkt in der App.", "Sieh, welcher Agent fragt: mit Name und Bild in der App und in Mitteilungen.", "Fragen mit Frist zeigen die verbleibende Zeit, und ein Agent kann eine Frage zurückziehen, die er nicht mehr braucht.", "Erinnerungen von Agenten: Eine unbeantwortete Frage kann dich erneut benachrichtigen oder lautlos erinnern.", "Antworttasten sind im hellen und dunklen Modus besser lesbar."],
+            "es": ["Los agentes pueden pedirte una opción, un número, una fecha, un texto o un formulario breve, y respondes directamente en la app.", "Ve qué agente pregunta, con su nombre y su imagen en la app y en las notificaciones.", "Las preguntas con plazo muestran el tiempo restante, y un agente puede retirar una pregunta que ya no necesita.", "Recordatorios de agentes: una pregunta sin responder puede volver a avisarte o recordártelo sin sonido.", "Los botones de respuesta se leen mejor en modo claro y oscuro."],
+            "it": ["Gli agenti possono chiederti una scelta, un numero, una data, un testo o un breve modulo, e rispondi direttamente nell'app.", "Vedi quale agente fa la domanda, con nome e immagine nell'app e nelle notifiche.", "Le domande con una scadenza mostrano il tempo rimasto, e un agente può ritirare una domanda che non gli serve più.", "Promemoria degli agenti: una domanda senza risposta può avvisarti di nuovo o ricordartelo senza suono.", "I pulsanti di risposta si leggono meglio in modalità chiara e scura."],
+            "pl": ["Agenci mogą prosić o wybór, liczbę, datę, tekst lub krótki formularz, a ty odpowiadasz bezpośrednio w aplikacji.", "Zobacz, który agent pyta: z nazwą i obrazem w aplikacji i w powiadomieniach.", "Pytania z terminem pokazują pozostały czas, a agent może wycofać pytanie, którego już nie potrzebuje.", "Przypomnienia agentów: pytanie bez odpowiedzi może ponownie cię powiadomić lub przypomnieć bez dźwięku.", "Przyciski odpowiedzi są czytelniejsze w trybie jasnym i ciemnym."],
+            "nl": ["Agents kunnen vragen om een keuze, een getal, een datum, een tekst of een kort formulier, en je antwoordt direct in de app.", "Zie welke agent iets vraagt, met naam en afbeelding in de app en in meldingen.", "Vragen met een deadline tonen de resterende tijd, en een agent kan een vraag intrekken die hij niet meer nodig heeft.", "Herinneringen van agents: een onbeantwoorde vraag kan je opnieuw waarschuwen, of je zonder geluid herinneren.", "Antwoordknoppen zijn beter leesbaar in lichte en donkere modus."],
+            "fr": ["Les agents peuvent demander un choix, un nombre, une date, un texte ou un court formulaire, et vous répondez directement dans l’app.", "Voyez quel agent pose la question, avec son nom et son image dans l’app et dans les notifications.", "Les questions avec une échéance affichent le temps restant, et un agent peut retirer une question dont il n’a plus besoin.", "Rappels des agents : une question sans réponse peut vous alerter à nouveau, ou vous le rappeler sans son.", "Les boutons de réponse sont plus lisibles en mode clair et sombre."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion126ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.26.0" })
         XCTAssertEqual(release.bullets.count, 5)
@@ -527,7 +645,8 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(value("%lld notifications", 0), "0 Benachrichtigungen")
         XCTAssertEqual(value("%lld notifications", 23), "23 Benachrichtigungen")
         XCTAssertEqual(bundle.localizedString(forKey: "Notification state synchronized", value: nil, table: nil), "Benachrichtigungsstatus synchronisiert")
-        let canonicalMIT = OpenSourceLicenses.components[0].notice
+        // The upstream MIT entry, by name: NTF-AI's own GPL-3.0 entry leads the list since 1.27.
+        let canonicalMIT = try XCTUnwrap(OpenSourceLicenses.components.first { $0.name == "ntfy for iOS" }).notice
         XCTAssertTrue(canonicalMIT.contains("Permission is hereby granted"))
         let plugIns = try XCTUnwrap(Bundle.main.builtInPlugInsURL)
         let extensionURL = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: plugIns, includingPropertiesForKeys: nil).first { $0.pathExtension == "appex" })

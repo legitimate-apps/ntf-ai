@@ -38,6 +38,13 @@ def main() -> None:
     def apache_notice(copyright: str) -> str:
         return f"{copyright}\n\nLicensed under the Apache License, Version 2.0 (the \"License\"); the full text follows."
 
+    gpl = (ROOT / "LICENSE").read_text().strip("\n")
+    assert "GNU GENERAL PUBLIC LICENSE" in gpl and "Version 3" in gpl
+    this_app = ("NTF-AI", "This app, published by Legitimate LLC", "GNU General Public License v3.0",
+                "Copyright \u00a9 2026 Legitimate LLC\n\nThis program is free software: you can redistribute it and/or "
+                "modify it under the terms of the GNU General\nPublic License as published by the Free Software Foundation, "
+                "version 3 (GPL-3.0-only). The full text follows.")
+
     components = [
         ("ntfy for iOS", "The app's source code, forked from binwiederhier/ntfy-ios", "MIT License",
          (ROOT / "LICENSES" / "ntfy-ios-MIT.txt").read_text().strip("\n"), False),
@@ -68,7 +75,18 @@ def main() -> None:
         "extension OpenSourceLicenses {",
         "    static let apache2Text = " + raw(apache),
         "",
+        "    static let gpl3Text = " + raw(gpl),
+        "",
         "    static let components: [OpenSourceComponent] = [",
+        # The app's own entry leads the list (its own section on the Licenses screen).
+        "        OpenSourceComponent(",
+        f"            name: {json.dumps(this_app[0])},",
+        f"            detail: {json.dumps(this_app[1])},",
+        f"            licenseName: {json.dumps(this_app[2])},",
+        "            notice: " + raw(this_app[3]) + ",",
+        "            licenseText: gpl3Text,",
+        "            isThisApp: true",
+        "        ),",
     ]
     for name, detail, license, notice, shares_apache in components:
         lines += [

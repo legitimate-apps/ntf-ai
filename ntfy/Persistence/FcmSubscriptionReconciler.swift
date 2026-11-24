@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 import FirebaseMessaging
 
@@ -61,7 +62,7 @@ final class FcmSubscriptionReconciler {
     /// every install that predates it, which is treated as "changed".
     static let defaultsKeyBindingsAppBaseUrl = "fcmBindingsAppBaseUrl"
 
-    static let shared = FcmSubscriptionReconciler(store: Store.shared)
+    static let shared = FcmSubscriptionReconciler(store: Store.shared, bridge: .shared)
 
     private let store: Store
     private let subscriber: FcmTopicSubscriber
@@ -75,6 +76,10 @@ final class FcmSubscriptionReconciler {
     let teardownLedger: FcmTeardownLedger
     private let now: () -> Date
     private let teardownLiveness: (() -> Set<String>?)?
+    /// The (baseUrl, topic) pairs the rename reads; nil when the store can't be read. Tests inject a failure.
+    private let subscriptionSnapshot: (() -> [(baseUrl: String, topic: String)]?)?
+    /// Registers the ntfy.sh watch set on the same triggers (nil in tests that only exercise FCM).
+    let bridge: NtfyShBridge?
     private var teardownsInFlight: [String: (request: UUID, started: Date)] = [:]
     static let teardownTimeout: TimeInterval = 120
 
@@ -82,8 +87,12 @@ final class FcmSubscriptionReconciler {
          subscriber: FcmTopicSubscriber = FirebaseTopicSubscriber(),
          defaults: UserDefaults = UserDefaults(suiteName: Store.appGroup) ?? .standard,
          now: @escaping () -> Date = Date.init,
-         teardownLiveness: (() -> Set<String>?)? = nil) {
+         teardownLiveness: (() -> Set<String>?)? = nil,
+         subscriptionSnapshot: (() -> [(baseUrl: String, topic: String)]?)? = nil,
+         bridge: NtfyShBridge? = nil) {
+        self.subscriptionSnapshot = subscriptionSnapshot
         self.store = store
+        self.bridge = bridge
         self.subscriber = subscriber
         self.defaults = defaults
         self.now = now
@@ -145,6 +154,9 @@ final class FcmSubscriptionReconciler {
     /// a return. Callers do not need to know whether the APNs token has landed —
     /// if it hasn't, this no-ops and the APNs callback drives the retry.
     func reconcile(reason: String, completion: (() -> Void)? = nil) {
+        // The bridge needs no APNs token to register, and every trigger that can change the
+        // subscription set (subscribe, unsubscribe, migrations, foreground, token arrival) lands here.
+        bridge?.sync(reason: reason)
         guard subscriber.hasApnsToken else {
             // Not an error: `didReceiveRegistrationToken` routinely beats
             // `didRegisterForRemoteNotifications...`. Whichever lands second
@@ -162,6 +174,8 @@ final class FcmSubscriptionReconciler {
         // Rename first: a round that bound names derived from a different app base URL would only
         // confirm topics no server publishes to. A rename drives its own round, so stop here if it ran.
         if rebindIfAppBaseUrlChanged() { return }
+        // The old names it journals are torn down in this same pass, not at some later trigger.
+        if rebindRespelledNtfyShTopicsIfNeeded() { drainPendingTeardowns() }
 
         lock.lock()
         if inFlight {
@@ -186,11 +200,21 @@ final class FcmSubscriptionReconciler {
             }))
         }
 
-        for subscription in store.getSubscriptionsPendingFcmSubscribe() {
-            guard let baseUrl = subscription.baseUrl, let topic = subscription.topic else { continue }
-            let name = firebaseTopic(baseUrl: baseUrl, topic: topic)
+        let pending: [(id: NSManagedObjectID, name: String)] = store.context.performAndWait {
+            store.getSubscriptionsPendingFcmSubscribe().compactMap { subscription in
+                guard !subscription.objectID.isTemporaryID,
+                      let baseUrl = subscription.baseUrl, let topic = subscription.topic else { return nil }
+                return (subscription.objectID, firebaseTopic(baseUrl: baseUrl, topic: topic))
+            }
+        }
+        for (id, name) in pending {
             work.append((name, { [weak self] in
-                self?.store.setFcmSubscribed(subscription, true)
+                // withCurrentFcmGeneration runs this closure on the store's context.
+                guard let store = self?.store,
+                      let row = try? store.context.existingObject(with: id) as? Subscription,
+                      !row.isDeleted, let baseUrl = row.baseUrl, let topic = row.topic,
+                      firebaseTopic(baseUrl: baseUrl, topic: topic) == name else { return }
+                store.setFcmSubscribed(row, true)
             }))
         }
 
@@ -275,6 +299,51 @@ final class FcmSubscriptionReconciler {
         return true
     }
 
+    /// 1.30 names an ntfy.sh topic's FCM binding after `https://ntfy.sh` whatever spelling the row
+    /// was saved with (`pushIdentityBaseUrl`), because that is the hash the bridge wakes. A row saved
+    /// as `http://ntfy.sh` (or `www.`, or mixed case) still reads `fcmSubscribed` for its old name, so
+    /// once: tear the old name down, mark the row stale, and let this round bind the new one.
+    static let defaultsKeyPushNaming = "fcmPushNamingVersion"
+    static let pushNamingVersion = 2
+
+    @discardableResult
+    func rebindRespelledNtfyShTopicsIfNeeded() -> Bool {
+        guard defaults.integer(forKey: Self.defaultsKeyPushNaming) < Self.pushNamingVersion else { return false }
+        // A store that can't be read is not "no subscriptions": stamp nothing and try next time.
+        guard let pairs = subscriptionSnapshot.map({ $0() }) ?? subscriptionPairs() else {
+            Log.w(tag, "Cannot read subscriptions; ntfy.sh binding rename postponed")
+            return false
+        }
+        let needed = Set(pairs.map { firebaseTopic(baseUrl: $0.baseUrl, topic: $0.topic) })
+        let moved = pairs.filter {
+            normalizeBaseUrl($0.baseUrl) != normalizeBaseUrl(Config.appBaseUrl)
+                && legacyTopicHash(baseUrl: $0.baseUrl, topic: $0.topic) != topicHash(baseUrl: $0.baseUrl, topic: $0.topic)
+        }
+        var complete = true
+        for pair in moved {
+            let old = legacyTopicHash(baseUrl: pair.baseUrl, topic: pair.topic)
+            if !needed.contains(old), teardownLedger.record(old, obsolete: true) == nil { complete = false }
+            if !store.markFcmSubscriptionStale(firebaseTopicName: topicHash(baseUrl: pair.baseUrl, topic: pair.topic)) { complete = false }
+        }
+        if complete { defaults.set(Self.pushNamingVersion, forKey: Self.defaultsKeyPushNaming) }
+        if !moved.isEmpty { Log.d(tag, "Renamed \(moved.count) ntfy.sh binding(s) to the https://ntfy.sh hash") }
+        return !moved.isEmpty
+    }
+
+    /// Read on the context's queue, so a save in flight elsewhere can't tear the snapshot.
+    private func subscriptionPairs() -> [(baseUrl: String, topic: String)]? {
+        var pairs: [(baseUrl: String, topic: String)]?
+        store.context.performAndWait {
+            pairs = store.getSubscriptions().map { rows in
+                rows.compactMap { row -> (baseUrl: String, topic: String)? in
+                    guard let baseUrl = row.baseUrl, let topic = row.topic else { return nil }
+                    return (baseUrl, topic)
+                }
+            }
+        }
+        return pairs
+    }
+
     // MARK: Durable teardowns
 
     // Compatibility for retired-server migration callers. Both sources use the same intent journal.
@@ -306,8 +375,14 @@ final class FcmSubscriptionReconciler {
         let snapshot = teardownLedger.entries
         guard !snapshot.isEmpty else { return }
         guard let needed = teardownLiveness.map({ $0() }) ?? namesNeededBySubscriptions() else { return }
+        let retainedAliases = snapshot.contains { $0.waitsForAliasDeletion == true }
+            ? subscriptionPairs().map { Set($0.map { legacyTopicHash(baseUrl: $0.baseUrl, topic: $0.topic) }) }
+            : nil
 
         for entry in snapshot {
+            if entry.waitsForAliasDeletion == true {
+                guard let retainedAliases, !retainedAliases.contains(entry.name) else { continue }
+            }
             if needed.contains(entry.name) {
                 lock.lock()
                 let requestPending = teardownsInFlight[entry.name] != nil
@@ -377,14 +452,22 @@ final class FcmSubscriptionReconciler {
         return names
     }
 
-    /// Write ahead of deleting the subscription row. If the save fails, retire only this intent.
-    func prepareUnsubscribe(baseUrl: String, topic: String) -> FcmTeardownLedger.Entry? {
-        teardownLedger.record(firebaseTopic(baseUrl: baseUrl, topic: topic))
+    /// Write the complete set before deleting the row. The caller can restore any prior
+    /// retry work if the Core Data save fails.
+    func prepareUnsubscribe(baseUrl: String, topic: String) -> [FcmTeardownLedger.Change]? {
+        let canonical = firebaseTopic(baseUrl: baseUrl, topic: topic)
+        // A row deleted before the 1.30 rename ran may still be bound under its old name.
+        let legacy = legacyTopicHash(baseUrl: baseUrl, topic: topic)
+        var intents = [(name: canonical, obsolete: false, waitsForAliasDeletion: false)]
+        if normalizeBaseUrl(baseUrl) != normalizeBaseUrl(Config.appBaseUrl), legacy != canonical {
+            intents.append((legacy, true, true))
+        }
+        return teardownLedger.recordChanges(intents)
     }
 
     /// Also used by direct callers after deleting their row.
     func unsubscribe(baseUrl: String, topic: String) {
-        guard let entry = prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else { return }
+        guard let entry = prepareUnsubscribe(baseUrl: baseUrl, topic: topic)?.first?.entry else { return }
         dispatchTeardown(entry)
     }
 
@@ -415,7 +498,8 @@ final class FcmSubscriptionReconciler {
         // stay stale with nothing scheduled to fix them, and push stays down until some unrelated
         // event happens to reconcile. If a round is active this only sets `rerunRequested`, so it
         // costs exactly one follow-up pass.
-        reconcile(reason: "teardown settled for \(name)")
+        // On main, like every other trigger: this callback runs on Firebase's queue.
+        DispatchQueue.main.async { self.reconcile(reason: "teardown settled for \(name)") }
     }
 
     private func finish() {

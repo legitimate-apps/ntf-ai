@@ -155,6 +155,9 @@ final class TopicSoundTests: XCTestCase {
         library.setChoice(name, for: sub.objectID.uriRepresentation().absoluteString)
         let service = NotificationService()
         service.soundLibrary = library
+        // The test is about the final sound mapping, not the deadline: under heavy load the real
+        // 25 s budget could expire first and hand off the raw payload (41a2a18 full run).
+        service.processingBudget = 600
         var message = self.message(); message.topic = topic
         let content = UNMutableNotificationContent()
         content.userInfo = message.toUserInfo(); content.userInfo["base_url"] = sub.baseUrl!
@@ -167,7 +170,7 @@ final class TopicSoundTests: XCTestCase {
                 done.fulfill()
             }
         }
-        wait(for: [done], timeout: 8)
+        wait(for: [done], timeout: 300)
     }
 
     func testActualBackgroundPollSchedulerKeepsCustomSound() throws {

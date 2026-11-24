@@ -77,7 +77,14 @@ struct MessageDisplay: Equatable {
 extension Notification {
     var display: MessageDisplay {
         // An old full settle shows the question as it was; its appended line becomes the receipt.
-        MessageDisplay.of(title: formatTitle(), body: agentSettle?.question ?? formatMessage(), contentType: contentType)
+        // A typed question drops the plain-text hint `ntf` added for older apps (SPEC 2).
+        // An answer whose question is gone (expired, cleared) keeps its row, in words, never raw JSON.
+        if AnswerMessage.answeredSequence(tags: parseAllTags(tags)) != nil {
+            return MessageDisplay.of(title: formatTitle(), body: AnswerMessage.readable(formatMessage()), contentType: nil)
+        }
+        return MessageDisplay.of(title: formatTitle(),
+                                 body: agentSettle?.question ?? AskSchema.strippingHint(formatMessage(), hint: askDetection.schema?.hint),
+                                 contentType: contentType)
     }
 
     /// The question re-sent by ntf 0.1/0.2 to settle it: no buttons, the outcome line appended.
@@ -112,6 +119,18 @@ extension Notification {
 
 // MARK: - Small parts
 
+/// Monogram circles: a light tint outside, the letter in the dark of the same colour (operator,
+/// 2026-11-17: "the light part is on the outside and dark part is the text inside"). The agent's is
+/// the secondary answer button's Forest tint and label; a topic's is the same inversion in grey, so
+/// both read as one family. Each letter clears 4.5:1 on its own fill over the row backgrounds
+/// (`ThemeColorTests`). A picture, when there is one, covers the circle.
+enum MonogramColor {
+    static let agentFill = "AnswerTint"
+    static let agentLetter = "AnswerTintLabel"
+    static let topicFill = "MonogramTint"
+    static let topicLetter = "MonogramInk"
+}
+
 struct TopicAvatar: View {
     let name: String
     var iconUrl: URL? = nil
@@ -123,7 +142,7 @@ struct TopicAvatar: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(.quaternary)
+            Circle().fill(Color(MonogramColor.topicFill))
             if let iconUrl {
                 AsyncImage(url: iconUrl) { image in
                     image.resizable().scaledToFill()
@@ -142,7 +161,7 @@ struct TopicAvatar: View {
     private var monogram: some View {
         Text(letter)
             .font(size <= 28 ? .caption.weight(.semibold) : .title3.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundColor(Color(MonogramColor.topicLetter))
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .padding(size <= 28 ? 2 : 4)
@@ -216,6 +235,17 @@ struct DayHeader: View {
     }
 }
 
+/// A day label as a list row: plain words, no fold. It scrolls away with its rows (see `ListHeaderRow`).
+struct DayHeaderRow: View {
+    let day: Date
+
+    var body: some View {
+        DayHeader(title: Notification.daySectionTitle(for: day))
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            .modifier(ListHeaderRow())
+    }
+}
+
 struct UnreadDot: View {
     var size: CGFloat = 8
 
@@ -260,28 +290,33 @@ private struct TruncationKey: PreferenceKey {
 
 // MARK: - Answers
 
-/// Where a question stands for this device: being sent, answered, or failed to reach the agent.
+/// Where a message's buttons stand for this device: being sent, just sent, answered, or failed.
 struct AnswerState: Equatable {
     var entry: AnswerEntry?
     var sendingActionId: String?
+    /// An agent's question takes one answer and then shows it (`showsReceipt`). Any other message
+    /// (`false`) gets its buttons back after the check, to press again (operator, 2026-11-18).
+    var locks: Bool
 
-    init(entry: AnswerEntry?, sendingActionId: String?) {
+    init(entry: AnswerEntry?, sendingActionId: String?, locks: Bool = true) {
         self.entry = entry
         self.sendingActionId = sendingActionId
+        self.locks = locks
     }
 
-    init(notification: Notification, log: AnswerLog) {
+    init(notification: Notification, log: AnswerLog, acks: AckLog = .shared) {
         let key = AnswerKey(notification: notification)
-        entry = log.entry(for: key)
+        entry = log.entry(for: key, seen: acks)
         sendingActionId = log.sendingActionId(key)
+        locks = notification.locksAfterAnswer
     }
 
     var sending: Bool { sendingActionId != nil }
-    /// Only a request that reached the agent shows a check. "Not needed" isn't an answer.
+    /// Only a request that reached the server shows a check. "Not needed" isn't an answer.
     var answered: Bool { !sending && entry?.ok == true && entry?.kind != .dismissed }
     var failed: Bool { !sending && entry?.ok == false }
 
-    /// How long a button that just sent its answer shows its check before the receipt takes its place.
+    /// How long a button that just sent its answer shows its check before the answered state takes its place.
     /// A Debug launch argument (`-ntfyDebugSentHold <seconds>`) holds it longer for screenshots.
     static var sentHold: TimeInterval {
         #if DEBUG
@@ -291,14 +326,21 @@ struct AnswerState: Equatable {
         return 1.3
     }
 
-    /// The answer just landed: its button still shows the check, and the receipt waits.
-    func showsSent(now: Date = Date()) -> Bool {
-        guard answered, let entry else { return false }
-        return now.timeIntervalSince(entry.at) < Self.sentHold
+    /// How long the check shows. A repeatable button keeps it until `ActionExecutor` would run the
+    /// same button again: back any sooner, a second press would be dropped as a double tap.
+    static func hold(locks: Bool) -> TimeInterval {
+        locks ? sentHold : max(sentHold, ActionExecutor.repeatTapWindow)
     }
 
-    /// Answered, and past the moment of the check: show the receipt.
-    func showsReceipt(now: Date = Date()) -> Bool { answered && !showsSent(now: now) }
+    /// The answer just landed: its button still shows the check, and the answered state waits.
+    func showsSent(now: Date = Date()) -> Bool {
+        guard answered, let entry else { return false }
+        return now.timeIntervalSince(entry.at) < Self.hold(locks: locks)
+    }
+
+    /// An agent's question, answered, past the moment of the check: the answer takes the buttons'
+    /// place. Never on a repeatable message, whose buttons always come back.
+    func showsReceipt(now: Date = Date()) -> Bool { locks && answered && !showsSent(now: now) }
 
     /// The tapped answer showing its check, by label.
     func sentLabel(now: Date = Date()) -> String? {
@@ -320,53 +362,33 @@ struct AnswerState: Equatable {
     }
 }
 
-/// After answering: what you told the agent, or that it didn't get it (DECISION change 8: a
-/// failure never shows a check).
-struct AnswerReceiptView: View {
-    /// "You" answered: the page's up-arrow, never the agent's green check (VERDICT-ack-48 M1).
-    static let answeredIcon = "arrow.up.circle.fill"
-
-    var entry: AnswerEntry? = nil
-    var failed = false
+/// A send that didn't get through (DECISION change 8: a failure never shows a check). On an agent's
+/// question it names the agent; on any other message the button simply didn't go through.
+struct AnswerFailedLine: View {
     /// The answer that didn't get through, so the error names it: the buttons themselves look idle again.
     var failedLabel: String? = nil
+    /// An agent's question (`AnswerState.locks`), or a plain message's repeatable button.
+    var toAgent = true
 
-    static func failedText(_ label: String?) -> String {
-        if let label, !label.isEmpty { return String(localized: "\(label) didn't reach the agent. Try again.") }
-        return String(localized: "Didn't reach the agent. Try again.")
+    static func failedText(_ label: String?, toAgent: Bool = true) -> String {
+        if let label, !label.isEmpty {
+            return toAgent ? String(localized: "\(label) didn't reach the agent. Try again.")
+                           : String(localized: "\(label) didn't go through. Try again.")
+        }
+        return toAgent ? String(localized: "Didn't reach the agent. Try again.") : String(localized: "Didn't go through. Try again.")
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if failed {
-                // The same line as the answered receipt: icon on the text edge, 6 pt from the words.
-                // A Label here took the list's icon column (21.7 pt gap, DESIGN-REVIEW F3).
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red)
-                    Text(Self.failedText(failedLabel)).foregroundColor(.primary)
-                }
-                .font(.footnote)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("answer-failed")
-            } else if let entry, entry.ok, entry.kind != .dismissed {
-                let time = Notification.shortTime(for: entry.at)
-                // Not a Label: it centres the icon on a two-line title; the arrow belongs on the first line.
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: Self.answeredIcon).foregroundColor(InboxColor.ink)
-                    VStack(alignment: .leading, spacing: 2) {
-                        (entry.kind == .tap ? Text("You answered \(Text(entry.label).fontWeight(.semibold)) · \(time)")
-                                            : Text("You replied · \(time)"))
-                            .foregroundColor(.primary)
-                        if let text = entry.text, !text.isEmpty {
-                            Text(text).foregroundColor(.secondary).lineLimit(2)
-                        }
-                    }
-                }
-                .font(.footnote)
-                .accessibilityIdentifier("answer-receipt")
-            }
+        // Icon on the text edge, 6 pt from the words. A Label here took the list's icon column
+        // (21.7 pt gap, DESIGN-REVIEW F3).
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red)
+            Text(Self.failedText(failedLabel, toAgent: toAgent)).foregroundColor(.primary)
         }
+        .font(.footnote)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("answer-failed")
     }
 }
 
@@ -378,12 +400,16 @@ struct AgentReceipt: Equatable {
         case got(Date, note: String?)
         /// No answer came in time, or the agent stopped waiting: quieter than a confirmation.
         case movedOn(Date)
+        /// `ntf withdraw` took the question back (SPEC 7). Shown whatever the confirmations setting.
+        case withdrawn(Date)
     }
 
     /// The person's answer here, when it reached the agent.
     var answer: AnswerEntry?
     /// The answer as the ack or settle names it, for a question answered on another device.
     var namedAnswer: String?
+    /// When that answer was seen on the topic, if it was.
+    var namedAt: Date?
     /// The agent's side. Nil without an ack, and with "Show agent confirmations" off.
     var agent: Agent?
     /// Acked or settled: the question is done and takes no more answers, whatever the setting.
@@ -391,11 +417,12 @@ struct AgentReceipt: Equatable {
 
     init(notification: Notification, log: AnswerLog, acks: AckLog = .shared, shows: Bool) {
         let key = AnswerKey(notification: notification)
-        var entry = log.entry(for: key)
+        var entry = log.entry(for: key, seen: acks)
         var agent: Agent?
         var named: String?
         if let key, let record = acks.record(forKey: key.id, version: key.version) {
-            agent = .got(Date(timeIntervalSince1970: TimeInterval(record.time)), note: record.note)
+            let at = Date(timeIntervalSince1970: TimeInterval(record.time))
+            agent = record.withdrawn == true ? .withdrawn(at) : .got(at, note: record.note)
             named = record.answer
         } else if let settle = notification.agentSettle {
             // The settle replaced the question's row, so the answer was logged on the version before it.
@@ -405,10 +432,16 @@ struct AgentReceipt: Equatable {
             case .movedOn: agent = .movedOn(notification.date())
             }
         }
+        if let seen = entry, seen.seen == true {
+            // Seen on the topic, not made here: the page names it, it doesn't claim it was you.
+            named = named ?? (seen.kind == .tap ? seen.label : seen.text)
+            namedAt = seen.at
+            entry = nil
+        }
         answer = entry.flatMap { $0.ok && $0.kind != .dismissed ? $0 : nil }
         namedAnswer = named
         resolved = agent != nil
-        self.agent = shows ? agent : nil
+        if case .withdrawn = agent { self.agent = agent } else { self.agent = shows ? agent : nil }
     }
 
     /// What the card names as the answer: the button, the typed text, or what the agent says it got.
@@ -451,115 +484,261 @@ struct ReceiptClosedLine: View {
     }
 }
 
-/// The message page's receipt (ACK-SPEC): a two-step timeline under the question. First what you
-/// answered, then that the agent got it, with its note.
-struct AgentReceiptTimeline: View {
+/// An answered agent question, the same on the card, in Waiting on you and on the page
+/// (operator, 2026-11-18: the old "You answered Approve" line read as a copy of the button just
+/// pressed). The chosen answer stays where the buttons were, as the selected choice with a check;
+/// beside it, quietly, what happened to it: "Sent · 11:31 AM", then "Agent got it · 11:32 AM"
+/// with the agent's note. Each thing is said once.
+struct AnswerSummary: Equatable {
+    enum Choice: Equatable {
+        /// A button (or a typed pick) chosen on this device: shown as the selected choice.
+        case picked(String)
+        /// A written reply or form sent from this device: its words.
+        case replied(String)
+        /// An answer seen on the topic or named by the agent, which may not have come from this
+        /// device: "Answered X", never claimed as yours.
+        case named(String, at: Date?)
+    }
+
+    enum Status: Equatable {
+        /// The server accepted the answer (not yet the agent's word).
+        case sent(Date)
+        case replySent(Date)
+        case agentGot(Date, note: String?)
+        case movedOn(Date)
+        case withdrawn(Date)
+
+        var isAgent: Bool {
+            switch self {
+            case .sent, .replySent: return false
+            case .agentGot, .movedOn, .withdrawn: return true
+            }
+        }
+    }
+
+    var choice: Choice?
+    /// Yours first (sent), then the agent's, oldest first.
+    var statuses: [Status]
+
+    init(choice: Choice?, statuses: [Status]) {
+        self.choice = choice
+        self.statuses = statuses
+    }
+
+    init(receipt: AgentReceipt) {
+        var statuses: [Status] = []
+        if let answer = receipt.answer {
+            if answer.kind == .tap {
+                choice = .picked(answer.label)
+                statuses.append(.sent(answer.at))
+            } else {
+                let text = answer.text ?? ""
+                choice = text.isEmpty ? nil : .replied(text)
+                statuses.append(.replySent(answer.at))
+            }
+        } else if let named = receipt.namedAnswer, !named.isEmpty {
+            choice = .named(named, at: receipt.namedAt)
+        } else {
+            choice = nil
+        }
+        switch receipt.agent {
+        case .got(let at, let note): statuses.append(.agentGot(at, note: note))
+        case .movedOn(let at): statuses.append(.movedOn(at))
+        case .withdrawn(let at): statuses.append(.withdrawn(at))
+        case nil: break
+        }
+        self.statuses = statuses
+    }
+
+    var isEmpty: Bool { choice == nil && statuses.isEmpty }
+
+    /// The status's words without its time, for large text sizes where the time takes its own line.
+    static func title(_ status: Status) -> String {
+        switch status {
+        case .sent: return String(localized: "Sent")
+        case .replySent: return String(localized: "Reply sent")
+        case .agentGot: return String(localized: "Agent got it")
+        case .movedOn: return String(localized: "Agent stopped waiting")
+        case .withdrawn: return String(localized: "Withdrawn by the agent")
+        }
+    }
+
+    /// The status's line: "Sent · 11:31 AM", "Agent got it · 11:32 AM".
+    static func text(_ status: Status) -> String {
+        switch status {
+        case .sent(let at): return String(localized: "Sent · \(Notification.shortTime(for: at))")
+        case .replySent(let at): return String(localized: "Reply sent · \(Notification.shortTime(for: at))")
+        case .agentGot(let at, _): return String(localized: "Agent got it · \(Notification.shortTime(for: at))")
+        case .movedOn(let at): return String(localized: "Agent stopped waiting · \(Notification.shortTime(for: at))")
+        case .withdrawn(let at): return String(localized: "Withdrawn by the agent · \(Notification.shortTime(for: at))")
+        }
+    }
+
+    static func time(_ status: Status) -> Date {
+        switch status {
+        case .sent(let at), .replySent(let at), .agentGot(let at, _), .movedOn(let at), .withdrawn(let at): return at
+        }
+    }
+
+    /// What VoiceOver reads for the chosen answer.
+    static func spokenChoice(_ choice: Choice) -> String {
+        switch choice {
+        case .picked(let label): return String(localized: "Your answer: \(label)")
+        case .replied(let text): return String(localized: "Your reply: \(text)")
+        case .named(let label, _): return String(localized: "Answered \(label)")
+        }
+    }
+}
+
+/// Draws an `AnswerSummary`. On a card the agent's note is held to a few lines; on the page it
+/// shows in full, since it has nowhere else to be read (VERDICT 48b).
+struct AnsweredView: View {
+    enum Place { case card, page }
+
+    /// The selected choice's check: a plain check in the answer's own Forest. The agent's word
+    /// keeps the green filled check (VERDICT-ack-48 M1), so the two never read as one.
+    static let choiceIcon = "checkmark"
+    static let agentIcon = "checkmark.circle.fill"
+
+    static func noteLineLimit(_ place: Place) -> Int? { place == .page ? nil : 3 }
+    static func replyLineLimit(_ place: Place) -> Int { place == .page ? 6 : 3 }
+
+    let summary: AnswerSummary
+    var place: Place = .card
+
     @Environment(\.sizeCategory) private var sizeCategory
-    let receipt: AgentReceipt
-
-    /// The agent's note is its only content and has nowhere else to be read, so it shows in full; the
-    /// person's own reply keeps a limit (VERDICT 48b).
-    static func detailLineLimit(id: String) -> Int? { id == "receipt-agent" ? nil : 4 }
-
     /// At accessibility sizes the time takes its own line, so "·" never wraps alone (S4).
     private var stacksTime: Bool { sizeCategory.isAccessibilityCategory }
+    private var font: Font { place == .page ? .subheadline : .footnote }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let answer = receipt.answer {
-                let time = Notification.shortTime(for: answer.at)
-                let label = Text(answer.label).fontWeight(.semibold)
-                let title: Text = answer.kind == .tap
-                    ? (stacksTime ? Text("You answered \(label)") : Text("You answered \(label) · \(time)"))
-                    : (stacksTime ? Text("You replied") : Text("You replied · \(time)"))
-                step(icon: AnswerReceiptView.answeredIcon, tint: InboxColor.ink, title: title, time: stacksTime ? time : nil,
-                     detail: answer.kind == .reply ? answer.text : nil, connects: receipt.agent != nil, id: "receipt-you")
-            } else if let named = receipt.namedStep {
-                step(icon: AnswerReceiptView.answeredIcon, tint: InboxColor.ink,
-                     title: Text("Answered \(Text(named).fontWeight(.semibold))"), time: nil,
-                     detail: nil, connects: receipt.agent != nil, id: "receipt-named")
+        VStack(alignment: .leading, spacing: 8) {
+            let mine = summary.statuses.filter { !$0.isAgent }
+            let agent = summary.statuses.filter(\.isAgent)
+            if summary.choice != nil || !mine.isEmpty {
+                choiceRow(status: mine.first)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier(place == .page ? "receipt-you" : "answer-receipt")
             }
-            switch receipt.agent {
-            case .got(let at, let note):
-                let time = Notification.shortTime(for: at)
-                step(icon: "checkmark.circle.fill", tint: InboxColor.agentGot,
-                     title: stacksTime ? Text("Agent got it") : Text("Agent got it · \(time)"), time: stacksTime ? time : nil,
-                     detail: note, connects: false, id: "receipt-agent")
-            case .movedOn(let at):
-                let time = Notification.shortTime(for: at)
-                step(icon: "clock", tint: .secondary,
-                     title: stacksTime ? Text("Agent stopped waiting") : Text("Agent stopped waiting · \(time)"),
-                     time: stacksTime ? time : nil, detail: nil, connects: false, id: "receipt-moved-on", quiet: true)
-            case nil:
-                EmptyView()
+            ForEach(Array(agent.enumerated()), id: \.offset) { _, status in
+                agentLine(status)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func step(icon: String, tint: Color, title: Text, time: String?, detail: String?, connects: Bool, id: String,
-                      quiet: Bool = false) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.body)
-                    .foregroundColor(tint)
+    // MARK: The answer
+
+    @ViewBuilder private func choiceRow(status: AnswerSummary.Status?) -> some View {
+        switch summary.choice {
+        case .picked(let label):
+            // The chip and its status side by side when they fit, else the status under it.
+            if #available(iOS 16.0, *), !stacksTime {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: 10) { chip(label); status.map(quietLine).fixedSize() }
+                    VStack(alignment: .leading, spacing: 6) { chip(label); status.map(quietLine) }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) { chip(label); status.map(quietLine) }
+            }
+        case .replied(let text):
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text)
+                    .font(font)
+                    .foregroundColor(.primary)
+                    .lineLimit(Self.replyLineLimit(place))
+                    .padding(.leading, 10)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(AnswerColor.tintLabel.opacity(0.55)).frame(width: 3)
+                    }
+                    .accessibilityLabel(AnswerSummary.spokenChoice(.replied(text)))
+                status.map(quietLine)
+            }
+        case .named(let label, let at):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: Self.choiceIcon).font(font.weight(.bold)).foregroundColor(AnswerColor.tintLabel)
                     .accessibilityHidden(true)
-                if connects {
-                    Capsule().fill(Color.secondary.opacity(0.35)).frame(width: 2).frame(maxHeight: .infinity)
-                }
+                // Seen on the topic or named by the agent, not made here: it may not have been you.
+                let named = Text("Answered \(Text(label).fontWeight(.semibold))")
+                ((at.map { named + Text(verbatim: " · \(Notification.shortTime(for: $0))") }) ?? named)
+                    .font(font)
+                    .foregroundColor(.primary)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                title
-                    .font(.subheadline.weight(quiet ? .regular : .medium))
-                    .foregroundColor(quiet ? .secondary : .primary)
-                if let time {
-                    Text(time).font(.subheadline).foregroundColor(.secondary)
-                }
-                if let detail, !detail.isEmpty {
-                    // The agent's note is its only content, so it reads as primary text (S2); the
-                    // person's own typed reply stays secondary.
-                    Text(detail).font(.subheadline).foregroundColor(id == "receipt-agent" ? .primary : .secondary)
-                        .lineLimit(Self.detailLineLimit(id: id))
-                        .accessibilityIdentifier(id == "receipt-agent" ? "receipt-note" : "receipt-text")
-                }
-            }
-            .padding(.bottom, connects ? 10 : 0)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        case nil:
+            status.map(quietLine)
         }
+    }
+
+    /// The chosen answer: the selected, non-tappable choice, in the answer's Forest wash with a check.
+    /// It hugs its label, so it reads as a value, not as a full-width button to press again.
+    private func chip(_ label: String) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return HStack(spacing: 6) {
+            Image(systemName: Self.choiceIcon).font(font.weight(.bold)).accessibilityHidden(true)
+            Text(label).font(font.weight(.semibold)).lineLimit(2)
+        }
+        .foregroundColor(AnswerColor.tintLabel)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(shape.fill(AnswerColor.tint))
+        .overlay(shape.strokeBorder(AnswerColor.tintLabel.opacity(0.25), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(AnswerSummary.spokenChoice(.picked(label)))
+        .accessibilityIdentifier("answer-chosen")
+    }
+
+    /// Your side: quiet, secondary.
+    private func quietLine(_ status: AnswerSummary.Status) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(stacksTime ? AnswerSummary.title(status) : AnswerSummary.text(status))
+            if stacksTime { Text(Notification.shortTime(for: AnswerSummary.time(status))) }
+        }
+        .font(font)
+        // Quieter than the chip, still 4.5:1 at footnote size: .secondary measured 3.45:1 on white.
+        .foregroundColor(Color.primary.opacity(0.62))
+        .accessibilityIdentifier("answer-status")
+    }
+
+    // MARK: The agent's side
+
+    @ViewBuilder private func agentLine(_ status: AnswerSummary.Status) -> some View {
+        let got: Bool = { if case .agentGot = status { return true } else { return false } }()
+        let icon: String = {
+            switch status {
+            case .agentGot: return Self.agentIcon
+            case .movedOn: return "clock"
+            default: return "arrow.uturn.backward.circle"
+            }
+        }()
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: icon).foregroundColor(got ? InboxColor.agentGot : .secondary).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stacksTime ? AnswerSummary.title(status) : AnswerSummary.text(status))
+                    .fontWeight(got ? .medium : .regular)
+                    .foregroundColor(got ? .primary : .secondary)
+                if stacksTime { Text(Notification.shortTime(for: AnswerSummary.time(status))).foregroundColor(.secondary) }
+                if case .agentGot(_, let note) = status, let note, !note.isEmpty {
+                    // The agent's note is its only content, so it reads as primary text (S2).
+                    Text(note).foregroundColor(.primary)
+                        .lineLimit(Self.noteLineLimit(place))
+                        .accessibilityIdentifier("receipt-note")
+                }
+            }
+        }
+        .font(font)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(id)
+        .accessibilityIdentifier(Self.agentIdentifier(status, place: place))
     }
-}
 
-/// The list card's receipt (ACK-SPEC): one line, "Agent got it · <answer> · time".
-struct AgentReceiptLine: View {
-    let receipt: AgentReceipt
-
-    var body: some View {
-        switch receipt.agent {
-        case .got(let at, _):
-            let time = Notification.shortTime(for: at)
-            Label {
-                (receipt.answerText.map { Text("Agent got it · \(Text($0).fontWeight(.semibold)) · \(time)") }
-                     ?? Text("Agent got it · \(time)"))
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
-            } icon: {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(InboxColor.agentGot)
-            }
-            .font(.footnote)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("card-agent-got")
-        case .movedOn(let at):
-            Label(String(localized: "Agent stopped waiting · \(Notification.shortTime(for: at))"), systemImage: "clock")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("card-agent-moved-on")
-        case nil:
-            EmptyView()
+    /// The identifiers UI tests look for, kept from 1.26.
+    static func agentIdentifier(_ status: AnswerSummary.Status, place: Place) -> String {
+        switch status {
+        case .agentGot: return place == .page ? "receipt-agent" : "card-agent-got"
+        case .movedOn: return place == .page ? "receipt-moved-on" : "card-agent-moved-on"
+        case .withdrawn: return place == .page ? "receipt-withdrawn" : "card-agent-withdrawn"
+        case .sent, .replySent: return "answer-status"
         }
     }
 }
@@ -604,7 +783,7 @@ enum ActionBarItem: Identifiable {
             } else if context == .waiting {
                 continue
             } else if action.action == "view" {
-                items.append(.link(action))
+                if ClickURL.allows(action) { items.append(.link(action)) }
             } else if action.action == "copy" {
                 items.append(.copy(action))
             }
@@ -830,6 +1009,7 @@ struct MessageActionRunner {
             openURL: openURL,
             replyText: replyText,
             answer: AnswerKey(notification: notification),
+            repeatable: !notification.locksAfterAnswer,
             answerLog: answerLog
         )
         if action.copiesText {
@@ -866,6 +1046,7 @@ struct MessageAttachmentBlock: View {
     var onCopy: () -> Void = {}
     @StateObject private var controller = NotificationAttachmentController()
     @State private var presentation: NotificationRowView.AttachmentPresentation?
+    @State private var shareRequest: ShareRequest?
 
     var body: some View {
         if let attachment = notification.messageAttachment() {
@@ -876,12 +1057,13 @@ struct MessageAttachmentBlock: View {
                     authorizationHeader: authorizationHeader,
                     controller: controller,
                     onOpen: { presentation = .init(url: $0, mode: .preview) },
-                    onShare: { presentation = .init(url: $0, mode: .share) },
+                    onShare: { shareRequest = .file($0) },
                     onSave: { url in Task { @MainActor in NotificationRowView.AttachmentExportPresenter.shared.present(url: url) } },
                     onCopy: onCopy
                 )
                 .padding(.top, -8)
                 .environment(\.attachmentImageMaxHeight, maxHeight)
+                .shareSheet($shareRequest)
                 if attachment.isImageAttachment(), notification.attachmentLocalFileUrl() != nil,
                    let fine = notification.attachmentFinePrint(includeName: maxHeight > 300) {
                     Text(fine).font(.footnote).foregroundColor(.secondary)
@@ -935,11 +1117,13 @@ struct MessageRowActions: ViewModifier {
     var heldUnread = false
     var onReleaseHeldUnread: () -> Void = {}
     var onCopy: () -> Void = {}
+    @State private var shareRequest: ShareRequest?
 
     private var showsUnread: Bool { !notification.read || heldUnread }
 
     func body(content: Content) -> some View {
         content
+            .shareSheet($shareRequest)
             .contextMenu {
                 Button {
                     UIPasteboard.general.setValue(notification.shareText, forPasteboardType: UTType.plainText.identifier)
@@ -948,8 +1132,10 @@ struct MessageRowActions: ViewModifier {
                 } label: {
                     Label(String(localized: "Copy text"), systemImage: AppSymbol.copyText)
                 }
-                if #available(iOS 16.0, *) {
-                    ShareLink(item: notification.shareText) {
+                if notification.encryptionState != .locked {
+                    Button {
+                        shareRequest = .message(notification, onCopied: onCopy)
+                    } label: {
                         Label(String(localized: "Share"), systemImage: AppSymbol.share)
                     }
                 }
@@ -1035,14 +1221,19 @@ struct MessageCard: View {
     private var showsUnread: Bool { !notification.read || heldUnread }
 
     var body: some View {
-        let state = AnswerState(notification: notification, log: log)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
         let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
-        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .card)
+        let detection = notification.askDetection
+        let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .card)
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             if showsTopic, let subscription = notification.subscription {
                 HStack(spacing: 8) {
-                    TopicAvatar(name: subscription.shortDisplayName(), iconUrl: notification.iconUrl(), size: 24)
-                    Text(subscription.shortDisplayName())
+                    if let agent = notification.agentName {
+                        AgentAvatar(notification: notification, name: agent, size: 24)
+                    } else {
+                        TopicAvatar(name: subscription.shortDisplayName(), iconUrl: notification.iconUrl(), size: 24)
+                    }
+                    Text(notification.agentName.map { "\($0) · \(subscription.shortDisplayName())" } ?? subscription.shortDisplayName())
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -1079,10 +1270,8 @@ struct MessageCard: View {
             }
             TagLine(tags: notification.nonEmojiTags())
             MessageAttachmentBlock(notification: notification, maxHeight: 300, onCopy: onCopy)
-            if receipt.agent != nil {
-                AgentReceiptLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
-            } else if state.showsReceipt() {
-                AnswerReceiptView(entry: state.entry).padding(.top, CardSpacing.beforeControls)
+            if receipt.agent != nil || state.showsReceipt() {
+                AnsweredView(summary: AnswerSummary(receipt: receipt)).padding(.top, CardSpacing.beforeControls)
             } else if receipt.showsClosed {
                 // Confirmations are off: the agent got it, so the question takes no more answers.
                 ReceiptClosedLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
@@ -1092,17 +1281,37 @@ struct MessageCard: View {
                     .foregroundColor(InboxColor.ink)
                     .accessibilityIdentifier("card-waiting-line")
                     .padding(.top, CardSpacing.beforeControls)
-            } else if !items.isEmpty {
-                if state.failed {
-                    AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
+            } else if let schema = detection.schema {
+                AskStatusLine(notification: notification, detection: detection)
+                    .padding(.top, CardSpacing.beforeControls)
+                let links = items.filter { !$0.isAnswer }
+                if !links.isEmpty { AskLinks(items: links, run: run).disabled(editing) }
+                if waiting.contains(notification) {
+                    if state.failed { AnswerFailedLine(failedLabel: state.failedLabel) }
+                    AskAnswerView(notification: notification, schema: schema, place: .card, disabled: editing,
+                                  sending: state.sending, openPage: { open(false) }) { body, summary, written in
+                        AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
+                    }
                 }
-                ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
-                          sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
-                          recipient: notification.subscription?.shortDisplayName(), run: run)
-                    // While selecting, a tap picks the row; it must not answer the agent.
-                    .disabled(editing)
-                    .environment(\.actionBarMissedTap) { if !editing { open(false) } }
-                    .padding(.top, state.failed ? 0 : CardSpacing.beforeControls)
+            } else if !items.isEmpty || detection != .none {
+                if detection != .none {
+                    // A typed question this build can't render: the update line, then its old answers
+                    // exactly as a 1.26 question shows them (REVIEW MINOR 11, DESIGN-REVIEW-v2 S8).
+                    AskStatusLine(notification: notification, detection: detection)
+                        .padding(.top, CardSpacing.beforeControls)
+                }
+                if state.failed {
+                    AnswerFailedLine(failedLabel: state.failedLabel, toAgent: state.locks).padding(.top, CardSpacing.beforeControls)
+                }
+                if !items.isEmpty {
+                    ActionBar(items: items, prominentId: prominentId(items), sendingId: state.sendingActionId,
+                              sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
+                              recipient: notification.subscription?.shortDisplayName(), run: run)
+                        // While selecting, a tap picks the row; it must not answer the agent.
+                        .disabled(editing)
+                        .environment(\.actionBarMissedTap) { if !editing { open(false) } }
+                        .padding(.top, state.failed || detection != .none ? 0 : CardSpacing.beforeControls)
+                }
             }
         }
         .contentShape(Rectangle())
@@ -1153,13 +1362,18 @@ struct WaitingRow: View {
     @State private var browserURL: URL?
 
     var body: some View {
-        let state = AnswerState(notification: notification, log: log)
-        let items = ActionBarItem.items(actions: notification.answerableActions(), click: nil, context: .waiting)
+        let state = AnswerState(notification: notification, log: log, acks: acks)
+        let detection = notification.askDetection
+        let items = ActionBarItem.items(actions: notification.shownActions(detection), click: nil, context: .waiting)
         let display = notification.display
         VStack(alignment: .leading, spacing: CardSpacing.line) {
             HStack(spacing: 8) {
-                let name = notification.subscription?.shortDisplayName() ?? ""
-                TopicAvatar(name: name, iconUrl: notification.iconUrl(), size: 24)
+                let name = notification.agentName ?? notification.subscription?.shortDisplayName() ?? ""
+                if let agent = notification.agentName {
+                    AgentAvatar(notification: notification, name: agent, size: 24)
+                } else {
+                    TopicAvatar(name: name, iconUrl: notification.iconUrl(), size: 24)
+                }
                 Text(name).font(.subheadline.weight(.semibold)).foregroundColor(.secondary).lineLimit(1)
                 Spacer(minLength: 8)
                 Text(WaitedTime.text(since: notification.date(), now: now))
@@ -1176,15 +1390,25 @@ struct WaitingRow: View {
                 Text(display.cardBody).font(.body).foregroundColor(.secondary).lineLimit(3)
             }
             let receipt = AgentReceipt(notification: notification, log: log, acks: acks, shows: showsAcks)
-            if receipt.agent != nil {
-                AgentReceiptLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
-            } else if state.showsReceipt() {
-                AnswerReceiptView(entry: state.entry).padding(.top, CardSpacing.beforeControls)
+            if receipt.agent != nil || state.showsReceipt() {
+                AnsweredView(summary: AnswerSummary(receipt: receipt)).padding(.top, CardSpacing.beforeControls)
             } else if receipt.showsClosed {
                 ReceiptClosedLine(receipt: receipt).padding(.top, CardSpacing.beforeControls)
+            } else if !receipt.resolved, let schema = detection.schema {
+                if state.failed { AnswerFailedLine(failedLabel: state.failedLabel) }
+                AskStatusLine(notification: notification, detection: detection, now: now)
+                AskAnswerView(notification: notification, schema: schema, place: .card, sending: state.sending,
+                              openPage: { open(false) }) { body, summary, written in
+                    AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
+                }
+                .environment(\.actionBarMissedTap) { open(false) }
             } else if !receipt.resolved {
+                if detection != .none {
+                    // Needs a newer app: say so above the old answers (DESIGN-REVIEW-v2 S8).
+                    AskStatusLine(notification: notification, detection: detection, now: now)
+                }
                 if state.failed {
-                    AnswerReceiptView(failed: true, failedLabel: state.failedLabel).padding(.top, CardSpacing.beforeControls)
+                    AnswerFailedLine(failedLabel: state.failedLabel, toAgent: state.locks).padding(.top, CardSpacing.beforeControls)
                 }
                 ActionBar(items: items, prominentId: items.first(where: \.isAnswer)?.id, sendingId: state.sendingActionId,
                           sentLabel: state.sentLabel(), failedLabel: state.failedLabel,
@@ -1343,4 +1567,159 @@ struct ReadableCardWidth: ViewModifier {
 private struct ListWidthKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+// MARK: - Plain lists
+
+/// A message row in a plain list: the card's own vertical breathing room, and the system's
+/// horizontal margin, so the words line up with the large title and the section headers on one
+/// leading edge (16 pt on most phones, 20 pt on the widest). Before iOS 26 a row can't set only
+/// its vertical insets, so the margin is spelled out as UIKit picks it.
+struct CardRowInsets: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .listRowInsets(.vertical, CardSpacing.rowEdge)
+                .modifier(SeparatorAtTextEdge())
+        } else {
+            content
+                .listRowInsets(CardSpacing.rowInsets)
+                .modifier(SeparatorAtTextEdge())
+        }
+    }
+}
+
+/// The hairline between two rows starts where the words start, as in Mail. SwiftUI would otherwise
+/// start it at the first SwiftUI `Text` it finds, which in a card is the agent's name after its avatar.
+private struct SeparatorAtTextEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - Folding sections
+
+/// A list header (a folding section header or a day label) as a row rather than a section header: a plain list pins its
+/// headers while scrolling, and on iOS 26 a pinned header has no fill, so the rows scrolled through
+/// its words. As a row it scrolls away with its section, as Mail's rows do. No hairline above or
+/// below it; `topSpace` opens the break between sections.
+struct ListHeaderRow: ViewModifier {
+    var topSpace: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        let row = content.padding(.top, topSpace).listRowSeparator(.hidden)
+        if #available(iOS 26.0, *) {
+            row.listRowInsets(.vertical, 0)
+        } else {
+            row.listRowInsets(EdgeInsets(top: 0, leading: CardSpacing.rowInsets.leading, bottom: 0,
+                                         trailing: CardSpacing.rowInsets.trailing))
+        }
+    }
+}
+
+/// The list sections the person folded away, kept per section across launches. Only the two Inbox
+/// sections fold; day labels are plain words (lead review, 2026-11-17: two chevrons in a row were
+/// the extra UI the operator asked to remove).
+final class SectionFold: ObservableObject {
+    static let shared = SectionFold()
+    static let storageKey = "sectionFold.collapsed"
+
+    static let waiting = "inbox.waiting"
+    static let activity = "inbox.activity"
+
+    @Published private(set) var collapsed: Set<String>
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        collapsed = Set(defaults.stringArray(forKey: Self.storageKey) ?? [])
+    }
+
+    func isCollapsed(_ id: String) -> Bool { collapsed.contains(id) }
+
+    func toggle(_ id: String) { setCollapsed(id, !isCollapsed(id)) }
+
+    func setCollapsed(_ id: String, _ value: Bool) {
+        if value { collapsed.insert(id) } else { collapsed.remove(id) }
+        defaults.set(collapsed.sorted(), forKey: Self.storageKey)
+    }
+}
+
+/// What VoiceOver hears for a folding header: its title (with the count, when it has one) as a
+/// header button whose value says whether the section is open.
+struct FoldHeaderAccessibility: Equatable {
+    let label: String
+    let value: String
+    let traits: AccessibilityTraits
+    /// The smallest height of the header's tap target, from the HIG.
+    static let minimumHitHeight: CGFloat = 44
+
+    init(title: String, count: Int?, collapsed: Bool) {
+        label = count.map { "\(title), \($0.formatted())" } ?? title
+        value = collapsed ? String(localized: "Collapsed") : String(localized: "Expanded")
+        traits = [.isHeader, .isButton]
+    }
+}
+
+/// A section header that folds its section: tap it to hide or show the rows under it. The chevron
+/// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
+/// section is folded.
+struct FoldHeader: View {
+    @ObservedObject var fold: SectionFold = .shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let id: String
+    let title: String
+    var symbol: String? = nil
+    var count: Int? = nil
+    var identifier: String? = nil
+
+    var body: some View {
+        let collapsed = fold.isCollapsed(id)
+        let a11y = FoldHeaderAccessibility(title: title, count: count, collapsed: collapsed)
+        Button {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.9)) { fold.toggle(id) }
+        } label: {
+            HStack(spacing: 8) {
+                if let symbol {
+                    Image(systemName: symbol).foregroundColor(InboxColor.ink)
+                }
+                Text(title).foregroundColor(.primary)
+                Spacer(minLength: 8)
+                if let count {
+                    Text(count.formatted()).foregroundColor(.secondary)
+                }
+                chevron(collapsed: collapsed)
+            }
+            .font(.headline)
+            .textCase(nil)
+            .frame(maxWidth: .infinity, minHeight: FoldHeaderAccessibility.minimumHitHeight, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11y.label)
+        .accessibilityValue(a11y.value)
+        .accessibilityAddTraits(a11y.traits)
+        .accessibilityIdentifier(identifier ?? id)
+    }
+
+    @ViewBuilder private func chevron(collapsed: Bool) -> some View {
+        let font = Font.footnote.weight(.semibold)
+        if reduceMotion {
+            Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                .font(font).foregroundColor(.secondary)
+                .frame(width: 16)
+                .id(collapsed)
+                .transition(.opacity)
+        } else {
+            Image(systemName: "chevron.down")
+                .font(font).foregroundColor(.secondary)
+                .frame(width: 16)
+                .rotationEffect(.degrees(collapsed ? -90 : 0))
+        }
+    }
 }

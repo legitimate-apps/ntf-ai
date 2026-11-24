@@ -61,7 +61,8 @@ struct SubscriptionManager {
     }
 
     func subscribe(baseUrl: String, topic: String) {
-        let normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+        // Every new ntfy.sh subscription is stored as https://ntfy.sh, whichever path adds it.
+        let normalizedBaseUrl = normalizeBaseUrl(NtfyShAddress.ingress(baseUrl))
         Log.d(tag, "Subscribing to \(topicUrl(baseUrl: normalizedBaseUrl, topic: topic))")
         // Persist first. The row is created with `fcmSubscribed == false`, which
         // makes it the retry queue: if the FCM binding below fails (or never even
@@ -93,12 +94,12 @@ struct SubscriptionManager {
                 store.delete(subscription: subscription)
                 return
             }
-            guard let intent = reconciler.prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else {
+            guard let intents = reconciler.prepareUnsubscribe(baseUrl: baseUrl, topic: topic) else {
                 Log.w(tag, "Not deleting subscription because its FCM teardown intent could not be recorded")
                 return
             }
             guard store.delete(subscription: subscription) else {
-                reconciler.teardownLedger.remove(intent)
+                reconciler.teardownLedger.rollback(intents)
                 // The row is still there, so the user still has this subscription. Tearing down its
                 // FCM binding now would split the two states: the row returns on the next refresh
                 // or relaunch, still reading `fcmSubscribed = true`, so reconciliation skips it and
@@ -106,6 +107,8 @@ struct SubscriptionManager {
                 Log.w(tag, "Not tearing down FCM for \(topic): the subscription failed to delete")
                 return
             }
+            // A pending "Check again" on this topic ends with it (review-130b #8).
+            SelfHostedWakeCheck.shared.forget(hash: topicHash(baseUrl: baseUrl, topic: topic))
             reconciler.reconcile(reason: "subscription removed")
         }
     }
@@ -159,10 +162,43 @@ struct SubscriptionManager {
             let newMessages = store.save(notificationsFromMessages: messages, polledWith: request)
             if let newMessages {
                 Log.d(tag, "Polling success, \(messages.count) message(s), \(newMessages.count) new", newMessages)
+                Self.checkWakeUps(baseUrl: request.baseUrl, topic: request.topicUrl.split(separator: "/").last.map(String.init),
+                                  messages: newMessages)
             }
             polling.finish(request, outcome: PollOutcome(succeeded: newMessages != nil, newMessages: newMessages ?? [], alertMessages: newMessages == nil ? [] : store.alertCandidates(from: messages, baseUrl: request.baseUrl),
                            failure: newMessages == nil ? .other : nil), retryAfter: nil)
         }
+    }
+
+    /// Messages from a self-hosted server that reached the app by poll count, locally, as weak
+    /// misses (`messagesFoundByPoll`), from the start of the bridge's current watch of the hash.
+    /// Only while the bridge holds this hash (a forward via ntfy.sh reaches the device only through
+    /// the bridge). The relay is asked about the newest fresh one only when "Check again" armed it.
+    static func checkWakeUps(baseUrl: String, topic: String? = nil, messages: [Message], check: SelfHostedWakeCheck = .shared,
+                             bridge: NtfyShBridge = .shared, appBaseUrl: String = Config.appBaseUrl,
+                             subscribed: ((String, String) -> Bool)? = nil) {
+        let server = normalizeBaseUrl(baseUrl)
+        guard server != normalizeBaseUrl(appBaseUrl), !NtfyShAddress.isNtfySh(server) else { return }
+        let polled = messages.filter { $0.event == "message" }
+        guard let topic = topic ?? polled.first?.topic else { return }
+        let hash = topicHash(baseUrl: server, topic: topic)
+        // The answer to an armed check lands on a URLSession queue: read the row on the context's own queue.
+        let isSubscribed = subscribed ?? { baseUrl, topic in
+            let context = Store.shared.context
+            var found = false
+            context.performAndWait { found = Store.shared.getSubscription(baseUrl: baseUrl, topic: topic) != nil }
+            return found
+        }
+        // The watch as it stands: subscribed here, admitted and unexpired on the bridge.
+        let watch = { isSubscribed(baseUrl, topic) ? bridge.watchStart(hash: hash) : nil }
+        guard let start = watch() else { check.notWatched(hash: hash); return }
+        let mine = polled.filter { $0.topic == topic }
+        check.messagesFoundByPoll(hash: hash, watchStart: start,
+                                  messages: mine.map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) })
+        guard let newest = mine.max(by: { $0.time < $1.time }) else { return }
+        check.messageArrivedByPoll(baseUrl: server, topic: newest.topic,
+                                   messageTime: Date(timeIntervalSince1970: TimeInterval(newest.time)),
+                                   watch: watch, evidence: { bridge.forwardingEvidence(hash: hash) })
     }
 
     /// Completion includes saves and all outcomes, rather than only enqueueing the requests.

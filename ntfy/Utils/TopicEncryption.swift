@@ -199,6 +199,16 @@ struct EncryptedPayload: Codable, Equatable {
     var icon: String?
     var markdown: Bool?
     var actions: [ActionPayload]?
+    /// The `actions` array exactly as the sender wrote it, every type and key included, so a type or
+    /// key this build doesn't know (an `ask-v2` link's future keys, `broadcast`) survives decryption
+    /// into storage (agent protocol v2, SPEC 4). Encoding writes these when present, so a payload
+    /// decrypted and sealed again loses nothing.
+    var rawActions: [JSONValue]? = nil
+
+    static func == (lhs: EncryptedPayload, rhs: EncryptedPayload) -> Bool {
+        lhs.message == rhs.message && lhs.title == rhs.title && lhs.tags == rhs.tags && lhs.priority == rhs.priority
+            && lhs.click == rhs.click && lhs.icon == rhs.icon && lhs.markdown == rhs.markdown && lhs.actions == rhs.actions
+    }
 
     struct ActionPayload: Codable, Equatable {
         var action: String
@@ -244,5 +254,58 @@ struct EncryptedPayload: Codable, Equatable {
         icon = try? c.decodeIfPresent(String.self, forKey: .icon)
         markdown = try? c.decodeIfPresent(Bool.self, forKey: .markdown)
         actions = try? c.decodeIfPresent([ActionPayload].self, forKey: .actions)
+        rawActions = try? c.decodeIfPresent([JSONValue].self, forKey: .actions)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encodeIfPresent(priority, forKey: .priority)
+        try c.encodeIfPresent(click, forKey: .click)
+        try c.encodeIfPresent(icon, forKey: .icon)
+        try c.encodeIfPresent(markdown, forKey: .markdown)
+        if let rawActions { try c.encode(rawActions, forKey: .actions) } else { try c.encodeIfPresent(actions, forKey: .actions) }
+    }
+}
+
+/// Any JSON value, kept as received. Lives here so `scripts/e2e-interop` still builds this file alone.
+enum JSONValue: Codable, Equatable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+    case array([JSONValue])
+    case object([String: JSONValue])
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null }
+        else if let value = try? c.decode(Bool.self) { self = .bool(value) }
+        else if let value = try? c.decode(Double.self) { self = .number(value) }
+        else if let value = try? c.decode(String.self) { self = .string(value) }
+        else if let value = try? c.decode([JSONValue].self) { self = .array(value) }
+        else { self = .object(try c.decode([String: JSONValue].self)) }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .string(let value): try c.encode(value)
+        case .number(let value):
+            if value.rounded() == value, abs(value) < 9_007_199_254_740_992 { try c.encode(Int64(value)) } else { try c.encode(value) }
+        case .bool(let value): try c.encode(value)
+        case .null: try c.encodeNil()
+        case .array(let value): try c.encode(value)
+        case .object(let value): try c.encode(value)
+        }
+    }
+
+    /// Compact JSON with sorted keys, so the same value always stores the same bytes.
+    static func compact<T: Encodable>(_ value: T) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return (try? encoder.encode(value)).flatMap { String(data: $0, encoding: .utf8) }
     }
 }

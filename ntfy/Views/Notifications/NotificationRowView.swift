@@ -373,12 +373,7 @@ struct NotificationRowView: View {
         messageRowTapPolicy(isEditing: isEditing)
     }
     
-    private var clickUrl: URL? {
-        guard let click = notification.click, !click.isEmpty else {
-            return nil
-        }
-        return URL(string: click)
-    }
+    private var clickUrl: URL? { ClickURL.url(from: notification.click) }
 
     private var attachmentAuthorizationHeader: String? {
         guard

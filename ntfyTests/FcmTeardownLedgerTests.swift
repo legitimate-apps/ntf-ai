@@ -68,6 +68,91 @@ final class FcmTeardownLedgerTests: XCTestCase {
         store.saveSubscription(baseUrl: Config.appBaseUrl, topic: topic)
     }
 
+    /// Red on b0f4a48: a row saved as http://ntfy.sh stayed bound to the hash of that spelling,
+    /// which nothing wakes. 1.30 tears it down once and binds the https://ntfy.sh hash.
+    func testRespelledNtfyShRowIsRenamedOnceToTheHashTheBridgeWakes() throws {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts")
+        let legacy = legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts")
+        let wakes = topicHash(baseUrl: "https://ntfy.sh", topic: "alerts")
+        XCTAssertNotEqual(legacy, wakes)
+        store.context.performAndWait { row.fcmSubscribed = true; try? store.context.save() }
+        fake.bindings.insert(legacy)
+        r.reconcile(reason: "launch")
+        drain()
+        XCTAssertTrue(fake.subscribes.contains { $0.name == wakes }, "\(fake.subscribes.map(\.name))")
+        XCTAssertEqual(defaults.integer(forKey: FcmSubscriptionReconciler.defaultsKeyPushNaming), FcmSubscriptionReconciler.pushNamingVersion)
+        r.reconcile(reason: "next")
+        drain()
+        XCTAssertTrue(fake.unsubscribes.contains { $0.name == legacy }, "\(fake.unsubscribes.map(\.name))")
+        // Once only: another launch doesn't redo it.
+        let subscribed = fake.subscribes.count
+        r.reconcile(reason: "again")
+        drain()
+        XCTAssertEqual(fake.subscribes.count, subscribed)
+    }
+
+    /// Red on 0c3563e (review-130 #6): the old name was journalled but torn down only at some later trigger.
+    func testRenameTearsDownTheOldNameInTheSamePass() {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        store.context.performAndWait { row.fcmSubscribed = true; try? store.context.save() }
+        r.reconcile(reason: "launch")
+        drain()
+        XCTAssertTrue(fake.unsubscribes.contains { $0.name == legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts_q7x") })
+    }
+
+    /// Red on 0c3563e: a store that couldn't be read looked like "no subscriptions", so the rename
+    /// was stamped done and never ran.
+    func testAnUnreadableStoreDoesNotStampTheRename() {
+        let r = FcmSubscriptionReconciler(store: store, subscriber: Subscriber(), defaults: defaults,
+                                          now: { self.time }, subscriptionSnapshot: { nil })
+        XCTAssertFalse(r.rebindRespelledNtfyShTopicsIfNeeded())
+        XCTAssertLessThan(defaults.integer(forKey: FcmSubscriptionReconciler.defaultsKeyPushNaming), FcmSubscriptionReconciler.pushNamingVersion)
+    }
+
+    /// Red on 0c3563e: only the first row with a name was marked stale, so a second alias stayed
+    /// "confirmed" for a binding that was gone.
+    func testEveryAliasRowSharingANameIsMarkedStale() {
+        let a = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let b = store.saveSubscription(baseUrl: "https://www.ntfy.sh", topic: "alerts_q7x")
+        store.context.performAndWait { a.fcmSubscribed = true; b.fcmSubscribed = true; try? store.context.save() }
+        XCTAssertTrue(store.markFcmSubscriptionStale(firebaseTopicName: topicHash(baseUrl: "https://ntfy.sh", topic: "alerts_q7x")))
+        store.context.performAndWait {
+            XCTAssertFalse(a.fcmSubscribed)
+            XCTAssertFalse(b.fcmSubscribed)
+        }
+    }
+
+    /// Red on 0c3563e: a row deleted before the rename ran left its old binding with no teardown.
+    func testDeletingBeforeTheRenameAlsoTearsDownTheOldName() {
+        let r = reconciler(Subscriber())
+        _ = r.prepareUnsubscribe(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let names = Set(r.teardownLedger.entries.map(\.name))
+        XCTAssertTrue(names.contains(legacyTopicHash(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")))
+        XCTAssertTrue(names.contains(topicHash(baseUrl: "https://ntfy.sh", topic: "alerts_q7x")))
+    }
+
+    /// The rename changes bindings only: the row, its messages and their read state stay.
+    func testTheRenameKeepsTheRowItsMessagesAndReadState() {
+        let row = store.saveSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let id = row.objectID
+        _ = store.ingest(pushedMessage: Message(id: "m1_q7x", time: 1_800_000_000, event: "message", topic: "alerts_q7x", message: "x"),
+                         baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        let before = row.notificationCount()
+        let unread = row.unreadCount()
+        let r = reconciler(Subscriber())
+        r.reconcile(reason: "launch")
+        drain()
+        let after = store.getSubscription(baseUrl: "http://ntfy.sh", topic: "alerts_q7x")
+        XCTAssertEqual(after?.objectID, id)
+        XCTAssertEqual(after?.notificationCount(), before)
+        XCTAssertEqual(after?.unreadCount(), unread)
+        XCTAssertEqual(before, 1)
+    }
+
     func testOldSuccessCannotEraseNewerIntentAfterFreshBinding() throws {
         let fake = Subscriber()
         let r = reconciler(fake)
@@ -244,9 +329,11 @@ final class FcmTeardownLedgerTests: XCTestCase {
         r.unsubscribe(baseUrl: Config.appBaseUrl, topic: "alerts")
         let b = try XCTUnwrap(r.teardownLedger.entries.first)
         fake.complete(0)
+        drain() // the reconcile after a settled teardown runs on main (review-130 #6)
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         XCTAssertEqual(fake.unsubscribes.count, 2, "A's late callback cannot release the newer request slot")
         fake.complete(1)
+        drain()
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         XCTAssertEqual(fake.unsubscribes.count, 3)
     }
@@ -336,6 +423,7 @@ final class FcmTeardownLedgerTests: XCTestCase {
         let b = try XCTUnwrap(FcmSubscriptionReconciler.enqueueObsoleteTopicNames(["old-name"], defaults: defaults).first?.entry)
         XCTAssertNotEqual(a.id, b.id)
         fake.complete(0)
+        drain()
         XCTAssertEqual(r.teardownLedger.entries.first?.id, b.id)
         fake.complete(1, error: Subscriber.Failure())
         drain()
@@ -353,7 +441,7 @@ final class FcmTeardownLedgerTests: XCTestCase {
         let intent = try XCTUnwrap(r.prepareUnsubscribe(baseUrl: Config.appBaseUrl, topic: "alerts"))
         XCTAssertTrue(store.delete(subscription: row))
         let next = reconciler(fake)
-        XCTAssertEqual(next.teardownLedger.entries.first?.id, intent.id)
+        XCTAssertEqual(next.teardownLedger.entries.first?.id, intent.first?.entry.id)
         next.reconcile(reason: "launch after interrupted removal")
         XCTAssertEqual(fake.unsubscribes.map(\.name), ["alerts"])
         fake.complete(0)
@@ -418,6 +506,58 @@ final class FcmTeardownLedgerTests: XCTestCase {
         XCTAssertTrue(fake.unsubscribes.isEmpty)
     }
 
+    func testFailedAliasDeleteRollsBackBothTeardownIntents() throws {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let baseUrl = "https://www.ntfy.sh"
+        let row = store.saveSubscription(baseUrl: baseUrl, topic: "alerts")
+        let canonical = firebaseTopic(baseUrl: baseUrl, topic: "alerts")
+        let previous = try XCTUnwrap(r.teardownLedger.record(canonical))
+        var manager = SubscriptionManager(store: store)
+        manager.reconciler = r
+
+        _ = User(context: store.context) // Force a Core Data validation failure on delete.
+        manager.unsubscribe(row)
+        drain()
+        XCTAssertNotNil(store.getSubscription(baseUrl: baseUrl, topic: "alerts"))
+        XCTAssertEqual(r.teardownLedger.entries, [previous])
+        XCTAssertTrue(fake.unsubscribes.isEmpty)
+    }
+
+    func testInterruptedAliasDeletePreservesTheOldBindingWhileTheRowRemains() {
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        defaults.set(FcmSubscriptionReconciler.pushNamingVersion, forKey: FcmSubscriptionReconciler.defaultsKeyPushNaming)
+        let baseUrl = "http://ntfy.sh"
+        let row = store.saveSubscription(baseUrl: baseUrl, topic: "alerts")
+        let legacy = legacyTopicHash(baseUrl: baseUrl, topic: "alerts")
+        fake.bindings.insert(legacy)
+        XCTAssertNotNil(r.prepareUnsubscribe(baseUrl: baseUrl, topic: "alerts"))
+
+        r.reconcile(reason: "interrupted deletion with a surviving alias")
+        drain()
+        XCTAssertFalse(fake.unsubscribes.contains { $0.name == legacy })
+        XCTAssertTrue(store.delete(subscription: row))
+        r.reconcile(reason: "the alias has now been removed")
+        XCTAssertTrue(fake.unsubscribes.contains { $0.name == legacy })
+    }
+
+    func testACompletedBindOnlyConfirmsTheNameThatWasDispatched() throws {
+        let fake = Subscriber()
+        fake.delaySubscribe = true
+        let r = reconciler(fake)
+        let row = live()
+        r.reconcile(reason: "launch")
+        let call = try XCTUnwrap(fake.subscribes.first { $0.name == "alerts" })
+        row.topic = "renamed"
+        try store.context.save()
+        call.callback(nil)
+        drain()
+        XCTAssertFalse(row.fcmSubscribed)
+        r.reconcile(reason: "next round")
+        XCTAssertTrue(fake.subscribes.contains { $0.name == "renamed" })
+    }
+
     func testSubscriptionManagerDeletesRowWithMissingTopicWithoutTeardown() {
         assertMissingIdentityRowIsRemoved(missingTopic: true)
     }
@@ -462,9 +602,11 @@ final class FcmTeardownLedgerTests: XCTestCase {
     /// Matches the iPad: set/read/relaunch work while app-group synchronize returns false.
     private final class UnsynchronizedDefaults: UserDefaults {
         var dropJournalWrites = false
+        var shouldRejectJournal: (Data) -> Bool = { _ in false }
         override func synchronize() -> Bool { false }
         override func set(_ value: Any?, forKey key: String) {
-            if dropJournalWrites && key.hasPrefix(FcmTeardownLedger.key) { return }
+            if key.hasPrefix(FcmTeardownLedger.key),
+               dropJournalWrites || (value as? Data).map(shouldRejectJournal) == true { return }
             super.set(value, forKey: key)
         }
     }
@@ -512,5 +654,34 @@ final class FcmTeardownLedgerTests: XCTestCase {
         drain()
         XCTAssertNotNil(store.getSubscription(baseUrl: Config.appBaseUrl, topic: "alerts"))
         XCTAssertTrue(fake.unsubscribes.isEmpty)
+    }
+
+    func testRejectingEitherAliasTeardownLeavesNoPartialJournalAndKeepsTheRow() throws {
+        let rejecting = UnsynchronizedDefaults(suiteName: suite)!
+        defaults = rejecting
+        let fake = Subscriber()
+        let r = reconciler(fake)
+        let baseUrl = "http://ntfy.sh"
+        let topic = "alerts"
+        let legacy = legacyTopicHash(baseUrl: baseUrl, topic: topic)
+        let canonical = firebaseTopic(baseUrl: baseUrl, topic: topic)
+        let previous = try XCTUnwrap(r.teardownLedger.record("unrelated"))
+        let original = rejecting.data(forKey: FcmTeardownLedger.key)
+        var manager = SubscriptionManager(store: store)
+        manager.reconciler = r
+
+        for rejected in [legacy, canonical] {
+            // Each case simulates a storage rejection involving one name, whether the writer
+            // issues individual writes or one write containing both.
+            rejecting.shouldRejectJournal = { String(decoding: $0, as: UTF8.self).contains(rejected) }
+            let row = store.getSubscription(baseUrl: baseUrl, topic: topic)
+                ?? store.saveSubscription(baseUrl: baseUrl, topic: topic)
+            manager.unsubscribe(row)
+            drain()
+            XCTAssertNotNil(store.getSubscription(baseUrl: baseUrl, topic: topic), rejected)
+            XCTAssertEqual(r.teardownLedger.entries, [previous], rejected)
+            XCTAssertEqual(rejecting.data(forKey: FcmTeardownLedger.key), original, rejected)
+            XCTAssertTrue(fake.unsubscribes.isEmpty, rejected)
+        }
     }
 }

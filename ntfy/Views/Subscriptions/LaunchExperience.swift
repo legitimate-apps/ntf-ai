@@ -11,6 +11,33 @@ struct ReleaseNotes: Identifiable, Equatable {
     /// The App Store "What's New" text per release (CHANGELOG.md, drafts/whats-new-*.md). Add the new
     /// version's entry when cutting a release; a version without an entry shows no card.
     static let shipped: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.30.0", bullets: [
+            String(localized: "Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages."),
+            String(localized: "Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too."),
+            String(localized: "Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups."),
+            String(localized: "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup.")
+        ]),
+        ReleaseNotes(version: "1.29.0", bullets: [
+            String(localized: "Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives."),
+            String(localized: "Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too."),
+            String(localized: "You can turn this off anytime in Settings.")
+        ]),
+        ReleaseNotes(version: "1.28.0", bullets: [
+            String(localized: "Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back."),
+            String(localized: "Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity."),
+            String(localized: "Waiting on you lists the newest question first."),
+            String(localized: "Plain buttons can be tapped again, and an answered question shows the answer you chose."),
+            String(localized: "Share a topic, a message or a file, or copy a topic's curl or ntf command."),
+            String(localized: "Send feedback from Settings, or shake your device to open the form."),
+            String(localized: "New setting: Use buttons without unlocking lets you answer from the lock screen.")
+        ]),
+        ReleaseNotes(version: "1.27.0", bullets: [
+            String(localized: "Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app."),
+            String(localized: "See which agent is asking, with its name and picture in the app and in notifications."),
+            String(localized: "Questions with a deadline show the time left, and an agent can withdraw a question it no longer needs."),
+            String(localized: "Agent reminders: an unanswered question can alert you again, or remind you silently."),
+            String(localized: "Answer buttons are easier to read in light and dark mode.")
+        ]),
         ReleaseNotes(version: "1.26.0", bullets: [
             String(localized: "Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity."),
             String(localized: "Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it."),
@@ -118,17 +145,6 @@ enum LaunchExperiencePolicy {
     }
 
     static let minimumInstallAge: TimeInterval = 3 * 24 * 60 * 60
-
-    /// Ask only someone for whom delivery demonstrably works: banners a push put on screen (polled
-    /// and test messages don't count) on at least two days, three days after install, notifications
-    /// allowed and no topic failing. Never gated on sentiment (App Review 5.6.1); once per version.
-    static func shouldRequestReview(current: String, lastPrompted: String?, presentedCount: Int,
-                                    presentedDays: Int, firstLaunch: Date?, hasSubscriptions: Bool,
-                                    notificationsAuthorized: Bool, topicsHealthy: Bool, now: Date) -> Bool {
-        let oldEnough = firstLaunch.map { now.timeIntervalSince($0) >= minimumInstallAge } ?? hasSubscriptions
-        return presentedCount >= 3 && presentedDays >= 2 && lastPrompted != current
-            && oldEnough && notificationsAuthorized && topicsHealthy
-    }
 }
 
 /// One process session owns notice suppression, even after returning from a topic or switching tabs.
@@ -190,30 +206,6 @@ final class LaunchExperience: ObservableObject {
     func dismissWhatsNew() {
         defaults.set(current, forKey: Self.seenKey)
         entries = []
-    }
-
-    /// Called from the topic list when the app returns to the foreground, a natural pause.
-    @MainActor
-    func requestReview(store: Store) async {
-        guard defaults.string(forKey: Self.reviewKey) != current else { return }
-        let authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-        let delivered = store.presentedDeliveries()
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive }),
-            let window = scene.windows.first(where: { $0.isKeyWindow }),
-            window.rootViewController?.presentedViewController == nil,
-            LaunchExperiencePolicy.shouldRequestReview(current: current,
-                lastPrompted: defaults.string(forKey: Self.reviewKey),
-                presentedCount: delivered.count, presentedDays: delivered.days,
-                firstLaunch: defaults.object(forKey: Self.firstLaunchKey) as? Date,
-                hasSubscriptions: !(store.getSubscriptions() ?? []).isEmpty,
-                notificationsAuthorized: authorization == .authorized,
-                topicsHealthy: Self.topicsHealthy(), now: Date())
-        else { return }
-        defaults.set(current, forKey: Self.reviewKey)
-        Log.d("LaunchExperience", "Requesting App Store review for version \(current)")
-        if #available(iOS 16.0, *) { AppStore.requestReview(in: scene) }
-        else { SKStoreReviewController.requestReview(in: scene) }
     }
 }
 

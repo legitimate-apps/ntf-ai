@@ -6,10 +6,10 @@ import UIKit
 // presses, sends and confirms the same way (operator, 2026-11-15: "these interactions are going to
 // be like the primary why the user interacts with our app").
 //
-// Forest, lit: a deep green gradient dark enough for a white label in light and dark mode, a 52 pt
-// target, a spring press with a light tick, a spinner while sending, a check when the agent has the
-// answer (success buzz), a shake when it didn't (error buzz). Reduce Motion keeps the colour changes
-// and drops the movement.
+// Forest, lit: a deep green gradient dark enough for a white label in light and dark mode, a target
+// as tall as `AnswerMetrics.height` (44 pt, growing with Dynamic Type), a spring press with a light
+// tick, a spinner while sending, a check when the agent has the answer (success buzz), a shake when it
+// didn't (error buzz). Reduce Motion keeps the colour changes and drops the movement.
 
 /// What a button does, which decides how loud it is.
 enum AnswerRole: Equatable {

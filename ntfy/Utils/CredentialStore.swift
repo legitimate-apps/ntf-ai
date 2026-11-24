@@ -65,6 +65,18 @@ enum TopicSecretRead<Value: Equatable>: Equatable {
 
 /// A successful empty dictionary means no headers are stored. A failure means storage could not be
 /// read and callers that edit credentials must preserve their current state.
+extension Foundation.Notification.Name {
+    /// A server login or custom header was saved or removed in this process. The ntfy.sh bridge
+    /// re-evaluates which names it may send (review-130b #4).
+    static let serverCredentialsChanged = Foundation.Notification.Name("serverCredentialsChanged")
+}
+
+enum ServerCredentialChange {
+    static func announce() {
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .serverCredentialsChanged, object: nil) }
+    }
+}
+
 enum HTTPHeadersReadResult: Equatable {
     case success([String: String])
     case failure
@@ -91,6 +103,22 @@ extension CredentialStoring {
         guard case .success(let headers) = readHTTPHeaders(baseUrl: baseUrl) else { return [:] }
         return headers
     }
+
+    /// The canonical host's headers take precedence for every ntfy.sh alias. An unreadable
+    /// canonical entry is not evidence that the alias's credentials should be used.
+    func readTransportHTTPHeaders(baseUrl: String) -> HTTPHeadersReadResult {
+        guard let canonical = NtfyShAddress.canonicalize(baseUrl) else {
+            return readHTTPHeaders(baseUrl: baseUrl)
+        }
+        let result = readHTTPHeaders(baseUrl: canonical)
+        guard normalizeBaseUrl(baseUrl) != canonical,
+              case .success(let headers) = result, headers.isEmpty else { return result }
+        switch readCredential(baseUrl: canonical, username: "") {
+        case .found: return result // Alias headers, including Authorization, cannot override a new canonical login.
+        case .notFound: return readHTTPHeaders(baseUrl: baseUrl)
+        case .failed: return .failure
+        }
+    }
 }
 
 enum ServerCredentials {
@@ -113,21 +141,32 @@ enum ServerCredentials {
         return nil
     }
 
+    /// Saved-login requests from the app and extensions all have access to this store. Explicit
+    /// credentials supplied for validation and clients with an injected store stay caller-owned.
+    static func sharedStoreForNtfyShTransport(baseUrl: String, credentialStore: CredentialStoring) -> Store? {
+        guard NtfyShAddress.isNtfySh(baseUrl),
+              credentialStore === KeychainCredentialStore.shared else { return nil }
+        return Store.shared
+    }
+
+    @discardableResult
     static func apply(
         to request: inout URLRequest,
         baseUrl: String,
         authorizationHeader: String? = nil,
         credentialStore: CredentialStoring = KeychainCredentialStore.shared
-    ) {
-        guard request.url.map({ sameOrigin($0, URL(string: normalizeBaseUrl(baseUrl))) }) == true else {
-            return
+    ) -> [String] {
+        guard request.url.map({ sameOrigin($0, transportOrigin(baseUrl)) }) == true else {
+            return []
         }
         if let authorizationHeader {
             request.setValue(authorizationHeader, forHTTPHeaderField: "Authorization")
         }
-        for (name, value) in credentialStore.httpHeaders(baseUrl: baseUrl) {
+        guard case .success(let headers) = credentialStore.readTransportHTTPHeaders(baseUrl: baseUrl) else { return [] }
+        for (name, value) in headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
+        return Array(headers.keys)
     }
 
     static func removingCredentialsFromCrossOriginRedirect(
@@ -135,7 +174,7 @@ enum ServerCredentials {
         baseUrl: String,
         customHeaderNames: [String]
     ) -> URLRequest {
-        guard request.url.map({ sameOrigin($0, URL(string: normalizeBaseUrl(baseUrl))) }) != true else {
+        guard request.url.map({ sameOrigin($0, transportOrigin(baseUrl)) }) != true else {
             return request
         }
         var sanitized = request
@@ -144,6 +183,11 @@ enum ServerCredentials {
             sanitized.setValue(nil, forHTTPHeaderField: name)
         }
         return sanitized
+    }
+
+    /// Where requests for this server go: `https://ntfy.sh` for every ntfy.sh alias (review-130 #3).
+    private static func transportOrigin(_ baseUrl: String) -> URL? {
+        URL(string: NtfyShAddress.canonicalize(baseUrl) ?? normalizeBaseUrl(baseUrl))
     }
 
     private static func sameOrigin(_ lhs: URL, _ rhs: URL?) -> Bool {
@@ -169,7 +213,11 @@ final class ServerCredentialRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
     init(baseUrl: String, credentialStore: CredentialStoring) {
         self.baseUrl = baseUrl
-        self.headerNames = Array(credentialStore.httpHeaders(baseUrl: baseUrl).keys)
+        if case .success(let headers) = credentialStore.readTransportHTTPHeaders(baseUrl: baseUrl) {
+            self.headerNames = Array(headers.keys)
+        } else {
+            self.headerNames = []
+        }
     }
 
     func urlSession(
@@ -263,6 +311,7 @@ final class KeychainCredentialStore: CredentialStoring, TopicSecretStoring {
         valueDescription: String,
         accessibility: CFString = kSecAttrAccessibleAfterFirstUnlock
     ) -> Bool {
+        defer { ServerCredentialChange.announce() }
         var attributes = Self.query(service: service, baseUrl: baseUrl)
         // Available whenever the device has been unlocked once — the NSE runs while the screen is
         // locked, so kSecAttrAccessibleWhenUnlocked would make pushes fail to authenticate.
@@ -328,6 +377,7 @@ final class KeychainCredentialStore: CredentialStoring, TopicSecretStoring {
     }
 
     private func delete(service: String, baseUrl: String) -> Bool {
+        defer { ServerCredentialChange.announce() }
         let status = SecItemDelete(Self.query(service: service, baseUrl: baseUrl) as CFDictionary)
         return status == errSecSuccess || status == errSecItemNotFound
     }

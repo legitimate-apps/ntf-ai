@@ -8,14 +8,119 @@ enum NotificationServiceTiming {
     static let categoryRegistrationTimeout: TimeInterval = 2
     static let attachmentTimeout: TimeInterval = 8
     static let reconciliationAttachmentTimeout: TimeInterval = 6
+    /// An agent's picture (SPEC 6), after the attachment. A reconciled delivery has already spent a
+    /// second poll, so it uses a cached picture or the monogram and makes no request.
+    static let avatarTimeout: TimeInterval = 3
     /// The NSE is publisher-triggered and cannot expose progress or cancellation. Five MiB needs
     /// roughly 5.25 Mbps to complete inside the eight-second attachment window, while larger files
     /// remain available for an explicit in-app download.
     static let attachmentSizeCeiling: Int64 = 5 * 1024 * 1024
 
     static var worstCaseDuration: TimeInterval {
-        max(pollTimeout + categoryRegistrationTimeout + attachmentTimeout,
+        max(pollTimeout + categoryRegistrationTimeout + attachmentTimeout + avatarTimeout,
             2 * pollTimeout + categoryRegistrationTimeout + reconciliationAttachmentTimeout)
+    }
+}
+
+/// A single-message poll that answered 200 with no message: not stored on the server yet.
+struct PollEmptyResult: Error, Equatable {}
+
+/// Every read answered "no such message" until the retries ran out: the server no longer has it,
+/// or never kept it (`Cache: no`, caching off, past its retention).
+struct PollMissingResult: Error, Equatable {}
+
+/// Fetches the message a poll_request names, asking again while the server answers "not stored
+/// yet". ntfy.sh writes its message cache in batches, so for about 0.6 to 1.9 s after a publish its
+/// `?poll=1&id=` answers 200 with an empty body, and the bridge's wake-up often lands inside that
+/// window (device repro 2026-11-21: 2 of 11 showed the fallback). Any server with batched cache
+/// writes can do the same. Real errors (network, HTTP status, a timeout) are not retried.
+///
+/// Everything happens before `deadline`, a point on `clock` (monotonic uptime): a retry that
+/// dequeues too late doesn't start, an answer after it is dropped, and at the cutoff the read in
+/// flight is cancelled and the completion runs (once) with a timeout.
+enum SingleMessagePoll {
+    static let emptyRetryDelays: [TimeInterval] = [0.4, 0.8, 1.6, 3.2]
+    /// A wake-up for a message older than this isn't racing the server's cache write: one read.
+    static let oldWakeAge: TimeInterval = 60
+    /// Least time worth starting a read with.
+    static let minimumRead: TimeInterval = 0.5
+    /// Starts a read with the given timeout; returns a way to cancel it.
+    typealias Fetch = (_ timeout: TimeInterval, _ completion: @escaping (Message?, Error?) -> Void) -> (() -> Void)?
+    typealias Schedule = (TimeInterval, @escaping () -> Void) -> Void
+
+    static func delays(messageAge: TimeInterval?) -> [TimeInterval] {
+        guard let messageAge, messageAge > oldWakeAge else { return emptyRetryDelays }
+        return []
+    }
+
+    static func run(deadline: TimeInterval,
+                    delays: [TimeInterval] = emptyRetryDelays,
+                    clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                    schedule: @escaping Schedule = { delay, work in DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: work) },
+                    cutoff: Schedule? = nil,
+                    fetch: @escaping Fetch,
+                    completion: @escaping (_ message: Message?, _ error: Error?, _ attempts: Int) -> Void) {
+        // Recursive: a read starts under the lock (so the cutoff can't fire between the last check
+        // and the start, review-130b #5), and a fetch may answer synchronously.
+        let lock = NSRecursiveLock()
+        var done = false
+        var cancel: (() -> Void)?
+        var attempts = 0
+        func complete(_ message: Message?, _ error: Error?) {
+            lock.lock()
+            guard !done else { lock.unlock(); return }
+            done = true
+            let pending = message == nil ? cancel : nil
+            cancel = nil
+            let count = attempts
+            lock.unlock()
+            pending?()
+            completion(message, error, count)
+        }
+        (cutoff ?? schedule)(max(0, deadline - clock())) { complete(nil, URLError(.timedOut)) }
+        func attempt(_ index: Int) {
+            let remaining = deadline - clock()
+            guard remaining >= minimumRead else { complete(nil, index == 0 ? URLError(.timedOut) : PollEmptyResult()); return }
+            lock.lock()
+            defer { lock.unlock() }
+            guard !done else { return }
+            let left = deadline - clock()
+            guard left >= minimumRead else { complete(nil, index == 0 ? URLError(.timedOut) : PollEmptyResult()); return }
+            attempts = index + 1
+            let handle = fetch(left) { message, error in
+                guard clock() <= deadline else { complete(nil, URLError(.timedOut)); return }
+                if let message { complete(message, nil); return }
+                guard error is PollEmptyResult else { complete(nil, error); return }
+                guard index < delays.count else { complete(nil, PollMissingResult()); return }
+                // Leave time for the next answer, or give up with an inconclusive empty read.
+                guard clock() + delays[index] + minimumRead <= deadline else { complete(nil, error); return }
+                schedule(delays[index]) { attempt(index + 1) }
+            }
+            if done { handle?(); return }
+            cancel = handle
+        }
+        attempt(0)
+    }
+}
+
+/// The extension's one clock: a monotonic deadline from entry that every step shares.
+struct ExtensionDeadline {
+    let start: TimeInterval
+    let end: TimeInterval
+    let clock: () -> TimeInterval
+
+    init(budget: TimeInterval = NotificationServiceTiming.processingBudget,
+         clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        self.clock = clock
+        start = clock()
+        end = start + budget
+    }
+
+    var remaining: TimeInterval { end - clock() }
+
+    /// `preferred`, or less so `reserve` seconds stay for what follows; never below the minimum read.
+    func timeout(_ preferred: TimeInterval, reserve: TimeInterval = 1) -> TimeInterval {
+        max(SingleMessagePoll.minimumRead, min(preferred, remaining - reserve))
     }
 }
 
@@ -140,6 +245,7 @@ extension UNMutableNotificationContent {
         // Group by topic, and only elevate priority 5 alerts to critical when the user opted in
         // and iOS has granted critical alert permission.
         self.threadIdentifier = topicUrl(baseUrl: baseUrl, topic: message.topic)
+        applyAgentThread(message: message, baseUrl: baseUrl)
         
         configureInterruption(message: message, soundName: soundName)
 
@@ -197,8 +303,9 @@ extension UNMutableNotificationContent {
             self.sound = nil
             self.interruptionLevel = .passive
         }
-        // An agent's ack never alerts, whatever priority it was sent at (ACK-SPEC).
-        if AgentAck.isAck(tags: message.tags) {
+        // An agent's ack never alerts, whatever priority it was sent at (ACK-SPEC), and neither does
+        // the person's own answer (`re-<seq>`) arriving on another device (SPEC 7).
+        if AgentAck.isAck(tags: message.tags) || message.tags?.contains(where: ProtocolTag.isReply) == true {
             self.sound = nil
             self.interruptionLevel = .passive
             self.relevanceScore = 0
@@ -212,6 +319,7 @@ extension UNMutableNotificationContent {
         credentialStore: CredentialStoring = KeychainCredentialStore.shared,
         session: URLSession? = nil,
         timeout: TimeInterval = 20,
+        stillNeeded: @escaping () -> Bool = { true },
         completionHandler: @escaping () -> Void
     ) {
         guard let attachment = message.attachment else {
@@ -242,6 +350,13 @@ extension UNMutableNotificationContent {
         // so the attachment is announced rather than silently dropped.
         guard Store.shared.shouldAutoDownloadAttachment(attachment) else {
             Log.d("NotificationContent", "Skipping attachment auto-download per user preference", message.id)
+            completeAttachmentHandling(message: message, didAttachImage: false, completionHandler: completionHandler)
+            return
+        }
+
+        // The delivery (the extension's request, or the app's background wake) already ended: no
+        // download starts for it (review-130d D3). The summary still names the attachment.
+        guard stillNeeded() else {
             completeAttachmentHandling(message: message, didAttachImage: false, completionHandler: completionHandler)
             return
         }
@@ -284,6 +399,13 @@ extension UNMutableNotificationContent {
                     maxSize: maxSize,
                     configuration: configuration
                 )
+                // The extension may have handed off meanwhile: then it writes nothing to the shared
+                // store (review-130c C6); the app downloads the attachment again when it needs it.
+                guard stillNeeded() else {
+                    Log.d("NotificationContent", "Attachment arrived after the handoff; not recording it")
+                    try? FileManager.default.removeItem(at: downloaded.localFileUrl)
+                    return
+                }
                 Store.shared.completeAttachmentDownload(
                     notificationID: message.id,
                     localPath: downloaded.localFileUrl.path,
@@ -343,7 +465,7 @@ extension UNMutableNotificationContent {
     }
 
     private func configureNotificationActions(message: Message, timeout: TimeInterval) {
-        let userActions = message.actions ?? []
+        let userActions = Self.bannerActions(message.actions ?? [])
         let actions = Self.notificationActions(for: userActions)
 
         let categoryId = UNMutableNotificationContent.actionCategoryIdentifier(for: userActions)
@@ -373,7 +495,18 @@ extension UNMutableNotificationContent {
     /// from any category registered elsewhere.
     static let categoryPrefix = "ntfyActions."
 
-    static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> [UNNotificationAction] {
+    /// A typed question's `ask-v2` link is for the app's question page, not a banner button: the
+    /// banner keeps the question's other buttons and reply link, which still answer (SPEC 4). A link
+    /// this build can't render stays, as older builds show it. A `view` link the app won't open
+    /// (`ClickURL`) gets no button.
+    static func bannerActions(_ actions: [Action]) -> [Action] {
+        let openable = actions.filter(ClickURL.allows)
+        guard case .native(_, let carrier) = AskSchema.detect(in: openable) else { return openable }
+        return openable.filter { $0.id != carrier }
+    }
+
+    static func notificationActions(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac,
+                                    withoutUnlock: Bool = LockScreenButtons.enabled()) -> [UNNotificationAction] {
         actions.prefix(4).map {
             if BannerReply.destination(for: $0) != nil {
                 return UNTextInputNotificationAction(identifier: $0.id, title: $0.label,
@@ -382,16 +515,23 @@ extension UNMutableNotificationContent {
                     textInputPlaceholder: $0.label)
             }
             return UNNotificationAction(identifier: $0.id, title: $0.label,
-                options: $0.action == "http" && !onMac ? [.authenticationRequired] : [.foreground])
+                options: $0.action == "http" && !onMac ? httpOptions(withoutUnlock: withoutUnlock) : [.foreground])
         }
     }
 
-    static func actionCategoryIdentifier(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac) -> String {
+    /// An `http` button on iPhone runs in the background. Locked, iOS asks for Face ID or the passcode
+    /// first unless the person turned on Settings, "Use buttons without unlocking".
+    static func httpOptions(withoutUnlock: Bool) -> UNNotificationActionOptions {
+        withoutUnlock ? [] : [.authenticationRequired]
+    }
+
+    static func actionCategoryIdentifier(for actions: [Action], onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac,
+                                         withoutUnlock: Bool = LockScreenButtons.enabled()) -> String {
         let capped = actions.prefix(4)
         guard !capped.isEmpty else { return "" }
         // Delimit fields/records with control chars that can't appear in button text so
         // e.g. [("a","bc")] and [("ab","c")] hash to different categories.
-        let canonical = notificationActions(for: Array(capped), onMac: onMac)
+        let canonical = notificationActions(for: Array(capped), onMac: onMac, withoutUnlock: withoutUnlock)
             .map { action in
                 let base = "\(action.identifier)\u{1f}\(action.title)\u{1f}\(action.options.rawValue)"
                 guard let text = action as? UNTextInputNotificationAction else { return base }
@@ -419,28 +559,55 @@ extension UNMutableNotificationContent {
                                               center: UNUserNotificationCenter = .current(),
                                               timeout: TimeInterval = 3) {
         let sem = DispatchSemaphore(value: 0)
-        // Garbage-collect our own stale categories before adding this one. The ntfy server
-        // mints a FRESH random `id` for every action of every message (verified against a
-        // live server), so `actionCategoryIdentifier` is effectively unique per notification
-        // and a purely additive registration would grow without bound — re-serializing an
-        // ever-larger set to the notification center on every single delivery, on the NSE's
-        // critical path. A category is only needed while its notification is still on
-        // screen, so keep exactly those (plus the one being registered) and drop the rest.
-        // Categories that aren't ours are never touched.
-        center.getDeliveredNotifications { delivered in
-            let live = Set(delivered.map { $0.request.content.categoryIdentifier })
-            center.getNotificationCategories { existing in
-                let kept = existing.filter {
-                    $0.identifier != category.identifier
-                        && (!$0.identifier.hasPrefix(categoryPrefix) || live.contains($0.identifier))
-                }
-                center.setNotificationCategories(Set(kept).union([category]))
-                // Read back to confirm the write landed before signalling.
-                center.getNotificationCategories { _ in sem.signal() }
-            }
-        }
+        writeCategories(adding: category, center: center) { sem.signal() }
         guard !Thread.isMainThread else { return }
         _ = sem.wait(timeout: .now() + timeout)
+    }
+
+    /// Every category write in this process, one at a time. Settings' lock-screen toggle passes no
+    /// category and only rewrites what is registered.
+    private static let categoryWrites = DispatchQueue(label: "ntfy.notificationCategoryWrites")
+
+    static func writeCategories(adding category: UNNotificationCategory?, center: UNUserNotificationCenter = .current(),
+                                completion: @escaping () -> Void = {}) {
+        categoryWrites.async {
+            let finished = DispatchSemaphore(value: 0)
+            var attempts = 0
+            func write() {
+                attempts += 1
+                // Garbage-collect our own stale categories before adding this one. The ntfy server
+                // mints a FRESH random `id` for every action of every message (verified against a
+                // live server), so `actionCategoryIdentifier` is effectively unique per notification
+                // and a purely additive registration would grow without bound — re-serializing an
+                // ever-larger set to the notification center on every single delivery, on the NSE's
+                // critical path. A category is only needed while its notification is still on
+                // screen, so keep exactly those (plus the one being registered) and drop the rest.
+                // Categories that aren't ours are never touched.
+                center.getDeliveredNotifications { delivered in
+                    let live = Set(delivered.map { $0.request.content.categoryIdentifier })
+                    center.getNotificationCategories { existing in
+                        let kept = existing.filter {
+                            $0.identifier != category?.identifier
+                                && (!$0.identifier.hasPrefix(categoryPrefix) || live.contains($0.identifier))
+                        }
+                        // Every write carries the saved lock-screen setting into all our categories.
+                        let wanted = LockScreenButtons.rewrite(kept.union(category.map { [$0] } ?? []),
+                                                               withoutUnlock: LockScreenButtons.enabled())
+                        center.setNotificationCategories(Set(wanted))
+                        // Read back: the write landed, and nothing written since by the extension or
+                        // the app (a toggle, a delivery) left a category off the current setting.
+                        center.getNotificationCategories { now in
+                            let settled = LockScreenButtons.matches(now, withoutUnlock: LockScreenButtons.enabled())
+                                && category.map { added in now.contains { $0.identifier == added.identifier } } ?? true
+                            if settled || attempts >= 3 { finished.signal() } else { write() }
+                        }
+                    }
+                }
+            }
+            write()
+            _ = finished.wait(timeout: .now() + 5)
+            completion()
+        }
     }
 
     private func completeAttachmentHandling(message: Message, didAttachImage: Bool, completionHandler: @escaping () -> Void) {
@@ -538,6 +705,62 @@ struct SequenceRemoval {
         center.getDeliveredNotifications { notifications in
             let ids = self.identifiers(in: notifications.map(\.request))
             if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+}
+
+/// Settings, "Use buttons without unlocking". Default off. In the app group, so the extension, which
+/// builds most categories, reads what the app saved.
+enum LockScreenButtons {
+    static let key = "lockScreenButtons"
+    static var defaults: UserDefaults { UserDefaults(suiteName: Config.appGroupId) ?? .standard }
+
+    static func enabled(_ defaults: UserDefaults = LockScreenButtons.defaults) -> Bool { defaults.bool(forKey: key) }
+
+    /// A backup to the category options, checked when the tap arrives (iPhone delivers taps to the app
+    /// directly; the Mac relay is exempt). With the setting off, iOS unlocks before an http button runs,
+    /// so protected data is available; a locked tap here means a category missed the rewrite. Protected
+    /// data goes away about 10 s after locking, so a tap inside that window still runs.
+    static func mayRun(httpButton: Bool, enabled: Bool, protectedDataAvailable: Bool, onMac: Bool) -> Bool {
+        !httpButton || enabled || protectedDataAvailable || onMac
+    }
+
+    /// Tells the person why the button did nothing, so they can unlock and tap it again.
+    static func notifyRefused(_ label: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "⚠️ \(label) failed")
+        content.body = String(localized: "Unlock your device, then tap the button again.")
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
+    }
+
+    /// Options feed the category id, so notifications that arrive after a change get a new category.
+    /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for
+    /// Face ID on an approval that arrived while it was on.
+    static func applyToRegisteredCategories() {
+        UNMutableNotificationContent.writeCategories(adding: nil)
+    }
+
+    /// Whether every one of our categories already has the options `withoutUnlock` gives.
+    static func matches(_ categories: Set<UNNotificationCategory>, withoutUnlock: Bool) -> Bool {
+        Set(rewrite(categories, withoutUnlock: withoutUnlock).map(signature)) == Set(categories.map(signature))
+    }
+
+    private static func signature(_ category: UNNotificationCategory) -> String {
+        category.identifier + category.actions.map { "\u{1f}\($0.identifier)\u{1e}\($0.options.rawValue)" }.joined()
+    }
+
+    /// Only an iPhone `http` button runs in the background: every other button opens the app
+    /// (`.foreground`) and a reply keeps its own options.
+    static func rewrite(_ categories: Set<UNNotificationCategory>, withoutUnlock: Bool) -> [UNNotificationCategory] {
+        categories.map { category in
+            guard category.identifier.hasPrefix(UNMutableNotificationContent.categoryPrefix) else { return category }
+            let actions = category.actions.map { action -> UNNotificationAction in
+                guard !(action is UNTextInputNotificationAction), !action.options.contains(.foreground) else { return action }
+                return UNNotificationAction(identifier: action.identifier, title: action.title,
+                                            options: UNMutableNotificationContent.httpOptions(withoutUnlock: withoutUnlock))
+            }
+            return UNNotificationCategory(identifier: category.identifier, actions: actions,
+                                          intentIdentifiers: category.intentIdentifiers, options: category.options)
         }
     }
 }

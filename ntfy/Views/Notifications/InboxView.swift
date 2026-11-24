@@ -13,6 +13,7 @@ struct InboxView: View {
     @State private var showAllWaiting = false
     @State private var showingAdd = false
     @State private var showCopied = false
+    @ObservedObject private var fold = SectionFold.shared
 
     /// Three questions on iPhone keep Activity in reach; iPad has room for five (DECISION change 3).
     private var waitingCap: Int { sizeClass == .regular ? 5 : 3 }
@@ -56,12 +57,19 @@ struct InboxView: View {
     private var list: some View {
         List {
             if !waiting.notifications.isEmpty {
-                Section(header: WaitingHeader(count: waiting.notifications.count)) {
+                HStack(spacing: 10) {
+                    FoldHeader(fold: fold, id: SectionFold.waiting, title: String(localized: "Waiting on you"),
+                               symbol: "hand.raised.fill", count: waiting.notifications.count, identifier: "waiting-header")
+                        .modifier(ClearWaitingMenu())
+                    ClearWaitingMoreButton()
+                }
+                .modifier(ListHeaderRow())
+                if !fold.isCollapsed(SectionFold.waiting) {
                     ForEach(waiting.notifications.prefix(waitingCap), id: \.objectID) { notification in
                         WaitingRow(notification: notification) { focus in
                             opened = OpenedMessage(notification: notification, focusReply: focus)
                         }
-                        .listRowInsets(CardSpacing.rowInsets)
+                        .modifier(CardRowInsets())
                         .modifier(NotNeededSwipe(notification: notification))
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -80,24 +88,33 @@ struct InboxView: View {
                     }
                 }
             }
-            let days = Notification.groupedByDay(activity.notifications, date: { $0.date() })
-            ForEach(Array(days.enumerated()), id: \.element.day) { index, group in
-                Section(header: activityHeader(first: index == 0, day: group.day)) {
-                    ForEach(group.items, id: \.objectID) { notification in
-                        MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
-                                    open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
-                                    onCopy: copied)
-                            .listRowInsets(CardSpacing.rowInsets)
-                            .modifier(MessageRowActions(notification: notification, onCopy: copied))
+            if !activity.notifications.isEmpty {
+                // Activity heads the days; folding it folds every day under it.
+                FoldHeader(fold: fold, id: SectionFold.activity, title: String(localized: "Activity"),
+                           identifier: "activity-header")
+                    .modifier(ListHeaderRow(topSpace: waiting.notifications.isEmpty ? 0 : 16))
+                if !fold.isCollapsed(SectionFold.activity) {
+                    let days = Notification.groupedByDay(activity.notifications, date: { $0.date() })
+                    ForEach(days, id: \.day) { group in
+                        DayHeaderRow(day: group.day)
+                        ForEach(group.items, id: \.objectID) { notification in
+                            MessageCard(notification: notification, showsTopic: true, defersToWaiting: true,
+                                        open: { focus in opened = OpenedMessage(notification: notification, focusReply: focus) },
+                                        onCopy: copied)
+                                .modifier(CardRowInsets())
+                                .modifier(MessageRowActions(notification: notification, onCopy: copied))
+                        }
+                    }
+                    if activity.hasOlder {
+                        Button(NotificationHistoryStrings.loadOlder) { activity.loadOlder() }
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
-            if activity.hasOlder {
-                Button(NotificationHistoryStrings.loadOlder) { activity.loadOlder() }
-                    .frame(maxWidth: .infinity)
-            }
         }
-        .listStyle(.insetGrouped)
+        // One level of inset (operator, 2026-11-17): rows run edge to edge with hairlines between
+        // them, as in Mail, instead of cards inside the screen's margins.
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .refreshable {
@@ -111,22 +128,7 @@ struct InboxView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         })
-    }
-
-    @ViewBuilder private func activityHeader(first: Bool, day: Date) -> some View {
-        if first {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "Activity"))
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                    .textCase(nil)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("activity-header")
-                DayHeader(title: Notification.daySectionTitle(for: day))
-            }
-        } else {
-            DayHeader(title: Notification.daySectionTitle(for: day))
-        }
+        .modifier(ClearWaitingUndo())
     }
 
     private func copied() {
@@ -159,21 +161,118 @@ struct WaitingAllView: View {
 
     var body: some View {
         List {
-            Section(header: WaitingHeader(count: waiting.notifications.count)) {
+            Section(header: WaitingHeader(count: waiting.notifications.count).modifier(ClearWaitingMenu())) {
                 ForEach(waiting.notifications, id: \.objectID) { notification in
                     WaitingRow(notification: notification) { focus in
                         opened = OpenedMessage(notification: notification, focusReply: focus)
                     }
-                    .listRowInsets(CardSpacing.rowInsets)
+                    .modifier(CardRowInsets())
                     .modifier(NotNeededSwipe(notification: notification))
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
         .modifier(ReadableCardWidth())
         .animation(.default, value: waiting.notifications.map(\.objectID))
         .navigationTitle(String(localized: "Waiting on you"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !waiting.notifications.isEmpty {
+                    Button(String(localized: "Clear all")) {
+                        withAnimation { waiting.clearAll() }
+                    }
+                    .accessibilityIdentifier("waiting-clear-all")
+                }
+            }
+        }
+        .modifier(ClearWaitingUndo())
         .modifier(MessagePageLink(opened: $opened))
+    }
+}
+
+/// "Clear all" on the Waiting on you header (operator, 2026-11-19): touch and hold the header, or
+/// the VoiceOver action. Questions approved elsewhere, by code, or past their window pile up with
+/// nothing telling the app; this takes them all out at once. Undo follows (`ClearWaitingUndo`).
+struct ClearWaitingMenu: ViewModifier {
+    @ObservedObject private var waiting = WaitingObservable.shared
+
+    func body(content: Content) -> some View {
+        content
+            .contextMenu { ClearWaitingMenuItems() }
+            .accessibilityAction(named: Text(String(localized: "Clear all"))) { withAnimation { waiting.clearAll() } }
+    }
+}
+
+/// The menu's body: what clearing does, then the one destructive item. No icon: the app tint would
+/// color it green beside the red title.
+struct ClearWaitingMenuItems: View {
+    @ObservedObject private var waiting = WaitingObservable.shared
+
+    var body: some View {
+        Section(header: Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))) {
+            Button(String(localized: "Clear all"), role: .destructive) {
+                withAnimation { waiting.clearAll() }
+            }
+        }
+    }
+}
+
+/// The visible way in: a "…" beside the header's chevron opens the same menu as touch and hold.
+struct ClearWaitingMoreButton: View {
+    var body: some View {
+        Menu { ClearWaitingMenuItems() } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.headline)
+                .foregroundColor(.secondary)
+                .frame(minWidth: 44, minHeight: FoldHeaderAccessibility.minimumHitHeight)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(String(localized: "More for Waiting on you"))
+        .accessibilityIdentifier("waiting-more")
+    }
+}
+
+/// The Undo bar after "Clear all": what happened and one button, for a few seconds.
+struct ClearWaitingUndo: ViewModifier {
+    @ObservedObject private var waiting = WaitingObservable.shared
+
+    func body(content: Content) -> some View {
+        content.overlay(Group {
+            if let cleared = waiting.lastClear {
+                ClearedToast { withAnimation { waiting.undoClear() } }
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        })
+        .animation(.default, value: waiting.lastClear)
+    }
+}
+
+/// "Questions cleared | Undo", in the same brand capsule as "Copied", said aloud to VoiceOver.
+struct ClearedToast: View {
+    let undo: () -> Void
+
+    private var text: String { String(localized: "Questions cleared") }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(text)
+            Rectangle().fill(Color("Ink").opacity(0.35)).frame(width: 1, height: 16).accessibilityHidden(true)
+            Button(action: undo) {
+                Text(String(localized: "Undo")).fontWeight(.bold).foregroundColor(Color("Ink"))
+                    .frame(minHeight: 44).contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("waiting-undo-clear")
+        }
+        .foregroundColor(Color("Ink"))
+        .font(.subheadline.weight(.semibold))
+        .padding(.leading, 16)
+        .padding(.trailing, 14)
+        .padding(.vertical, 2)
+        .background(Capsule().fill(Color("BrandFill")).padding(.vertical, 2))
+        .accessibilityElement(children: .contain)
+        .onAppear { UIAccessibility.post(notification: .announcement, argument: text) }
     }
 }

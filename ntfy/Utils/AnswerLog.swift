@@ -47,6 +47,9 @@ struct AnswerEntry: Codable, Equatable {
     var ok: Bool
     /// The message id answered. Nil in entries from before 1.26's fix round, which apply to any version.
     var messageId: String?
+    /// Not made here: an answer seen on the question's topic, which this install can't attribute to
+    /// the person. Shown as "Answered", never "You answered".
+    var seen: Bool? = nil
 
     func applies(to key: AnswerKey) -> Bool {
         messageId == nil || key.version == nil || messageId == key.version
@@ -98,18 +101,24 @@ final class AnswerLog: ObservableObject {
         onMain { self.sending[key.id] = actionId }
     }
 
-    /// A failure never replaces an earlier success on the same version: the agent already has that answer.
-    func record(_ key: AnswerKey, _ entry: AnswerEntry) {
+    /// On an agent's question a failure never replaces an earlier success on the same version: the
+    /// agent already has that answer. A `repeatable` button (any message that isn't an agent's
+    /// question: "Toggle light", "Restart service") runs every time it is pressed, so its latest
+    /// press is the one that counts, failed or not.
+    func record(_ key: AnswerKey, _ entry: AnswerEntry, repeatable: Bool = false) {
         var entry = entry
         if entry.messageId == nil { entry.messageId = key.version }
         onMain {
             self.sending[key.id] = nil
-            if let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
+            if !repeatable, let existing = self.entries[key.id], existing.ok, !entry.ok, existing.applies(to: key) { return }
             self.entries[key.id] = entry
             self.save()
-            // The button shows its check for a moment; then the views redraw to the receipt.
+            // An answered agent question is one of the moments the review question may follow.
+            if !repeatable && entry.ok && entry.kind != .dismissed { ReviewPrompt.shared.noteGoodMoment() }
+            // The button shows its check for a moment; then the views redraw: to the answered state
+            // on a question, back to the buttons on any other message.
             if entry.ok && entry.kind != .dismissed {
-                DispatchQueue.main.asyncAfter(deadline: .now() + AnswerState.sentHold + 0.05) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + AnswerState.hold(locks: !repeatable) + 0.05) { [weak self] in
                     self?.objectWillChange.send()
                 }
             }
@@ -118,6 +127,36 @@ final class AnswerLog: ObservableObject {
 
     func dismiss(_ key: AnswerKey, now: Date = Date()) {
         record(key, AnswerEntry(kind: .dismissed, label: "", text: nil, at: now, ok: true))
+    }
+
+    /// "Clear all" in Waiting on you: every listed question is marked "Not needed" at once, on this
+    /// device. Returns what each key held before, so Undo can put it back. Main thread only.
+    @discardableResult
+    func dismissAll(_ keys: [AnswerKey], now: Date = Date()) -> AnswerLog.Cleared {
+        dispatchPrecondition(condition: .onQueue(.main))
+        var previous: [String: AnswerEntry?] = [:]
+        for key in keys where previous[key.id] == nil {
+            previous[key.id] = .some(entries[key.id])
+            entries[key.id] = AnswerEntry(kind: .dismissed, label: "", text: nil, at: now, ok: true, messageId: key.version)
+        }
+        if !previous.isEmpty { save() }
+        return Cleared(previous: previous, at: now)
+    }
+
+    /// Undo of a "Clear all": each key gets back what it held, unless it was answered since.
+    func restore(_ cleared: AnswerLog.Cleared) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        for (id, before) in cleared.previous {
+            guard let current = entries[id], current.kind == .dismissed, current.at == cleared.at else { continue }
+            entries[id] = before
+        }
+        save()
+    }
+
+    struct Cleared: Equatable {
+        let previous: [String: AnswerEntry?]
+        let at: Date
+        var count: Int { previous.count }
     }
 
     /// How long an answer is kept: 90 days.
@@ -142,15 +181,29 @@ final class AnswerLog: ObservableObject {
     }
 }
 
-/// "Waiting on you" (DIRECTIONS 1.6): a question an agent is blocked on.
+extension AnswerLog {
+    /// The answer to this version of the question: one made here, else one seen on its topic, which
+    /// may have come from the person's other device. A failed or dismissed entry here gives way to
+    /// an answer seen since.
+    func entry(for key: AnswerKey?, seen acks: AckLog) -> AnswerEntry? {
+        let local = entry(for: key)
+        if let local, local.ok, local.kind != .dismissed { return local }
+        guard let key, let seen = acks.answer(forKey: key.id, version: key.version) else { return local }
+        return AnswerEntry(kind: seen.written ? .reply : .tap, label: seen.written ? "" : seen.label,
+                           text: seen.written ? seen.label : nil, at: Date(timeIntervalSince1970: TimeInterval(seen.time)),
+                           ok: true, messageId: seen.version, seen: true)
+    }
+}
+
+/// "Waiting on you" (DIRECTIONS 1.6): a question an agent is blocked on. Only an agent's question
+/// waits: tagged `agent` with an answer, or a typed (ask-v2) question, the same set that takes one
+/// answer. A plain message's buttons ("Toggle light") are not a question and stay under Activity.
 enum WaitingRule {
     static let maxAge: TimeInterval = 7 * 24 * 60 * 60
 
     /// `http` actions post back to the agent and the reply action carries typed text; `view` and
     /// `copy` actions are links and utilities, not answers.
-    static func isAnswer(_ action: Action) -> Bool {
-        action.action == "http" || BannerReply.destination(for: action) != nil
-    }
+    static func isAnswer(_ action: Action) -> Bool { AgentQuestion.isAnswerAction(action) }
 
     static func hasAnswerAction(_ actions: [Action]) -> Bool {
         actions.contains(where: isAnswer)
@@ -163,17 +216,21 @@ enum WaitingRule {
     /// from the person having looked at the question.
     /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
     /// An agent's ack on the question resolves it, however it was answered (ACK-SPEC).
-    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String] = [], acked: Bool = false, now: Date = Date()) -> Bool {
-        guard hasAnswerAction(actions), !acked, !tags.contains(where: ProtocolTag.isReply) else { return false }
+    /// A typed question past its deadline (`exp`) waits no longer; a withdrawn one is acked (SPEC 7).
+    static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String], acked: Bool = false,
+                          now: Date = Date()) -> Bool {
+        guard hasAnswerAction(actions), AgentQuestion.locksAfterAnswer(tags: tags, actions: actions), !acked,
+              !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
+        if AskSchema.detect(in: actions).schema?.isExpired(now: now) == true { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
     }
 
-    /// Urgent first, then high, then everything else; newest first within each.
-    static func precedes(priority lp: Int, time lt: Date, _ rp: Int, _ rt: Date) -> Bool {
-        let rank: (Int) -> Int = { $0 >= 5 ? 0 : $0 == 4 ? 1 : 2 }
-        return rank(lp) != rank(rp) ? rank(lp) < rank(rp) : lt > rt
+    /// Newest first, the same order as Activity. Priority doesn't rank: an urgent ask from days ago
+    /// sat above every newer one and read as shuffled (operator, 2026-11-21). Ids break a same-second tie.
+    static func precedes(time lt: Date, id li: String?, _ rt: Date, _ ri: String?) -> Bool {
+        lt != rt ? lt > rt : (li ?? "") > (ri ?? "")
     }
 }
 
@@ -189,8 +246,35 @@ enum AgentReply {
     /// The page offers the field: an `agent` question with answers, not marked `no-reply`, and no
     /// view-action reply (that one posts to its own target).
     static func offersField(tags: [String], actions: [Action]) -> Bool {
-        tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && WaitingRule.hasAnswerAction(actions)
+        if let schema = AskSchema.detect(in: actions).schema {
+            // A typed question: the schema's `reply` decides; its reply-v1 link is for older apps.
+            return tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && schema.reply != false
+        }
+        return tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && WaitingRule.hasAnswerAction(actions)
             && !actions.contains { BannerReply.destination(for: $0) != nil }
+    }
+
+    /// The tags of a typed answer: `re-<sequence>,ans` (SPEC 2).
+    static func answerTags(for key: AnswerKey) -> String { replyTags(for: key) + "," + ProtocolTag.answer }
+
+    /// Sends a typed answer to the question's own topic, priority 3, tagged `re-<seq>,ans`, and logs it
+    /// with `summary` (the answer in words) as the receipt's text.
+    @MainActor
+    static func sendAnswer(_ body: String, summary: String, written: Bool = false, to notification: Notification,
+                           store: Store = .shared, log: AnswerLog = .shared) {
+        guard !body.isEmpty, let subscription = notification.subscription,
+              let key = AnswerKey(notification: notification), !log.isSending(key),
+              // A page left open past the deadline still shows its controls until it redraws.
+              AskSchema.detect(in: notification.actionsList()).schema?.isExpired() != true else { return }
+        log.begin(key, actionId: "typed-answer")
+        TopicPublisher.send(subscription: subscription, store: store, message: body, title: "", priority: 3,
+                            tags: answerTags(for: key)) { result in
+            let ok: Bool
+            if case .success = result { ok = true } else { ok = false }
+            // A pick reads "You answered Production"; written text and forms read "You replied".
+            log.record(key, written ? AnswerEntry(kind: .reply, label: "", text: summary, at: Date(), ok: ok)
+                                    : AnswerEntry(kind: .tap, label: summary, text: nil, at: Date(), ok: ok))
+        }
     }
 
     /// The tags a typed answer to the question at `key` carries: exactly `re-<sequence>`, where the
@@ -245,11 +329,12 @@ extension Store {
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
             let key = AnswerKey(notification: row)
-            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key),
+            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key, seen: acks),
                                          tags: parseAllTags(row.tags),
-                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false, now: now)
+                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false,
+                                         now: now)
         }
-        .sorted { WaitingRule.precedes(priority: Int($0.priority), time: $0.date(), Int($1.priority), $1.date()) }
+        .sorted { WaitingRule.precedes(time: $0.date(), id: $0.id, $1.date(), $1.id) }
     }
 }
 
@@ -319,16 +404,49 @@ final class WaitingObservable: ObservableObject {
         log.dismiss(key)
         refresh()
     }
+
+    /// The last "Clear all", while its Undo is offered.
+    @Published private(set) var lastClear: AnswerLog.Cleared?
+    private var undoExpiry: DispatchWorkItem?
+    /// How long Undo stays on screen.
+    static let undoWindow: TimeInterval = 6
+
+    /// "Clear all": every question now listed leaves the queue and the tab badge, on this device
+    /// (as "Not needed"; the messages stay in their topic and in Activity, buttons live). A question
+    /// that arrives afterwards, or a new version of a cleared one, waits as normal.
+    func clearAll(now: Date = Date()) {
+        let keys = notifications.compactMap { AnswerKey(notification: $0) }
+        guard !keys.isEmpty else { return }
+        let cleared = log.dismissAll(keys, now: now)
+        refresh()
+        lastClear = cleared
+        undoExpiry?.cancel()
+        let expiry = DispatchWorkItem { [weak self] in
+            if self?.lastClear == cleared { self?.lastClear = nil }
+        }
+        undoExpiry = expiry
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.undoWindow, execute: expiry)
+    }
+
+    /// Undo of the last "Clear all".
+    func undoClear() {
+        guard let cleared = lastClear else { return }
+        undoExpiry?.cancel()
+        lastClear = nil
+        log.restore(cleared)
+        refresh()
+    }
 }
 
 extension AgentAck {
     /// With "Show agent confirmations" off, an ack the extension had to deliver (it can't drop a
-    /// push without Apple's filtering entitlement) leaves Notification Center once the app runs.
+    /// push without Apple's filtering entitlement) leaves Notification Center once the app runs. So
+    /// does the receipt for the person's own answer, whatever the setting.
     static func removeDeliveredReceiptsIfHidden(center: UNUserNotificationCenter = .current(),
                                                 shows: Bool = AgentAck.showsConfirmations()) {
-        guard !shows else { return }
         center.getDeliveredNotifications { delivered in
-            let ids = delivered.filter { isReceipt($0.request.content.userInfo) }.map(\.request.identifier)
+            let ids = delivered.filter { (!shows && isReceipt($0.request.content.userInfo))
+                || isAnswerReceipt($0.request.content.userInfo) }.map(\.request.identifier)
             if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
         }
     }
@@ -341,5 +459,10 @@ extension AgentAck {
 
     static func isReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
         isAck(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ","))
+    }
+
+    /// The passive receipt the extension delivers for the person's own answer (`ans`, `re-<sequence>`).
+    static func isAnswerReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
+        AnswerMessage.answeredSequence(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ",")) != nil
     }
 }
