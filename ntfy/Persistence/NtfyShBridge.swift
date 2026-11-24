@@ -41,15 +41,57 @@ struct BridgeWatchSet: Equatable {
     var held: [Entry] = []
     /// ntfy.sh topics (with a login saved) that need an anonymous access check before they can be sent.
     var needsProbe: [String] = []
+    /// Self-hosted servers the user let the app's server watch directly (1.31, CONTRACT-131), each
+    /// with the topics an anonymous check found anyone can read. Sorted by address, topics sorted.
+    var servers: [DirectServer] = []
+    /// Topics on a server being watched directly, or offered to be, that aren't in `servers`, and why.
+    var directHeld: [DirectEntry] = []
+    /// Topics on those servers whose anonymous access check is due, oldest evidence first.
+    var needsDirectProbe: [DirectEntry] = []
+
+    struct DirectServer: Equatable {
+        let baseUrl: String
+        var topics: [String]
+    }
+
+    struct DirectEntry: Equatable {
+        let server: String
+        let topic: String
+        let hold: DirectWatch.Hold?
+    }
 
     var skipped: Int { held.count }
 
     static let empty = BridgeWatchSet()
 
-    var isEmpty: Bool { ntfyShTopics.isEmpty && hashes.isEmpty }
+    var isEmpty: Bool { ntfyShTopics.isEmpty && hashes.isEmpty && servers.isEmpty }
 
-    /// Compared against the last set the server accepted; a difference means re-register.
-    var signature: String { "t:" + ntfyShTopics.joined(separator: ",") + "|h:" + hashes.joined(separator: ",") }
+    /// Compared against the last set the server accepted; a difference means re-register. Direct
+    /// entries are appended only when there are some, so a 1.30 signature reads the same in 1.31.
+    var signature: String {
+        "t:" + ntfyShTopics.joined(separator: ",") + "|h:" + hashes.joined(separator: ",")
+            + (servers.isEmpty ? "" : "|s:" + Self.directMembers(servers).sorted().joined(separator: ","))
+    }
+
+    /// One id per directly watched topic: the hash of its address, as for `hashes`.
+    static func directMembers(_ servers: [DirectServer]) -> [String] {
+        servers.flatMap { server in server.topics.map { topicHash(baseUrl: server.baseUrl, topic: $0) } }
+    }
+
+    /// The direct hold for one subscription on a server being watched or offered, if any.
+    func directHold(server: String, topic: String) -> DirectWatch.Hold? {
+        directHeld.first { $0.server == server && $0.topic == topic }?.hold
+    }
+
+    /// What of this set the server already holds (`accepted` members): for a removal-only list.
+    func keeping(_ accepted: Set<String>) -> BridgeWatchSet {
+        BridgeWatchSet(ntfyShTopics: ntfyShTopics.filter { accepted.contains("t:" + $0) },
+                       hashes: hashes.filter { accepted.contains("h:" + $0) },
+                       servers: servers.compactMap { server in
+                           let topics = server.topics.filter { accepted.contains("s:" + topicHash(baseUrl: server.baseUrl, topic: $0)) }
+                           return topics.isEmpty ? nil : DirectServer(baseUrl: server.baseUrl, topics: topics)
+                       })
+    }
 
     static func isValidNtfyShTopic(_ topic: String) -> Bool {
         topic.range(of: #"^[-_A-Za-z0-9]{1,64}$"#, options: .regularExpression) != nil
@@ -82,8 +124,12 @@ struct BridgeWatchSet: Equatable {
     /// and `barrier` the latest one whose names aren't known (it covers every name).
     static func compute(subscriptions: [(baseUrl: String, topic: String, hasLogin: Bool)],
                         access: [String: NtfyShAccess] = [:], barrier: Date? = nil, barriers: [String: Date] = [:],
-                        now: Date = Date(), appBaseUrl: String = Config.appBaseUrl) -> BridgeWatchSet {
+                        now: Date = Date(), appBaseUrl: String = Config.appBaseUrl,
+                        direct: Set<String> = []) -> BridgeWatchSet {
         let appServer = normalizeBaseUrl(appBaseUrl)
+        var directTopics: [String: Set<String>] = [:]
+        var directHeld: [DirectEntry] = []
+        var directProbes: [DirectEntry] = []
         var topics = Set<String>()
         var hashes: [String: (baseUrl: String, topic: String)] = [:]
         var topicOwners: [String: [(baseUrl: String, topic: String)]] = [:]
@@ -141,6 +187,43 @@ struct BridgeWatchSet: Equatable {
                 continue
             }
             hashes[topicHash(baseUrl: server, topic: topic)] = (baseUrl, topic)
+            // Direct watch (1.31): only servers the user turned on are checked or sent.
+            guard direct.contains(server) else { continue }
+            switch DirectWatch.address(server) {
+            case .notSelfHosted: continue
+            case .localOnly: directHeld.append(DirectEntry(server: server, topic: topic, hold: .localOnly)); continue
+            case .unsupported: directHeld.append(DirectEntry(server: server, topic: topic, hold: .unsupported)); continue
+            case .watchable: break
+            }
+            guard isValidNtfyShTopic(topic) else {
+                directHeld.append(DirectEntry(server: server, topic: topic, hold: .invalidName)); continue
+            }
+            // Answers share the ntfy.sh ledger under "<server> <topic>", which no ntfy.sh name can spell.
+            let answer = access[DirectWatch.accessKey(server: server, topic: topic)]
+            let mayCheck = answer?.mayCheck(now: now) ?? true
+            let age = answer.map { now.timeIntervalSince($0.checked) } ?? .infinity
+            switch answer?.state {
+            case .open? where age >= 0 && age < NtfyShAccess.sendableOpenAge:
+                // As for ntfy.sh: a 200 is sent 36 hours and rechecked from 24.
+                if age >= NtfyShAccess.recheckOpenAge, mayCheck { directProbes.append(DirectEntry(server: server, topic: topic, hold: nil)) }
+                directTopics[server, default: []].insert(topic)
+            case .protected?, .refused?:
+                if answer?.current(now: now) == nil, mayCheck { directProbes.append(DirectEntry(server: server, topic: topic, hold: nil)) }
+                directHeld.append(DirectEntry(server: server, topic: topic, hold: answer?.state == .refused ? .refused : .needsLogin))
+            default:
+                if mayCheck { directProbes.append(DirectEntry(server: server, topic: topic, hold: nil)) }
+                directHeld.append(DirectEntry(server: server, topic: topic, hold: .checking))
+            }
+        }
+        // The contract's per-device limits: servers by address, topics by name.
+        var servers: [DirectServer] = []
+        for (index, server) in directTopics.keys.sorted().enumerated() {
+            let topics = (directTopics[server] ?? []).sorted()
+            guard index < DirectWatch.maxServers else {
+                directHeld += topics.map { DirectEntry(server: server, topic: $0, hold: .overCap) }; continue
+            }
+            servers.append(DirectServer(baseUrl: server, topics: Array(topics.prefix(DirectWatch.maxTopicsPerServer))))
+            directHeld += topics.dropFirst(DirectWatch.maxTopicsPerServer).map { DirectEntry(server: server, topic: $0, hold: .overCap) }
         }
         let sortedTopics = topics.sorted()
         let sortedHashes = hashes.keys.sorted()
@@ -153,17 +236,260 @@ struct BridgeWatchSet: Equatable {
         return BridgeWatchSet(ntfyShTopics: Array(sortedTopics.prefix(maxEntries)),
                               hashes: Array(sortedHashes.prefix(maxEntries)), held: held,
                               // Oldest evidence first, so a capped round reaches every name in turn.
-                              needsProbe: probe.sorted { (access[$0]?.evidenceAt ?? .distantPast, $0) < (access[$1]?.evidenceAt ?? .distantPast, $1) })
+                              needsProbe: probe.sorted { (access[$0]?.evidenceAt ?? .distantPast, $0) < (access[$1]?.evidenceAt ?? .distantPast, $1) },
+                              servers: servers, directHeld: directHeld,
+                              needsDirectProbe: directProbes.sorted {
+                                  let a = access[DirectWatch.accessKey(server: $0.server, topic: $0.topic)]?.evidenceAt ?? .distantPast
+                                  let b = access[DirectWatch.accessKey(server: $1.server, topic: $1.topic)]?.evidenceAt ?? .distantPast
+                                  return (a, $0.server, $0.topic) < (b, $1.server, $1.topic)
+                              })
     }
 }
 
 extension BridgeWatchSet {
     /// "t:<name>" for each ntfy.sh topic and "h:<hash>" for each hash in a set's `signature`.
+    /// "s:<hash>" for each directly watched topic (1.31).
     static func members(signature: String?) -> Set<String> {
         guard let signature, signature.hasPrefix("t:"), let bar = signature.range(of: "|h:") else { return [] }
         let topics = signature[signature.index(signature.startIndex, offsetBy: 2)..<bar.lowerBound]
-        let hashes = signature[bar.upperBound...]
-        return Set(topics.split(separator: ",").map { "t:" + $0 } + hashes.split(separator: ",").map { "h:" + $0 })
+        let direct = signature.range(of: "|s:", range: bar.upperBound..<signature.endIndex)
+        let hashes = signature[bar.upperBound..<(direct?.lowerBound ?? signature.endIndex)]
+        let servers = direct.map { signature[$0.upperBound...] } ?? ""
+        // Built in steps: as one expression it exceeds the type checker's time limit on slower machines (CI).
+        var members = Set<String>()
+        for topic in topics.split(separator: ",") { members.insert("t:" + topic) }
+        for hash in hashes.split(separator: ",") { members.insert("h:" + hash) }
+        for server in servers.split(separator: ",") { members.insert("s:" + server) }
+        return members
+    }
+}
+
+/// Direct server watch (1.31, CONTRACT-131; operator 2026-11-23: "Build it, opt-in, for 1.31").
+/// For a self-hosted server that sends no wake-ups, the user can let the app's own server connect
+/// to it and listen on its public topics: it publishes the same poll_request on
+/// `topicHash(base, topic)` a working upstream relay would. Off by default, per server, offered
+/// only in Notification status under a server diagnosed as sending no wake-ups, and switched in
+/// that server's Advanced settings. Only topics an anonymous `GET <base>/<topic>/auth` said anyone
+/// can read are sent, and never a credential.
+enum DirectWatch {
+    /// App-group defaults: the servers (as `normalizeBaseUrl` gives them) the user turned on.
+    static let settingKey = "ntfaiDirectWatchServers"
+    /// The contract's starting per-device limits.
+    static let maxServers = 3
+    static let maxTopicsPerServer = 20
+    /// Access checks per sync on these servers, on top of the ntfy.sh ones.
+    static let maxProbesPerSync = 5
+
+    /// Why a topic on such a server isn't watched directly.
+    enum Hold: String, Codable, Equatable {
+        /// An anonymous check (or the server's status) said it needs a login.
+        case needsLogin
+        /// The app's server couldn't watch it, for a reason it doesn't give.
+        case refused
+        /// Not checked yet, or the last check failed.
+        case checking
+        /// A local network address: the app's server can't reach it from the internet.
+        case localOnly
+        /// An address the app's server doesn't dial (a port below 1024 other than 80 and 443, or
+        /// an address whose spelling differs from the one the wake-up is named by).
+        case unsupported
+        case invalidName
+        case overCap
+    }
+
+    enum Address: Equatable {
+        /// The contract's `base_url`.
+        case watchable(String)
+        case localOnly
+        case unsupported
+        /// ntfy.sh or the app's own server, under any spelling: they have their own lists.
+        case notSelfHosted
+    }
+
+    /// The `base_url` for a server, which must be exactly the address its wake-ups are named by
+    /// (`topicHash`) and one the app's server accepts. One `base_url` it refuses fails the whole
+    /// watch POST with a 400 (review-131 F1), so this mirrors the server's own rule
+    /// (`ntfyMeDirectValidBase` and `ntfyMeDirectPublicIP`, server/ntfy-me/ntfyme-direct-watch.go
+    /// and ntfyme-direct-transport.go) and errs only on the strict side: anything it can't be sure
+    /// of is `.unsupported`, which the screen shows as "can't be watched" instead of a switch.
+    static func address(_ baseUrl: String) -> Address {
+        let server = normalizeBaseUrl(baseUrl)
+        let host = URLComponents(string: server)?.host?.lowercased()
+            ?? Base(server)?.host ?? ""
+        if HostedServer.isOwnHost(server) || host == "ntfy.sh" || host == "www.ntfy.sh" { return .notSelfHosted }
+        let base = Base(server)
+        let bare = (base?.host ?? host).trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if LocalNetworkHint.isLocalHost(server) || Base.localSuffixes.contains(where: { bare == $0 || bare.hasSuffix("." + $0) })
+            || Base.ipClass(bare) == .local { return .localOnly }
+        guard let base, base.accepted else { return .unsupported }
+        return .watchable(server)
+    }
+
+    /// A `base_url` taken apart the way the server's Go `net/url` check sees it, on the strict side.
+    struct Base {
+        let host: String
+        let accepted: Bool
+
+        /// The server's limit on a `base_url` (`ntfyMeDirectURLLimit`).
+        static let maxLength = 512
+        /// Host suffixes the server refuses (`ntfyMeDirectValidHost`); the first four name a local network.
+        static let localSuffixes = ["localhost", "local", "internal", "home.arpa"]
+        static let refusedSuffixes = ["ntfy.sh", "ntfy-me.com", "ntf-ai.app", "notf.app", "getnotf.com", "ntfai.app", "railway.app"]
+
+        init?(_ base: String) {
+            // Printable ASCII only: Go re-encodes anything else, so its round trip wouldn't match.
+            guard base.unicodeScalars.allSatisfy({ (0x21...0x7e).contains($0.value) }) else { return nil }
+            let scheme: String
+            if base.hasPrefix("https://") { scheme = "https://" } else if base.hasPrefix("http://") { scheme = "http://" } else { return nil }
+            let rest = base.dropFirst(scheme.count)
+            let slash = rest.firstIndex(of: "/") ?? rest.endIndex
+            let authority = String(rest[..<slash])
+            let path = String(rest[slash...])
+            var host = authority
+            var port: String?
+            if authority.hasPrefix("[") {
+                guard let close = authority.firstIndex(of: "]") else { return nil }
+                host = String(authority[authority.index(after: authority.startIndex)..<close])
+                let after = authority[authority.index(after: close)...]
+                if !after.isEmpty {
+                    guard after.hasPrefix(":") else { return nil }
+                    port = String(after.dropFirst())
+                }
+            } else if let colon = authority.lastIndex(of: ":") {
+                host = String(authority[..<colon])
+                port = String(authority[authority.index(after: colon)...])
+            }
+            self.host = host
+            accepted = base.utf8.count <= Self.maxLength
+                && !base.contains(where: { "?#\\@".contains($0) }) && !base.hasSuffix("/")
+                && Self.validHost(host, bracketed: authority.hasPrefix("["))
+                && (port.map(Self.validPort) ?? true)
+                && Self.validPath(path)
+        }
+
+        /// 80, 443 or 1024–65535, written the canonical way (no sign, no leading zero, not empty).
+        static func validPort(_ port: String) -> Bool {
+            guard !port.isEmpty, port.allSatisfy({ $0.isASCII && $0.isNumber }), let n = Int(port), String(n) == port else { return false }
+            return n == 80 || n == 443 || (1024...65535).contains(n)
+        }
+
+        /// Segments of unreserved characters and the sub-delimiters Go leaves as written; no
+        /// percent escapes, no empty, "." or ".." segment.
+        static func validPath(_ path: String) -> Bool {
+            guard !path.isEmpty else { return true }
+            let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:")
+            return path.split(separator: "/", omittingEmptySubsequences: false).dropFirst().allSatisfy { segment in
+                !segment.isEmpty && segment != "." && segment != ".." && segment.allSatisfy(allowed.contains)
+            }
+        }
+
+        static func validHost(_ host: String, bracketed: Bool) -> Bool {
+            guard !host.isEmpty, host == host.lowercased(), host.count <= 253, !host.contains("%") else { return false }
+            if bracketed { return host.contains(":") && ipClass(host) == .public }
+            if let ip = ipClass(host) { return ip == .public }
+            guard !host.contains(":") else { return false }
+            let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+            guard labels.count >= 2, labels.allSatisfy(validLabel),
+                  labels.last?.contains(where: { $0.isLetter }) == true else { return false }
+            return !(refusedSuffixes + localSuffixes).contains { host == $0 || host.hasSuffix("." + $0) }
+        }
+
+        /// `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`
+        static func validLabel(_ label: Substring) -> Bool {
+            let chars = Set("abcdefghijklmnopqrstuvwxyz0123456789-")
+            return (1...63).contains(label.count) && label.allSatisfy(chars.contains) && label.first != "-" && label.last != "-"
+        }
+
+        enum IPClass: Equatable {
+            /// A public Internet address the server dials.
+            case `public`
+            /// Loopback, private, link-local, CGNAT or unique-local: on the user's own network.
+            case local
+            /// Any other range the server refuses (documentation, benchmarking, reserved, multicast...).
+            case special
+        }
+
+        /// nil when `host` isn't an IP literal as Go's `netip.ParseAddr` reads one.
+        static func ipClass(_ host: String) -> IPClass? {
+            if let v4 = ipv4(host) { return classify(v4) }
+            guard host.contains(":") else { return nil }
+            var addr = in6_addr()
+            guard inet_pton(AF_INET6, host, &addr) == 1 else { return nil }
+            let b = withUnsafeBytes(of: addr) { Array($0) }
+            // ::ffff:a.b.c.d is read as the IPv4 address (Go's Unmap).
+            if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xff && b[11] == 0xff { return classify(Array(b[12..<16])) }
+            if b[0..<15].allSatisfy({ $0 == 0 }) && b[15] == 1 { return .local }               // ::1
+            if b[0] == 0xfe && b[1] & 0xc0 == 0x80 { return .local }                            // fe80::/10
+            if b[0] & 0xfe == 0xfc { return .local }                                            // fc00::/7
+            guard b[0] & 0xe0 == 0x20 else { return .special }                                  // outside 2000::/3
+            let word = UInt16(b[0]) << 8 | UInt16(b[1])
+            if word == 0x2001 && b[2] < 0x02 { return .special }                                // 2001::/23
+            if word == 0x2001 && b[2] == 0x0d && b[3] == 0xb8 { return .special }               // 2001:db8::/32
+            if word == 0x2002 { return .special }                                               // 2002::/16
+            if word == 0x3fff && b[2] & 0xf0 == 0 { return .special }                           // 3fff::/20
+            return .public
+        }
+
+        /// Four decimal octets, no leading zeros, as `netip.ParseAddr` accepts them.
+        static func ipv4(_ host: String) -> [UInt8]? {
+            let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+            guard parts.count == 4 else { return nil }
+            var bytes: [UInt8] = []
+            for part in parts {
+                guard (1...3).contains(part.count), part.allSatisfy({ $0.isASCII && $0.isNumber }),
+                      part == "0" || part.first != "0", let n = UInt8(part) else { return nil }
+                bytes.append(n)
+            }
+            return bytes
+        }
+
+        static func classify(_ b: [UInt8]) -> IPClass {
+            switch (b[0], b[1]) {
+            case (127, _), (10, _), (192, 168), (169, 254): return .local
+            case (172, 16...31), (100, 64...127): return .local
+            default: break
+            }
+            if b[0] == 0 || b[0] >= 224 { return .special }                                     // 0/8, multicast, 240/4, broadcast
+            if b == [168, 63, 129, 16] { return .special }
+            switch (b[0], b[1], b[2]) {
+            case (192, 0, 0), (192, 0, 2), (192, 88, 99), (198, 51, 100), (203, 0, 113): return .special
+            case (198, 18...19, _): return .special
+            default: return .public
+            }
+        }
+    }
+
+    static func accessKey(server: String, topic: String) -> String { server + " " + topic }
+
+    /// App-group defaults: servers whose `base_url` the app's server answered 400 to, with the app
+    /// build that sent it. A later build may agree with the server again, so it ignores them.
+    static let refusedKey = "ntfaiDirectWatchRefused"
+
+    static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
+
+    /// Servers this build had refused by the app's server.
+    static func refused(_ defaults: UserDefaults, build: String = DirectWatch.build) -> Set<String> {
+        let all = defaults.dictionary(forKey: refusedKey) as? [String: String] ?? [:]
+        return Set(all.filter { $0.value == build }.keys)
+    }
+
+    /// The server and topic of an `accessKey`; nil for an ntfy.sh name.
+    static func parseKey(_ key: String) -> (server: String, topic: String)? {
+        guard let space = key.lastIndex(of: " ") else { return nil }
+        return (String(key[..<space]), String(key[key.index(after: space)...]))
+    }
+
+    /// The servers the user turned on, as stored.
+    static func servers(_ defaults: UserDefaults) -> Set<String> {
+        Set(defaults.stringArray(forKey: settingKey) ?? [])
+    }
+
+    /// What the status read reported for one server (`GET /v1/ntfai/watch` `servers`).
+    struct ServerStatus: Codable, Equatable {
+        /// "connected", "pending" or "unreachable".
+        var state: String
+        /// Topic to reason: "needs_login" or "refused".
+        var unwatchable: [String: String]
     }
 }
 
@@ -326,6 +652,8 @@ struct BridgeRecord: Codable, Equatable {
     var statusAt: Date?
     /// The registration revision that status read was for.
     var statusRevision: Int?
+    /// Direct server watch (1.31): what that status read said about each server, by `base_url`.
+    var directStatus: [String: DirectWatch.ServerStatus]?
     /// The server's per-network watch admission limit (429 code 42912) holds new entries until then;
     /// a removal or an empty list still goes out.
     var admissionBlockedUntil: Date?
@@ -714,6 +1042,80 @@ final class NtfyShBridge: ObservableObject {
 
     var isEnabled: Bool { defaults.object(forKey: Self.enabledKey) as? Bool ?? true }
 
+    // MARK: Direct server watch (1.31)
+
+    /// The self-hosted servers the user let the app's server watch directly. A stored opt-in for an
+    /// address the app's server doesn't accept counts as off (review-131 F1): it is never sent.
+    var directServers: Set<String> {
+        let refused = DirectWatch.refused(defaults)
+        return DirectWatch.servers(defaults).filter { server in
+            guard !refused.contains(server), case .watchable = DirectWatch.address(server) else { return false }
+            return true
+        }
+    }
+
+    /// `DirectWatch.address`, and `.unsupported` for a server the app's server refused for this build.
+    func directAddress(_ baseUrl: String) -> DirectWatch.Address {
+        let address = DirectWatch.address(baseUrl)
+        if case .watchable(let server) = address, DirectWatch.refused(defaults).contains(server) { return .unsupported }
+        return address
+    }
+
+    func isDirectWatched(_ baseUrl: String) -> Bool { directServers.contains(normalizeBaseUrl(baseUrl)) }
+
+    /// Turns the direct watch of one server on or off and sends the list that follows. Only a
+    /// self-hosted address can be turned on; ntfy.sh and the app's own server never are.
+    func setDirectWatch(_ baseUrl: String, on: Bool) {
+        let server = normalizeBaseUrl(baseUrl)
+        var servers = directServers
+        if on {
+            guard server != normalizeBaseUrl(appBaseUrl), case .watchable = directAddress(server) else { return }
+            servers.insert(server)
+        } else {
+            servers.remove(server)
+        }
+        defaults.set(servers.sorted(), forKey: DirectWatch.settingKey)
+        BridgeStateSignal.announce()
+        // The user's own action: once the list is accepted, ask how the watch is doing until the
+        // server says, so the screen moves past "Connecting…" by itself (device check g2, build 67).
+        sync(reason: on ? "direct watch turned on" : "direct watch turned off", userInitiated: true) {
+            if on { self.followDirectStatus() }
+        }
+    }
+
+    /// A server with no subscription left (unsubscribed or deleted) loses its opt-in, so adding it
+    /// again starts from off; its topics already left the list with their rows.
+    /// An opt-in for an address that can't be watched (see `directServers`) is dropped too.
+    private func pruneDirectWatch(_ rows: [(baseUrl: String, topic: String, hasLogin: Bool)]) {
+        let stored = DirectWatch.servers(defaults)
+        guard !stored.isEmpty else { return }
+        let kept = directServers.intersection(rows.map { normalizeBaseUrl($0.baseUrl) })
+        if kept != stored { defaults.set(kept.sorted(), forKey: DirectWatch.settingKey) }
+    }
+
+    /// A 400 that names the servers (review-131 F1): the app's server refused a `base_url` this
+    /// build thought it accepts, and that refusal sank the whole list (ntfy.sh names and hashes
+    /// too). The servers this list added are the ones it can be about (a `base_url` it accepted
+    /// before is valid); when it added none, every server it carried. Those are recorded as
+    /// refused for this build and their opt-in dropped, so they show as "can't be watched", and
+    /// the list goes again without them once, at once.
+    /// - Returns: true when something was refused, so the caller sends the list again.
+    func refuseDirectServers(sent: BridgeWatchSet, accepted: Set<String>) -> Bool {
+        let added = sent.servers.filter { server in
+            !server.topics.contains { accepted.contains("s:" + topicHash(baseUrl: server.baseUrl, topic: $0)) }
+        }
+        let refused = Set((added.isEmpty ? sent.servers : added).map(\.baseUrl))
+        guard !refused.isEmpty else { return false }
+        var ledger = (defaults.dictionary(forKey: DirectWatch.refusedKey) as? [String: String] ?? [:])
+            .filter { $0.value == DirectWatch.build }
+        for server in refused { ledger[server] = DirectWatch.build }
+        defaults.set(ledger, forKey: DirectWatch.refusedKey)
+        defaults.set(DirectWatch.servers(defaults).subtracting(refused).sorted(), forKey: DirectWatch.settingKey)
+        Log.w(Self.tag, "The server refused \(refused.count) server address(es) for direct watch; sending the list without them")
+        BridgeStateSignal.announce()
+        return true
+    }
+
     func setEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: Self.enabledKey)
         // Committed after the setting, so a sync that sees the new generation also sees the new
@@ -783,7 +1185,7 @@ final class NtfyShBridge: ObservableObject {
         let barriers = ledger?.barriers(excludingRun: run)
         return BridgeWatchSet.compute(subscriptions: rows, access: access,
                                       barrier: ledger == nil ? .distantFuture : barriers?.all, barriers: barriers?.names ?? [:],
-                                      now: now(), appBaseUrl: appBaseUrl)
+                                      now: now(), appBaseUrl: appBaseUrl, direct: directServers)
     }
 
     /// Every subscription's stored address and topic, and whether a credential may be saved for
@@ -966,11 +1368,19 @@ final class NtfyShBridge: ObservableObject {
             }
             let topic = queue.removeFirst()
             guard let rows = readRows() else { completion(true); return }
-            guard rows.contains(where: { NtfyShAddress.isNtfySh(normalizeBaseUrl($0.baseUrl)) && $0.topic == topic }) else {
+            // A direct-watch key ("<server> <topic>", 1.31) is checked on its own server, and only
+            // while the user still has it turned on.
+            let target = DirectWatch.parseKey(topic)
+            let present = target.map { target in
+                directServers.contains(target.server)
+                    && rows.contains { normalizeBaseUrl($0.baseUrl) == target.server && $0.topic == target.topic }
+            } ?? rows.contains(where: { NtfyShAddress.isNtfySh(normalizeBaseUrl($0.baseUrl)) && $0.topic == topic })
+            guard present else {
                 Log.d(Self.tag, "Access checks: a topic was removed during the round; not checked")
                 next(); return
             }
-            guard let url = URL(string: NtfyShAddress.canonical + "/" + topic + "/auth") else { next(); return }
+            let base = target?.server ?? NtfyShAddress.canonical
+            guard let url = URL(string: base + "/" + (target?.topic ?? topic) + "/auth") else { next(); return }
             // The answer is as old as the request: a refusal reported for a later request is newer.
             let started = now()
             // Until a fresh answer lands, this name's earlier 200 can't be reused, even after a kill.
@@ -997,6 +1407,13 @@ final class NtfyShBridge: ObservableObject {
                 let http = response as? HTTPURLResponse
                 let status = error == nil ? http?.statusCode : nil
                 Log.d(Self.tag, "Access check: HTTP \(status.map(String.init) ?? "none")")
+                if status == 429, target != nil {
+                    // The user's own server is busy: a failed check, and no pause for ntfy.sh's.
+                    guard self.commitEvidence([topic: NtfyShAccess(state: .unknown, checked: started)], clearing: nil) else {
+                        completion(false); return
+                    }
+                    next(); return
+                }
                 if status == 429 {
                     let delay = PollTiming.retryDelay(http?.value(forHTTPHeaderField: "Retry-After"), now: self.now(), cap: 24 * 60 * 60)
                     let until = self.now().addingTimeInterval(max(delay ?? Self.probeBackoff, 1))
@@ -1122,6 +1539,7 @@ final class NtfyShBridge: ObservableObject {
         // Pick the names to check. Each is marked as being rechecked just before its own check
         // (`probe`, review-130d D10), so a name the wake never reaches keeps its standing.
         let rows = readRows()
+        if let rows { pruneDirectWatch(rows) }
         var plan: [String]?
         var shrinkFirst = false
         lock.withLock {
@@ -1133,13 +1551,22 @@ final class NtfyShBridge: ObservableObject {
             }
             let barriers = ledger.barriers(excludingRun: run)
             let set = BridgeWatchSet.compute(subscriptions: rows, access: Self.merge(ledger.answers, unsavedAnswers),
-                                             barrier: barriers.all, barriers: barriers.names, now: now(), appBaseUrl: appBaseUrl)
+                                             barrier: barriers.all, barriers: barriers.names, now: now(), appBaseUrl: appBaseUrl,
+                                             direct: directServers)
             // A removal already known goes out before the optional checks (review-130d D2). A name
             // held only until its check isn't known to go: the checks decide it.
+            // A directly watched topic whose 200 went stale is the same (review-131 F4): removing it
+            // before its recheck would drop it and add it back, losing the wakes in between.
             let awaitingCheck = Set(set.held.filter { $0.hold == .checkingAccess }.map { "t:" + $0.topic })
+                .union(set.directHeld.filter { $0.hold == .checking }.map { "s:" + topicHash(baseUrl: $0.server, topic: $0.topic) })
             shrinkFirst = recordFile.read().map { !$0.pendingRemovals(desired: set).subtracting(awaitingCheck).isEmpty } ?? false
-            if let until = ledger.probeNotBefore, until > now() { plan = []; return }
+            if let until = ledger.probeNotBefore, until > now() {
+                // ntfy.sh asked for a pause; the user's own servers are not ntfy.sh.
+                plan = set.needsDirectProbe.prefix(DirectWatch.maxProbesPerSync).map { DirectWatch.accessKey(server: $0.server, topic: $0.topic) }
+                return
+            }
             plan = Array(set.needsProbe.prefix(Self.maxProbesPerSync))
+                + set.needsDirectProbe.prefix(DirectWatch.maxProbesPerSync).map { DirectWatch.accessKey(server: $0.server, topic: $0.topic) }
         }
         guard let plan else {
             Log.w(Self.tag, "sync(\(reason)): couldn't read the subscriptions or the access answers; sending no list this time")
@@ -1216,12 +1643,12 @@ final class NtfyShBridge: ObservableObject {
             let barriers = ledger?.barriers(excludingRun: run)
             var computed = enabled
                 ? BridgeWatchSet.compute(subscriptions: rows, access: Self.merge(ledger?.answers ?? [:], unsavedAnswers),
-                                         barrier: barriers?.all, barriers: barriers?.names ?? [:], now: now(), appBaseUrl: appBaseUrl)
+                                         barrier: barriers?.all, barriers: barriers?.names ?? [:], now: now(), appBaseUrl: appBaseUrl,
+                                         direct: directServers)
                 : .empty
             if shrinkOnly {
                 let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
-                computed = BridgeWatchSet(ntfyShTopics: computed.ntfyShTopics.filter { accepted.contains("t:" + $0) },
-                                          hashes: computed.hashes.filter { accepted.contains("h:" + $0) })
+                computed = computed.keeping(accepted)
                 guard !record.pendingRemovals(desired: computed).isEmpty else { note = "no removal pending"; return }
             }
             let desired: BridgeWatchSet
@@ -1265,7 +1692,10 @@ final class NtfyShBridge: ObservableObject {
             if remaining.isFinite { request.timeoutInterval = min(15, remaining - 0.5) }
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
-            request.httpBody = Self.body(device: device, set: desired)
+            // `servers` goes only when there is something to say: absent leaves the server's list
+            // of them unchanged (and keeps the 1.30 body), `[]` removes the last (CONTRACT-131).
+            request.httpBody = Self.body(device: device, set: desired,
+                                         includeServers: !desired.servers.isEmpty || record.mayHold.contains { $0.hasPrefix("s:") })
             Log.i(Self.tag, "sync(\(reason)): registering \(desired.ntfyShTopics.count) ntfy.sh topic(s), "
                   + "\(desired.hashes.count) hash(es), \(computed.skipped) skipped")
             let once = Once()
@@ -1310,15 +1740,21 @@ final class NtfyShBridge: ObservableObject {
         return true
     }
 
-    static func body(device: String, set: BridgeWatchSet) -> Data? {
+    static func body(device: String, set: BridgeWatchSet, includeServers: Bool = false) -> Data? {
+        struct Server: Encodable {
+            let base_url: String
+            let topics: [String]
+        }
         struct Body: Encodable {
             let device: String
             let ntfy_sh_topics: [String]
             let hashes: [String]
+            let servers: [Server]?
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        return try? encoder.encode(Body(device: device, ntfy_sh_topics: set.ntfyShTopics, hashes: set.hashes))
+        let servers = includeServers ? set.servers.map { Server(base_url: $0.baseUrl, topics: $0.topics) } : nil
+        return try? encoder.encode(Body(device: device, ntfy_sh_topics: set.ntfyShTopics, hashes: set.hashes, servers: servers))
     }
 
     private enum Plan { case skip(String), send(BridgeWatchSet) }
@@ -1338,8 +1774,7 @@ final class NtfyShBridge: ObservableObject {
         // list, without the additions (review-130c C2).
         if let until = record.admissionBlockedUntil, until > now(),
            !BridgeWatchSet.members(signature: desired.signature).isSubset(of: accepted) {
-            let kept = BridgeWatchSet(ntfyShTopics: desired.ntfyShTopics.filter { accepted.contains("t:" + $0) },
-                                      hashes: desired.hashes.filter { accepted.contains("h:" + $0) })
+            let kept = desired.keeping(accepted)
             if BridgeWatchSet.members(signature: kept.signature) != accepted
                 || !record.mayHold.subtracting(BridgeWatchSet.members(signature: kept.signature)).isEmpty { return .send(kept) }
             return .skip("waiting until \(until) for watch admission (42912)")
@@ -1371,6 +1806,7 @@ final class NtfyShBridge: ObservableObject {
             NtfyMeHostCooldown.note(status: status, retryAfter: retryAfter, lock: lock, now: now())
         }
         var obsolete = false
+        var acceptedBefore: Set<String>?
         mutate { next in
             if next.attempting == revision { next.attempting = nil }
             guard (next.revision ?? 0) == revision else { obsolete = true; return }
@@ -1425,12 +1861,22 @@ final class NtfyShBridge: ObservableObject {
                 next.lastOutcome = .rejected
                 let detail = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(300) ?? ""
                 Log.e(Self.tag, "Registration rejected (HTTP \(status)): \(detail)")
+                if status == 400, !desired.servers.isEmpty, let words = reply?.error?.lowercased(),
+                   words.contains("server") || words.contains("base_url") {
+                    acceptedBefore = BridgeWatchSet.members(signature: next.acceptedSignature)
+                }
             default:
                 next.lastOutcome = .serverError
                 Log.w(Self.tag, "Registration failed (HTTP \(status)); backing off")
             }
         }
         if obsolete { Log.d(Self.tag, "Dropped the reply to an older registration") }
+        // Only the direct part is refused: the rest of the list goes again without it, once.
+        if let acceptedBefore, refuseDirectServers(sent: desired, accepted: acceptedBefore) {
+            processLock.lock()
+            rerunRequested = true
+            processLock.unlock()
+        }
     }
 
     private func finish(_ completion: (() -> Void)?) {
@@ -1502,11 +1948,18 @@ final class NtfyShBridge: ObservableObject {
         case checkMissed
         /// Self-hosted: recent messages arrived without a confirmed forward (the automatic, weak count).
         case noForwardingConfirmed
+        /// Direct server watch (1.31): the server is being watched; this topic isn't, and why.
+        case directWatch(DirectWatch.Hold)
+        /// Direct server watch: the app's server can't reach this server from the internet.
+        case directWatchUnreachable
+        /// Direct server watch: the app's server is connecting to this server.
+        case directWatchConnecting
 
         /// True of every topic on the server, so the status screen says it once instead of per topic.
         var isServerWide: Bool {
             switch self {
-            case .bridgeOff, .removalPending, .bridgeUnavailable, .notRegistered, .upstreamPending: return true
+            case .bridgeOff, .removalPending, .bridgeUnavailable, .notRegistered, .upstreamPending,
+                 .directWatchUnreachable, .directWatchConnecting, .directWatch(.localOnly), .directWatch(.unsupported): return true
             default: return false
             }
         }
@@ -1520,7 +1973,10 @@ final class NtfyShBridge: ObservableObject {
         }
 
         /// Not a fault: the state is on its way to `.watched`.
-        var isPending: Bool { self == .checkingAccess || self == .waitingToCheck || self == .registering || self == .pushNotReady }
+        var isPending: Bool {
+            self == .checkingAccess || self == .waitingToCheck || self == .registering || self == .pushNotReady
+                || self == .directWatchConnecting || self == .directWatch(.checking)
+        }
     }
 
     /// Why a subscription does or doesn't get instant banners through the bridge.
@@ -1546,6 +2002,11 @@ final class NtfyShBridge: ObservableObject {
             case .overCap: return .held(.overCap)
             }
         }
+        let server = normalizeBaseUrl(baseUrl)
+        let directWatched = !ntfySh && directServers.contains(server)
+        if directWatched, let hold = set.directHold(server: server, topic: topic) {
+            return .held(.directWatch(hold))
+        }
         // A name the server reported refused is held by the access answers above until a newer
         // anonymous 200 (review-130b #4); the record's copy of the list may be older than that.
         if record.repairRequested == true { return .held(.notRegistered) }
@@ -1558,6 +2019,26 @@ final class NtfyShBridge: ObservableObject {
         guard BridgeWatchSet.members(signature: record.acceptedSignature).contains(member) else {
             if let outcome = record.lastOutcome, outcome != .ok { return .held(.bridgeUnavailable) }
             return .held(.registering)
+        }
+        let current = record.statusRevision != nil && record.statusRevision == record.acceptedRevision
+        if directWatched {
+            // Watched on its own server: the ntfy.sh connection and the wake-up diagnosis say
+            // nothing about it; the status read's word for this server does.
+            guard BridgeWatchSet.members(signature: record.acceptedSignature).contains("s:" + hash) else {
+                if let outcome = record.lastOutcome, outcome != .ok { return .held(.bridgeUnavailable) }
+                return .held(.registering)
+            }
+            guard current, let status = record.directStatus?[server] else { return .held(.directWatchConnecting) }
+            switch status.unwatchable[topic] {
+            case "needs_login"?: return .held(.directWatch(.needsLogin))
+            case _?: return .held(.directWatch(.refused))
+            case nil: break
+            }
+            switch status.state {
+            case "connected": return .watched
+            case "unreachable": return .held(.directWatchUnreachable)
+            default: return .held(.directWatchConnecting)
+            }
         }
         // A reading of the list the server accepted then; one about an older list says nothing now.
         if record.statusConnected == false, record.statusRevision == record.acceptedRevision { return .held(.upstreamPending) }
@@ -1624,6 +2105,54 @@ final class NtfyShBridge: ObservableObject {
         /// At least one topic is listed as getting no banners (alone or under its server's reason):
         /// only then does the note about "these topics" have something to refer to.
         var listsTopics: Bool { groups.contains { !$0.held.isEmpty } }
+    }
+
+    /// What Notification status shows under one server about direct server watch (1.31).
+    enum DirectWatchPanel: Hashable {
+        /// Diagnosed as sending no wake-ups, not turned on: the fix, then the offer.
+        case offer
+        /// Turned on: its state and the way to turn it off.
+        case on
+        /// Diagnosed, at an address the app's server can't watch (`.localOnly` or `.unsupported`):
+        /// the fix, then why there is no offer (review-131 F1).
+        case unavailable(DirectWatch.Hold)
+    }
+
+    /// The offer appears only under a self-hosted server diagnosed as sending no wake-ups (a
+    /// topic held as `.checkMissed` or `.noForwardingConfirmed`); never for ntfy.sh, the app's
+    /// own server under either name, or a server that wakes the device. At an address the app's
+    /// server can't watch, the fix shows with the reason instead of a switch.
+    /// - Parameter address: `NtfyShBridge.directAddress`, which also knows refusals; the rule alone if nil.
+    static func directWatchPanel(group: Report.Group, optedIn: Bool, address: DirectWatch.Address? = nil,
+                                 appBaseUrl: String = Config.appBaseUrl) -> DirectWatchPanel? {
+        guard normalizeBaseUrl(group.server) != normalizeBaseUrl(appBaseUrl) else { return nil }
+        let diagnosed = group.held.contains { $0.hold == .checkMissed || $0.hold == .noForwardingConfirmed }
+        switch address ?? DirectWatch.address(group.server) {
+        case .notSelfHosted: return nil
+        case .watchable: return optedIn ? .on : diagnosed ? .offer : nil
+        case .localOnly: return diagnosed ? .unavailable(.localOnly) : nil
+        case .unsupported: return diagnosed ? .unavailable(.unsupported) : nil
+        }
+    }
+
+    /// The server-level word for a server watched directly: accepted and what the status read said.
+    func directWatchState(_ baseUrl: String) -> String {
+        let server = normalizeBaseUrl(baseUrl)
+        let record = currentRecord
+        guard isEnabled else { return NtfyShBridgeCopy.off }
+        let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
+        let set = subscribedSet()
+        guard let mine = set.servers.first(where: { $0.baseUrl == server }) else { return NtfyShBridgeCopy.pending }
+        guard mine.topics.contains(where: { accepted.contains("s:" + topicHash(baseUrl: server, topic: $0)) }) else {
+            return NtfyShBridgeCopy.pending
+        }
+        guard record.statusRevision != nil, record.statusRevision == record.acceptedRevision,
+              let status = record.directStatus?[server] else { return NtfyShBridgeCopy.directConnecting }
+        switch status.state {
+        case "connected": return NtfyShBridgeCopy.directConnected
+        case "unreachable": return NtfyShBridgeCopy.directUnreachable
+        default: return NtfyShBridgeCopy.directConnecting
+        }
     }
 
     /// What the server may still hold beyond the current set, from committed state.
@@ -1810,10 +2339,63 @@ final class NtfyShBridge: ObservableObject {
     /// changed). Refusals it reports are still recorded: they are about the names.
     func cancelStatus() {
         processLock.lock()
+        followGeneration += 1
         statusGeneration += 1
         statusWaiters = []
         statusInFlight = false
         processLock.unlock()
+    }
+
+    /// Gaps between the status reads that follow a direct watch while its word isn't settled.
+    /// The server says "pending" until its stream to the user's server opens, a few seconds.
+    var directFollowDelays: [TimeInterval] = [2, 3, 5, 10, 20, 30]
+    private var followGeneration = 0
+
+    /// A server this device has the app's server watch directly, and the list holding it was
+    /// accepted, but no status read describes that list yet, or the last one said "pending".
+    /// Then the screen says "Connecting…" from what it knows, not from what the server said.
+    var directStatusUnsettled: Bool {
+        guard isEnabled else { return false }
+        let record = currentRecord
+        let accepted = BridgeWatchSet.members(signature: record.acceptedSignature)
+        let held = subscribedSet().servers.filter { server in
+            server.topics.contains { accepted.contains("s:" + topicHash(baseUrl: server.baseUrl, topic: $0)) }
+        }
+        guard !held.isEmpty else { return false }
+        guard record.statusRevision != nil, record.statusRevision == record.acceptedRevision else { return true }
+        return held.contains { (record.directStatus?[$0.baseUrl]?.state ?? "pending") == "pending" }
+    }
+
+    /// Reads the status now and again (`directFollowDelays`) while `directStatusUnsettled`, so an
+    /// accepted list's "Connecting…" turns into what the server reports without the user acting.
+    /// Each answer goes to `completion`. Stops at a pause or an error (the screen's own retry
+    /// handles a pause), at `cancelStatus`, or when a newer follow starts.
+    func followDirectStatus(completion: ((Status) -> Void)? = nil) {
+        processLock.lock()
+        followGeneration += 1
+        let generation = followGeneration
+        processLock.unlock()
+        followStep(generation: generation, attempt: 0, completion: completion)
+    }
+
+    private func followStep(generation: Int, attempt: Int, completion: ((Status) -> Void)?) {
+        fetchStatus { status in
+            completion?(status)
+            guard self.isCurrentFollow(generation), attempt < self.directFollowDelays.count, self.directStatusUnsettled else { return }
+            switch status {
+            case .connected, .notConnected: break
+            default: return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.directFollowDelays[attempt]) {
+                guard self.isCurrentFollow(generation) else { return }
+                self.followStep(generation: generation, attempt: attempt + 1, completion: completion)
+            }
+        }
+    }
+
+    private func isCurrentFollow(_ generation: Int) -> Bool {
+        processLock.lock(); defer { processLock.unlock() }
+        return generation == followGeneration
     }
 
     private func isCurrentStatus(_ generation: Int) -> Bool {
@@ -1854,6 +2436,18 @@ final class NtfyShBridge: ObservableObject {
         }
     }
 
+    /// The status reply's `servers`, by address (nil when it had none: a server before 1.31).
+    static func directStatus(_ servers: [(baseUrl: String, state: String, unwatchable: [(topic: String, reason: String)])]?)
+        -> [String: DirectWatch.ServerStatus]? {
+        guard let servers else { return nil }
+        var result: [String: DirectWatch.ServerStatus] = [:]
+        for server in servers {
+            let reasons = Dictionary(server.unwatchable.map { ($0.topic, $0.reason) }, uniquingKeysWith: { a, _ in a })
+            result[normalizeBaseUrl(server.baseUrl)] = DirectWatch.ServerStatus(state: server.state, unwatchable: reasons)
+        }
+        return result
+    }
+
     private func readStatus(generation: Int, retryOnNewRegistration: Bool) {
         let record = currentRecord
         guard let session, let endpoint, let device = record.device ?? existingDeviceId,
@@ -1880,13 +2474,30 @@ final class NtfyShBridge: ObservableObject {
         request.timeoutInterval = 15
         request.setValue(ApiService.userAgent, forHTTPHeaderField: "User-Agent")
         session.dataTask(with: request) { data, response, error in
-            struct Reply: Decodable { let watching: Int; let connected: Bool; let unwatchable: [String]? }
+            struct Unwatchable: Decodable { let topic: String; let reason: String }
+            struct Server: Decodable { let base_url: String; let state: String; let unwatchable: [Unwatchable]? }
+            struct Reply: Decodable { let watching: Int; let connected: Bool; let unwatchable: [String]?; let servers: [Server]? }
             let http = response as? HTTPURLResponse
             let code = error == nil ? http?.statusCode : nil
             let decoded = code == 200 ? data.flatMap { try? JSONDecoder().decode(Reply.self, from: $0) } : nil
             // Refusals are about the names: recorded first, dated by the read's start, even when
             // this read was superseded or crossed a newer registration (review-130c C1).
             self.recordRefusals(decoded?.unwatchable, asked: started, clearing: barrier)
+            // A directly watched topic the app's server can't read anonymously leaves the list
+            // until a fresh anonymous 200 here, like a refused ntfy.sh name (1.31).
+            let direct = Self.directStatus(decoded?.servers?.map {
+                ($0.base_url, $0.state, ($0.unwatchable ?? []).map { ($0.topic, $0.reason) })
+            })
+            if let direct, !direct.isEmpty {
+                var refusals: [String: NtfyShAccess] = [:]
+                for (server, entry) in direct {
+                    for (topic, reason) in entry.unwatchable {
+                        refusals[DirectWatch.accessKey(server: server, topic: topic)]
+                            = NtfyShAccess(state: reason == "needs_login" ? .protected : .refused, checked: started)
+                    }
+                }
+                if !refusals.isEmpty { self.commitEvidence(refusals, clearing: nil) }
+            }
             if code == 429 || (code ?? 500) >= 500 {
                 NtfyMeHostCooldown.note(status: code, retryAfter: http?.value(forHTTPHeaderField: "Retry-After"),
                                         lock: self.lock, now: self.now())
@@ -1911,6 +2522,7 @@ final class NtfyShBridge: ObservableObject {
                     status = reply.connected ? .connected(watching: reply.watching) : .notConnected(watching: reply.watching)
                     next.unwatchable = reply.unwatchable
                     next.statusConnected = reply.connected
+                    next.directStatus = direct
                     next.statusAt = self.now()
                     // The server describes the list it accepted: tie the reading to that revision.
                     next.statusRevision = accepted
@@ -1934,14 +2546,20 @@ final class NtfyShBridge: ObservableObject {
 /// Every user-facing sentence about the bridge, so Settings, Notification status and the tests
 /// read the same text.
 enum NtfyShBridgeCopy {
-    static var serverName: String { normalizeBaseUrl(Config.appBaseUrl).replacingOccurrences(of: "https://", with: "") }
+    /// The app's server as users know it (ntf-ai.app); requests still go to its canonical address.
+    static var serverName: String { shortUrl(url: normalizeBaseUrl(Config.appBaseUrl)) }
 
     static var settingTitle: String { String(localized: "Instant banners for ntfy.sh and other servers") }
 
     /// What goes where (review-130 #12): ntfy-me.com gets the installation ID, ntfy.sh names and
     /// other servers' hashes, plus hash-only forwarding checks; ntfy.sh gets the anonymous access check.
     static var settingFooter: String {
-        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to \(serverName) without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks \(serverName) to stop watching it. If you tap Check again, NTF-AI can send \(serverName) the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks \(serverName) to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through \(serverName) continues.")
+        String(localized: "On, NTF-AI sends \(serverName) an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. \(serverName) watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to \(serverName) without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks \(serverName) to stop watching it. If you tap Check again, NTF-AI can send \(serverName) the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks \(serverName) to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through \(serverName) continues.") + " " + directWatchSettingNote
+    }
+
+    /// The settings footer's line about direct server watch (1.31), which sends more than a hash.
+    static var directWatchSettingNote: String {
+        String(localized: "If you let \(serverName) watch one of your servers directly, NTF-AI also sends it that server's address and the names of its topics anyone can read, never a login.")
     }
 
     /// Notification status, under the bridge rows, shown only with topics using the bridge (review-130b #10).
@@ -1950,7 +2568,11 @@ enum NtfyShBridgeCopy {
     }
 
     static var instantBanners: String { String(localized: "Instant banners") }
-    static func watching(_ count: Int) -> String { String(localized: "Watching \(count)") }
+    /// Says what it counts, so a server with nothing watched yet doesn't read as unwatched beside
+    /// "Watched by ntf-ai.app".
+    static func watching(_ count: Int) -> String {
+        count == 0 ? String(localized: "No topics watched yet") : String(localized: "\(count) topics watched")
+    }
 
     /// A self-hosted server can wake this device without the bridge when its upstream is ntfy-me.com.
     static var directUpstreamNote: String {
@@ -1992,10 +2614,63 @@ enum NtfyShBridgeCopy {
             text = String(localized: "The relay didn’t confirm a wake-up for the last checked message. If this keeps happening, ask your server admin to check the forwarding settings.")
         case .noForwardingConfirmed:
             text = String(localized: "No recent forwarding confirmed for this topic. Tap Check again to check the next eligible message.")
+        case .directWatch(let why):
+            text = directReason(why)
+        case .directWatchUnreachable:
+            text = String(localized: "\(serverName) can't reach this server from the internet. Check that the server is online and reachable from outside your network. Until then, new messages show when you open the app.")
+        case .directWatchConnecting:
+            text = String(localized: "\(serverName) is connecting to this server. Once it is listening, a message to these topics can wake this device.")
         }
         guard selfHosted, hold == .bridgeOff || hold == .bridgeUnavailable || hold == .removalPending else { return text }
         return text + " " + directUpstreamNote
     }
+
+    static func directReason(_ hold: DirectWatch.Hold) -> String {
+        switch hold {
+        case .needsLogin:
+            return String(localized: "This topic needs a login on its server, so \(serverName) doesn't watch it. Your login never leaves this device. New messages show when you open the app.")
+        case .refused:
+            return String(localized: "\(serverName) couldn't watch this topic on its server. NTF-AI checks again when it next runs. Until then, new messages show when you open the app.")
+        case .checking:
+            return String(localized: "Checking, without your login, whether anyone can read this topic on its server. Until then, new messages show when you open the app.")
+        case .localOnly:
+            return String(localized: "This server is on your local network, so \(serverName) can't reach it from the internet. New messages show when you open the app.")
+        case .unsupported:
+            return String(localized: "\(serverName) can't connect to this server's address. New messages show when you open the app.")
+        case .invalidName:
+            return String(localized: "This topic name can't be watched directly, so new messages show when you open the app.")
+        case .overCap:
+            return String(localized: "Over the limit for servers watched directly (3 servers, 20 topics each), so new messages show when you open the app.")
+        }
+    }
+
+    // Direct server watch (1.31): the offer under a server that sends no wake-ups, and its switch.
+    static var offerTitle: String { String(localized: "This server isn't sending wake-ups.") }
+    static var offerFix: String { String(localized: "Fix it on the server (best):") }
+    /// The setting the fix asks for; the usual upstream, which this app's bridge watches.
+    static var offerFixSetting: String { "upstream-base-url: https://ntfy.sh" }
+    static var copySetting: String { String(localized: "Copy setting") }
+    static var copied: String { String(localized: "Copied") }
+    static var offerWatch: String { String(localized: "Or let \(serverName) watch it:") }
+    /// The plain words the operator asked for: who connects, to what, what it sees and keeps.
+    static func disclosure(_ server: String) -> String {
+        String(localized: "\(serverName) connects to \(server) and listens on its public topics. It sees each message as it passes and keeps none of it. Topics that need a login aren't watched, and your login never leaves this device. Off by default.")
+    }
+    static var turnOn: String { String(localized: "Turn on for this server") }
+    static var turnOff: String { String(localized: "Turn off for this server") }
+    static var directWatchTitle: String { String(localized: "Watched by \(serverName)") }
+    static var directWatchToggle: String { String(localized: "Let \(serverName) watch this server") }
+    static var directWatchNeedsBridge: String {
+        String(localized: "Works while Instant banners for ntfy.sh and other servers is on in Settings.")
+    }
+    static var directWatchLocal: String {
+        String(localized: "Not available: this server is on your local network, so \(serverName) can't reach it.")
+    }
+    static var directConnected: String { String(localized: "Connected") }
+    static var directConnecting: String { String(localized: "Connecting…") }
+    static var directUnreachable: String { String(localized: "Can't reach the server") }
+    static var advanced: String { String(localized: "Advanced") }
+    static var servers: String { String(localized: "Servers") }
 
     static var checkAgain: String { String(localized: "Check again") }
     static var checkArmed: String { String(localized: "NTF-AI will try to check the next eligible message it fetches for this topic within 24 hours.") }

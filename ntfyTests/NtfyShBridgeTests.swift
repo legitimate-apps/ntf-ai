@@ -882,7 +882,7 @@ final class NtfyShBridgeTests: XCTestCase {
     /// Red before the bridge: the ntfy.sh hint said there were no instant banners at all.
     func testNtfyShHintTellsTheTruthInBothStates() throws {
         let on = try XCTUnwrap(Config.ntfyShDeliveryHint(baseUrl: "https://ntfy.sh", bridgeOn: true))
-        XCTAssertEqual(on, String(localized: "Topics on ntfy.sh get instant banners: \("ntfy-me.com") watches them for this device and keeps no message text. You can turn this off in Settings. See \("https://ntf-ai.app/docs/migrate")."))
+        XCTAssertEqual(on, String(localized: "Topics on ntfy.sh get instant banners: \("ntf-ai.app") watches them for this device and keeps no message text. You can turn this off in Settings. See \("https://ntf-ai.app/docs/migrate")."))
         let off = try XCTUnwrap(Config.ntfyShDeliveryHint(baseUrl: "https://ntfy.sh", bridgeOn: false))
         XCTAssertEqual(off, String(localized: "Instant banners for ntfy.sh and other servers is off in Settings, so messages on ntfy.sh appear only when you open the app or refresh. See \("https://ntf-ai.app/docs/migrate")."))
         XCTAssertNil(Config.ntfyShDeliveryHint(baseUrl: "https://home.example", bridgeOn: true))
@@ -912,7 +912,7 @@ final class NtfyShBridgeTests: XCTestCase {
         "On, NTF-AI sends %@ an installation ID made only for this, the names of your ntfy.sh topics, and a hash of each topic address on your other servers. %@ watches those topics on ntfy.sh and wakes this device when a message arrives; it sees messages in passing and keeps no message text. If you saved credentials for ntfy.sh, or NTF-AI can't tell whether you did, it first asks ntfy.sh, without your credentials, whether anyone can read each topic, and sends only topics anyone can read. Without saved credentials, NTF-AI can initially send a topic name to %@ without checking it. NTF-AI can ask ntfy.sh again, without your credentials, if access was refused or an interrupted request left access uncertain. When a topic stops qualifying, NTF-AI asks %@ to stop watching it. If you tap Check again, NTF-AI can send %@ the topic’s hash when it fetches an eligible message for that topic within 24 hours. It also sends that hash if you approve a test in Check self-hosted wake-ups. When you turn this off, NTF-AI asks %@ to stop watching. Once it removes the topics, they stop receiving instant banners through ntfy.sh. Direct delivery through %@ continues.",
         "For these topics, opening the app lets it set up or repair banners. NTF-AI also keeps this device's list current in the background when the system allows it, which isn't guaranteed.",
         "A server whose upstream is %@ can still wake this device directly, if that server is set up for it and push works on this device.",
-        "Instant banners", "Watching %lld", "Show %lld more",
+        "Instant banners", "No topics watched yet", "%lld topics watched", "Show %lld more",
         "This topic on ntfy.sh can't be read without a login, so it gets no instant banners. With your login saved, its messages show when you open the app or refresh.",
         "Checking whether this topic is public on ntfy.sh. Until then, new messages show when you open the app.",
         "Waiting to check whether anyone can read this topic on ntfy.sh. Open the app or refresh to see new messages while you wait.",
@@ -3261,5 +3261,613 @@ extension PresentationClaimTests {
         XCTAssertEqual(scheduled, [fresh.id])
         XCTAssertEqual(Store.shared.reserveAlert(message: fresh, baseUrl: "https://e5.example", token: "nse", by: .nse), .reserved,
                        "no provisional reservation is left behind")
+    }
+}
+
+// MARK: - 1.31: ntf-ai.app alias at every own-server decision, and direct server watch
+
+extension NtfyShBridgeTests {
+    private static let home = "https://home.example"
+
+    /// Answers the anonymous access checks on the user's server by topic, and the watch POST.
+    private func stubDirect(open: Set<String>, status: String? = nil) {
+        BridgeStubProtocol.reply = { request in
+            let path = request.url?.path ?? ""
+            if request.url?.host == "home.example", path.hasSuffix("/auth") {
+                let topic = path.dropLast(5).split(separator: "/").last.map(String.init) ?? ""
+                return .success((open.contains(topic) ? 200 : 401, [:], "{}"))
+            }
+            if request.httpMethod == "GET", path == "/v1/ntfai/watch", let status {
+                return .success((200, [:], status))
+            }
+            return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
+        }
+    }
+
+    private func optIn(_ servers: [String]) {
+        defaults.set(servers, forKey: DirectWatch.settingKey)
+    }
+
+    private func posts() -> [[String: Any]] {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "POST" }.compactMap {
+            $0.body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        }
+    }
+
+    private func readStatus() {
+        let done = expectation(description: "status")
+        bridge.fetchStatus { _ in done.fulfill() }
+        wait(for: [done], timeout: 5)
+    }
+
+    // MARK: Alias
+
+    func testBothHostNamesAreTheAppsOwnServerAtEveryDecision() {
+        for own in ["https://ntfy-me.com", "https://ntf-ai.app", "http://ntf-ai.app", "https://www.ntf-ai.app", "https://www.ntfy-me.com"] {
+            XCTAssertTrue(HostedServer.isOwnHost(own), own)
+            XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: own), "no wake-up check on our own server: \(own)")
+            XCTAssertEqual(DirectWatch.address(own), .notSelfHosted, own)
+        }
+        XCTAssertFalse(HostedServer.isOwnHost(Self.home))
+        XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: "https://www.ntfy.sh"))
+        XCTAssertTrue(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home))
+        // Push naming, bridge exclusion and dedup: the alias is the same server and topic.
+        XCTAssertEqual(firebaseTopic(baseUrl: "https://ntf-ai.app", topic: "own"), firebaseTopic(baseUrl: "https://ntfy-me.com", topic: "own"))
+        XCTAssertEqual(normalizeBaseUrl("https://ntf-ai.app/"), "https://ntfy-me.com")
+        let set = BridgeWatchSet.compute(subscriptions: rows([("https://ntf-ai.app", "own"), ("https://ntfy-me.com", "own2")]),
+                                         appBaseUrl: "https://ntfy-me.com", direct: ["https://ntf-ai.app", "https://ntfy-me.com"])
+        XCTAssertTrue(set.isEmpty, "the app's own server is never bridged or watched directly, under either name")
+    }
+
+    func testUsersReadNtfAiAppWhereTheAppNamesItsServer() throws {
+        XCTAssertEqual(NtfyShBridgeCopy.serverName, "ntf-ai.app")
+        let hint = try XCTUnwrap(Config.ntfyShDeliveryHint(baseUrl: "https://ntfy.sh", bridgeOn: true))
+        XCTAssertTrue(hint.contains("ntf-ai.app watches"), hint)
+        XCTAssertFalse(hint.contains("ntfy-me.com"), hint)
+        XCTAssertNotNil(Config.ntfyShDeliveryHint(baseUrl: "https://www.ntfy.sh", bridgeOn: true))
+        XCTAssertFalse(NtfyShBridgeCopy.settingFooter.contains("ntfy-me.com"))
+        // A footer asked about the alias spelling is the built-in server's footer.
+        XCTAssertEqual(Config.subscriptionServerShortFooter(baseUrl: "https://ntf-ai.app", useAnother: false),
+                       Config.subscriptionServerShortFooter(baseUrl: "https://ntfy-me.com", useAnother: false))
+        XCTAssertNotNil(Config.subscriptionServerShortFooter(baseUrl: "https://ntf-ai.app", useAnother: false))
+        // The setting a self-hosted server copies stays the address the server leg serves.
+        XCTAssertEqual(Config.upstreamConfigLine, "upstream-base-url: https://ntfy-me.com")
+    }
+
+    // MARK: Payload
+
+    func testNothingAboutAServerGoesOutUntilTheUserTurnsItOn() throws {
+        stubDirect(open: ["door"])
+        save(Self.home, "door")
+        sync()
+        XCTAssertFalse(BridgeStubProtocol.sent.contains { $0.request.url?.host == "home.example" }, "no check before opt-in")
+        XCTAssertEqual(Set(try lastBody().keys), ["device", "ntfy_sh_topics", "hashes"], "servers absent: unchanged, the 1.30 body")
+    }
+
+    func testOnlyAnonymouslyReadableTopicsAreSentWithoutCredentials() throws {
+        stubDirect(open: ["door"])
+        save(Self.home, "door")
+        save(Self.home, "locked")
+        save("https://ntfy-me.com", "own")
+        optIn([Self.home])
+        sync()
+        let checks = BridgeStubProtocol.sent.filter { $0.request.url?.host == "home.example" }
+        XCTAssertEqual(Set(checks.compactMap { $0.request.url?.absoluteString }),
+                       ["https://home.example/door/auth", "https://home.example/locked/auth"])
+        for check in checks {
+            XCTAssertEqual(check.request.httpMethod ?? "GET", "GET")
+            XCTAssertNil(check.request.value(forHTTPHeaderField: "Authorization"))
+            XCTAssertNil(check.request.value(forHTTPHeaderField: "Cookie"))
+        }
+        let body = try lastBody()
+        let servers = try XCTUnwrap(body["servers"] as? [[String: Any]])
+        XCTAssertEqual(servers.count, 1)
+        XCTAssertEqual(servers[0]["base_url"] as? String, Self.home)
+        XCTAssertEqual(servers[0]["topics"] as? [String], ["door"])
+        XCTAssertEqual(Set(body["hashes"] as? [String] ?? []), [sha("https://home.example/door"), sha("https://home.example/locked")])
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "locked", wakes: nil, fcmBound: true), .held(.directWatch(.needsLogin)))
+    }
+
+    func testTurningOffSendsAnEmptyListOnceThenLeavesTheFieldOut() throws {
+        stubDirect(open: ["door"])
+        save(Self.home, "door")
+        optIn([Self.home])
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [[String: Any]])?.count, 1)
+        optIn([])
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [Any])?.count, 0, "turned off: [] removes it")
+        clock += 2 * 24 * 60 * 60
+        sync()
+        XCTAssertNil(try lastBody()["servers"], "once removed, absent again")
+    }
+
+    func testUnsubscribingRemovesTheServerAndItsOptIn() throws {
+        stubDirect(open: ["door"])
+        let row = save(Self.home, "door")
+        optIn([Self.home])
+        sync()
+        _ = store.delete(subscription: row)
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [Any])?.count, 0)
+        XCTAssertTrue(bridge.directServers.isEmpty, "adding the server again starts from off")
+    }
+
+    func testTurningTheBridgeOffRemovesDirectWatchesToo() throws {
+        stubDirect(open: ["door"])
+        save(Self.home, "door")
+        optIn([Self.home])
+        sync()
+        bridge.setEnabled(false)
+        sync()
+        let body = try lastBody()
+        XCTAssertEqual((body["servers"] as? [Any])?.count, 0)
+        XCTAssertEqual(body["hashes"] as? [String], [])
+    }
+
+    func testOnlyASelfHostedInternetServerCanBeTurnedOn() {
+        for server in ["https://ntfy.sh", "https://ntf-ai.app", "https://ntfy-me.com", "http://192.168.1.4", "https://nas.local"] {
+            bridge.setDirectWatch(server, on: true)
+            XCTAssertFalse(bridge.isDirectWatched(server), server)
+        }
+        XCTAssertEqual(DirectWatch.address("http://192.168.1.4:8080"), .localOnly)
+        XCTAssertEqual(DirectWatch.address("https://home.example:8443/ntfy"), .watchable("https://home.example:8443/ntfy"))
+    }
+
+    func testDirectEntriesKeepTheOldSignatureAndParseBack() {
+        let plain = BridgeWatchSet(ntfyShTopics: ["a"], hashes: ["h1"])
+        XCTAssertEqual(plain.signature, "t:a|h:h1", "a 1.30 accepted list doesn't change meaning")
+        let direct = BridgeWatchSet(ntfyShTopics: ["a"], hashes: ["h1"],
+                                    servers: [.init(baseUrl: Self.home, topics: ["door"])])
+        let hash = topicHash(baseUrl: Self.home, topic: "door")
+        XCTAssertEqual(BridgeWatchSet.members(signature: direct.signature), ["t:a", "h:h1", "s:" + hash])
+        XCTAssertEqual(direct.keeping(["h:h1"]).servers, [])
+        XCTAssertEqual(direct.keeping(["s:" + hash]).servers, [.init(baseUrl: Self.home, topics: ["door"])])
+    }
+
+    // MARK: Status
+
+    func testStatusSaysConnectedNeedsLoginAndUnreachable() throws {
+        stubDirect(open: ["door", "cams"], status: #"""
+            {"watching":2,"connected":true,"servers":[{"base_url":"https://home.example","state":"connected",
+             "unwatchable":[{"topic":"cams","reason":"needs_login"}]}]}
+            """#)
+        save(Self.home, "door")
+        save(Self.home, "cams")
+        optIn([Self.home])
+        sync()
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: nil, fcmBound: true), .held(.directWatchConnecting))
+        readStatus()
+        XCTAssertEqual(bridge.record.directStatus?[Self.home]?.state, "connected")
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: nil, fcmBound: true), .watched)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "cams", wakes: nil, fcmBound: true), .held(.directWatch(.needsLogin)))
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnected)
+        // The refusal leaves the next list until a fresh anonymous 200.
+        clock += 60
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [[String: Any]])?.first?["topics"] as? [String], ["door"])
+
+        stubDirect(open: ["door"], status: #"{"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"unreachable"}]}"#)
+        readStatus()
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: nil, fcmBound: true), .held(.directWatchUnreachable))
+        XCTAssertTrue(NtfyShBridge.TopicHold.directWatchUnreachable.isServerWide)
+    }
+
+    func testAStatusWithoutServersIsAnOlderServer() {
+        XCTAssertNil(NtfyShBridge.directStatus(nil))
+        let parsed = NtfyShBridge.directStatus([("https://home.example/", "pending", [("a", "refused")])])
+        XCTAssertEqual(parsed?[Self.home], DirectWatch.ServerStatus(state: "pending", unwatchable: ["a": "refused"]))
+    }
+
+    // MARK: Offer visibility
+
+    func testTheOfferShowsOnlyUnderADiagnosedSelfHostedServer() {
+        typealias G = NtfyShBridge.Report.Group
+        let missed = [NtfyShBridge.Report.Held(topic: "t", hold: .checkMissed)]
+        let weak = [NtfyShBridge.Report.Held(topic: "t", hold: .noForwardingConfirmed)]
+        let panel = { (group: G, on: Bool) in NtfyShBridge.directWatchPanel(group: group, optedIn: on, appBaseUrl: "https://ntfy-me.com") }
+        XCTAssertEqual(panel(G(server: Self.home, watching: 0, held: missed), false), .offer)
+        XCTAssertEqual(panel(G(server: Self.home, watching: 0, held: weak), false), .offer)
+        XCTAssertNil(panel(G(server: Self.home, watching: 2, held: []), false), "a working server gets no offer")
+        XCTAssertNil(panel(G(server: Self.home, watching: 0, held: [.init(topic: "t", hold: .needsLogin)]), false))
+        XCTAssertNil(panel(G(server: "https://ntfy.sh", watching: 0, held: missed), false))
+        XCTAssertNil(panel(G(server: "https://ntfy-me.com", watching: 0, held: missed), false))
+        XCTAssertNil(panel(G(server: "https://ntf-ai.app", watching: 0, held: missed), false))
+        // Diagnosed at an address ntf-ai.app can't watch: the fix and the reason, no switch (review-131 F1).
+        XCTAssertEqual(panel(G(server: "http://192.168.1.4", watching: 0, held: missed), false), .unavailable(.localOnly))
+        XCTAssertEqual(panel(G(server: "https://my-ntfy.up.railway.app", watching: 0, held: missed), false), .unavailable(.unsupported))
+        XCTAssertNil(panel(G(server: "http://192.168.1.4", watching: 2, held: []), false), "nothing under a working local server")
+        XCTAssertEqual(panel(G(server: Self.home, watching: 2, held: []), true), .on)
+    }
+
+    func testTheOfferSaysWhoConnectsWhatItSeesAndKeeps() {
+        let text = NtfyShBridgeCopy.disclosure("home.example")
+        for phrase in ["ntf-ai.app connects to home.example", "public topics", "sees each message as it passes", "keeps none", "Off by default"] {
+            XCTAssertTrue(text.contains(phrase), phrase)
+        }
+    }
+}
+
+
+/// 1.31 fix round 2 (device check g2 of build 67, ntfy.envs.net): the status screen's word for a
+/// direct watch. Red on 6bd8de9.
+extension NtfyShBridgeTests {
+    private static let connectedStatus = #"""
+        {"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"connected"}]}
+        """#
+
+    /// Turning it on reached "Connected" only after a status read nobody asked for: the row said
+    /// "Connecting…" for 7 minutes while the watch was already waking the phone.
+    func testTurningOnReachesConnectedWithoutTheUserActing() {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(5) { self.bridge.directWatchState(Self.home) == NtfyShBridgeCopy.directConnected }
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnected)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: nil, fcmBound: true), .watched,
+                       "the server row counts the topic once the server says it listens")
+    }
+
+    /// Turning it off left the server reading "1 topic watched" with no diagnosis: the direct
+    /// watch's own wake-ups (same hash) had been counted as the server forwarding.
+    func testTurningOffBringsBackTheServersOwnDiagnosisAndTheOffer() throws {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        sync()
+        let wakes = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", network: false,
+                                        now: { [unowned self] in self.clock }, stateDirectory: stateDirectory)
+        let hash = topicHash(baseUrl: Self.home, topic: "door")
+        let start = try XCTUnwrap(bridge.watchStart(hash: hash))
+        clock += 3600
+        let missed = [-300.0, -250, -200].enumerated().map { (id: "m\($0.offset)", time: clock.addingTimeInterval($0.element)) }
+        XCTAssertEqual(wakes.messagesFoundByPoll(hash: hash, watchStart: start, messages: missed), 3)
+        let before = bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true)
+        XCTAssertEqual(before, .held(.noForwardingConfirmed))
+
+        // On: ntf-ai.app's own wake-ups and the messages a poll finds say nothing about the server.
+        optIn([Self.home])
+        sync()
+        wakes.recordWake(hash: hash)
+        clock += 300
+        wakes.messagesFoundByPoll(hash: hash, watchStart: start, messages: [(id: "d1", time: clock.addingTimeInterval(-200))])
+        wakes.recordWake(hash: hash)
+
+        // Off, and the server confirmed the removal: the diagnosis from before, and the offer back.
+        optIn([])
+        sync()
+        XCTAssertEqual((try lastBody()["servers"] as? [Any])?.count, 0)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true), before)
+        let group = try XCTUnwrap(bridge.report(wakes: wakes).groups.first { $0.server == Self.home })
+        XCTAssertEqual(group.watching, 0, "the server row says no topics watched yet, as before the offer")
+        XCTAssertEqual(NtfyShBridge.directWatchPanel(group: group, optedIn: false, appBaseUrl: "https://ntfy-me.com"), .offer)
+
+        // A wake-up now is the server's own forward again, and clears it.
+        wakes.recordWake(hash: hash)
+        XCTAssertEqual(bridge.topicState(baseUrl: Self.home, topic: "door", wakes: wakes, fcmBound: true), .watched)
+    }
+}
+
+/// The follow-up reads behind the fix above: how long they go on, and what stops them.
+extension NtfyShBridgeTests {
+    private func statusReads() -> Int {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "GET" && $0.request.url?.path == "/v1/ntfai/watch" }.count
+    }
+
+    func testAPendingWatchIsReadAgainUntilTheServerSaysConnected() {
+        var answers = ["pending", "pending", "connected"]
+        stubDirect(open: ["door"])
+        let direct = BridgeStubProtocol.reply
+        BridgeStubProtocol.reply = { request in
+            guard request.httpMethod == "GET", request.url?.path == "/v1/ntfai/watch" else { return direct(request) }
+            let state = answers.count > 1 ? answers.removeFirst() : answers[0]
+            return .success((200, [:], #"{"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"\#(state)"}]}"#))
+        }
+        bridge.directFollowDelays = [0.05, 0.05, 0.05, 0.05, 0.05]
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(5) { self.bridge.directWatchState(Self.home) == NtfyShBridgeCopy.directConnected }
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnected)
+        XCTAssertFalse(bridge.directStatusUnsettled)
+        let reads = statusReads()
+        XCTAssertEqual(reads, 3, "two pending answers, then connected")
+        waitUntil(0.5) { false }
+        XCTAssertEqual(statusReads(), reads, "settled: no more reads")
+    }
+
+    func testFollowUpReadsAreBoundedAndStopWhenTheScreenLeaves() {
+        stubDirect(open: ["door"], status: #"{"watching":1,"connected":true,"servers":[{"base_url":"https://home.example","state":"pending"}]}"#)
+        bridge.directFollowDelays = [0.05, 0.05]
+        save(Self.home, "door")
+        bridge.setDirectWatch(Self.home, on: true)
+        waitUntil(3) { self.statusReads() >= 3 }
+        waitUntil(0.5) { false }
+        XCTAssertEqual(statusReads(), 3, "one read, then one per delay, then it stops")
+        XCTAssertTrue(bridge.directStatusUnsettled)
+        XCTAssertEqual(bridge.directWatchState(Self.home), NtfyShBridgeCopy.directConnecting)
+
+        bridge.directFollowDelays = [0.2, 0.2]
+        bridge.followDirectStatus()
+        waitUntil(2) { self.statusReads() >= 4 }
+        bridge.cancelStatus()
+        waitUntil(0.8) { false }
+        XCTAssertEqual(statusReads(), 4, "cancelled with the screen: no further read")
+    }
+
+    func testNothingToFollowWithoutADirectWatch() {
+        stubDirect(open: ["door"], status: Self.connectedStatus)
+        save(Self.home, "door")
+        sync()
+        XCTAssertFalse(bridge.directStatusUnsettled, "not opted in")
+        optIn([Self.home])
+        sync()
+        XCTAssertTrue(bridge.directStatusUnsettled, "accepted, no status read for it yet")
+        readStatus()
+        XCTAssertFalse(bridge.directStatusUnsettled)
+        bridge.setEnabled(false)
+        XCTAssertFalse(bridge.directStatusUnsettled, "bridge off")
+    }
+
+    /// Back in the app with a direct watch the last read doesn't settle: read again.
+    func testReturningToTheAppReadsAgainWhenTheDirectWatchIsUnsettled() {
+        typealias Rows = NtfyShBridgeStatusRows
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: true, enabled: true), .none)
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: true, enabled: true, stale: true), .read)
+        XCTAssertEqual(Rows.onActive(status: .waiting(until: clock), visible: true, enabled: true, stale: true), .reschedule)
+        XCTAssertEqual(Rows.onActive(status: .connected(watching: 1), visible: false, enabled: true, stale: true), .none)
+    }
+}
+
+extension NtfyShBridgeTests {
+    /// The wake-up check tests the upstream route; a server ntf-ai.app watches directly doesn't use it.
+    func testDirectlyWatchedServersLeaveTheWakeupCheckList() {
+        XCTAssertTrue(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home))
+        XCTAssertTrue(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home, directWatched: ["https://other.example.org"]))
+        XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home, directWatched: [normalizeBaseUrl(Self.home)]))
+        XCTAssertFalse(NotificationStatusView.offersWakeupCheck(baseUrl: Self.home + "/", directWatched: [normalizeBaseUrl(Self.home)]),
+                       "the same server however the row stores it")
+    }
+
+    /// The server header counts topics; it must not read as "watching nothing" beside "Watched by".
+    func testTheServerHeaderSaysWhatItCounts() {
+        XCTAssertEqual(NtfyShBridgeCopy.watching(0), "No topics watched yet")
+        XCTAssertEqual(NtfyShBridgeCopy.watching(1), "1 topic watched")
+        XCTAssertEqual(NtfyShBridgeCopy.watching(3), "3 topics watched")
+    }
+}
+
+/// Not a test: seeds the installed app's real store and shared bridge state for the 1.31 screen
+/// captures (`NavigationPilotUITests.testCaptureDirectWatch131`). Runs only with
+/// `TEST_RUNNER_NTFY_131_SEED=1`; skipped in every ordinary run. The seed also writes a server
+/// pause, so the captured app makes no request to the app's server or ntfy.sh.
+final class DirectWatchCaptureSeed: XCTestCase {
+    func testSeedDirectWatchCaptureFixture() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["NTFY_131_SEED"] == "1", "capture fixture only")
+        let now = Date()
+        let start = now.addingTimeInterval(-3 * 60 * 60)
+        let offer = "https://home.example.net", on = "https://nas.example.org"
+        let lab = "https://lab.example.com", pi = "https://pi.example.io"
+        // Fix round 3: a server that works (never listed in Settings > Servers), and one diagnosed
+        // at an address the app's server refuses (the fix and "can't connect", no offer).
+        let works = "https://works.example.com", railway = "https://my-ntfy.up.railway.app"
+        let store = Store()
+        for row in store.getSubscriptions() ?? [] { _ = store.delete(subscription: row) }
+        for (server, topic) in [("https://ntfy.sh", "news-q7x"), (offer, "alerts"), (offer, "backups"),
+                                (on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp"), ("https://ntfy-me.com", "own-q7x"),
+                                (works, "status"), (railway, "jobs")] {
+            store.setFcmSubscribed(store.saveSubscription(baseUrl: server, topic: topic), true)
+        }
+        let defaults = NtfyShBridge.defaults
+        defaults.set(true, forKey: NtfyShBridge.enabledKey)
+        defaults.set([on, lab, pi], forKey: DirectWatch.settingKey)
+        defaults.set("0123456789abcdef0123456789abcdef", forKey: NtfyShBridge.deviceIdKey)
+        let bridge = NtfyShBridge(store: store, defaults: defaults, network: false)
+        let directory = SharedStateFile<BridgeRecord>.sharedDirectory
+        // A server pause far ahead: no registration, renewal or status read goes out.
+        _ = NtfyMeHostCooldown.file(.at(directory, NtfyShBridge.lockName)).update { value in
+            value = NtfyMeHostCooldown(serverNotBefore: now.addingTimeInterval(7 * 24 * 60 * 60), clientNotBefore: nil, failures: 0)
+            return (true, ())
+        }
+        _ = bridge.accessFile.update { ledger in
+            var next = NtfyShAccessLedger()
+            next.answers["news-q7x"] = NtfyShAccess(state: .open, checked: now)
+            for (server, topic) in [(on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp")] {
+                next.answers[DirectWatch.accessKey(server: server, topic: topic)] = NtfyShAccess(state: .open, checked: now)
+            }
+            next.probeNotBefore = now.addingTimeInterval(7 * 24 * 60 * 60)
+            ledger = next
+            return (true, ())
+        }
+        let set = try XCTUnwrap(bridge.readSubscribedSet())
+        XCTAssertEqual(set.servers.map(\.baseUrl), [lab, on, pi])
+        var record = BridgeRecord()
+        record.device = "0123456789abcdef0123456789abcdef"
+        record.lastAttempt = now; record.lastSuccess = now; record.lastOutcome = .ok; record.lastHTTPStatus = 200
+        record.acceptedSignature = set.signature
+        record.revision = 1; record.acceptedRevision = 1
+        record.mayHaveEntries = true
+        record.expires = now.addingTimeInterval(30 * 24 * 60 * 60)
+        record.watching = set.ntfyShTopics.count + set.hashes.count
+        record.watchStarts = Dictionary(uniqueKeysWithValues: set.hashes.map { ("h:" + $0, start) })
+        record.statusConnected = true; record.statusAt = now; record.statusRevision = 1
+        record.directStatus = [on: .init(state: "connected", unwatchable: ["cams": "needs_login"]),
+                               lab: .init(state: "unreachable", unwatchable: [:])]
+        _ = bridge.recordFile.update { value in value = record; return (true, ()) }
+        // home.example.net: the last "Check again" missed (alerts), weak misses (backups).
+        var missed = SelfHostedWakeCheck.Entry(); missed.misses = 1; missed.watchedSince = start
+        var weak = SelfHostedWakeCheck.Entry(); weak.weakMisses = 3; weak.watchedSince = start
+        _ = SharedStateFile<[String: SelfHostedWakeCheck.Entry]>(name: SelfHostedWakeCheck.fileName).update { value in
+            value = [topicHash(baseUrl: offer, topic: "alerts"): missed, topicHash(baseUrl: offer, topic: "backups"): weak,
+                     topicHash(baseUrl: railway, topic: "jobs"): weak]
+            return (true, ())
+        }
+        let check = NtfyShBridge(store: store, defaults: defaults, network: false)
+        XCTAssertEqual(check.topicState(baseUrl: on, topic: "door", fcmBound: true), .watched)
+        XCTAssertEqual(check.topicState(baseUrl: on, topic: "cams", fcmBound: true), .held(.directWatch(.needsLogin)))
+        XCTAssertEqual(check.topicState(baseUrl: lab, topic: "sensors", fcmBound: true), .held(.directWatchUnreachable))
+        XCTAssertEqual(check.topicState(baseUrl: pi, topic: "temp", fcmBound: true), .held(.directWatchConnecting))
+        XCTAssertEqual(check.topicState(baseUrl: offer, topic: "backups", fcmBound: true), .held(.noForwardingConfirmed))
+        XCTAssertEqual(check.topicState(baseUrl: works, topic: "status", fcmBound: true), .watched)
+        XCTAssertEqual(check.topicState(baseUrl: railway, topic: "jobs", fcmBound: true), .held(.noForwardingConfirmed))
+    }
+}
+
+
+/// 1.31 fix round 3 (review-131): the address rule matches the server's, a refusal costs only the
+/// direct part, Settings is no advert, and a stale direct topic is rechecked in place.
+extension NtfyShBridgeTests {
+    private static let home3 = "https://home.example"
+
+    /// F1. Every address in `local` and `refused` is refused by the server's `ntfyMeDirectValidBase`
+    /// (checked by running the Go function on this table: app-STATE "1.31 fix round 3"), and most
+    /// passed the app's old rule: one in the list made the whole watch POST a 400. `fine` is what it accepts.
+    func testTheAppOffersNoAddressTheServerRefuses() {
+        let local = ["http://100.101.4.7:8080", "http://100.127.255.1", "http://127.0.0.2", "http://[::1]:8080",
+                     "http://[fd7a:115c:a1e0::1]", "http://[fe80::1]", "https://nas.home.arpa", "https://box.internal",
+                     "http://printer.localhost"]
+        for server in local { XCTAssertEqual(DirectWatch.address(server), .localOnly, server) }
+        let refused = [
+            // Host suffixes the server blocks.
+            "https://my-ntfy.up.railway.app", "https://railway.app", "https://push.ntfy.sh", "https://a.ntfy-me.com",
+            "https://b.ntf-ai.app", "https://x.notf.app", "https://getnotf.com", "https://ntfai.app",
+            // Special-use IPv4 ranges.
+            "http://0.1.2.3", "http://192.0.0.8", "http://192.0.2.10", "http://198.18.0.1", "http://198.19.255.1",
+            "http://198.51.100.7", "http://203.0.113.9", "http://240.0.0.1", "http://192.88.99.1", "http://168.63.129.16",
+            "http://224.0.0.1",
+            // IPv6 outside 2000::/3 or in its special blocks.
+            "http://[2001:db8::1]", "http://[2001::1]", "http://[2001:1ff::1]", "http://[2002::1]", "http://[3fff::1]",
+            "http://[100::1]", "http://[2001:DB8::1]",
+            // Shapes Go's round trip or the server's checks refuse.
+            "https://home.example.", "https://h\u{00e9}.example", "https://home.example:08080", "https://home.example:",
+            "https://home.example/a/../b", "https://home.example/./b",
+            "https://home.example/" + String(repeating: "a", count: 520), "https://1.2.3", "https://01.2.3.4",
+            "https://-bad.example", "https://exa_mple.com", "https://home.example:80800", "https://home.example:1023",
+        ]
+        for server in refused {
+            XCTAssertEqual(DirectWatch.address(server), .unsupported, server)
+            bridge.setDirectWatch(server, on: true)
+            XCTAssertFalse(bridge.isDirectWatched(server), server)
+        }
+        let fine = ["https://home.example", "http://home.example:8080", "https://home.example:443/ntfy/v1",
+                    "http://93.184.216.34", "http://[2606:4700::1111]:8080", "https://my-ntfy.example.app",
+                    "https://railway-app.example.com", "http://100.128.0.1", "https://xn--hm-wka.example",
+                    "http://[2001:200::1]", "http://[3fff:1000::1]", "http://[::ffff:93.184.216.34]", "https://home.example/a!b"]
+        for server in fine { XCTAssertEqual(DirectWatch.address(server), .watchable(server), server) }
+        // Stricter than the server on purpose: a percent escape in the path it would take is held as unsupported.
+        XCTAssertEqual(DirectWatch.address("https://home.example/a%20b"), .unsupported)
+        XCTAssertEqual(DirectWatch.address("https://ntfy.sh"), .notSelfHosted)
+    }
+
+    /// F1, defence in depth: a 400 naming the servers cost the device every registration (ntfy.sh
+    /// names and hashes too), and every later sync sent the same body. Now only the server it
+    /// added loses its direct watch, the rest goes again at once, and the server reads "can't be
+    /// watched" instead of offering a switch.
+    func testARefusedServerCostsOnlyItsOwnDirectWatch() throws {
+        BridgeStubProtocol.reply = { request in
+            let path = request.url?.path ?? ""
+            if request.url?.host == "home.example", path.hasSuffix("/auth") { return .success((200, [:], "{}")) }
+            if request.httpMethod == "POST", let body = BridgeStubProtocol.sent.last?.body,
+               let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any], (json["servers"] as? [Any])?.isEmpty == false {
+                return .success((400, [:], #"{"code":40000,"http":400,"error":"set base_url to a public http or https URL with a lowercase host"}"#))
+            }
+            return .success((200, [:], #"{"watching":2,"expires":1900000000}"#))
+        }
+        save(Self.home3, "door")
+        save("https://ntfy.sh", "alerts")
+        optIn3([Self.home3])
+        sync()
+        waitUntil(5) { self.bridge.record.lastOutcome == .ok }
+        let sent = posts3()
+        XCTAssertEqual(sent.count, 2, "the refused list, then the same list without the direct part, once")
+        XCTAssertNotNil(sent.first?["servers"])
+        XCTAssertNil(sent.last?["servers"], "absent: nothing direct was ever installed")
+        XCTAssertEqual(sent.last?["ntfy_sh_topics"] as? [String], ["alerts"])
+        XCTAssertEqual(bridge.record.lastOutcome, .ok)
+        let accepted = BridgeWatchSet.members(signature: bridge.record.acceptedSignature)
+        XCTAssertTrue(accepted.contains("t:alerts"))
+        XCTAssertTrue(accepted.contains("h:" + topicHash(baseUrl: Self.home3, topic: "door")), "its hash still registers")
+        XCTAssertFalse(bridge.isDirectWatched(Self.home3))
+        XCTAssertEqual(bridge.directAddress(Self.home3), .unsupported)
+        bridge.setDirectWatch(Self.home3, on: true)
+        XCTAssertFalse(bridge.isDirectWatched(Self.home3), "no switch for a refused address")
+        let group = NtfyShBridge.Report.Group(server: Self.home3, watching: 0, held: [.init(topic: "door", hold: .checkMissed)])
+        XCTAssertEqual(NtfyShBridge.directWatchPanel(group: group, optedIn: false, address: bridge.directAddress(Self.home3),
+                                                     appBaseUrl: "https://ntfy-me.com"), .unavailable(.unsupported))
+        // A later sync sends the good list, not the refused one.
+        clock += 2 * 24 * 60 * 60
+        sync()
+        XCTAssertNil(try lastBody()["servers"])
+        XCTAssertEqual(posts3().count, 3)
+        // Another build may agree with the server again.
+        XCTAssertTrue(DirectWatch.refused(defaults, build: "another build").isEmpty)
+    }
+
+    /// F1: a server accepted before stays watched when a newly added one is refused.
+    func testOnlyTheNewlyAddedServerIsRefused() {
+        let other = "https://other.example"
+        let accepted: Set<String> = ["s:" + topicHash(baseUrl: other, topic: "a")]
+        optIn3([Self.home3, other])
+        let sent = BridgeWatchSet(ntfyShTopics: [], hashes: [], servers: [.init(baseUrl: other, topics: ["a"]),
+                                                                           .init(baseUrl: Self.home3, topics: ["door"])])
+        XCTAssertTrue(bridge.refuseDirectServers(sent: sent, accepted: accepted))
+        XCTAssertEqual(DirectWatch.refused(defaults), [Self.home3])
+        XCTAssertEqual(DirectWatch.servers(defaults), [other])
+    }
+
+    /// F2. Settings listed every self-hosted server with an on-switch, working ones too.
+    func testSettingsListsAServerOnlyWhileItIsOnOrOffered() {
+        typealias G = NtfyShBridge.Report.Group
+        let missed = [NtfyShBridge.Report.Held(topic: "t", hold: .checkMissed)]
+        let groups = [G(server: "https://works.example", watching: 2, held: []),
+                      G(server: "https://quiet.example", watching: 0, held: missed),
+                      G(server: "https://on.example", watching: 1, held: []),
+                      G(server: "http://192.168.1.4", watching: 0, held: missed),
+                      G(server: "https://ntfy.sh", watching: 0, held: missed)]
+        let urls = groups.map(\.server) + ["https://ntf-ai.app"]
+        let list = { (enabled: Bool) in
+            DirectWatchServersSection.servers(urls, groups: groups, enabled: enabled, optedIn: { $0 == "https://on.example" },
+                                              appBaseUrl: "https://ntfy-me.com")
+        }
+        XCTAssertEqual(list(true), ["https://on.example", "https://quiet.example"])
+        XCTAssertEqual(list(false), ["https://on.example"], "no offer while the bridge is off; the off switch stays reachable")
+        XCTAssertEqual(DirectWatchServersSection.servers(["https://works.example"], groups: [groups[0]], enabled: true,
+                                                         optedIn: { _ in false }, appBaseUrl: "https://ntfy-me.com"), [])
+    }
+
+    /// F4. A watched direct topic whose 200 passed 36 hours went out removed, then came back
+    /// after its recheck: two lists, and a gap where its wakes were lost.
+    func testAStaleDirectTopicIsRecheckedInPlace() throws {
+        stubDirect3(open: ["door"])
+        save(Self.home3, "door")
+        optIn3([Self.home3])
+        sync()
+        let door = "s:" + topicHash(baseUrl: Self.home3, topic: "door")
+        XCTAssertTrue(BridgeWatchSet.members(signature: bridge.record.acceptedSignature).contains(door))
+        let before = posts3().count
+        clock += 37 * 60 * 60
+        sync()
+        for body in posts3().dropFirst(before) {
+            let topics = (body["servers"] as? [[String: Any]])?.first?["topics"] as? [String]
+            XCTAssertEqual(topics, ["door"], "never sent without it while it is rechecked")
+        }
+        XCTAssertTrue(BridgeWatchSet.members(signature: bridge.record.acceptedSignature).contains(door))
+    }
+
+    private func optIn3(_ servers: [String]) { defaults.set(servers, forKey: DirectWatch.settingKey) }
+
+    private func posts3() -> [[String: Any]] {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "POST" }.compactMap {
+            $0.body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        }
+    }
+
+    private func stubDirect3(open: Set<String>) {
+        BridgeStubProtocol.reply = { request in
+            let path = request.url?.path ?? ""
+            if request.url?.host == "home.example", path.hasSuffix("/auth") {
+                let topic = path.dropLast(5).split(separator: "/").last.map(String.init) ?? ""
+                return .success((open.contains(topic) ? 200 : 401, [:], "{}"))
+            }
+            return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
+        }
     }
 }

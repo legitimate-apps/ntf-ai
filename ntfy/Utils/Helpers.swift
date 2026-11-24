@@ -34,6 +34,13 @@ enum HostedServer {
         return parts.url ?? url
     }
 
+    /// The app's own server under either name (and their www forms), by any scheme or port: every
+    /// "is this our server" decision that reads a host rather than comparing `normalizeBaseUrl`s.
+    static func isOwnHost(_ value: String) -> Bool {
+        guard let host = URLComponents(string: value)?.host?.lowercased() else { return false }
+        return hosts.contains(host) || hosts.contains(where: { "www." + $0 == host })
+    }
+
     /// Presentation and generated links change independently of network/persistence identity.
     static func publicURL(_ value: String) -> String {
         guard var parts = URLComponents(string: value), hostedOrigin(parts) else { return value }

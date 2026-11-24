@@ -485,9 +485,31 @@ final class LocalizationTests: XCTestCase {
         XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription"), "iOS shows (null) in the Local Network prompt without it")
     }
 
+    func testVersion131ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.31.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.31.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 2)
+        let expected: [String: [String]] = [
+            "en": ["The app's own server is now called ntf-ai.app. ntfy-me.com is the same server, so your existing topics keep working.", "If your own ntfy server isn't sending wake-ups, Notification status shows the server setting that fixes it. If you can't change the server, you can let ntf-ai.app watch its public topics instead. It stays off unless you turn it on for that server."],
+            "de": ["Der eigene Server der App heißt jetzt ntf-ai.app. ntfy-me.com ist derselbe Server, deine bestehenden Themen funktionieren also weiter.", "Wenn dein eigener ntfy-Server keine Wecksignale sendet, zeigt der Benachrichtigungsstatus die Server-Einstellung, die das behebt. Kannst du den Server nicht ändern, kann stattdessen ntf-ai.app seine öffentlichen Themen beobachten. Das bleibt aus, bis du es für diesen Server einschaltest."],
+            "es": ["El servidor propio de la app ahora se llama ntf-ai.app. ntfy-me.com es el mismo servidor, así que tus tópicos actuales siguen funcionando.", "Si tu propio servidor ntfy no envía avisos, Estado de notificaciones muestra el ajuste del servidor que lo soluciona. Si no puedes cambiar el servidor, puedes dejar que ntf-ai.app vigile sus tópicos públicos. Queda desactivado hasta que lo actives para ese servidor."],
+            "it": ["Il server dell’app ora si chiama ntf-ai.app. ntfy-me.com è lo stesso server, quindi i tuoi argomenti continuano a funzionare.", "Se il tuo server ntfy non invia segnali di risveglio, Stato notifiche mostra l’impostazione del server che risolve il problema. Se non puoi modificare il server, puoi lasciare che ntf-ai.app ne osservi gli argomenti pubblici. Resta disattivato finché non lo attivi per quel server."],
+            "pl": ["Własny serwer aplikacji nazywa się teraz ntf-ai.app. ntfy-me.com to ten sam serwer, więc Twoje dotychczasowe tematy nadal działają.", "Jeśli Twój własny serwer ntfy nie wysyła sygnałów wybudzenia, Stan powiadomień pokazuje ustawienie serwera, które to naprawia. Jeśli nie możesz zmienić serwera, ntf-ai.app może zamiast tego obserwować jego publiczne tematy. Pozostaje to wyłączone, dopóki nie włączysz tego dla danego serwera."],
+            "nl": ["De eigen server van de app heet nu ntf-ai.app. ntfy-me.com is dezelfde server, dus je bestaande onderwerpen blijven werken.", "Stuurt je eigen ntfy-server geen activeringssignalen, dan toont Meldingsstatus de serverinstelling die dat oplost. Kun je de server niet aanpassen, dan kan ntf-ai.app in plaats daarvan de openbare onderwerpen ervan volgen. Dit staat uit tot je het voor die server aanzet."],
+            "fr": ["Le serveur de l’app s’appelle désormais ntf-ai.app. ntfy-me.com est le même serveur : vos sujets existants continuent de fonctionner.", "Si votre propre serveur ntfy n’envoie pas de demandes de réveil, État des notifications indique le réglage du serveur qui corrige le problème. Si vous ne pouvez pas modifier le serveur, vous pouvez laisser ntf-ai.app surveiller ses sujets publics. C’est désactivé tant que vous ne l’activez pas pour ce serveur."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion130ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.30.0" })
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.30.0", "the newest release leads")
         XCTAssertEqual(release.bullets.count, 4)
         let expected: [String: [String]] = [
             "en": ["Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.", "Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too.", "Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups.", "Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup."],

@@ -362,6 +362,38 @@ final class NavigationPilotUITests: XCTestCase {
             captureAX("b130-details-\(topic)")
         }
     }
+    /// 1.31 direct server watch, from the fixture `DirectWatchCaptureSeed` writes: the offer under a
+    /// server sending no wake-ups, then servers watched directly (connected with a topic that needs a
+    /// login, unreachable, connecting), then a server's Advanced switch. NTFY_131_LANG picks a language.
+    func testCaptureDirectWatch131() {
+        let lang = ProcessInfo.processInfo.environment["NTFY_131_LANG"] ?? "en"
+        app.launchArguments = ["-AppleLanguages", "(\(lang))", "-ntfyDebugLastSeenVersion", "1.30.0",
+                               "-notificationPermissionPrimerOffered", "YES"]
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.buttons["Allow"].waitForExistence(timeout: 1) { springboard.buttons["Allow"].tap() }
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 15), "the app shows a screen")
+        let settings = lang == "de" ? "Einstellungen" : "Settings"
+        tab(settings)
+        // Under heavy load the first tap can land before the tab bar answers (fix round 3 captures).
+        if !app.navigationBars[settings].waitForExistence(timeout: 5) { tab(settings) }
+        XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 10))
+        let anchor = app.descendants(matching: .any)["bridge-held-alerts"].firstMatch
+        for _ in 0..<14 { if anchor.exists && anchor.isHittable { break }; app.swipeUp(velocity: .slow) }
+        // Half-screen steps from the first held topic down to the Servers section, one capture each.
+        let server = app.descendants(matching: .any)["settings-server-nas.example.org"].firstMatch
+        let window = app.windows.firstMatch
+        for step in 0..<16 {
+            captureAX("d131-\(lang)-step\(step)")
+            if server.exists && server.isHittable { break }
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.78))
+                .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.33)))
+            pause(0.6)
+        }
+        server.tap()
+        XCTAssertTrue(app.switches["server-direct-watch"].waitForExistence(timeout: 5))
+        captureAX("d131-\(lang)-advanced")
+    }
     func testCaptureSavedUserRow() {
         app.launch()
         openTopics()
