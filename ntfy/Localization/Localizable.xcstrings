@@ -33354,6 +33354,54 @@
         }
       }
     },
+    "expires at %@": {
+      "extractionState": "manual",
+      "comment": "Attachment fine print: a time later today",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expires at %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "läuft um %@ ab"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "caduca a las %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "scade alle %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wygasa o %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verloopt om %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expire à %@"
+          }
+        }
+      }
+    },
     "expires %@": {
       "extractionState": "manual",
       "comment": "Attachment fine print: a date",

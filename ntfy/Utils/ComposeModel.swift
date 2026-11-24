@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import ImageIO
+import UniformTypeIdentifiers
 
 /// The topic remains fixed while composing. No new subscription or credential is created.
 @MainActor
@@ -67,6 +69,19 @@ final class ComposeModel: ObservableObject {
         return destination
     }
 
+    /// A photo (picked or shared) is staged like any file, then sent in a format every reader
+    /// handles; see `OutgoingImage`. The limit applies to what is actually sent.
+    nonisolated static func stageImage(_ source: URL, limit: Int64) throws -> URL {
+        let staged = try stage(source, limit: Int64.max)
+        let prepared = OutgoingImage.prepare(staged)
+        let size = (try? prepared.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        guard size > 0, size <= limit else {
+            try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
+            throw ApiService.PublishError.attachmentTooLarge
+        }
+        return prepared
+    }
+
     func selectFile(_ result: Result<URL, Error>) {
         switch result {
         case .failure: error = String(localized: "The file could not be opened. Choose it again.")
@@ -121,5 +136,57 @@ final class ComposeModel: ObservableObject {
                     self.error = failure.message
                 }
             }
+    }
+}
+
+/// What a photo the person sends goes out as (1.32). The reader is often an AI agent, and agents
+/// read PNG, JPEG, GIF and WebP but not HEIC, the iPhone camera's format; other ntfy clients differ
+/// too. Those four formats go unchanged, so a screenshot keeps every pixel. Anything else that
+/// decodes as an image becomes a JPEG, at most `maxPixelSize` on its longest side, oriented as
+/// shown in Photos. Re-encoding also drops the camera's metadata, location included.
+enum OutgoingImage {
+    static let maxPixelSize = 4096
+    static let jpegQuality = 0.85
+    private static let unchanged: [UTType] = [.png, .jpeg, .gif, .webP]
+
+    /// The file to send: `staged` itself, or a JPEG written in its place (`staged` is then removed).
+    /// A JPEG goes as it is unless it is stored sideways (an iPhone set to "Most Compatible" writes
+    /// portrait photos that way): a reader that ignores the orientation tag would see it turned.
+    /// Anything that fails to convert is sent as it was.
+    static func prepare(_ staged: URL) -> URL {
+        guard let source = CGImageSourceCreateWithURL(staged as CFURL, nil),
+              let identifier = CGImageSourceGetType(source) as String?,
+              let type = UTType(identifier), type.conforms(to: .image) else { return staged }
+        if unchanged.contains(where: { type.conforms(to: $0) }) {
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+            let orientation = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+            guard type.conforms(to: .jpeg), orientation != 1 else { return staged }
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return staged }
+        let written = staged.deletingLastPathComponent().appendingPathComponent(".upright-\(UUID().uuidString).jpg")
+        guard let output = CGImageDestinationCreateWithURL(written as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
+            return staged
+        }
+        CGImageDestinationAddImage(output, image, [kCGImageDestinationLossyCompressionQuality: jpegQuality] as CFDictionary)
+        guard CGImageDestinationFinalize(output) else {
+            try? FileManager.default.removeItem(at: written)
+            return staged
+        }
+        let destination = staged.deletingPathExtension().appendingPathExtension("jpg")
+        do {
+            try FileManager.default.removeItem(at: staged)
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.moveItem(at: written, to: destination)
+        } catch {
+            try? FileManager.default.removeItem(at: written)
+            return staged
+        }
+        return destination
     }
 }

@@ -93,15 +93,20 @@ extension Notification {
         return AgentAck.settle(body: formatMessage(), tags: parseAllTags(tags), hasActions: false)
     }
 
-    /// The fine print under a picture: "87 KB · expires Nov 26". Name first on the page.
-    func attachmentFinePrint(includeName: Bool) -> String? {
+    /// The fine print under a picture: "87 KB · expires Nov 26". Name first on the page. A link that
+    /// expires today shows the time: on ntf-ai.app files last 3 hours, and "expires Nov 24" read on
+    /// Nov 24 doesn't say the picture is gone by the afternoon.
+    func attachmentFinePrint(includeName: Bool, now: Date = Date(), calendar: Calendar = .current) -> String? {
         guard let attachment = messageAttachment() else { return nil }
         var parts: [String] = []
         if includeName { parts.append(attachment.displayName()) }
         if let size = attachment.size, size > 0 { parts.append(formatBytes(size)) }
         if let expires = attachment.expires {
             let date = Date(timeIntervalSince1970: TimeInterval(expires))
-            if date > Date() {
+            if date > now, calendar.isDate(date, inSameDayAs: now) {
+                let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
+                parts.append(String(localized: "expires at \(time)", comment: "Attachment fine print: a time later today"))
+            } else if date > now {
                 let day = DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
                 parts.append(String(localized: "expires \(day)"))
             } else {
