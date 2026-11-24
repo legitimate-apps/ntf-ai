@@ -1012,6 +1012,37 @@ class Store: ObservableObject {
     }
 
     /// Failed reads are uncertainty, not evidence that a first alert may be discarded.
+    /// The message as this device already stored it (a foreground poll, the app's own publish),
+    /// for a wake-up whose fetch failed: the banner can show what the list already shows instead
+    /// of "Open the app to load it". Nil for no row, a deleted row, or a tombstoned sequence.
+    func storedPresentation(baseUrl: String, topic: String, id: String) -> Message? {
+        var stored: Message?
+        context.performAndWait {
+            guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: topic) else { return }
+            let request = Notification.fetchRequest()
+            request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, id)
+            guard let row = try? context.fetch(request).first, !row.isDeleted, let rowID = row.id else { return }
+            var message = Message(id: rowID, time: row.time, event: "message", topic: topic, message: row.message)
+            message.title = row.title
+            message.priority = row.priority
+            message.tags = row.tags.map(parseAllTags)
+            let actions = row.actionsList()
+            message.actions = actions.isEmpty ? nil : actions
+            message.rawActions = row.actions
+            message.click = row.click
+            message.icon = row.icon
+            message.contentType = row.contentType
+            message.sequenceID = row.sequenceID
+            if let url = row.attachmentUrl {
+                message.attachment = MessageAttachment(name: row.attachmentName ?? "", type: row.attachmentType,
+                                                       size: row.attachmentSize, expires: row.attachmentExpires, url: url)
+            }
+            message.isUpdate = row.read || row.presented
+            stored = message
+        }
+        return stored
+    }
+
     func wasAlerted(message: Message, baseUrl: String) -> Bool {
         hasClaimBeforeRow(message: message, baseUrl: baseUrl) || rowWasAlerted(message: message, baseUrl: baseUrl)
     }
