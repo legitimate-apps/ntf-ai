@@ -2794,6 +2794,12 @@ extension NtfyShBridgeTests {
         sync()
         XCTAssertEqual(watchPosts, before + 1)
         XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a"])
+        // 1.32 (followups-1301 E4, second bullet): the lost POST may still land after this 200,
+        // so b stays pending for one more list (testALaterListDoesNotForgetWhatALostRegistrationMayStillAdd).
+        XCTAssertEqual(bridge.currentRecord.unconfirmed, ["t:b"])
+        clock += 3601
+        sync()
+        XCTAssertEqual(watchPosts, before + 2)
         XCTAssertNil(bridge.currentRecord.unconfirmed, "acknowledged")
         XCTAssertEqual(bridge.report(wakes: nil).removing, 0)
     }
@@ -3869,5 +3875,162 @@ extension NtfyShBridgeTests {
             }
             return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
         }
+    }
+}
+
+// MARK: - 1.32 (brief-bridge.md): the ledger, and "Open the app to load it" with the app open
+
+extension NtfyShBridgeTests {
+    /// Red on 1661df2 (followups-1301 F4): the check's answer came back, its write failed (the
+    /// ledger lock was busy), and the round ended with no state signal, so an open status or
+    /// topic-details row kept saying "Checking" until something else changed.
+    func testACheckWhoseAnswerCantBeSavedStillSignalsItsEnd() {
+        credentialed("t1_q7x")
+        let lockPath = bridge.lock.path
+        var release: DispatchSemaphore?
+        var answering = false
+        BridgeStubProtocol.reply = { [unowned self] request in
+            guard request.url?.path.hasSuffix("/auth") == true else { return .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
+            // Another process takes the lock while the GET is out: the answer can't be written.
+            release = self.holdLock(lockPath)
+            // Signals from before the answer (the mark, the request going out) land first.
+            DispatchQueue.main.sync { answering = true }
+            return .success((200, [:], ""))
+        }
+        var postsAfterAnswer = 0
+        let token = NotificationCenter.default.addObserver(forName: .ntfyShBridgeStateChanged, object: nil, queue: nil) { _ in
+            if answering { postsAfterAnswer += 1 }
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        let done = expectation(description: "sync")
+        bridge.sync(reason: "check") { done.fulfill() }
+        wait(for: [done], timeout: 10)
+        release?.signal()
+        spin(0.3)
+        XCTAssertNotNil(release, "the check went out")
+        XCTAssertFalse(bridge.isCheckIssued("t1_q7x"))
+        XCTAssertGreaterThan(postsAfterAnswer, 0, "the end of the check is signalled even when its answer can't be saved")
+    }
+}
+
+extension NotificationServiceExpiryTests {
+    private func pollRequest(_ pollId: String, hash: String) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = "ntfy"
+        content.body = "New message"
+        var wake = Message(id: "wake_q7x", time: Int64(Date().timeIntervalSince1970), event: "poll_request", topic: hash)
+        wake.pollId = pollId
+        content.userInfo = wake.toUserInfo()
+        return UNNotificationRequest(identifier: "wake_q7x", content: content, trigger: nil)
+    }
+
+    /// Red on 1661df2 (brief-bridge item 3): during setup with the app open, the test message the
+    /// app had already saved (its own poll after the publish) still came up as "New message on
+    /// <topic>. Open the app to load it." whenever the extension's own read of it failed.
+    func testAFailedReadShowsTheMessageTheAppAlreadyHas() {
+        let store = Store(inMemory: true)
+        let baseUrl = "https://ntfy.sh"
+        let sub = store.saveSubscription(baseUrl: baseUrl, topic: "welcome_q7x")
+        var saved = Message(id: "test_q7x", time: Int64(Date().timeIntervalSince1970), event: "message", topic: "welcome_q7x",
+                            message: "This is a test notification")
+        saved.title = "NTF-AI test"
+        _ = store.save(notificationsFromMessages: [saved], withSubscription: sub)
+        let service = NotificationService(); service.makeStore = { store }
+        // Every read fails as it did on the device: a network error.
+        service.fetchSingleMessage = { _, _, _, _, _, done in done(nil, URLError(.networkConnectionLost)); return nil }
+        let delivered = expectation(description: "handoff")
+        var output: UNNotificationContent?
+        service.didReceive(pollRequest("test_q7x", hash: topicHash(baseUrl: baseUrl, topic: "welcome_q7x"))) { output = $0; delivered.fulfill() }
+        wait(for: [delivered], timeout: 10)
+        XCTAssertEqual(output?.body, "This is a test notification")
+        XCTAssertEqual(output?.title, "NTF-AI test")
+        XCTAssertNotEqual(output?.body, DeliveryHealthCopy.fetchFailure(topic: "welcome_q7x"))
+        withExtendedLifetime(service) {}
+    }
+
+    /// The fallback stays for a message this device doesn't have.
+    func testAFailedReadOfAMessageNobodyHasStillSaysOpenTheApp() {
+        let store = Store(inMemory: true)
+        let baseUrl = "https://ntfy.sh"
+        _ = store.saveSubscription(baseUrl: baseUrl, topic: "welcome_q7x")
+        let service = NotificationService(); service.makeStore = { store }
+        service.fetchSingleMessage = { _, _, _, _, _, done in done(nil, URLError(.networkConnectionLost)); return nil }
+        let delivered = expectation(description: "handoff")
+        var output: UNNotificationContent?
+        service.didReceive(pollRequest("absent_q7x", hash: topicHash(baseUrl: baseUrl, topic: "welcome_q7x"))) { output = $0; delivered.fulfill() }
+        wait(for: [delivered], timeout: 10)
+        XCTAssertEqual(output?.body, DeliveryHealthCopy.fetchFailure(topic: "welcome_q7x"))
+        withExtendedLifetime(service) {}
+    }
+}
+
+extension SelfHostedWakeCheckTests {
+    /// Red on 1661df2 (followups-1301 F5): a check planned under a tap whose 24 hours ran out, then
+    /// tapped again before dispatch, went out under the new tap, and its conclusive answer cleared
+    /// only taps from before it was planned, so the new tap stayed armed and the row kept saying so.
+    func testARetapBeforeDispatchIsConsumedByTheAnswer() {
+        let hash = garageHash
+        var retap: (() -> Void)?
+        check = SelfHostedWakeCheck(defaults: defaults, relayBaseUrl: "https://ntfy-me.com", read: { [unowned self] request, done in
+            self.sent.append(request)
+            done(Data(#"{"relayed":true,"relayed_at":1800000000,"window_seconds":120}"#.utf8),
+                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil), nil)
+        }, schedule: { [unowned self] delay, work in
+            self.clock = self.clock.addingTimeInterval(delay); retap?(); retap = nil; work()
+        }, now: { [unowned self] in self.clock }, stateDirectory: dir)
+        check.arm(hash: hash)
+        clock += SelfHostedWakeCheck.armLifetime - 3
+        retap = { [unowned self] in self.check.arm(hash: hash) }
+        var verdict: SelfHostedWakeCheck.Verdict?
+        check.messageArrivedByPoll(baseUrl: base, topic: "garage", messageTime: clock.addingTimeInterval(-2),
+                                   watch: { .distantPast }, evidence: { true }) { verdict = $0 }
+        XCTAssertEqual(sent.count, 1, "the new tap authorizes the request")
+        XCTAssertNotNil(verdict)
+        XCTAssertFalse(check.isArmed(hash: hash), "the answer consumes the tap it went out under")
+    }
+
+    /// Red on 1661df2 (followups-1301 F5): a poll that saw no watch, delayed until a new watch had
+    /// recorded evidence, cleared that evidence. (The `observedAt` argument is new; the behaviour
+    /// pinned is the old unconditional reset.)
+    func testALateNoWatchObserverKeepsANewerWatchsEvidence() {
+        let observed = clock
+        clock += 3600
+        let newWatch = observed.addingTimeInterval(600)
+        let three = messages(agedSeconds: [1800, 1200, 600]).map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) }
+        XCTAssertEqual(check.messagesFoundByPoll(hash: garageHash, watchStart: newWatch, messages: three), 3)
+        XCTAssertEqual(check.entry(hash: garageHash)?.watchedSince, newWatch)
+        check.notWatched(hash: garageHash, observedAt: observed)
+        XCTAssertEqual(check.entry(hash: garageHash)?.watchedSince, newWatch, "the late observer saw an older state")
+        check.notWatched(hash: garageHash, observedAt: clock)
+        XCTAssertNil(check.entry(hash: garageHash)?.watchedSince, "an observer after the watch began still resets it")
+    }
+}
+
+extension NtfyShBridgeTests {
+    /// Red on 1661df2 (followups-1301 E4, second bullet): a registration whose reply was lost could
+    /// still be applied by the server after a later list that left its names out, and the later
+    /// 200 cleared everything pending, so nothing ever removed them. They stay pending for one
+    /// more list, which goes out and then clears them.
+    func testALaterListDoesNotForgetWhatALostRegistrationMayStillAdd() throws {
+        save("https://ntfy.sh", "a")
+        sync()
+        let b = save("https://ntfy.sh", "b")
+        BridgeStubProtocol.reply = { _ in .success((500, [:], "")) }
+        sync()
+        XCTAssertEqual(bridge.currentRecord.unconfirmed, ["t:b"])
+        XCTAssertTrue(store.delete(subscription: b))
+        BridgeStubProtocol.reply = { _ in .success((200, [:], #"{"watching":1,"expires":1900000000}"#)) }
+        clock += 3601
+        sync()
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a"])
+        XCTAssertEqual(bridge.currentRecord.unconfirmed, ["t:b"], "the lost one may still land after this")
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 1)
+        clock += 3601
+        let before = watchPosts
+        sync()
+        XCTAssertEqual(watchPosts, before + 1, "one more list goes out")
+        XCTAssertEqual(try lastBody()["ntfy_sh_topics"] as? [String], ["a"])
+        XCTAssertNil(bridge.currentRecord.unconfirmed)
+        XCTAssertEqual(bridge.report(wakes: nil).removing, 0)
     }
 }
