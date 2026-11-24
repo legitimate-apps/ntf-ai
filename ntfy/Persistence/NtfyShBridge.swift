@@ -303,24 +303,171 @@ enum DirectWatch {
     }
 
     /// The `base_url` for a server, which must be exactly the address its wake-ups are named by
-    /// (`topicHash`): http or https, a lowercase host, an optional port and path, no trailing
-    /// slash, user, query or fragment.
+    /// (`topicHash`) and one the app's server accepts. One `base_url` it refuses fails the whole
+    /// watch POST with a 400 (review-131 F1), so this mirrors the server's own rule
+    /// (`ntfyMeDirectValidBase` and `ntfyMeDirectPublicIP`, server/ntfy-me/ntfyme-direct-watch.go
+    /// and ntfyme-direct-transport.go) and errs only on the strict side: anything it can't be sure
+    /// of is `.unsupported`, which the screen shows as "can't be watched" instead of a switch.
     static func address(_ baseUrl: String) -> Address {
         let server = normalizeBaseUrl(baseUrl)
-        guard let parts = URLComponents(string: server), let host = parts.host, !host.isEmpty else { return .unsupported }
-        let lower = host.lowercased()
-        if HostedServer.isOwnHost(server) || lower == "ntfy.sh" || lower == "www.ntfy.sh" { return .notSelfHosted }
-        guard let scheme = parts.scheme, scheme == "http" || scheme == "https", host == lower,
-              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
-              !server.hasSuffix("/") else { return .unsupported }
-        if let port = parts.port, port != 80, port != 443, !(1024...65535).contains(port) { return .unsupported }
-        let bare = lower.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if LocalNetworkHint.isLocalHost(server) || lower == "localhost" || lower.hasSuffix(".localhost")
-            || bare.hasPrefix("127.") || bare == "::1" || bare.hasPrefix("100.64.") { return .localOnly }
+        let host = URLComponents(string: server)?.host?.lowercased()
+            ?? Base(server)?.host ?? ""
+        if HostedServer.isOwnHost(server) || host == "ntfy.sh" || host == "www.ntfy.sh" { return .notSelfHosted }
+        let base = Base(server)
+        let bare = (base?.host ?? host).trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if LocalNetworkHint.isLocalHost(server) || Base.localSuffixes.contains(where: { bare == $0 || bare.hasSuffix("." + $0) })
+            || Base.ipClass(bare) == .local { return .localOnly }
+        guard let base, base.accepted else { return .unsupported }
         return .watchable(server)
     }
 
+    /// A `base_url` taken apart the way the server's Go `net/url` check sees it, on the strict side.
+    struct Base {
+        let host: String
+        let accepted: Bool
+
+        /// The server's limit on a `base_url` (`ntfyMeDirectURLLimit`).
+        static let maxLength = 512
+        /// Host suffixes the server refuses (`ntfyMeDirectValidHost`); the first four name a local network.
+        static let localSuffixes = ["localhost", "local", "internal", "home.arpa"]
+        static let refusedSuffixes = ["ntfy.sh", "ntfy-me.com", "ntf-ai.app", "notf.app", "getnotf.com", "ntfai.app", "railway.app"]
+
+        init?(_ base: String) {
+            // Printable ASCII only: Go re-encodes anything else, so its round trip wouldn't match.
+            guard base.unicodeScalars.allSatisfy({ (0x21...0x7e).contains($0.value) }) else { return nil }
+            let scheme: String
+            if base.hasPrefix("https://") { scheme = "https://" } else if base.hasPrefix("http://") { scheme = "http://" } else { return nil }
+            let rest = base.dropFirst(scheme.count)
+            let slash = rest.firstIndex(of: "/") ?? rest.endIndex
+            let authority = String(rest[..<slash])
+            let path = String(rest[slash...])
+            var host = authority
+            var port: String?
+            if authority.hasPrefix("[") {
+                guard let close = authority.firstIndex(of: "]") else { return nil }
+                host = String(authority[authority.index(after: authority.startIndex)..<close])
+                let after = authority[authority.index(after: close)...]
+                if !after.isEmpty {
+                    guard after.hasPrefix(":") else { return nil }
+                    port = String(after.dropFirst())
+                }
+            } else if let colon = authority.lastIndex(of: ":") {
+                host = String(authority[..<colon])
+                port = String(authority[authority.index(after: colon)...])
+            }
+            self.host = host
+            accepted = base.utf8.count <= Self.maxLength
+                && !base.contains(where: { "?#\\@".contains($0) }) && !base.hasSuffix("/")
+                && Self.validHost(host, bracketed: authority.hasPrefix("["))
+                && (port.map(Self.validPort) ?? true)
+                && Self.validPath(path)
+        }
+
+        /// 80, 443 or 1024–65535, written the canonical way (no sign, no leading zero, not empty).
+        static func validPort(_ port: String) -> Bool {
+            guard !port.isEmpty, port.allSatisfy({ $0.isASCII && $0.isNumber }), let n = Int(port), String(n) == port else { return false }
+            return n == 80 || n == 443 || (1024...65535).contains(n)
+        }
+
+        /// Segments of unreserved characters and the sub-delimiters Go leaves as written; no
+        /// percent escapes, no empty, "." or ".." segment.
+        static func validPath(_ path: String) -> Bool {
+            guard !path.isEmpty else { return true }
+            let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:")
+            return path.split(separator: "/", omittingEmptySubsequences: false).dropFirst().allSatisfy { segment in
+                !segment.isEmpty && segment != "." && segment != ".." && segment.allSatisfy(allowed.contains)
+            }
+        }
+
+        static func validHost(_ host: String, bracketed: Bool) -> Bool {
+            guard !host.isEmpty, host == host.lowercased(), host.count <= 253, !host.contains("%") else { return false }
+            if bracketed { return host.contains(":") && ipClass(host) == .public }
+            if let ip = ipClass(host) { return ip == .public }
+            guard !host.contains(":") else { return false }
+            let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+            guard labels.count >= 2, labels.allSatisfy(validLabel),
+                  labels.last?.contains(where: { $0.isLetter }) == true else { return false }
+            return !(refusedSuffixes + localSuffixes).contains { host == $0 || host.hasSuffix("." + $0) }
+        }
+
+        /// `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`
+        static func validLabel(_ label: Substring) -> Bool {
+            let chars = Set("abcdefghijklmnopqrstuvwxyz0123456789-")
+            return (1...63).contains(label.count) && label.allSatisfy(chars.contains) && label.first != "-" && label.last != "-"
+        }
+
+        enum IPClass: Equatable {
+            /// A public Internet address the server dials.
+            case `public`
+            /// Loopback, private, link-local, CGNAT or unique-local: on the user's own network.
+            case local
+            /// Any other range the server refuses (documentation, benchmarking, reserved, multicast...).
+            case special
+        }
+
+        /// nil when `host` isn't an IP literal as Go's `netip.ParseAddr` reads one.
+        static func ipClass(_ host: String) -> IPClass? {
+            if let v4 = ipv4(host) { return classify(v4) }
+            guard host.contains(":") else { return nil }
+            var addr = in6_addr()
+            guard inet_pton(AF_INET6, host, &addr) == 1 else { return nil }
+            let b = withUnsafeBytes(of: addr) { Array($0) }
+            // ::ffff:a.b.c.d is read as the IPv4 address (Go's Unmap).
+            if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xff && b[11] == 0xff { return classify(Array(b[12..<16])) }
+            if b[0..<15].allSatisfy({ $0 == 0 }) && b[15] == 1 { return .local }               // ::1
+            if b[0] == 0xfe && b[1] & 0xc0 == 0x80 { return .local }                            // fe80::/10
+            if b[0] & 0xfe == 0xfc { return .local }                                            // fc00::/7
+            guard b[0] & 0xe0 == 0x20 else { return .special }                                  // outside 2000::/3
+            let word = UInt16(b[0]) << 8 | UInt16(b[1])
+            if word == 0x2001 && b[2] < 0x02 { return .special }                                // 2001::/23
+            if word == 0x2001 && b[2] == 0x0d && b[3] == 0xb8 { return .special }               // 2001:db8::/32
+            if word == 0x2002 { return .special }                                               // 2002::/16
+            if word == 0x3fff && b[2] & 0xf0 == 0 { return .special }                           // 3fff::/20
+            return .public
+        }
+
+        /// Four decimal octets, no leading zeros, as `netip.ParseAddr` accepts them.
+        static func ipv4(_ host: String) -> [UInt8]? {
+            let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+            guard parts.count == 4 else { return nil }
+            var bytes: [UInt8] = []
+            for part in parts {
+                guard (1...3).contains(part.count), part.allSatisfy({ $0.isASCII && $0.isNumber }),
+                      part == "0" || part.first != "0", let n = UInt8(part) else { return nil }
+                bytes.append(n)
+            }
+            return bytes
+        }
+
+        static func classify(_ b: [UInt8]) -> IPClass {
+            switch (b[0], b[1]) {
+            case (127, _), (10, _), (192, 168), (169, 254): return .local
+            case (172, 16...31), (100, 64...127): return .local
+            default: break
+            }
+            if b[0] == 0 || b[0] >= 224 { return .special }                                     // 0/8, multicast, 240/4, broadcast
+            if b == [168, 63, 129, 16] { return .special }
+            switch (b[0], b[1], b[2]) {
+            case (192, 0, 0), (192, 0, 2), (192, 88, 99), (198, 51, 100), (203, 0, 113): return .special
+            case (198, 18...19, _): return .special
+            default: return .public
+            }
+        }
+    }
+
     static func accessKey(server: String, topic: String) -> String { server + " " + topic }
+
+    /// App-group defaults: servers whose `base_url` the app's server answered 400 to, with the app
+    /// build that sent it. A later build may agree with the server again, so it ignores them.
+    static let refusedKey = "ntfaiDirectWatchRefused"
+
+    static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
+
+    /// Servers this build had refused by the app's server.
+    static func refused(_ defaults: UserDefaults, build: String = DirectWatch.build) -> Set<String> {
+        let all = defaults.dictionary(forKey: refusedKey) as? [String: String] ?? [:]
+        return Set(all.filter { $0.value == build }.keys)
+    }
 
     /// The server and topic of an `accessKey`; nil for an ntfy.sh name.
     static func parseKey(_ key: String) -> (server: String, topic: String)? {
@@ -893,8 +1040,22 @@ final class NtfyShBridge: ObservableObject {
 
     // MARK: Direct server watch (1.31)
 
-    /// The self-hosted servers the user let the app's server watch directly.
-    var directServers: Set<String> { DirectWatch.servers(defaults) }
+    /// The self-hosted servers the user let the app's server watch directly. A stored opt-in for an
+    /// address the app's server doesn't accept counts as off (review-131 F1): it is never sent.
+    var directServers: Set<String> {
+        let refused = DirectWatch.refused(defaults)
+        return DirectWatch.servers(defaults).filter { server in
+            guard !refused.contains(server), case .watchable = DirectWatch.address(server) else { return false }
+            return true
+        }
+    }
+
+    /// `DirectWatch.address`, and `.unsupported` for a server the app's server refused for this build.
+    func directAddress(_ baseUrl: String) -> DirectWatch.Address {
+        let address = DirectWatch.address(baseUrl)
+        if case .watchable(let server) = address, DirectWatch.refused(defaults).contains(server) { return .unsupported }
+        return address
+    }
 
     func isDirectWatched(_ baseUrl: String) -> Bool { directServers.contains(normalizeBaseUrl(baseUrl)) }
 
@@ -904,7 +1065,7 @@ final class NtfyShBridge: ObservableObject {
         let server = normalizeBaseUrl(baseUrl)
         var servers = directServers
         if on {
-            guard server != normalizeBaseUrl(appBaseUrl), case .watchable = DirectWatch.address(server) else { return }
+            guard server != normalizeBaseUrl(appBaseUrl), case .watchable = directAddress(server) else { return }
             servers.insert(server)
         } else {
             servers.remove(server)
@@ -920,11 +1081,35 @@ final class NtfyShBridge: ObservableObject {
 
     /// A server with no subscription left (unsubscribed or deleted) loses its opt-in, so adding it
     /// again starts from off; its topics already left the list with their rows.
+    /// An opt-in for an address that can't be watched (see `directServers`) is dropped too.
     private func pruneDirectWatch(_ rows: [(baseUrl: String, topic: String, hasLogin: Bool)]) {
-        let servers = directServers
-        guard !servers.isEmpty else { return }
-        let kept = servers.intersection(rows.map { normalizeBaseUrl($0.baseUrl) })
-        if kept != servers { defaults.set(kept.sorted(), forKey: DirectWatch.settingKey) }
+        let stored = DirectWatch.servers(defaults)
+        guard !stored.isEmpty else { return }
+        let kept = directServers.intersection(rows.map { normalizeBaseUrl($0.baseUrl) })
+        if kept != stored { defaults.set(kept.sorted(), forKey: DirectWatch.settingKey) }
+    }
+
+    /// A 400 that names the servers (review-131 F1): the app's server refused a `base_url` this
+    /// build thought it accepts, and that refusal sank the whole list (ntfy.sh names and hashes
+    /// too). The servers this list added are the ones it can be about (a `base_url` it accepted
+    /// before is valid); when it added none, every server it carried. Those are recorded as
+    /// refused for this build and their opt-in dropped, so they show as "can't be watched", and
+    /// the list goes again without them once, at once.
+    /// - Returns: true when something was refused, so the caller sends the list again.
+    func refuseDirectServers(sent: BridgeWatchSet, accepted: Set<String>) -> Bool {
+        let added = sent.servers.filter { server in
+            !server.topics.contains { accepted.contains("s:" + topicHash(baseUrl: server.baseUrl, topic: $0)) }
+        }
+        let refused = Set((added.isEmpty ? sent.servers : added).map(\.baseUrl))
+        guard !refused.isEmpty else { return false }
+        var ledger = (defaults.dictionary(forKey: DirectWatch.refusedKey) as? [String: String] ?? [:])
+            .filter { $0.value == DirectWatch.build }
+        for server in refused { ledger[server] = DirectWatch.build }
+        defaults.set(ledger, forKey: DirectWatch.refusedKey)
+        defaults.set(DirectWatch.servers(defaults).subtracting(refused).sorted(), forKey: DirectWatch.settingKey)
+        Log.w(Self.tag, "The server refused \(refused.count) server address(es) for direct watch; sending the list without them")
+        BridgeStateSignal.announce()
+        return true
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -1366,7 +1551,10 @@ final class NtfyShBridge: ObservableObject {
                                              direct: directServers)
             // A removal already known goes out before the optional checks (review-130d D2). A name
             // held only until its check isn't known to go: the checks decide it.
+            // A directly watched topic whose 200 went stale is the same (review-131 F4): removing it
+            // before its recheck would drop it and add it back, losing the wakes in between.
             let awaitingCheck = Set(set.held.filter { $0.hold == .checkingAccess }.map { "t:" + $0.topic })
+                .union(set.directHeld.filter { $0.hold == .checking }.map { "s:" + topicHash(baseUrl: $0.server, topic: $0.topic) })
             shrinkFirst = recordFile.read().map { !$0.pendingRemovals(desired: set).subtracting(awaitingCheck).isEmpty } ?? false
             if let until = ledger.probeNotBefore, until > now() {
                 // ntfy.sh asked for a pause; the user's own servers are not ntfy.sh.
@@ -1614,6 +1802,7 @@ final class NtfyShBridge: ObservableObject {
             NtfyMeHostCooldown.note(status: status, retryAfter: retryAfter, lock: lock, now: now())
         }
         var obsolete = false
+        var acceptedBefore: Set<String>?
         mutate { next in
             if next.attempting == revision { next.attempting = nil }
             guard (next.revision ?? 0) == revision else { obsolete = true; return }
@@ -1668,12 +1857,22 @@ final class NtfyShBridge: ObservableObject {
                 next.lastOutcome = .rejected
                 let detail = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(300) ?? ""
                 Log.e(Self.tag, "Registration rejected (HTTP \(status)): \(detail)")
+                if status == 400, !desired.servers.isEmpty, let words = reply?.error?.lowercased(),
+                   words.contains("server") || words.contains("base_url") {
+                    acceptedBefore = BridgeWatchSet.members(signature: next.acceptedSignature)
+                }
             default:
                 next.lastOutcome = .serverError
                 Log.w(Self.tag, "Registration failed (HTTP \(status)); backing off")
             }
         }
         if obsolete { Log.d(Self.tag, "Dropped the reply to an older registration") }
+        // Only the direct part is refused: the rest of the list goes again without it, once.
+        if let acceptedBefore, refuseDirectServers(sent: desired, accepted: acceptedBefore) {
+            processLock.lock()
+            rerunRequested = true
+            processLock.unlock()
+        }
     }
 
     private func finish(_ completion: (() -> Void)?) {
@@ -1905,21 +2104,31 @@ final class NtfyShBridge: ObservableObject {
     }
 
     /// What Notification status shows under one server about direct server watch (1.31).
-    enum DirectWatchPanel: Equatable {
+    enum DirectWatchPanel: Hashable {
         /// Diagnosed as sending no wake-ups, not turned on: the fix, then the offer.
         case offer
         /// Turned on: its state and the way to turn it off.
         case on
+        /// Diagnosed, at an address the app's server can't watch (`.localOnly` or `.unsupported`):
+        /// the fix, then why there is no offer (review-131 F1).
+        case unavailable(DirectWatch.Hold)
     }
 
     /// The offer appears only under a self-hosted server diagnosed as sending no wake-ups (a
     /// topic held as `.checkMissed` or `.noForwardingConfirmed`); never for ntfy.sh, the app's
-    /// own server under either name, a local-network address, or a server that wakes the device.
-    static func directWatchPanel(group: Report.Group, optedIn: Bool, appBaseUrl: String = Config.appBaseUrl) -> DirectWatchPanel? {
-        guard normalizeBaseUrl(group.server) != normalizeBaseUrl(appBaseUrl),
-              case .watchable = DirectWatch.address(group.server) else { return nil }
-        if optedIn { return .on }
-        return group.held.contains { $0.hold == .checkMissed || $0.hold == .noForwardingConfirmed } ? .offer : nil
+    /// own server under either name, or a server that wakes the device. At an address the app's
+    /// server can't watch, the fix shows with the reason instead of a switch.
+    /// - Parameter address: `NtfyShBridge.directAddress`, which also knows refusals; the rule alone if nil.
+    static func directWatchPanel(group: Report.Group, optedIn: Bool, address: DirectWatch.Address? = nil,
+                                 appBaseUrl: String = Config.appBaseUrl) -> DirectWatchPanel? {
+        guard normalizeBaseUrl(group.server) != normalizeBaseUrl(appBaseUrl) else { return nil }
+        let diagnosed = group.held.contains { $0.hold == .checkMissed || $0.hold == .noForwardingConfirmed }
+        switch address ?? DirectWatch.address(group.server) {
+        case .notSelfHosted: return nil
+        case .watchable: return optedIn ? .on : diagnosed ? .offer : nil
+        case .localOnly: return diagnosed ? .unavailable(.localOnly) : nil
+        case .unsupported: return diagnosed ? .unavailable(.unsupported) : nil
+        }
     }
 
     /// The server-level word for a server watched directly: accepted and what the status read said.

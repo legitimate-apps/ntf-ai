@@ -3473,7 +3473,10 @@ extension NtfyShBridgeTests {
         XCTAssertNil(panel(G(server: "https://ntfy.sh", watching: 0, held: missed), false))
         XCTAssertNil(panel(G(server: "https://ntfy-me.com", watching: 0, held: missed), false))
         XCTAssertNil(panel(G(server: "https://ntf-ai.app", watching: 0, held: missed), false))
-        XCTAssertNil(panel(G(server: "http://192.168.1.4", watching: 0, held: missed), false), "unreachable from the internet")
+        // Diagnosed at an address ntf-ai.app can't watch: the fix and the reason, no switch (review-131 F1).
+        XCTAssertEqual(panel(G(server: "http://192.168.1.4", watching: 0, held: missed), false), .unavailable(.localOnly))
+        XCTAssertEqual(panel(G(server: "https://my-ntfy.up.railway.app", watching: 0, held: missed), false), .unavailable(.unsupported))
+        XCTAssertNil(panel(G(server: "http://192.168.1.4", watching: 2, held: []), false), "nothing under a working local server")
         XCTAssertEqual(panel(G(server: Self.home, watching: 2, held: []), true), .on)
     }
 
@@ -3643,10 +3646,14 @@ final class DirectWatchCaptureSeed: XCTestCase {
         let start = now.addingTimeInterval(-3 * 60 * 60)
         let offer = "https://home.example.net", on = "https://nas.example.org"
         let lab = "https://lab.example.com", pi = "https://pi.example.io"
+        // Fix round 3: a server that works (never listed in Settings > Servers), and one diagnosed
+        // at an address the app's server refuses (the fix and "can't connect", no offer).
+        let works = "https://works.example.com", railway = "https://my-ntfy.up.railway.app"
         let store = Store()
         for row in store.getSubscriptions() ?? [] { _ = store.delete(subscription: row) }
         for (server, topic) in [("https://ntfy.sh", "news-q7x"), (offer, "alerts"), (offer, "backups"),
-                                (on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp"), ("https://ntfy-me.com", "own-q7x")] {
+                                (on, "door"), (on, "cams"), (lab, "sensors"), (pi, "temp"), ("https://ntfy-me.com", "own-q7x"),
+                                (works, "status"), (railway, "jobs")] {
             store.setFcmSubscribed(store.saveSubscription(baseUrl: server, topic: topic), true)
         }
         let defaults = NtfyShBridge.defaults
@@ -3689,7 +3696,8 @@ final class DirectWatchCaptureSeed: XCTestCase {
         var missed = SelfHostedWakeCheck.Entry(); missed.misses = 1; missed.watchedSince = start
         var weak = SelfHostedWakeCheck.Entry(); weak.weakMisses = 3; weak.watchedSince = start
         _ = SharedStateFile<[String: SelfHostedWakeCheck.Entry]>(name: SelfHostedWakeCheck.fileName).update { value in
-            value = [topicHash(baseUrl: offer, topic: "alerts"): missed, topicHash(baseUrl: offer, topic: "backups"): weak]
+            value = [topicHash(baseUrl: offer, topic: "alerts"): missed, topicHash(baseUrl: offer, topic: "backups"): weak,
+                     topicHash(baseUrl: railway, topic: "jobs"): weak]
             return (true, ())
         }
         let check = NtfyShBridge(store: store, defaults: defaults, network: false)
@@ -3698,5 +3706,168 @@ final class DirectWatchCaptureSeed: XCTestCase {
         XCTAssertEqual(check.topicState(baseUrl: lab, topic: "sensors", fcmBound: true), .held(.directWatchUnreachable))
         XCTAssertEqual(check.topicState(baseUrl: pi, topic: "temp", fcmBound: true), .held(.directWatchConnecting))
         XCTAssertEqual(check.topicState(baseUrl: offer, topic: "backups", fcmBound: true), .held(.noForwardingConfirmed))
+        XCTAssertEqual(check.topicState(baseUrl: works, topic: "status", fcmBound: true), .watched)
+        XCTAssertEqual(check.topicState(baseUrl: railway, topic: "jobs", fcmBound: true), .held(.noForwardingConfirmed))
+    }
+}
+
+
+/// 1.31 fix round 3 (review-131): the address rule matches the server's, a refusal costs only the
+/// direct part, Settings is no advert, and a stale direct topic is rechecked in place.
+extension NtfyShBridgeTests {
+    private static let home3 = "https://home.example"
+
+    /// F1. Every address in `local` and `refused` is refused by the server's `ntfyMeDirectValidBase`
+    /// (checked by running the Go function on this table: app-STATE "1.31 fix round 3"), and most
+    /// passed the app's old rule: one in the list made the whole watch POST a 400. `fine` is what it accepts.
+    func testTheAppOffersNoAddressTheServerRefuses() {
+        let local = ["http://100.101.4.7:8080", "http://100.127.255.1", "http://127.0.0.2", "http://[::1]:8080",
+                     "http://[fd7a:115c:a1e0::1]", "http://[fe80::1]", "https://nas.home.arpa", "https://box.internal",
+                     "http://printer.localhost"]
+        for server in local { XCTAssertEqual(DirectWatch.address(server), .localOnly, server) }
+        let refused = [
+            // Host suffixes the server blocks.
+            "https://my-ntfy.up.railway.app", "https://railway.app", "https://push.ntfy.sh", "https://a.ntfy-me.com",
+            "https://b.ntf-ai.app", "https://x.notf.app", "https://getnotf.com", "https://ntfai.app",
+            // Special-use IPv4 ranges.
+            "http://0.1.2.3", "http://192.0.0.8", "http://192.0.2.10", "http://198.18.0.1", "http://198.19.255.1",
+            "http://198.51.100.7", "http://203.0.113.9", "http://240.0.0.1", "http://192.88.99.1", "http://168.63.129.16",
+            "http://224.0.0.1",
+            // IPv6 outside 2000::/3 or in its special blocks.
+            "http://[2001:db8::1]", "http://[2001::1]", "http://[2001:1ff::1]", "http://[2002::1]", "http://[3fff::1]",
+            "http://[100::1]", "http://[2001:DB8::1]",
+            // Shapes Go's round trip or the server's checks refuse.
+            "https://home.example.", "https://h\u{00e9}.example", "https://home.example:08080", "https://home.example:",
+            "https://home.example/a/../b", "https://home.example/./b",
+            "https://home.example/" + String(repeating: "a", count: 520), "https://1.2.3", "https://01.2.3.4",
+            "https://-bad.example", "https://exa_mple.com", "https://home.example:80800", "https://home.example:1023",
+        ]
+        for server in refused {
+            XCTAssertEqual(DirectWatch.address(server), .unsupported, server)
+            bridge.setDirectWatch(server, on: true)
+            XCTAssertFalse(bridge.isDirectWatched(server), server)
+        }
+        let fine = ["https://home.example", "http://home.example:8080", "https://home.example:443/ntfy/v1",
+                    "http://93.184.216.34", "http://[2606:4700::1111]:8080", "https://my-ntfy.example.app",
+                    "https://railway-app.example.com", "http://100.128.0.1", "https://xn--hm-wka.example",
+                    "http://[2001:200::1]", "http://[3fff:1000::1]", "http://[::ffff:93.184.216.34]", "https://home.example/a!b"]
+        for server in fine { XCTAssertEqual(DirectWatch.address(server), .watchable(server), server) }
+        // Stricter than the server on purpose: a percent escape in the path it would take is held as unsupported.
+        XCTAssertEqual(DirectWatch.address("https://home.example/a%20b"), .unsupported)
+        XCTAssertEqual(DirectWatch.address("https://ntfy.sh"), .notSelfHosted)
+    }
+
+    /// F1, defence in depth: a 400 naming the servers cost the device every registration (ntfy.sh
+    /// names and hashes too), and every later sync sent the same body. Now only the server it
+    /// added loses its direct watch, the rest goes again at once, and the server reads "can't be
+    /// watched" instead of offering a switch.
+    func testARefusedServerCostsOnlyItsOwnDirectWatch() throws {
+        BridgeStubProtocol.reply = { request in
+            let path = request.url?.path ?? ""
+            if request.url?.host == "home.example", path.hasSuffix("/auth") { return .success((200, [:], "{}")) }
+            if request.httpMethod == "POST", let body = BridgeStubProtocol.sent.last?.body,
+               let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any], (json["servers"] as? [Any])?.isEmpty == false {
+                return .success((400, [:], #"{"code":40000,"http":400,"error":"set base_url to a public http or https URL with a lowercase host"}"#))
+            }
+            return .success((200, [:], #"{"watching":2,"expires":1900000000}"#))
+        }
+        save(Self.home3, "door")
+        save("https://ntfy.sh", "alerts")
+        optIn3([Self.home3])
+        sync()
+        waitUntil(5) { self.bridge.record.lastOutcome == .ok }
+        let sent = posts3()
+        XCTAssertEqual(sent.count, 2, "the refused list, then the same list without the direct part, once")
+        XCTAssertNotNil(sent.first?["servers"])
+        XCTAssertNil(sent.last?["servers"], "absent: nothing direct was ever installed")
+        XCTAssertEqual(sent.last?["ntfy_sh_topics"] as? [String], ["alerts"])
+        XCTAssertEqual(bridge.record.lastOutcome, .ok)
+        let accepted = BridgeWatchSet.members(signature: bridge.record.acceptedSignature)
+        XCTAssertTrue(accepted.contains("t:alerts"))
+        XCTAssertTrue(accepted.contains("h:" + topicHash(baseUrl: Self.home3, topic: "door")), "its hash still registers")
+        XCTAssertFalse(bridge.isDirectWatched(Self.home3))
+        XCTAssertEqual(bridge.directAddress(Self.home3), .unsupported)
+        bridge.setDirectWatch(Self.home3, on: true)
+        XCTAssertFalse(bridge.isDirectWatched(Self.home3), "no switch for a refused address")
+        let group = NtfyShBridge.Report.Group(server: Self.home3, watching: 0, held: [.init(topic: "door", hold: .checkMissed)])
+        XCTAssertEqual(NtfyShBridge.directWatchPanel(group: group, optedIn: false, address: bridge.directAddress(Self.home3),
+                                                     appBaseUrl: "https://ntfy-me.com"), .unavailable(.unsupported))
+        // A later sync sends the good list, not the refused one.
+        clock += 2 * 24 * 60 * 60
+        sync()
+        XCTAssertNil(try lastBody()["servers"])
+        XCTAssertEqual(posts3().count, 3)
+        // Another build may agree with the server again.
+        XCTAssertTrue(DirectWatch.refused(defaults, build: "another build").isEmpty)
+    }
+
+    /// F1: a server accepted before stays watched when a newly added one is refused.
+    func testOnlyTheNewlyAddedServerIsRefused() {
+        let other = "https://other.example"
+        let accepted: Set<String> = ["s:" + topicHash(baseUrl: other, topic: "a")]
+        optIn3([Self.home3, other])
+        let sent = BridgeWatchSet(ntfyShTopics: [], hashes: [], servers: [.init(baseUrl: other, topics: ["a"]),
+                                                                           .init(baseUrl: Self.home3, topics: ["door"])])
+        XCTAssertTrue(bridge.refuseDirectServers(sent: sent, accepted: accepted))
+        XCTAssertEqual(DirectWatch.refused(defaults), [Self.home3])
+        XCTAssertEqual(DirectWatch.servers(defaults), [other])
+    }
+
+    /// F2. Settings listed every self-hosted server with an on-switch, working ones too.
+    func testSettingsListsAServerOnlyWhileItIsOnOrOffered() {
+        typealias G = NtfyShBridge.Report.Group
+        let missed = [NtfyShBridge.Report.Held(topic: "t", hold: .checkMissed)]
+        let groups = [G(server: "https://works.example", watching: 2, held: []),
+                      G(server: "https://quiet.example", watching: 0, held: missed),
+                      G(server: "https://on.example", watching: 1, held: []),
+                      G(server: "http://192.168.1.4", watching: 0, held: missed),
+                      G(server: "https://ntfy.sh", watching: 0, held: missed)]
+        let urls = groups.map(\.server) + ["https://ntf-ai.app"]
+        let list = { (enabled: Bool) in
+            DirectWatchServersSection.servers(urls, groups: groups, enabled: enabled, optedIn: { $0 == "https://on.example" },
+                                              appBaseUrl: "https://ntfy-me.com")
+        }
+        XCTAssertEqual(list(true), ["https://on.example", "https://quiet.example"])
+        XCTAssertEqual(list(false), ["https://on.example"], "no offer while the bridge is off; the off switch stays reachable")
+        XCTAssertEqual(DirectWatchServersSection.servers(["https://works.example"], groups: [groups[0]], enabled: true,
+                                                         optedIn: { _ in false }, appBaseUrl: "https://ntfy-me.com"), [])
+    }
+
+    /// F4. A watched direct topic whose 200 passed 36 hours went out removed, then came back
+    /// after its recheck: two lists, and a gap where its wakes were lost.
+    func testAStaleDirectTopicIsRecheckedInPlace() throws {
+        stubDirect3(open: ["door"])
+        save(Self.home3, "door")
+        optIn3([Self.home3])
+        sync()
+        let door = "s:" + topicHash(baseUrl: Self.home3, topic: "door")
+        XCTAssertTrue(BridgeWatchSet.members(signature: bridge.record.acceptedSignature).contains(door))
+        let before = posts3().count
+        clock += 37 * 60 * 60
+        sync()
+        for body in posts3().dropFirst(before) {
+            let topics = (body["servers"] as? [[String: Any]])?.first?["topics"] as? [String]
+            XCTAssertEqual(topics, ["door"], "never sent without it while it is rechecked")
+        }
+        XCTAssertTrue(BridgeWatchSet.members(signature: bridge.record.acceptedSignature).contains(door))
+    }
+
+    private func optIn3(_ servers: [String]) { defaults.set(servers, forKey: DirectWatch.settingKey) }
+
+    private func posts3() -> [[String: Any]] {
+        BridgeStubProtocol.sent.filter { $0.request.httpMethod == "POST" }.compactMap {
+            $0.body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        }
+    }
+
+    private func stubDirect3(open: Set<String>) {
+        BridgeStubProtocol.reply = { request in
+            let path = request.url?.path ?? ""
+            if request.url?.host == "home.example", path.hasSuffix("/auth") {
+                let topic = path.dropLast(5).split(separator: "/").last.map(String.init) ?? ""
+                return .success((open.contains(topic) ? 200 : 401, [:], "{}"))
+            }
+            return .success((200, [:], #"{"watching":1,"expires":1900000000}"#))
+        }
     }
 }

@@ -375,7 +375,9 @@ final class NavigationPilotUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 15), "the app shows a screen")
         let settings = lang == "de" ? "Einstellungen" : "Settings"
         tab(settings)
-        XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 5))
+        // Under heavy load the first tap can land before the tab bar answers (fix round 3 captures).
+        if !app.navigationBars[settings].waitForExistence(timeout: 5) { tab(settings) }
+        XCTAssertTrue(app.navigationBars[settings].waitForExistence(timeout: 10))
         let anchor = app.descendants(matching: .any)["bridge-held-alerts"].firstMatch
         for _ in 0..<14 { if anchor.exists && anchor.isHittable { break }; app.swipeUp(velocity: .slow) }
         // Half-screen steps from the first held topic down to the Servers section, one capture each.
