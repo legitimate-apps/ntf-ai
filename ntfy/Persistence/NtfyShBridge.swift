@@ -255,8 +255,12 @@ extension BridgeWatchSet {
         let direct = signature.range(of: "|s:", range: bar.upperBound..<signature.endIndex)
         let hashes = signature[bar.upperBound..<(direct?.lowerBound ?? signature.endIndex)]
         let servers = direct.map { signature[$0.upperBound...] } ?? ""
-        return Set(topics.split(separator: ",").map { "t:" + $0 } + hashes.split(separator: ",").map { "h:" + $0 }
-                   + servers.split(separator: ",").map { "s:" + $0 })
+        // Built in steps: as one expression it exceeds the type checker's time limit on slower machines (CI).
+        var members = Set<String>()
+        for topic in topics.split(separator: ",") { members.insert("t:" + topic) }
+        for hash in hashes.split(separator: ",") { members.insert("h:" + hash) }
+        for server in servers.split(separator: ",") { members.insert("s:" + server) }
+        return members
     }
 }
 
