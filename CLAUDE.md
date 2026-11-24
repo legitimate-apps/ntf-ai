@@ -6,7 +6,7 @@ fix iOS bugs and extend the app. Originally by [@Copephobia](https://github.com/
 upstream maintained by [Philipp C. Heckel](https://heckel.io).
 
 ## Architecture
-- **SwiftUI app**, iOS 14 target (NSE 15). Entry: `ntfy/App/AppMain.swift` (`@main`) + `AppDelegate.swift`.
+- **SwiftUI app**, iOS 15 target (app, NSE and Share extension). Entry: `ntfy/App/AppMain.swift` (`@main`) + `AppDelegate.swift`.
 - **Views:** `ntfy/Views/` — `Subscriptions/`, `Notifications/`, `Settings/`.
 - **Persistence:** `ntfy/Persistence/` — Core Data (`ntfy.xcdatamodeld`) via `Store.swift`; `Subscription.swift`, `SubscriptionManager.swift`, `SubscriptionsObservable.swift`.
 - **NSE:** `ntfyNSE/` — Notification Service Extension for rich push; shares an App Group with the app.

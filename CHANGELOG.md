@@ -1,8 +1,48 @@
 # Changelog
 
-User-facing release notes for **NTFY me - Next Gen** (ntfy iOS NextGen). These are the notes that go
+User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These are the notes that go
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
+
+## 1.30.0
+
+- Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.
+- Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too.
+- Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups.
+- Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup.
+
+## 1.29.0
+
+- Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.
+- Your own ntfy server gets instant banners with its usual setting, upstream-base-url: https://ntfy.sh, so the official ntfy app keeps working too.
+- You can turn this off anytime in Settings.
+
+## 1.28.0
+
+- Clear all empties Waiting on you at once: touch and hold its header. Undo brings it back.
+- Only questions from agents wait on you. Messages with plain buttons, like a smart-home alert, stay in Activity.
+- Waiting on you lists the newest question first.
+- Plain buttons can be tapped again, and an answered question shows the answer you chose.
+- Share a topic, a message or a file, or copy a topic's curl or ntf command.
+- Send feedback from Settings, or shake your device to open the form.
+- New setting: Use buttons without unlocking lets you answer from the lock screen.
+
+## 1.27.0
+
+- Agents can ask for a choice, a number, a date, some text or a short form, and you answer right in the app.
+- See which agent is asking, with its name and picture in the app and in notifications.
+- Questions with a deadline show the time left, and an agent can withdraw a question it no longer needs.
+- Agent reminders: an unanswered question can alert you again, or remind you silently.
+- Answer buttons are easier to read in light and dark mode.
+
+## 1.26.0
+
+- The app is now NTF-AI. Same app, same topics, same settings.
+- Inbox lists the questions agents ask you under Waiting on you, and everything else under Activity.
+- Answer an agent from the notification with a button or a typed reply. A blue tick shows the agent got it.
+- Connect an agent shows how to link an agent or a script to a topic.
+- Denser message lists: long messages fold to six lines, and row actions are in the long-press menu.
+- A new emerald look and app icon.
 
 ## 1.24.0
 
