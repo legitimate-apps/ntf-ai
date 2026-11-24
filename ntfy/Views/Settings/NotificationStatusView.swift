@@ -494,7 +494,9 @@ struct DirectWatchPanelView: View {
 /// watch switch (1.31). Listed only when there is such a server; ntfy.sh and the app's own server
 /// aren't, under any name.
 struct DirectWatchServersSection: View {
-    @EnvironmentObject private var store: Store
+    /// Observed, so a server whose last topic is unsubscribed leaves the list at once instead of
+    /// lingering until relaunch (device check h, build 68).
+    @FetchRequest(sortDescriptors: []) private var subscriptions: FetchedResults<Subscription>
 
     static func servers(_ baseUrls: [String], appBaseUrl: String = Config.appBaseUrl) -> [String] {
         Set(baseUrls.map(normalizeBaseUrl)).filter { server in
@@ -507,7 +509,7 @@ struct DirectWatchServersSection: View {
     }
 
     var body: some View {
-        let servers = Self.servers((store.getSubscriptions() ?? []).compactMap(\.baseUrl))
+        let servers = Self.servers(subscriptions.compactMap(\.baseUrl))
         if !servers.isEmpty {
             Section(header: Text(NtfyShBridgeCopy.servers)) {
                 ForEach(servers, id: \.self) { server in
