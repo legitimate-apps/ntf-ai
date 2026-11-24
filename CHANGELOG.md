@@ -4,6 +4,11 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## 1.31.0
+
+- The app's own server is now called ntf-ai.app. ntfy-me.com is the same server, so your existing topics keep working.
+- If your own ntfy server isn't sending wake-ups, Notification status shows the server setting that fixes it. If you can't change the server, you can let ntf-ai.app watch its public topics instead. It stays off unless you turn it on for that server.
+
 ## 1.30.0
 
 - Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.
