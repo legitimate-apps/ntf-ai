@@ -4,6 +4,13 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## 1.30.0
+
+- Public ntfy.sh topics can get instant banners even with ntfy.sh credentials saved. For topics that require a login, open the app or refresh to see new messages.
+- Public topics added as http://ntfy.sh or www.ntfy.sh can get instant banners too.
+- Notification status shows the banner problems it can find for each topic, including a self-hosted server that may not be forwarding wake-ups.
+- Background wake-ups can renew instant banners. If banners stop, open NTF-AI to refresh push setup.
+
 ## 1.29.0
 
 - Topics on ntfy.sh now get instant banners: ntfy-me.com watches them and wakes your device when a message arrives.
