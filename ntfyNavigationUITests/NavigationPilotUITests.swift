@@ -1369,6 +1369,74 @@ extension NavigationPilotUITests {
                        "a tap on the button itself answers")
     }
 
+    /// Clear all on Waiting on you (operator, 2026-11-24: "tap and hold on waiting on you to bring up the
+    /// menu that has clear all ... and then it has a confirmation"). Touch and hold the header, the "…"
+    /// and Show all's Clear all each open the same "Are you sure?"; Cancel keeps every question, Clear
+    /// all empties Waiting and offers Undo. Needs inbox_seed.py --tapprobe (more than three waiting).
+    func testClearWaitingTouchAndHoldAsksFirst() {
+        continueAfterFailure = false
+        launchInbox()
+        let header = app.buttons["waiting-header"].firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 8), "the fixture has questions waiting")
+        // The fold is kept across launches; start with the section open.
+        if (header.value as? String) == "Collapsed" { header.tap(); pause() }
+        let alert = app.alerts.firstMatch
+        let asks = NSPredicate(format: "label BEGINSWITH 'Clear all' AND label ENDSWITH 'from Waiting on you?'")
+        func menuClearAll() {
+            let item = app.buttons.matching(NSPredicate(format: "label == 'Clear all'")).firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: 4), "the menu offers Clear all")
+            item.tap()
+        }
+        func cancel() {
+            XCTAssertTrue(alert.buttons["Cancel"].waitForExistence(timeout: 2))
+            alert.buttons["Cancel"].tap(); pause()
+            XCTAssertFalse(alert.exists)
+            XCTAssertTrue(header.exists, "Cancel keeps every question")
+        }
+
+        // 1. Touch and hold the header: menu, then the question.
+        header.press(forDuration: 1.3)
+        pause(0.6); shot("clear-waiting-1-menu")
+        menuClearAll()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), "Clear all asks first")
+        XCTAssertTrue(alert.staticTexts.matching(asks).firstMatch.exists, "the question names the count and the section")
+        shot("clear-waiting-2-confirm")
+        cancel()
+
+        // 2. Show all's Clear all asks the same.
+        let showAll = app.buttons["waiting-show-all"].firstMatch
+        XCTAssertTrue(showAll.waitForExistence(timeout: 3), "more than three are waiting")
+        showAll.tap()
+        let pageClear = app.buttons["waiting-clear-all"].firstMatch
+        XCTAssertTrue(pageClear.waitForExistence(timeout: 5))
+        pageClear.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), "Show all's Clear all asks first")
+        alert.buttons["Cancel"].tap(); pause()
+        XCTAssertTrue(pageClear.exists, "Cancel keeps Show all's questions")
+        app.navigationBars.buttons.firstMatch.tap(); pause()
+
+        // 3. The "…" opens the same menu; confirm this time.
+        let more = app.buttons["waiting-more"].firstMatch
+        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: 5))
+        // Back from Show all can leave the Inbox scrolled past its header; scroll up as a person would.
+        for _ in 0..<4 where !(more.exists && more.isHittable) {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+            pause(0.8)
+        }
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        more.tap()
+        menuClearAll()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), "the … route asks first")
+        alert.buttons["waiting-clear-confirm"].firstMatch.tap()
+        let undo = app.buttons["waiting-undo-clear"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 3), "Undo follows the clear")
+        XCTAssertFalse(header.exists, "Waiting on you is empty")
+        shot("clear-waiting-3-cleared")
+        undo.tap()
+        XCTAssertTrue(header.waitForExistence(timeout: 5), "Undo brings the questions back")
+    }
+
     /// The iPad check of build 45: Topic actions > Unsubscribe closed the menu and no confirmation
     /// came. Both destructive items of the topic menu must ask first, on iPad and iPhone.
     func testTopicMenuConfirmationsShow() {
