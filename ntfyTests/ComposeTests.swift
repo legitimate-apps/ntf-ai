@@ -212,20 +212,27 @@ final class OutgoingImageTests: XCTestCase {
     }
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: folder) }
 
-    /// Writes a width x height image of `type`, with an EXIF orientation and a GPS position.
-    private func image(_ name: String, _ type: UTType, width: Int, height: Int, orientation: Int = 1) throws -> URL {
+    /// Writes a striped width x height image of `type`, with an EXIF orientation, a capture date and,
+    /// unless `gps` is false, a GPS position. The stripes make a lossy re-encode change the pixels.
+    private func image(_ name: String, _ type: UTType, width: Int, height: Int, orientation: Int = 1,
+                       gps: Bool = true) throws -> URL {
         let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
         context.setFillColor(CGColor(red: 0.2, green: 0.6, blue: 0.4, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.setFillColor(CGColor(red: 0.9, green: 0.1, blue: 0.3, alpha: 1))
+        for x in stride(from: 0, to: width, by: 7) { context.fill(CGRect(x: x, y: 0, width: 3, height: height)) }
         let url = folder.appendingPathComponent(name)
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
             throw XCTSkip("this simulator cannot encode \(type.identifier)")
         }
-        let properties: [CFString: Any] = [
+        var properties: [CFString: Any] = [
             kCGImagePropertyOrientation: orientation,
-            kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 32.46, kCGImagePropertyGPSLatitudeRef: "N"]
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifDateTimeOriginal: "2026:11:24 12:00:00"]
         ]
+        if gps {
+            properties[kCGImagePropertyGPSDictionary] = [kCGImagePropertyGPSLatitude: 32.46, kCGImagePropertyGPSLatitudeRef: "N"]
+        }
         CGImageDestinationAddImage(destination, context.makeImage()!, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw XCTSkip("this simulator cannot encode \(type.identifier)") }
         return url
@@ -256,9 +263,19 @@ final class OutgoingImageTests: XCTestCase {
         XCTAssertEqual(result.width, OutgoingImage.maxPixelSize)
     }
 
+    /// The decoded RGBA pixels of `url`, to tell a copied image from a re-encoded one.
+    private func pixels(_ url: URL) -> Data {
+        let image = CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithURL(url as CFURL, nil)!, 0, nil)!
+        let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+                                bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Data(bytes: context.data!, count: image.width * image.height * 4)
+    }
+
     func testScreenshotsAndAgentReadableFormatsGoUnchanged() throws {
         for (name, type) in [("shot.png", UTType.png), ("photo.jpg", .jpeg), ("loop.gif", .gif)] {
-            let original = try image(name, type, width: 5000, height: 40)
+            let original = try image(name, type, width: 5000, height: 40, gps: false)
             let bytes = try Data(contentsOf: original)
             let sent = OutgoingImage.prepare(original)
             XCTAssertEqual(sent, original, name)
@@ -269,12 +286,38 @@ final class OutgoingImageTests: XCTestCase {
         XCTAssertEqual(OutgoingImage.prepare(text), text)
     }
 
+    func testAnUprightPhotoLosesOnlyItsLocation() throws {
+        for (name, type) in [("photo.jpg", UTType.jpeg), ("shot.png", .png), ("loop.gif", .gif)] {
+            let original = try image(name, type, width: 600, height: 40)
+            guard read(original).gps else {
+                XCTAssertNotEqual(type, .jpeg, "the JPEG fixture must carry a location for this test to mean anything")
+                continue  // this format can't hold a location here, so there is nothing to remove
+            }
+            let before = pixels(original)
+            let sent = OutgoingImage.prepare(original)
+            XCTAssertEqual(sent, original, "\(name) keeps its name and format")
+            let result = read(sent)
+            XCTAssertEqual(result.type, type.identifier, name)
+            XCTAssertFalse(result.gps, "\(name): the location stays on the phone")
+            XCTAssertEqual([result.width, result.height], [600, 40], name)
+            XCTAssertEqual(pixels(sent), before, "\(name): copied, not re-encoded")
+            let properties = CGImageSourceCopyPropertiesAtIndex(CGImageSourceCreateWithURL(sent as CFURL, nil)!, 0, nil) as! [CFString: Any]
+            if type == .jpeg {
+                let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
+                XCTAssertEqual(exif?[kCGImagePropertyExifDateTimeOriginal] as? String, "2026:11:24 12:00:00", "the rest of EXIF stays")
+            }
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), [name], "no leftovers")
+            try FileManager.default.removeItem(at: sent)
+        }
+    }
+
     func testASidewaysJPEGIsTurnedUprightUnderItsOwnName() throws {
         // An iPhone set to "Most Compatible" saves a portrait photo as a landscape JPEG tagged 6.
         let jpeg = try image("IMG_0003.jpg", .jpeg, width: 300, height: 200, orientation: 6)
         let sent = OutgoingImage.prepare(jpeg)
         XCTAssertEqual(sent, jpeg, "same name, now upright")
         XCTAssertEqual([read(sent).width, read(sent).height], [200, 300])
+        XCTAssertFalse(read(sent).gps, "a re-encoded photo carries no location")
         let properties = CGImageSourceCopyPropertiesAtIndex(CGImageSourceCreateWithURL(sent as CFURL, nil)!, 0, nil) as! [CFString: Any]
         XCTAssertEqual((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1, 1)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["IMG_0003.jpg"], "no leftovers")

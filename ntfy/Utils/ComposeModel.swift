@@ -143,7 +143,8 @@ final class ComposeModel: ObservableObject {
 /// read PNG, JPEG, GIF and WebP but not HEIC, the iPhone camera's format; other ntfy clients differ
 /// too. Those four formats go unchanged, so a screenshot keeps every pixel. Anything else that
 /// decodes as an image becomes a JPEG, at most `maxPixelSize` on its longest side, oriented as
-/// shown in Photos. Re-encoding also drops the camera's metadata, location included.
+/// shown in Photos. Re-encoding also drops the camera's metadata, location included. A photo that
+/// goes unchanged loses only its location, rewritten without decoding the pixels.
 enum OutgoingImage {
     static let maxPixelSize = 4096
     static let jpegQuality = 0.85
@@ -160,7 +161,12 @@ enum OutgoingImage {
         if unchanged.contains(where: { type.conforms(to: $0) }) {
             let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
             let orientation = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
-            guard type.conforms(to: .jpeg), orientation != 1 else { return staged }
+            if !(type.conforms(to: .jpeg) && orientation != 1) {
+                // Nobody expects their home coordinates to ride along to a server and an agent.
+                guard properties?[kCGImagePropertyGPSDictionary] != nil else { return staged }
+                if removeLocation(staged, source: source, type: type) { return staged }
+                // A format ImageIO can't rewrite in place goes as a JPEG, which carries no location.
+            }
         }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -188,5 +194,24 @@ enum OutgoingImage {
             return staged
         }
         return destination
+    }
+
+    /// Rewrites `staged` in place without its GPS dictionary. The image data is copied, not
+    /// re-encoded, so the pixels, the orientation tag and the rest of the metadata stay as they were.
+    private static func removeLocation(_ staged: URL, source: CGImageSource, type: UTType) -> Bool {
+        let written = staged.deletingLastPathComponent()
+            .appendingPathComponent(".nolocation-\(UUID().uuidString).\(staged.pathExtension)")
+        guard let output = CGImageDestinationCreateWithURL(written as CFURL, type.identifier as CFString, 1, nil) else {
+            return false
+        }
+        let options = [kCGImagePropertyGPSDictionary: kCFNull] as CFDictionary
+        guard CGImageDestinationCopyImageSource(output, source, options, nil),
+              let check = CGImageSourceCreateWithURL(written as CFURL, nil),
+              (CGImageSourceCopyPropertiesAtIndex(check, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary] == nil,
+              (try? FileManager.default.replaceItemAt(staged, withItemAt: written)) != nil else {
+            try? FileManager.default.removeItem(at: written)
+            return false
+        }
+        return true
     }
 }
