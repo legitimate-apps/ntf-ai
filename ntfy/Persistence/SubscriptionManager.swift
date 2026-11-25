@@ -191,7 +191,8 @@ struct SubscriptionManager {
         }
         // The watch as it stands: subscribed here, admitted and unexpired on the bridge.
         let watch = { isSubscribed(baseUrl, topic) ? bridge.watchStart(hash: hash) : nil }
-        guard let start = watch() else { check.notWatched(hash: hash); return }
+        let observed = bridge.currentTime
+        guard let start = watch() else { check.notWatched(hash: hash, observedAt: observed); return }
         let mine = polled.filter { $0.topic == topic }
         check.messagesFoundByPoll(hash: hash, watchStart: start,
                                   messages: mine.map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) })
