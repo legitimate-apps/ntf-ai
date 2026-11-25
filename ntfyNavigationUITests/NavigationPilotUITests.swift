@@ -1425,6 +1425,11 @@ extension NavigationPilotUITests {
             pause(0.8)
         }
         XCTAssertTrue(more.waitForExistence(timeout: 5))
+        // The "…" sits left of the count and chevron (operator, 2026-11-25), not at the row's end:
+        // the title ends where it starts, and the count (2 digits) and chevron still follow it.
+        let headerButton = app.buttons["waiting-header"].firstMatch
+        XCTAssertLessThanOrEqual(headerButton.frame.maxX, more.frame.minX + 1, "the title comes before the …")
+        XCTAssertLessThan(more.frame.maxX, app.windows.firstMatch.frame.maxX - 40, "the count and chevron come after the …")
         more.tap()
         menuClearAll()
         XCTAssertTrue(alert.waitForExistence(timeout: 3), "the … route asks first")

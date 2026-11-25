@@ -1441,6 +1441,7 @@ struct WaitingRow: View {
 /// The waiting section's header: the hand, the words, and the count.
 struct WaitingHeader: View {
     let count: Int
+    @Environment(\.foldHeaderAction) private var headerAction
 
     var body: some View {
         HStack {
@@ -1457,6 +1458,7 @@ struct WaitingHeader: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("waiting-header")
+        .accessibilityAction(named: Text(headerAction?.name ?? "")) { headerAction?.run() }
     }
 }
 
@@ -1672,44 +1674,92 @@ struct FoldHeaderAccessibility: Equatable {
 
 /// A section header that folds its section: tap it to hide or show the rows under it. The chevron
 /// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
-/// section is folded.
+/// section is folded. An `accessory` (Waiting on you's "…") sits just left of the count (operator,
+/// 2026-11-25: "move this to the left of the dropdowns"); the title side and the count side both
+/// fold, and VoiceOver hears one header button, then the accessory.
+/// A named VoiceOver action for the header's own button, set by a section that offers one
+/// (`ClearWaitingMenu`), so it stays on the element VoiceOver lands on.
+struct FoldHeaderAction {
+    let name: String
+    let run: () -> Void
+}
+
+private struct FoldHeaderActionKey: EnvironmentKey {
+    static let defaultValue: FoldHeaderAction? = nil
+}
+
+extension EnvironmentValues {
+    var foldHeaderAction: FoldHeaderAction? {
+        get { self[FoldHeaderActionKey.self] }
+        set { self[FoldHeaderActionKey.self] = newValue }
+    }
+}
+
 struct FoldHeader: View {
     @ObservedObject var fold: SectionFold = .shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.foldHeaderAction) private var headerAction
     let id: String
     let title: String
     var symbol: String? = nil
     var count: Int? = nil
     var identifier: String? = nil
+    var accessory: AnyView? = nil
 
     var body: some View {
         let collapsed = fold.isCollapsed(id)
         let a11y = FoldHeaderAccessibility(title: title, count: count, collapsed: collapsed)
-        Button {
-            withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.9)) { fold.toggle(id) }
-        } label: {
-            HStack(spacing: 8) {
-                if let symbol {
-                    Image(systemName: symbol).foregroundColor(InboxColor.ink)
+        HStack(spacing: 0) {
+            Button(action: toggle) {
+                HStack(spacing: 8) {
+                    if let symbol {
+                        Image(systemName: symbol).foregroundColor(InboxColor.ink)
+                    }
+                    Text(title).foregroundColor(.primary)
+                    Spacer(minLength: 8)
                 }
-                Text(title).foregroundColor(.primary)
-                Spacer(minLength: 8)
-                if let count {
-                    Text(count.formatted()).foregroundColor(.secondary)
-                }
-                chevron(collapsed: collapsed)
+                .frame(maxWidth: .infinity, minHeight: FoldHeaderAccessibility.minimumHitHeight, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .font(.headline)
-            .textCase(nil)
-            .frame(maxWidth: .infinity, minHeight: FoldHeaderAccessibility.minimumHitHeight, alignment: .leading)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(a11y.label)
+            .accessibilityValue(a11y.value)
+            .accessibilityAddTraits(a11y.traits)
+            .accessibilityIdentifier(identifier ?? id)
+            .modifier(FoldHeaderActionModifier(action: headerAction))
+            if let accessory { accessory }
+            Button(action: toggle) {
+                HStack(spacing: 8) {
+                    if let count {
+                        Text(count.formatted()).foregroundColor(.secondary)
+                    }
+                    chevron(collapsed: collapsed)
+                }
+                .padding(.leading, 8)
+                .frame(minHeight: FoldHeaderAccessibility.minimumHitHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(a11y.label)
-        .accessibilityValue(a11y.value)
-        .accessibilityAddTraits(a11y.traits)
-        .accessibilityIdentifier(identifier ?? id)
+        .font(.headline)
+        .textCase(nil)
+    }
+
+    private struct FoldHeaderActionModifier: ViewModifier {
+        let action: FoldHeaderAction?
+        func body(content: Content) -> some View {
+            if let action {
+                content.accessibilityAction(named: Text(action.name)) { action.run() }
+            } else {
+                content
+            }
+        }
+    }
+
+    private func toggle() {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.9)) { fold.toggle(id) }
     }
 
     @ViewBuilder private func chevron(collapsed: Bool) -> some View {

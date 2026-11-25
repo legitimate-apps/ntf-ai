@@ -57,13 +57,11 @@ struct InboxView: View {
     private var list: some View {
         List {
             if !waiting.notifications.isEmpty {
-                HStack(spacing: 10) {
-                    FoldHeader(fold: fold, id: SectionFold.waiting, title: String(localized: "Waiting on you"),
-                               symbol: "hand.raised.fill", count: waiting.notifications.count, identifier: "waiting-header")
-                        .modifier(ClearWaitingMenu())
-                    ClearWaitingMoreButton()
-                }
-                .modifier(ListHeaderRow())
+                FoldHeader(fold: fold, id: SectionFold.waiting, title: String(localized: "Waiting on you"),
+                           symbol: "hand.raised.fill", count: waiting.notifications.count, identifier: "waiting-header",
+                           accessory: AnyView(ClearWaitingMoreButton()))
+                    .modifier(ClearWaitingMenu())
+                    .modifier(ListHeaderRow())
                 if !fold.isCollapsed(SectionFold.waiting) {
                     ForEach(waiting.notifications.prefix(waitingCap), id: \.objectID) { notification in
                         WaitingRow(notification: notification) { focus in
@@ -200,7 +198,7 @@ struct ClearWaitingMenu: ViewModifier {
     func body(content: Content) -> some View {
         content
             .contextMenu { ClearWaitingMenuItems() }
-            .accessibilityAction(named: Text(String(localized: "Clear all"))) { askClear() }
+            .environment(\.foldHeaderAction, FoldHeaderAction(name: String(localized: "Clear all"), run: askClear))
     }
 }
 
@@ -272,7 +270,7 @@ enum ClearWaitingPrompt {
     }
 }
 
-/// The visible way in: a "…" beside the header's chevron opens the same menu as touch and hold.
+/// The visible way in: a "…" just left of the header's count opens the same menu as touch and hold.
 struct ClearWaitingMoreButton: View {
     var body: some View {
         Menu { ClearWaitingMenuItems() } label: {
