@@ -35350,6 +35350,168 @@
         }
       }
     },
+    "Clear all %lld questions from Waiting on you?": {
+      "comment": "Clear all confirmation title. The number is how many questions leave Waiting on you.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Clear %lld question from Waiting on you?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Clear all %lld questions from Waiting on you?"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Frage aus „Wartet auf dich“ entfernen?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Alle %lld Fragen aus „Wartet auf dich“ entfernen?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar %lld pregunta de «Esperando tu respuesta»?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar las %lld preguntas de «Esperando tu respuesta»?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar las %lld preguntas de «Esperando tu respuesta»?"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere %lld domanda da «In attesa di una tua risposta»?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere tutte le %lld domande da «In attesa di una tua risposta»?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere tutte le %lld domande da «In attesa di una tua risposta»?"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć %lld pytanie z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytania z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytań z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytania z „Czeka na twoją odpowiedź”?"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld vraag uit Wacht op jou wissen?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Alle %lld vragen uit Wacht op jou wissen?"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer %lld question de « En attente de votre réponse » ?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les %lld questions de « En attente de votre réponse » ?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les %lld questions de « En attente de votre réponse » ?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Clear all": {
       "comment": "Waiting on you header menu: take every listed question out of Waiting (messages stay)",
       "extractionState": "manual",

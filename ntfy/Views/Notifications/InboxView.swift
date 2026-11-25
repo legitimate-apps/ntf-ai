@@ -129,6 +129,7 @@ struct InboxView: View {
             }
         })
         .modifier(ClearWaitingUndo())
+        .modifier(ClearWaitingConfirm())
     }
 
     private func copied() {
@@ -179,42 +180,95 @@ struct WaitingAllView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if !waiting.notifications.isEmpty {
-                    Button(String(localized: "Clear all")) {
-                        withAnimation { waiting.clearAll() }
-                    }
-                    .accessibilityIdentifier("waiting-clear-all")
+                    ClearWaitingToolbarButton()
                 }
             }
         }
         .modifier(ClearWaitingUndo())
+        .modifier(ClearWaitingConfirm())
         .modifier(MessagePageLink(opened: $opened))
     }
 }
 
-/// "Clear all" on the Waiting on you header (operator, 2026-11-19): touch and hold the header, or
-/// the VoiceOver action. Questions approved elsewhere, by code, or past their window pile up with
-/// nothing telling the app; this takes them all out at once. Undo follows (`ClearWaitingUndo`).
+/// "Clear all" on the Waiting on you header (operator, 2026-11-19): touch and hold the header (on a
+/// Mac, right-click or click and hold), or the VoiceOver action. Questions approved elsewhere, by
+/// code, or past their window pile up with nothing telling the app; this takes them all out at once,
+/// after "Are you sure?" (`ClearWaitingConfirm`). Undo follows (`ClearWaitingUndo`).
 struct ClearWaitingMenu: ViewModifier {
-    @ObservedObject private var waiting = WaitingObservable.shared
+    @Environment(\.askClearWaiting) private var askClear
 
     func body(content: Content) -> some View {
         content
             .contextMenu { ClearWaitingMenuItems() }
-            .accessibilityAction(named: Text(String(localized: "Clear all"))) { withAnimation { waiting.clearAll() } }
+            .accessibilityAction(named: Text(String(localized: "Clear all"))) { askClear() }
     }
 }
 
-/// The menu's body: what clearing does, then the one destructive item. No icon: the app tint would
-/// color it green beside the red title.
+/// The menu's body: what clearing does, then the one destructive item, which asks before it clears.
+/// No icon: the app tint would color it green beside the red title.
 struct ClearWaitingMenuItems: View {
-    @ObservedObject private var waiting = WaitingObservable.shared
+    @Environment(\.askClearWaiting) private var askClear
 
     var body: some View {
         Section(header: Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))) {
-            Button(String(localized: "Clear all"), role: .destructive) {
-                withAnimation { waiting.clearAll() }
-            }
+            Button(String(localized: "Clear all"), role: .destructive) { askClear() }
         }
+    }
+}
+
+/// Show all's "Clear all": a view of its own so it reads the page's `askClearWaiting`.
+struct ClearWaitingToolbarButton: View {
+    @Environment(\.askClearWaiting) private var askClear
+
+    var body: some View {
+        Button(String(localized: "Clear all")) { askClear() }
+            .accessibilityIdentifier("waiting-clear-all")
+    }
+}
+
+/// Opens the "Are you sure?" for Clear all on the screen that shows it (`ClearWaitingConfirm`).
+private struct AskClearWaitingKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var askClearWaiting: () -> Void {
+        get { self[AskClearWaitingKey.self] }
+        set { self[AskClearWaitingKey.self] = newValue }
+    }
+}
+
+/// The question every Clear all goes through (operator, 2026-11-24: "a confirmation are you sure you
+/// want to clear all"): how many leave, what clearing does, a red Clear all and Cancel. Each screen
+/// that offers Clear all (Inbox, Show all) holds its own, so a pushed page never asks twice.
+struct ClearWaitingConfirm: ViewModifier {
+    @ObservedObject private var waiting = WaitingObservable.shared
+    @State private var asking = false
+    /// The count when asked, so the title doesn't change under the person's finger.
+    @State private var count = 0
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.askClearWaiting) {
+                count = waiting.notifications.count
+                if count > 0 { asking = true }
+            }
+            .alert(ClearWaitingPrompt.title(count: count), isPresented: $asking) {
+                Button(String(localized: "Clear all"), role: .destructive) {
+                    withAnimation { waiting.clearAll() }
+                }
+                .accessibilityIdentifier("waiting-clear-confirm")
+                Button(String(localized: "Cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))
+            }
+    }
+}
+
+enum ClearWaitingPrompt {
+    static func title(count: Int) -> String {
+        String(localized: "Clear all \(count) questions from Waiting on you?",
+               comment: "Clear all confirmation title. The number is how many questions leave Waiting on you.")
     }
 }
 
