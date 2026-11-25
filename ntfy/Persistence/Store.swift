@@ -14,8 +14,12 @@ class Store: ObservableObject {
         static let autoDownloadAlways: Int64 = 1
         static let autoDownload100KB = 100 * kilobyte
         static let autoDownload500KB = 500 * kilobyte
-        static let autoDownloadDefault = megabyte
+        static let autoDownload1MB = megabyte
         static let autoDownload5MB = 5 * megabyte
+        /// From 1.32 an agent's full-screen screenshot (often 2-4 MB) shows as the picture without a tap.
+        /// 5 MB is also the most the notification extension fetches for its banner image. A limit the
+        /// person chose stays theirs: only an unset preference reads this.
+        static let autoDownloadDefault = autoDownload5MB
         static let autoDownload10MB = 10 * megabyte
         static let autoDownload50MB = 50 * megabyte
     }
@@ -50,6 +54,7 @@ class Store: ObservableObject {
     static let autoDownloadAlways = Constants.autoDownloadAlways
     static let autoDownload100KB = Constants.autoDownload100KB
     static let autoDownload500KB = Constants.autoDownload500KB
+    static let autoDownload1MB = Constants.autoDownload1MB
     static let autoDownloadDefault = Constants.autoDownloadDefault
     static let autoDownload5MB = Constants.autoDownload5MB
     static let autoDownload10MB = Constants.autoDownload10MB

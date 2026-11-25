@@ -39,7 +39,7 @@ enum ShareItemLoader {
                     UTType($0)?.conforms(to: .image) == true
                 }) {
                     guard content.fileURL == nil else { throw Failure.multipleAttachments }
-                    content.fileURL = try await file(provider, type: type)
+                    content.fileURL = try await file(provider, type: type, image: true)
                 } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                     let value = try await item(provider, type: UTType.plainText.identifier)
                     let text = (value as? String) ?? (value as? NSAttributedString)?.string
@@ -84,11 +84,14 @@ enum ShareItemLoader {
             }
         }
     }
-    private static func file(_ provider: NSItemProvider, type: String) async throws -> URL {
+    private static func file(_ provider: NSItemProvider, type: String, image: Bool = false) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: type) { url, error in
                 guard let url else { continuation.resume(throwing: error ?? Failure.unreadable); return }
-                do { continuation.resume(returning: try ComposeModel.stage(url, limit: Int64.max)) }
+                do {
+                    continuation.resume(returning: image ? try ComposeModel.stageImage(url, limit: Int64.max)
+                                                         : try ComposeModel.stage(url, limit: Int64.max))
+                }
                 catch { continuation.resume(throwing: error) }
             }
         }

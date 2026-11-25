@@ -1,4 +1,6 @@
 import XCTest
+import ImageIO
+import UniformTypeIdentifiers
 import CryptoKit
 import SwiftUI
 import UIKit
@@ -200,6 +202,164 @@ extension ComposeTests {
     }
 }
 
+/// 1.32: a photo the person sends back reaches an agent in a format it can read, and an agent's
+/// screenshot shows as the picture on the phone without a tap.
+final class OutgoingImageTests: XCTestCase {
+    private var folder: URL!
+    override func setUpWithError() throws {
+        folder = FileManager.default.temporaryDirectory.appendingPathComponent("outgoing-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+    override func tearDownWithError() throws { try? FileManager.default.removeItem(at: folder) }
+
+    /// Writes a striped width x height image of `type`, with an EXIF orientation, a capture date and,
+    /// unless `gps` is false, a GPS position. The stripes make a lossy re-encode change the pixels.
+    private func image(_ name: String, _ type: UTType, width: Int, height: Int, orientation: Int = 1,
+                       gps: Bool = true) throws -> URL {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        context.setFillColor(CGColor(red: 0.2, green: 0.6, blue: 0.4, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.setFillColor(CGColor(red: 0.9, green: 0.1, blue: 0.3, alpha: 1))
+        for x in stride(from: 0, to: width, by: 7) { context.fill(CGRect(x: x, y: 0, width: 3, height: height)) }
+        let url = folder.appendingPathComponent(name)
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
+            throw XCTSkip("this simulator cannot encode \(type.identifier)")
+        }
+        var properties: [CFString: Any] = [
+            kCGImagePropertyOrientation: orientation,
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifDateTimeOriginal: "2026:11:24 12:00:00"]
+        ]
+        if gps {
+            properties[kCGImagePropertyGPSDictionary] = [kCGImagePropertyGPSLatitude: 32.46, kCGImagePropertyGPSLatitudeRef: "N"]
+        }
+        CGImageDestinationAddImage(destination, context.makeImage()!, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw XCTSkip("this simulator cannot encode \(type.identifier)") }
+        return url
+    }
+    private func read(_ url: URL) -> (type: String, width: Int, height: Int, gps: Bool) {
+        let source = CGImageSourceCreateWithURL(url as CFURL, nil)!
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as! [CFString: Any]
+        return (CGImageSourceGetType(source)! as String, properties[kCGImagePropertyPixelWidth] as! Int,
+                properties[kCGImagePropertyPixelHeight] as! Int, properties[kCGImagePropertyGPSDictionary] != nil)
+    }
+
+    func testCameraHEICPhotoGoesAsUprightJPEGWithoutLocation() throws {
+        // Orientation 6: stored landscape, shown portrait (how an iPhone saves a portrait photo).
+        let heic = try image("IMG_0001.HEIC", .heic, width: 300, height: 200, orientation: 6)
+        let sent = OutgoingImage.prepare(heic)
+        XCTAssertEqual(sent.lastPathComponent, "IMG_0001.jpg")
+        let result = read(sent)
+        XCTAssertEqual(result.type, UTType.jpeg.identifier)
+        XCTAssertEqual([result.width, result.height], [200, 300], "the pixels are rotated as Photos shows them")
+        XCTAssertFalse(result.gps, "the location stays on the phone")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: heic.path), "only the JPEG is left to send")
+    }
+
+    func testOtherFormatsConvertAndHugePhotosShrinkToTheLimit() throws {
+        let tiff = try image("scan.tiff", .tiff, width: OutgoingImage.maxPixelSize + 904, height: 100)
+        let result = read(OutgoingImage.prepare(tiff))
+        XCTAssertEqual(result.type, UTType.jpeg.identifier)
+        XCTAssertEqual(result.width, OutgoingImage.maxPixelSize)
+    }
+
+    /// The decoded RGBA pixels of `url`, to tell a copied image from a re-encoded one.
+    private func pixels(_ url: URL) -> Data {
+        let image = CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithURL(url as CFURL, nil)!, 0, nil)!
+        let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+                                bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Data(bytes: context.data!, count: image.width * image.height * 4)
+    }
+
+    func testScreenshotsAndAgentReadableFormatsGoUnchanged() throws {
+        for (name, type) in [("shot.png", UTType.png), ("photo.jpg", .jpeg), ("loop.gif", .gif)] {
+            let original = try image(name, type, width: 5000, height: 40, gps: false)
+            let bytes = try Data(contentsOf: original)
+            let sent = OutgoingImage.prepare(original)
+            XCTAssertEqual(sent, original, name)
+            XCTAssertEqual(try Data(contentsOf: sent), bytes, "\(name) keeps every byte")
+        }
+        let text = folder.appendingPathComponent("notes.txt")
+        try Data("not an image".utf8).write(to: text)
+        XCTAssertEqual(OutgoingImage.prepare(text), text)
+    }
+
+    func testAnUprightPhotoLosesOnlyItsLocation() throws {
+        for (name, type) in [("photo.jpg", UTType.jpeg), ("shot.png", .png), ("loop.gif", .gif)] {
+            let original = try image(name, type, width: 600, height: 40)
+            guard read(original).gps else {
+                XCTAssertNotEqual(type, .jpeg, "the JPEG fixture must carry a location for this test to mean anything")
+                continue  // this format can't hold a location here, so there is nothing to remove
+            }
+            let before = pixels(original)
+            let sent = OutgoingImage.prepare(original)
+            XCTAssertEqual(sent, original, "\(name) keeps its name and format")
+            let result = read(sent)
+            XCTAssertEqual(result.type, type.identifier, name)
+            XCTAssertFalse(result.gps, "\(name): the location stays on the phone")
+            XCTAssertEqual([result.width, result.height], [600, 40], name)
+            XCTAssertEqual(pixels(sent), before, "\(name): copied, not re-encoded")
+            let properties = CGImageSourceCopyPropertiesAtIndex(CGImageSourceCreateWithURL(sent as CFURL, nil)!, 0, nil) as! [CFString: Any]
+            if type == .jpeg {
+                let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
+                XCTAssertEqual(exif?[kCGImagePropertyExifDateTimeOriginal] as? String, "2026:11:24 12:00:00", "the rest of EXIF stays")
+            }
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), [name], "no leftovers")
+            try FileManager.default.removeItem(at: sent)
+        }
+    }
+
+    func testASidewaysJPEGIsTurnedUprightUnderItsOwnName() throws {
+        // An iPhone set to "Most Compatible" saves a portrait photo as a landscape JPEG tagged 6.
+        let jpeg = try image("IMG_0003.jpg", .jpeg, width: 300, height: 200, orientation: 6)
+        let sent = OutgoingImage.prepare(jpeg)
+        XCTAssertEqual(sent, jpeg, "same name, now upright")
+        XCTAssertEqual([read(sent).width, read(sent).height], [200, 300])
+        XCTAssertFalse(read(sent).gps, "a re-encoded photo carries no location")
+        let properties = CGImageSourceCopyPropertiesAtIndex(CGImageSourceCreateWithURL(sent as CFURL, nil)!, 0, nil) as! [CFString: Any]
+        XCTAssertEqual((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1, 1)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["IMG_0003.jpg"], "no leftovers")
+    }
+
+    func testStagedPhotoIsConvertedAndTheServerLimitAppliesToWhatIsSent() throws {
+        let heic = try image("IMG_0002.heic", .heic, width: 64, height: 64)
+        let staged = try ComposeModel.stageImage(heic, limit: 10 * 1024 * 1024)
+        XCTAssertEqual(staged.pathExtension, "jpg")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: heic.path), "the picker's own file is left alone")
+        try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
+
+        XCTAssertThrowsError(try ComposeModel.stageImage(heic, limit: 10)) {
+            XCTAssertEqual($0 as? ApiService.PublishError, .attachmentTooLarge)
+        }
+    }
+
+    func testAnAgentsFullScreenScreenshotDownloadsByDefault() throws {
+        let store = Store.shared
+        let saved = store.getAttachmentAutoDownloadMaxSize()
+        func clear() {
+            store.context.performAndWait {
+                let request = Preference.fetchRequest()
+                request.predicate = NSPredicate(format: "key = %@", Store.prefKeyAttachmentAutoDownloadMaxSize)
+                for row in (try? store.context.fetch(request)) ?? [] { store.context.delete(row) }
+                try? store.context.save()
+            }
+        }
+        clear()
+        addTeardownBlock { store.saveAttachmentAutoDownloadMaxSize(saved) }
+        let megabyte: Int64 = 1024 * 1024
+        func attachment(_ size: Int64) -> MessageAttachment {
+            MessageAttachment(name: "screen.png", type: "image/png", size: size, expires: nil, url: "https://ntf-ai.app/file/a.png")
+        }
+        XCTAssertTrue(store.shouldAutoDownloadAttachment(attachment(3 * megabyte)), "a 3 MB Retina screenshot shows without a tap")
+        XCTAssertTrue(store.shouldAutoDownloadAttachment(attachment(5 * megabyte)))
+        XCTAssertFalse(store.shouldAutoDownloadAttachment(attachment(5 * megabyte + 1)))
+        store.saveAttachmentAutoDownloadMaxSize(Store.autoDownload1MB)
+        XCTAssertFalse(store.shouldAutoDownloadAttachment(attachment(3 * megabyte)), "a limit the person chose still holds")
+    }
+}
+
 @MainActor
 final class ComposePresentationTests: XCTestCase {
     func testRequiredMessageAndAttachmentValidation() {
@@ -360,5 +520,38 @@ extension ComposeTests {
         guard case .failure(.tooLargeToEncrypt(bytes: 4096)) = result else {
             return XCTFail("An exactly 4096-byte ciphertext must never reach the raw publish endpoint")
         }
+    }
+}
+
+/// The line under an agent's picture says when its link stops working.
+final class AttachmentFinePrintTests: XCTestCase {
+    func testALinkThatExpiresTodayShowsTheTimeAndALaterOneTheDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 24, hour: 13, minute: 5)))
+        let store = Store(inMemory: true)
+        let notification = ntfy.Notification(context: store.context)
+        notification.id = "fp1"
+        notification.attachmentUrl = "https://ntf-ai.app/file/a.png"
+        notification.attachmentName = "latency.png"
+        notification.attachmentSize = 34_453
+
+        // ntf-ai.app keeps a file 3 hours.
+        let later = now.addingTimeInterval(3 * 3600)
+        notification.attachmentExpires = Int64(later.timeIntervalSince1970)
+        let time = DateFormatter.localizedString(from: later, dateStyle: .none, timeStyle: .short)
+        let today = try XCTUnwrap(notification.attachmentFinePrint(includeName: true, now: now, calendar: calendar))
+        XCTAssertTrue(today.hasSuffix(String(localized: "expires at \(time)")), today)
+        XCTAssertTrue(today.hasPrefix("latency.png · "), today)
+
+        let nextWeek = now.addingTimeInterval(7 * 86400)
+        notification.attachmentExpires = Int64(nextWeek.timeIntervalSince1970)
+        let day = DateFormatter.localizedString(from: nextWeek, dateStyle: .medium, timeStyle: .none)
+        XCTAssertEqual(notification.attachmentFinePrint(includeName: false, now: now, calendar: calendar),
+                       "\(formatBytes(34_453)) · " + String(localized: "expires \(day)"))
+
+        notification.attachmentExpires = Int64(now.addingTimeInterval(-60).timeIntervalSince1970)
+        XCTAssertTrue(try XCTUnwrap(notification.attachmentFinePrint(includeName: false, now: now, calendar: calendar))
+                        .hasSuffix(String(localized: "expired")))
     }
 }
