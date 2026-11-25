@@ -10344,49 +10344,49 @@
         }
       }
     },
-    "Marking a topic read can update your other devices with fewer requests on ntf-ai.app and self-hosted servers that support it.": {
+    "Marking a topic read can update your other devices with fewer requests on ntfy-me.com and self-hosted servers that support it.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marking a topic read can update your other devices with fewer requests on ntf-ai.app and self-hosted servers that support it."
+            "value": "Marking a topic read can update your other devices with fewer requests on ntfy-me.com and self-hosted servers that support it."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als gelesen markierte Themen können deine anderen Geräte mit weniger Anfragen aktualisieren, auf ntf-ai.app und unterstützenden eigenen Servern."
+            "value": "Als gelesen markierte Themen können deine anderen Geräte mit weniger Anfragen aktualisieren, auf ntfy-me.com und unterstützenden eigenen Servern."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marcar un tópico como leído puede actualizar tus otros dispositivos con menos solicitudes en ntf-ai.app y servidores propios compatibles."
+            "value": "Marcar un tópico como leído puede actualizar tus otros dispositivos con menos solicitudes en ntfy-me.com y servidores propios compatibles."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Segnare un argomento come letto può aggiornare gli altri tuoi dispositivi con meno richieste su ntf-ai.app e sui server propri che lo supportano."
+            "value": "Segnare un argomento come letto può aggiornare gli altri tuoi dispositivi con meno richieste su ntfy-me.com e sui server propri che lo supportano."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Oznaczenie tematu jako przeczytanego może zaktualizować inne urządzenia z mniejszą liczbą żądań na ntf-ai.app i obsługujących to własnych serwerach."
+            "value": "Oznaczenie tematu jako przeczytanego może zaktualizować inne urządzenia z mniejszą liczbą żądań na ntfy-me.com i obsługujących to własnych serwerach."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een onderwerp als gelezen markeren kan je andere apparaten bijwerken met minder verzoeken op ntf-ai.app en eigen servers die dit ondersteunen."
+            "value": "Een onderwerp als gelezen markeren kan je andere apparaten bijwerken met minder verzoeken op ntfy-me.com en eigen servers die dit ondersteunen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marquer un sujet comme lu peut le mettre à jour sur vos autres appareils avec moins de requêtes sur ntf-ai.app et les serveurs auto-hébergés compatibles."
+            "value": "Marquer un sujet comme lu peut le mettre à jour sur vos autres appareils avec moins de requêtes sur ntfy-me.com et les serveurs auto-hébergés compatibles."
           }
         }
       }
@@ -13071,49 +13071,49 @@
         }
       }
     },
-    "Open ntf-ai.app and ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe.": {
+    "Open ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open ntf-ai.app and ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."
+            "value": "Open ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne Themenlinks von ntf-ai.app und ntfy-me.com in der App. Ein abonniertes Thema öffnet seine Nachrichten. Bei einem neuen sind Server und Name bereits eingetragen. Tippe zum Hinzufügen auf „Abonnieren“."
+            "value": "Öffne ntfy-me.com-Themenlinks in der App. Ein abonniertes Thema öffnet seine Nachrichten. Bei einem neuen sind Server und Name bereits eingetragen. Tippe zum Hinzufügen auf „Abonnieren“."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre enlaces de tópicos de ntf-ai.app y ntfy-me.com en la app. Un tópico que ya sigues abre sus mensajes; uno nuevo muestra el servidor y el nombre listos para tocar Suscribirse."
+            "value": "Abre enlaces de tópicos de ntfy-me.com en la app. Un tópico que ya sigues abre sus mensajes; uno nuevo muestra el servidor y el nombre listos para tocar Suscribirse."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri nell'app i link degli argomenti ntf-ai.app e ntfy-me.com. Se hai già un'iscrizione, si aprono i messaggi; per un argomento nuovo vengono compilati server e nome, pronti per toccare Iscriviti."
+            "value": "Apri nell'app i link degli argomenti ntfy-me.com. Se hai già un'iscrizione, si aprono i messaggi; per un argomento nuovo vengono compilati server e nome, pronti per toccare Iscriviti."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otwieraj linki tematów ntf-ai.app i ntfy-me.com w aplikacji. Znany temat otwiera wiadomości, a nowy ma uzupełniony serwer i nazwę, gotowe do stuknięcia „Subskrybuj”."
+            "value": "Otwieraj linki tematów ntfy-me.com w aplikacji. Znany temat otwiera wiadomości, a nowy ma uzupełniony serwer i nazwę, gotowe do stuknięcia „Subskrybuj”."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open onderwerplinks van ntf-ai.app en ntfy-me.com in de app. Bij een bestaand abonnement worden de berichten geopend; voor een nieuw onderwerp worden server en naam ingevuld, zodat je alleen nog op Abonneren hoeft te tikken."
+            "value": "Open ntfy-me.com-onderwerplinks in de app. Bij een bestaand abonnement worden de berichten geopend; voor een nieuw onderwerp worden server en naam ingevuld, zodat je alleen nog op Abonneren hoeft te tikken."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez les liens de sujets ntf-ai.app et ntfy-me.com dans l’app. Un sujet déjà suivi ouvre ses messages ; un nouveau sujet a son serveur et son nom préremplis, prêt à être ajouté avec S’abonner."
+            "value": "Ouvrez les liens de sujets ntfy-me.com dans l’app. Un sujet déjà suivi ouvre ses messages ; un nouveau sujet a son serveur et son nom préremplis, prêt à être ajouté avec S’abonner."
           }
         }
       }
