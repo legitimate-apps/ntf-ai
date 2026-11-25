@@ -144,7 +144,7 @@ final class ComposeModel: ObservableObject {
 /// too. Those four formats go unchanged, so a screenshot keeps every pixel. Anything else that
 /// decodes as an image becomes a JPEG, at most `maxPixelSize` on its longest side, oriented as
 /// shown in Photos. Re-encoding also drops the camera's metadata, location included. A photo that
-/// goes unchanged loses only its location, rewritten without decoding the pixels.
+/// goes unchanged loses only its location; its pixels and the rest of its metadata stay as they were.
 enum OutgoingImage {
     static let maxPixelSize = 4096
     static let jpegQuality = 0.85
@@ -196,22 +196,38 @@ enum OutgoingImage {
         return destination
     }
 
-    /// Rewrites `staged` in place without its GPS dictionary. The image data is copied, not
-    /// re-encoded, so the pixels, the orientation tag and the rest of the metadata stay as they were.
+    /// Rewrites `staged` in place without its GPS position, keeping the pixels exactly. A JPEG's
+    /// image data is copied untouched with the rest of its metadata (`CopyImageSource` takes only
+    /// its documented metadata options; a GPS key set to null is rejected). PNG and GIF frames are
+    /// re-written from the source with GPS removed: both are lossless, so the pixels don't change.
+    /// Work happens in a private folder that is always removed, so a failed write leaves nothing.
     private static func removeLocation(_ staged: URL, source: CGImageSource, type: UTType) -> Bool {
-        let written = staged.deletingLastPathComponent()
-            .appendingPathComponent(".nolocation-\(UUID().uuidString).\(staged.pathExtension)")
-        guard let output = CGImageDestinationCreateWithURL(written as CFURL, type.identifier as CFString, 1, nil) else {
+        guard let folder = try? FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask,
+                                                         appropriateFor: staged, create: true) else { return false }
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let written = folder.appendingPathComponent(staged.lastPathComponent)
+        let count = CGImageSourceGetCount(source)
+        guard count > 0,
+              let output = CGImageDestinationCreateWithURL(written as CFURL, type.identifier as CFString, count, nil) else {
             return false
         }
-        let options = [kCGImagePropertyGPSDictionary: kCFNull] as CFDictionary
-        guard CGImageDestinationCopyImageSource(output, source, options, nil),
+        let copied: Bool
+        if type.conforms(to: .jpeg), let metadata = CGImageSourceCopyMetadataAtIndex(source, 0, nil) {
+            let options: [CFString: Any] = [kCGImageDestinationMetadata: metadata, kCGImageMetadataShouldExcludeGPS: true]
+            copied = CGImageDestinationCopyImageSource(output, source, options as CFDictionary, nil)
+        } else if type.conforms(to: .png) || type.conforms(to: .gif) {
+            if let container = CGImageSourceCopyProperties(source, nil) { CGImageDestinationSetProperties(output, container) }
+            for index in 0..<count {
+                CGImageDestinationAddImageFromSource(output, source, index, [kCGImagePropertyGPSDictionary: kCFNull!] as CFDictionary)
+            }
+            copied = CGImageDestinationFinalize(output)
+        } else {
+            copied = false
+        }
+        guard copied,
               let check = CGImageSourceCreateWithURL(written as CFURL, nil),
               (CGImageSourceCopyPropertiesAtIndex(check, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary] == nil,
-              (try? FileManager.default.replaceItemAt(staged, withItemAt: written)) != nil else {
-            try? FileManager.default.removeItem(at: written)
-            return false
-        }
+              (try? FileManager.default.replaceItemAt(staged, withItemAt: written)) != nil else { return false }
         return true
     }
 }
