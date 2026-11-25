@@ -47,48 +47,48 @@
         }
       }
     },
-    "Photos you send go as JPEG, which agents can read, and your location stays on your phone.": {
+    "Photos you send go as JPEG, which agents can read. Your location isn't sent.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Photos you send go as JPEG, which agents can read, and your location stays on your phone."
+            "value": "Photos you send go as JPEG, which agents can read. Your location isn't sent."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fotos, die du sendest, gehen als JPEG raus, das Agenten lesen können, und dein Standort bleibt auf deinem Telefon."
+            "value": "Fotos, die du sendest, gehen als JPEG raus, das Agenten lesen können. Dein Standort wird nicht mitgesendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Las fotos que envías salen como JPEG, que los agentes pueden leer, y tu ubicación se queda en tu teléfono."
+            "value": "Las fotos que envías salen como JPEG, que los agentes pueden leer. Tu ubicación no se envía."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le foto che invii partono come JPEG, che gli agenti sanno leggere, e la tua posizione resta sul telefono."
+            "value": "Le foto che invii partono come JPEG, che gli agenti sanno leggere. La tua posizione non viene inviata."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zdjęcia, które wysyłasz, trafiają jako JPEG, który agenci potrafią odczytać, a twoja lokalizacja zostaje na telefonie."
+            "value": "Zdjęcia, które wysyłasz, trafiają jako JPEG, który agenci potrafią odczytać. Twoja lokalizacja nie jest wysyłana."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foto’s die je verstuurt gaan als JPEG, dat agents kunnen lezen, en je locatie blijft op je telefoon."
+            "value": "Foto’s die je verstuurt gaan als JPEG, dat agents kunnen lezen. Je locatie wordt niet meegestuurd."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les photos que vous envoyez partent en JPEG, que les agents savent lire, et votre position reste sur votre téléphone."
+            "value": "Les photos que vous envoyez partent en JPEG, que les agents savent lire. Votre position n’est pas envoyée."
           }
         }
       }

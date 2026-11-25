@@ -13,7 +13,7 @@ struct ReleaseNotes: Identifiable, Equatable {
     static let shipped: [ReleaseNotes] = [
         ReleaseNotes(version: "1.32.0", bullets: [
             String(localized: "Pictures from your agents show right in the notification and in the list."),
-            String(localized: "Photos you send go as JPEG, which agents can read, and your location stays on your phone."),
+            String(localized: "Photos you send go as JPEG, which agents can read. Your location isn't sent."),
             String(localized: "Clear all in Waiting on you asks before it clears.")
         ]),
         ReleaseNotes(version: "1.31.0", bullets: [
