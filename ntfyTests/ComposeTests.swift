@@ -335,6 +335,41 @@ final class OutgoingImageTests: XCTestCase {
         }
     }
 
+    /// The paperclip sends the file as picked; only an image's location stays behind (operator,
+    /// 2026-11-25: "Strip paperclip images too").
+    func testPaperclipFilesGoAsPickedExceptAnImagesLocation() throws {
+        let limit: Int64 = 10 * 1024 * 1024
+        // A sideways JPEG keeps its orientation tag and pixels: the paperclip doesn't turn it upright.
+        let jpeg = try image("IMG_0004.jpg", .jpeg, width: 300, height: 200, orientation: 6)
+        let before = pixels(jpeg)
+        let sentJPEG = try ComposeModel.stageFile(jpeg, limit: limit)
+        XCTAssertEqual(sentJPEG.lastPathComponent, "IMG_0004.jpg")
+        XCTAssertFalse(read(sentJPEG).gps, "the location stays on the phone")
+        XCTAssertEqual(pixels(sentJPEG), before, "copied, not re-encoded")
+        let properties = CGImageSourceCopyPropertiesAtIndex(CGImageSourceCreateWithURL(sentJPEG as CFURL, nil)!, 0, nil) as! [CFString: Any]
+        XCTAssertEqual((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue, 6)
+        XCTAssertTrue(read(jpeg).gps, "the picked file itself is left alone")
+        try? FileManager.default.removeItem(at: sentJPEG.deletingLastPathComponent())
+
+        // A HEIC with a location can't be rewritten in place, so it goes as a JPEG, which carries none.
+        let heic = try image("IMG_0005.heic", .heic, width: 64, height: 64)
+        let sentHEIC = try ComposeModel.stageFile(heic, limit: limit)
+        XCTAssertEqual(read(sentHEIC).type, UTType.jpeg.identifier)
+        XCTAssertFalse(read(sentHEIC).gps)
+        try? FileManager.default.removeItem(at: sentHEIC.deletingLastPathComponent())
+
+        // Without a location, an image goes byte for byte, HEIC included; so does any other file.
+        let plain = try image("IMG_0006.heic", .heic, width: 64, height: 64, gps: false)
+        let text = folder.appendingPathComponent("notes.txt")
+        try Data("not an image".utf8).write(to: text)
+        for original in [plain, text] {
+            let sent = try ComposeModel.stageFile(original, limit: limit)
+            XCTAssertEqual(sent.lastPathComponent, original.lastPathComponent)
+            XCTAssertEqual(try Data(contentsOf: sent), try Data(contentsOf: original), original.lastPathComponent)
+            try? FileManager.default.removeItem(at: sent.deletingLastPathComponent())
+        }
+    }
+
     func testAnAgentsFullScreenScreenshotDownloadsByDefault() throws {
         let store = Store.shared
         let saved = store.getAttachmentAutoDownloadMaxSize()

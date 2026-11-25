@@ -82,6 +82,19 @@ final class ComposeModel: ObservableObject {
         return prepared
     }
 
+    /// A file from the paperclip goes as picked, except that an image loses its location
+    /// (`OutgoingImage.withoutLocation`). The limit applies to what is actually sent.
+    nonisolated static func stageFile(_ source: URL, limit: Int64) throws -> URL {
+        let staged = try stage(source, limit: limit)
+        let prepared = OutgoingImage.withoutLocation(staged)
+        let size = (try? prepared.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        guard size > 0, size <= limit else {
+            try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
+            throw ApiService.PublishError.attachmentTooLarge
+        }
+        return prepared
+    }
+
     func selectFile(_ result: Result<URL, Error>) {
         switch result {
         case .failure: error = String(localized: "The file could not be opened. Choose it again.")
@@ -89,7 +102,7 @@ final class ComposeModel: ObservableObject {
             let scoped = source.startAccessingSecurityScopedResource()
             defer { if scoped { source.stopAccessingSecurityScopedResource() } }
             guard let limit = attachmentLimit else { return }
-            do { acceptFile(try Self.stage(source, limit: limit)) }
+            do { acceptFile(try Self.stageFile(source, limit: limit)) }
             catch { self.error = (error as? ApiService.PublishError)?.userMessage ?? String(localized: "The file could not be opened. Choose it again.") }
         }
     }
@@ -194,6 +207,20 @@ enum OutgoingImage {
             return staged
         }
         return destination
+    }
+
+    /// A file attached with the paperclip (operator, 2026-11-25: "Strip paperclip images too"):
+    /// anything that isn't an image with a location goes exactly as picked. An image with one loses
+    /// only the location; a format ImageIO can't rewrite in place (HEIC, for one) goes as a JPEG,
+    /// which carries none, so no image the person sends takes their location along.
+    static func withoutLocation(_ staged: URL) -> URL {
+        guard let source = CGImageSourceCreateWithURL(staged as CFURL, nil),
+              let identifier = CGImageSourceGetType(source) as String?,
+              let type = UTType(identifier), type.conforms(to: .image),
+              (CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])?[kCGImagePropertyGPSDictionary] != nil
+        else { return staged }
+        if removeLocation(staged, source: source, type: type) { return staged }
+        return prepare(staged)
     }
 
     /// Rewrites `staged` in place without its GPS position, keeping the pixels exactly. A JPEG's

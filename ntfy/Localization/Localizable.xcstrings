@@ -1,6 +1,144 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Pictures from your agents show right in the notification and in the list.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pictures from your agents show right in the notification and in the list."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilder von deinen Agenten erscheinen direkt in der Mitteilung und in der Liste."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las imágenes de tus agentes se ven directamente en la notificación y en la lista."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le immagini dei tuoi agenti appaiono direttamente nella notifica e nell’elenco."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrazy od twoich agentów widać od razu w powiadomieniu i na liście."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afbeeldingen van je agents verschijnen direct in de melding en in de lijst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les images de vos agents s’affichent directement dans la notification et dans la liste."
+          }
+        }
+      }
+    },
+    "Photos you send go as JPEG, which agents can read, and your location stays on your phone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos you send go as JPEG, which agents can read, and your location stays on your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotos, die du sendest, gehen als JPEG raus, das Agenten lesen können, und dein Standort bleibt auf deinem Telefon."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las fotos que envías salen como JPEG, que los agentes pueden leer, y tu ubicación se queda en tu teléfono."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le foto che invii partono come JPEG, che gli agenti sanno leggere, e la tua posizione resta sul telefono."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdjęcia, które wysyłasz, trafiają jako JPEG, który agenci potrafią odczytać, a twoja lokalizacja zostaje na telefonie."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto’s die je verstuurt gaan als JPEG, dat agents kunnen lezen, en je locatie blijft op je telefoon."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les photos que vous envoyez partent en JPEG, que les agents savent lire, et votre position reste sur votre téléphone."
+          }
+        }
+      }
+    },
+    "Clear all in Waiting on you asks before it clears.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all in Waiting on you asks before it clears."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Alle entfernen“ in „Wartet auf dich“ fragt jetzt nach, bevor es entfernt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Quitar todas» en «Esperando tu respuesta» ahora pregunta antes de quitar."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Rimuovi tutte» in «In attesa di una tua risposta» ora chiede conferma prima di rimuovere."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Wyczyść wszystkie” w sekcji „Czeka na twoją odpowiedź” pyta teraz przed wyczyszczeniem."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘Alles wissen’ in ‘Wacht op jou’ vraagt nu eerst of je het zeker weet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Tout effacer » dans « En attente de votre réponse » demande désormais confirmation."
+          }
+        }
+      }
+    },
     "\n\nSend messages to:\n": {
       "extractionState": "manual",
       "localizations": {
