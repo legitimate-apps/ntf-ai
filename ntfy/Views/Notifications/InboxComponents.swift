@@ -1458,7 +1458,7 @@ struct WaitingHeader: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("waiting-header")
-        .accessibilityAction(named: Text(headerAction?.name ?? "")) { headerAction?.run() }
+        .modifier(FoldHeaderActionModifier(action: headerAction))
     }
 }
 
@@ -1672,11 +1672,6 @@ struct FoldHeaderAccessibility: Equatable {
     }
 }
 
-/// A section header that folds its section: tap it to hide or show the rows under it. The chevron
-/// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
-/// section is folded. An `accessory` (Waiting on you's "…") sits just left of the count (operator,
-/// 2026-11-25: "move this to the left of the dropdowns"); the title side and the count side both
-/// fold, and VoiceOver hears one header button, then the accessory.
 /// A named VoiceOver action for the header's own button, set by a section that offers one
 /// (`ClearWaitingMenu`), so it stays on the element VoiceOver lands on.
 struct FoldHeaderAction {
@@ -1695,6 +1690,23 @@ extension EnvironmentValues {
     }
 }
 
+/// Adds the section's named action, when it has one, so a header without one gets no empty action.
+struct FoldHeaderActionModifier: ViewModifier {
+    let action: FoldHeaderAction?
+    func body(content: Content) -> some View {
+        if let action {
+            content.accessibilityAction(named: Text(action.name)) { action.run() }
+        } else {
+            content
+        }
+    }
+}
+
+/// A section header that folds its section: tap it to hide or show the rows under it. The chevron
+/// turns as it does; under Reduce Motion it cross-fades instead. A count stays in view while the
+/// section is folded. An `accessory` (Waiting on you's "…") sits just left of the count (operator,
+/// 2026-11-25: "move this to the left of the dropdowns"); the title side and the count side both
+/// fold, and VoiceOver hears one header button, then the accessory.
 struct FoldHeader: View {
     @ObservedObject var fold: SectionFold = .shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1745,17 +1757,6 @@ struct FoldHeader: View {
         }
         .font(.headline)
         .textCase(nil)
-    }
-
-    private struct FoldHeaderActionModifier: ViewModifier {
-        let action: FoldHeaderAction?
-        func body(content: Content) -> some View {
-            if let action {
-                content.accessibilityAction(named: Text(action.name)) { action.run() }
-            } else {
-                content
-            }
-        }
     }
 
     private func toggle() {
