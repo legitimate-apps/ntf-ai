@@ -1,7 +1,8 @@
 # ntfy.sh iOS - Getting Started with Development
 
 > **NTF-AI:** the app's built-in server comes from the `APP_BASE_URL` build setting (Info.plist
-> `AppBaseURL`, app and NSE), which is `https://ntfy-me.com`. Subscriptions on that server bind their raw
+> `AppBaseURL`, app and NSE), which is `https://ntfy-me.com`: the same server as ntf-ai.app, kept
+> under that address for compatibility. Subscriptions on that server bind their raw
 > topic name in FCM; every other server binds a hash of its topic URL. Release archives are checked with
 > `scripts/verify-app-base-url.sh`. Your own bundle id and team go in `Configuration/Local.xcconfig`
 > (see CONTRIBUTING.md). The setup below is upstream's original development guide.

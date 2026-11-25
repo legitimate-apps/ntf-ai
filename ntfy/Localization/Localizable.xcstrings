@@ -10344,49 +10344,49 @@
         }
       }
     },
-    "Marking a topic read can update your other devices with fewer requests on ntfy-me.com and self-hosted servers that support it.": {
+    "Marking a topic read can update your other devices with fewer requests on ntf-ai.app and self-hosted servers that support it.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marking a topic read can update your other devices with fewer requests on ntfy-me.com and self-hosted servers that support it."
+            "value": "Marking a topic read can update your other devices with fewer requests on ntf-ai.app and self-hosted servers that support it."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als gelesen markierte Themen können deine anderen Geräte mit weniger Anfragen aktualisieren, auf ntfy-me.com und unterstützenden eigenen Servern."
+            "value": "Als gelesen markierte Themen können deine anderen Geräte mit weniger Anfragen aktualisieren, auf ntf-ai.app und unterstützenden eigenen Servern."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marcar un tópico como leído puede actualizar tus otros dispositivos con menos solicitudes en ntfy-me.com y servidores propios compatibles."
+            "value": "Marcar un tópico como leído puede actualizar tus otros dispositivos con menos solicitudes en ntf-ai.app y servidores propios compatibles."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Segnare un argomento come letto può aggiornare gli altri tuoi dispositivi con meno richieste su ntfy-me.com e sui server propri che lo supportano."
+            "value": "Segnare un argomento come letto può aggiornare gli altri tuoi dispositivi con meno richieste su ntf-ai.app e sui server propri che lo supportano."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Oznaczenie tematu jako przeczytanego może zaktualizować inne urządzenia z mniejszą liczbą żądań na ntfy-me.com i obsługujących to własnych serwerach."
+            "value": "Oznaczenie tematu jako przeczytanego może zaktualizować inne urządzenia z mniejszą liczbą żądań na ntf-ai.app i obsługujących to własnych serwerach."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een onderwerp als gelezen markeren kan je andere apparaten bijwerken met minder verzoeken op ntfy-me.com en eigen servers die dit ondersteunen."
+            "value": "Een onderwerp als gelezen markeren kan je andere apparaten bijwerken met minder verzoeken op ntf-ai.app en eigen servers die dit ondersteunen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marquer un sujet comme lu peut le mettre à jour sur vos autres appareils avec moins de requêtes sur ntfy-me.com et les serveurs auto-hébergés compatibles."
+            "value": "Marquer un sujet comme lu peut le mettre à jour sur vos autres appareils avec moins de requêtes sur ntf-ai.app et les serveurs auto-hébergés compatibles."
           }
         }
       }
@@ -13071,49 +13071,49 @@
         }
       }
     },
-    "Open ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe.": {
+    "Open ntf-ai.app and ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."
+            "value": "Open ntf-ai.app and ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne ntfy-me.com-Themenlinks in der App. Ein abonniertes Thema öffnet seine Nachrichten. Bei einem neuen sind Server und Name bereits eingetragen. Tippe zum Hinzufügen auf „Abonnieren“."
+            "value": "Öffne Themenlinks von ntf-ai.app und ntfy-me.com in der App. Ein abonniertes Thema öffnet seine Nachrichten. Bei einem neuen sind Server und Name bereits eingetragen. Tippe zum Hinzufügen auf „Abonnieren“."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre enlaces de tópicos de ntfy-me.com en la app. Un tópico que ya sigues abre sus mensajes; uno nuevo muestra el servidor y el nombre listos para tocar Suscribirse."
+            "value": "Abre enlaces de tópicos de ntf-ai.app y ntfy-me.com en la app. Un tópico que ya sigues abre sus mensajes; uno nuevo muestra el servidor y el nombre listos para tocar Suscribirse."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apri nell'app i link degli argomenti ntfy-me.com. Se hai già un'iscrizione, si aprono i messaggi; per un argomento nuovo vengono compilati server e nome, pronti per toccare Iscriviti."
+            "value": "Apri nell'app i link degli argomenti ntf-ai.app e ntfy-me.com. Se hai già un'iscrizione, si aprono i messaggi; per un argomento nuovo vengono compilati server e nome, pronti per toccare Iscriviti."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otwieraj linki tematów ntfy-me.com w aplikacji. Znany temat otwiera wiadomości, a nowy ma uzupełniony serwer i nazwę, gotowe do stuknięcia „Subskrybuj”."
+            "value": "Otwieraj linki tematów ntf-ai.app i ntfy-me.com w aplikacji. Znany temat otwiera wiadomości, a nowy ma uzupełniony serwer i nazwę, gotowe do stuknięcia „Subskrybuj”."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open ntfy-me.com-onderwerplinks in de app. Bij een bestaand abonnement worden de berichten geopend; voor een nieuw onderwerp worden server en naam ingevuld, zodat je alleen nog op Abonneren hoeft te tikken."
+            "value": "Open onderwerplinks van ntf-ai.app en ntfy-me.com in de app. Bij een bestaand abonnement worden de berichten geopend; voor een nieuw onderwerp worden server en naam ingevuld, zodat je alleen nog op Abonneren hoeft te tikken."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez les liens de sujets ntfy-me.com dans l’app. Un sujet déjà suivi ouvre ses messages ; un nouveau sujet a son serveur et son nom préremplis, prêt à être ajouté avec S’abonner."
+            "value": "Ouvrez les liens de sujets ntf-ai.app et ntfy-me.com dans l’app. Un sujet déjà suivi ouvre ses messages ; un nouveau sujet a son serveur et son nom préremplis, prêt à être ajouté avec S’abonner."
           }
         }
       }
@@ -38091,96 +38091,96 @@
         }
       }
     },
-    "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.": {
+    "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available."
+            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
+            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntf-ai.app), seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), su base-url canónico y HTTPS saliente. No hay resultado automático."
+            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntf-ai.app), su base-url canónico y HTTPS saliente. No hay resultado automático."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
+            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntf-ai.app), il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
+            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntf-ai.app), kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
+            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntf-ai.app), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
+            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntf-ai.app), sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
           }
         }
       }
     },
-    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
+    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
+            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
+            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntf-ai.app), die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
+            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntf-ai.app), el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
+            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntf-ai.app), il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
+            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntf-ai.app), kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
+            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntf-ai.app), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
+            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntf-ai.app), la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
           }
         }
       }

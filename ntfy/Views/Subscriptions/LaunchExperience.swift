@@ -92,8 +92,8 @@ struct ReleaseNotes: Identifiable, Equatable {
             String(localized: "VoiceOver gives controls, priorities and attachments clearer names.")
         ]),
         ReleaseNotes(version: "1.18.0", bullets: [
-            String(localized: "Open ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."),
-            String(localized: "Marking a topic read can update your other devices with fewer requests on ntfy-me.com and self-hosted servers that support it."),
+            String(localized: "Open ntf-ai.app and ntfy-me.com topic links in the app. A topic you already follow opens its messages; a new topic has its server and name filled in, ready for you to tap Subscribe."),
+            String(localized: "Marking a topic read can update your other devices with fewer requests on ntf-ai.app and self-hosted servers that support it."),
             String(localized: "A server limit on sending no longer pauses message refreshes."),
             String(localized: "For self-hosted HTTPS topics, Settings → Notification status can check whether ntfy-me.com receives forwarded wake-ups. It asks before sending one visible test message. This checks forwarding, not delivery to your phone.")
         ]),

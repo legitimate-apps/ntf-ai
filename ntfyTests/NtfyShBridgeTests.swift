@@ -935,8 +935,8 @@ final class NtfyShBridgeTests: XCTestCase {
         "Server error, will retry", "No connection, will retry", "Connected", "Some topics may be waiting for push", "Waiting to retry", "Waiting to retry after %@",
         "Removing %lld topics from %@", "%@ hasn't confirmed yet. NTF-AI asks again the next time it runs.", "Watch limit reached, will retry",
         "Not registered yet", "Couldn't check", "%@, %@", "On", "Off",
-        "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.",
-        "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.",
+        "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available.",
+        "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.",
         "Your server's upstream-base-url must be https://ntfy.sh, with instant banners on in Settings, or %@. Its configured base-url must exactly match the server address used for this subscription, including scheme, port, path and spelling. The relay keeps only recent acceptance times (up to 2 minutes); it does not report device delivery.",
     ]
 

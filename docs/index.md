@@ -34,7 +34,7 @@ notification" button, and many reliability fixes from ntfy's iOS issue backlog. 
 
 **Does it work with ntfy.sh or my own server?**
 Any ntfy server works. Self-hosted servers get instant push by setting
-`upstream-base-url: "https://ntfy-me.com"`. Topics on ntfy.sh arrive without instant banners (ntfy.sh
+`upstream-base-url: "https://ntf-ai.app"`. Topics on ntfy.sh arrive without instant banners (ntfy.sh
 relays iOS push only to the official app), so for instant banners use ntf-ai.app or your own server.
 
 **Is it free? Do I need an account?**

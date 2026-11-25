@@ -1,7 +1,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: Questions and support
-    url: https://ntfy-me.com/docs/support
+    url: https://ntf-ai.app/docs/support
     about: For questions and general support, rather than a bug report or feature request.
   - name: ntfy server / protocol issues
     url: https://github.com/binwiederhier/ntfy/issues

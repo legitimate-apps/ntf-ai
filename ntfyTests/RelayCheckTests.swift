@@ -198,7 +198,7 @@ final class RelayCheckTests: XCTestCase {
     }
     func testNoObservationCopyDoesNotAssertWrongConfigurationOrTwoMinuteTest() {
         let message = RelayCheck.State.notObserved.message!
-        XCTAssertEqual(message, String(localized: "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."))
+        XCTAssertEqual(message, String(localized: "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."))
         XCTAssertFalse(message.contains("in 2 minutes"))
     }
 

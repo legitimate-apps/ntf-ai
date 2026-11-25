@@ -44,7 +44,7 @@ The MCP tools are `notify`, `ask`, `ack`, `subscribe_link`, `status` and `withdr
 ## If you use ntfy
 
 - **ntfy** is the server and protocol, plus the official Android, iOS and web apps, by Philipp C. Heckel. NTF-AI is an independent iOS app that speaks the same protocol. It is not affiliated with ntfy.sh or the ntfy project.
-- **Servers:** NTF-AI works with any ntfy server. Its built-in server is ntfy-me.com, also available at ntf-ai.app. Self-hosted servers get instant push with one config line (below).
+- **Servers:** NTF-AI works with any ntfy server. Its built-in server is ntf-ai.app, also reachable as ntfy-me.com (the same server). Self-hosted servers get instant push with one config line (below).
 - **ntfy.sh topics** work too, but without instant banners. ntfy.sh relays iOS push only to the official app, so in NTF-AI those messages show up when you open or refresh the app. For instant banners, use ntf-ai.app or your own server. [Server compatibility and push delivery](https://ntf-ai.app/docs/migrate) explains the details.
 - **Android, desktop or browser:** use the official ntfy Android app or the [web app](https://ntf-ai.app/app), pointed at the same server and topic.
 
@@ -86,13 +86,15 @@ Regenerate with `python3 scripts/progress_tracker.py fetch`, then `queue`, judge
 
 ## Servers
 
-The app's built-in server is **ntfy-me.com**, also available at **ntf-ai.app**, a free public ntfy server run by the app's publisher. Both hosts reach the same topics and messages. It is not affiliated with ntfy.sh or the ntfy project. Push notifications carry no message text: Google and Apple see the topic name and a message ID, and the app fetches the message from the server. ntf-ai.app keeps messages for 12 hours and attachments for 3 hours.
+The app's built-in server is **ntf-ai.app**, also reachable as **ntfy-me.com**, a free public ntfy server run by the app's publisher. Both hosts reach the same topics and messages. It is not affiliated with ntfy.sh or the ntfy project. Push notifications carry no message text: Google and Apple see the topic name and a message ID, and the app fetches the message from the server. ntf-ai.app keeps messages for 12 hours and attachments for 3 hours.
 
 Any ntfy server works. If you self-host, add this to your `server.yml` for instant push to this app:
 
 ```yaml
-upstream-base-url: "https://ntfy-me.com"
+upstream-base-url: "https://ntf-ai.app"
 ```
+
+(`https://ntfy-me.com` is the same server and works too.)
 
 (The ntfy docs' example uses `https://ntfy.sh`, which pushes to the official ntfy app, not this one.)
 
