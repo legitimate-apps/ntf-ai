@@ -103,7 +103,7 @@ PRs labeled `safe-tier-1` (docs/markdown-only changes) auto-merge once CI is gre
 
 ## License of contributions
 
-The repository is under GPL-3.0 ([LICENSE](LICENSE)). By submitting a contribution, you license it to Legitimate LLC under the MIT License, so it can ship in the App Store build with the rest of the app.
+The app is under the PolyForm Shield License 1.0.0 ([LICENSE](LICENSE); path map in [LICENSING.md](LICENSING.md)), and `cli/ntf-ai` is under MIT. By submitting a contribution, you license it to Legitimate LLC under the MIT License, so it can ship in the App Store build with the rest of the app. New source files need the license and AI-use header: run `python3 scripts/ai-use-headers.py`. If you use an AI assistant, it follows [AI-USE.md](AI-USE.md).
 
 ## Credit
 

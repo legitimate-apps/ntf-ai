@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 # Builds the interop tool from the app's shipped encryption sources and checks it against interop.py
 # (Python `cryptography`) in both directions. Needs python3 + cryptography and Xcode's swiftc.
 set -eu
