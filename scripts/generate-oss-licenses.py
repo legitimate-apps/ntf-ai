@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 """Regenerate ntfy/Utils/OpenSourceLicenses.swift from the real license files.
 
 usage: scripts/generate-oss-licenses.py <spm-checkouts-dir>
@@ -10,6 +12,7 @@ list below still matches what the app links (see notes in the PR that added it).
 The texts are copied verbatim; only the component metadata lives here.
 """
 import json
+import re
 import pathlib
 import sys
 
@@ -38,12 +41,22 @@ def main() -> None:
     def apache_notice(copyright: str) -> str:
         return f"{copyright}\n\nLicensed under the Apache License, Version 2.0 (the \"License\"); the full text follows."
 
-    gpl = (ROOT / "LICENSE").read_text().strip("\n")
-    assert "GNU GENERAL PUBLIC LICENSE" in gpl and "Version 3" in gpl
-    this_app = ("NTF-AI", "This app, published by Legitimate LLC", "GNU General Public License v3.0",
-                "Copyright \u00a9 2026 Legitimate LLC\n\nThis program is free software: you can redistribute it and/or "
-                "modify it under the terms of the GNU General\nPublic License as published by the Free Software Foundation, "
-                "version 3 (GPL-3.0-only). The full text follows.")
+    # LICENSE is the Required Notice line, then the official PolyForm Shield 1.0.0 Markdown. The app
+    # shows plain text, so drop the Markdown marks (heading hashes, link targets, emphasis, backticks);
+    # the words are unchanged. The license's own example notices keep their "> " so they don't read
+    # as this app's notices.
+    license_md = (ROOT / "LICENSE").read_text().strip("\n")
+    notice_line, shield_md = license_md.split("\n\n", 1)
+    assert notice_line.startswith("Required Notice: Copyright Legitimate LLC"), notice_line
+    assert shield_md.startswith("# PolyForm Shield License 1.0.0"), "LICENSE is no longer PolyForm Shield 1.0.0"
+    shield = re.sub(r"^#+ ", "", shield_md, flags=re.M)
+    shield = re.sub(r"\[([^\]]+)\]\(#[^)]*\)", r"\1", shield)
+    shield = re.sub(r"^<(https://[^>]+)>$", r"\1", shield, flags=re.M)
+    shield = shield.replace("***", "").replace("**", "").replace("`", "")
+    this_app = ("NTF-AI", "This app, published by Legitimate LLC", "PolyForm Shield License 1.0.0",
+                "Copyright \u00a9 2026 Legitimate LLC\n\n" + notice_line + "\n\nFrom version 1.33 this app is "
+                "licensed under the PolyForm Shield License 1.0.0. Versions published before 1.33 keep the license "
+                "they were published under. The full text follows.")
 
     components = [
         ("ntfy for iOS", "The app's source code, forked from binwiederhier/ntfy-ios", "MIT License",
@@ -75,7 +88,7 @@ def main() -> None:
         "extension OpenSourceLicenses {",
         "    static let apache2Text = " + raw(apache),
         "",
-        "    static let gpl3Text = " + raw(gpl),
+        "    static let polyformShieldText = " + raw(shield),
         "",
         "    static let components: [OpenSourceComponent] = [",
         # The app's own entry leads the list (its own section on the Licenses screen).
@@ -84,7 +97,7 @@ def main() -> None:
         f"            detail: {json.dumps(this_app[1])},",
         f"            licenseName: {json.dumps(this_app[2])},",
         "            notice: " + raw(this_app[3]) + ",",
-        "            licenseText: gpl3Text,",
+        "            licenseText: polyformShieldText,",
         "            isThisApp: true",
         "        ),",
     ]

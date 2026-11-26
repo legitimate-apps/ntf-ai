@@ -8509,50 +8509,50 @@
         }
       }
     },
-    "GNU General Public License v3.0": {
+    "PolyForm Shield License 1.0.0": {
       "comment": "License name of the app itself on the Licenses screen",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         }
       }

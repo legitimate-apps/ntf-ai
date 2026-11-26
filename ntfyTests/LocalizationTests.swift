@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import XCTest
 import UserNotifications
 @testable import ntfy
@@ -667,7 +669,7 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(value("%lld notifications", 0), "0 Benachrichtigungen")
         XCTAssertEqual(value("%lld notifications", 23), "23 Benachrichtigungen")
         XCTAssertEqual(bundle.localizedString(forKey: "Notification state synchronized", value: nil, table: nil), "Benachrichtigungsstatus synchronisiert")
-        // The upstream MIT entry, by name: NTF-AI's own GPL-3.0 entry leads the list since 1.27.
+        // The upstream MIT entry, by name: NTF-AI's own entry leads the list since 1.27.
         let canonicalMIT = try XCTUnwrap(OpenSourceLicenses.components.first { $0.name == "ntfy for iOS" }).notice
         XCTAssertTrue(canonicalMIT.contains("Permission is hereby granted"))
         let plugIns = try XCTUnwrap(Bundle.main.builtInPlugInsURL)
