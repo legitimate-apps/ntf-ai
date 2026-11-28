@@ -22,7 +22,7 @@ struct AttachmentAutoDownloadOption: Identifiable, Equatable {
             .init(value: Store.autoDownloadAlways, title: String(localized: "Always")),
             .init(value: Store.autoDownload100KB, title: String(localized: "Under 100 KB")),
             .init(value: Store.autoDownload500KB, title: String(localized: "Under 500 KB")),
-            .init(value: Store.autoDownloadDefault, title: String(localized: "Under 1 MB")),
+            .init(value: Store.autoDownload1MB, title: String(localized: "Under 1 MB")),
             .init(value: Store.autoDownload5MB, title: String(localized: "Under 5 MB")),
             .init(value: Store.autoDownload10MB, title: String(localized: "Under 10 MB")),
             .init(value: Store.autoDownload50MB, title: String(localized: "Under 50 MB"))

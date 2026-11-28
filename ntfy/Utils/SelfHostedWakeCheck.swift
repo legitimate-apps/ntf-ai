@@ -265,9 +265,12 @@ final class SelfHostedWakeCheck {
     }
 
     /// The bridge doesn't hold this hash now: the evidence of the watch that ended goes with it.
-    func notWatched(hash: String) {
+    /// `observedAt`: when the caller saw no watch (on the bridge's clock). A watch that began after
+    /// it is a new one whose evidence a late observer must not erase (followups-1301 F5).
+    func notWatched(hash: String, observedAt: Date? = nil) {
         guard let entry = entries[hash], entry.watchedSince != nil || entry.misses > 0 || entry.weakMisses != nil else { return }
         update(hash, create: false) { entry in
+            if let observedAt, let since = entry.watchedSince, since > observedAt { return false }
             let arm = (entry.armed, entry.armedAt, entry.lastWake)
             entry = Entry()
             (entry.armed, entry.armedAt, entry.lastWake) = arm
@@ -334,6 +337,9 @@ final class SelfHostedWakeCheck {
             guard let armedAt = self.entries[hash]?.armedAt, armedAt >= tap, self.isArmed(hash: hash) else {
                 self.finish(hash); completion?(nil); return
             }
+            // The tap this request answers is the one in force now, which may be newer than the
+            // one it was planned under (followups-1301 F5): that one is consumed by the answer.
+            let dispatchTap = armedAt
             let asked = self.now()
             self.check(hash: hash, messageTime: messageTime) { verdict in
                 let strong = verdict == .missed && evidence()
@@ -348,7 +354,7 @@ final class SelfHostedWakeCheck {
                     entry.watchedSince = generation
                     entry.lastCheck = self.now()
                     // This tap is answered; one made while the answer was on the wire stays armed.
-                    if (entry.armedAt ?? .distantPast) <= started { entry.armed = nil; entry.armedAt = nil }
+                    if (entry.armedAt ?? .distantPast) <= max(started, dispatchTap) { entry.armed = nil; entry.armedAt = nil }
                     // A wake recorded after the check started supersedes its answer.
                     if let wake = entry.lastWake, wake >= asked { return true }
                     switch verdict {

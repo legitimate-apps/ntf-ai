@@ -487,9 +487,31 @@ final class LocalizationTests: XCTestCase {
         XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription"), "iOS shows (null) in the Local Network prompt without it")
     }
 
+    func testVersion132ReleaseNotesResolveInEveryBundledLanguage() throws {
+        let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.32.0" })
+        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.32.0", "the newest release leads")
+        XCTAssertEqual(release.bullets.count, 3)
+        let expected: [String: [String]] = [
+            "en": ["Pictures from your agents show right in the notification and in the list.", "Photos you send go as JPEG, which agents can read. Your location isn't sent.", "Clear all in Waiting on you asks before it clears."],
+            "de": ["Bilder von deinen Agenten erscheinen direkt in der Mitteilung und in der Liste.", "Fotos, die du sendest, gehen als JPEG raus, das Agenten lesen können. Dein Standort wird nicht mitgesendet.", "„Alle entfernen“ in „Wartet auf dich“ fragt jetzt nach, bevor es entfernt."],
+            "es": ["Las imágenes de tus agentes se ven directamente en la notificación y en la lista.", "Las fotos que envías salen como JPEG, que los agentes pueden leer. Tu ubicación no se envía.", "«Quitar todas» en «Esperando tu respuesta» ahora pregunta antes de quitar."],
+            "it": ["Le immagini dei tuoi agenti appaiono direttamente nella notifica e nell’elenco.", "Le foto che invii partono come JPEG, che gli agenti sanno leggere. La tua posizione non viene inviata.", "«Rimuovi tutte» in «In attesa di una tua risposta» ora chiede conferma prima di rimuovere."],
+            "pl": ["Obrazy od twoich agentów widać od razu w powiadomieniu i na liście.", "Zdjęcia, które wysyłasz, trafiają jako JPEG, który agenci potrafią odczytać. Twoja lokalizacja nie jest wysyłana.", "„Wyczyść wszystkie” w sekcji „Czeka na twoją odpowiedź” pyta teraz przed wyczyszczeniem."],
+            "nl": ["Afbeeldingen van je agents verschijnen direct in de melding en in de lijst.", "Foto’s die je verstuurt gaan als JPEG, dat agents kunnen lezen. Je locatie wordt niet meegestuurd.", "‘Alles wissen’ in ‘Wacht op jou’ vraagt nu eerst of je het zeker weet."],
+            "fr": ["Les images de vos agents s’affichent directement dans la notification et dans la liste.", "Les photos que vous envoyez partent en JPEG, que les agents savent lire. Votre position n’est pas envoyée.", "« Tout effacer » dans « En attente de votre réponse » demande désormais confirmation."]
+        ]
+        XCTAssertEqual(Set(Bundle.main.localizations.filter { $0 != "Base" }), Set(expected.keys))
+        XCTAssertEqual(release.bullets, expected["en"])
+        for (language, bullets) in expected {
+            let bundle = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)))
+            for (index, key) in expected["en"]!.enumerated() {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), bullets[index], language)
+            }
+        }
+    }
+
     func testVersion131ReleaseNotesResolveInEveryBundledLanguage() throws {
         let release = try XCTUnwrap(ReleaseNotes.shipped.first { $0.version == "1.31.0" })
-        XCTAssertEqual(ReleaseNotes.shipped.first?.version, "1.31.0", "the newest release leads")
         XCTAssertEqual(release.bullets.count, 2)
         let expected: [String: [String]] = [
             "en": ["The app's own server is now called ntf-ai.app. ntfy-me.com is the same server, so your existing topics keep working.", "If your own ntfy server isn't sending wake-ups, Notification status shows the server setting that fixes it. If you can't change the server, you can let ntf-ai.app watch its public topics instead. It stays off unless you turn it on for that server."],

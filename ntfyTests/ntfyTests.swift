@@ -10991,7 +10991,7 @@ final class SmallElementsTests: XCTestCase {
     func testDownloadPickerWritesTheSameStoredValueTheActionSheetDid() {
         XCTAssertEqual(AttachmentAutoDownloadOption.all.map(\.value), [
             Store.autoDownloadNever, Store.autoDownloadAlways, Store.autoDownload100KB, Store.autoDownload500KB,
-            Store.autoDownloadDefault, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
+            Store.autoDownload1MB, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
         ])
         XCTAssertEqual(Set(AttachmentAutoDownloadOption.all.map(\.title)).count, 8)
         let selection = AttachmentAutoDownloadOption.selection(store: Store.shared) {

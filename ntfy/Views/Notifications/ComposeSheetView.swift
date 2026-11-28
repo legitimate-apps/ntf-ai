@@ -269,7 +269,7 @@ private struct ComposePhotoPicker: UIViewControllerRepresentable {
             provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
                 let result: Result<URL, ApiService.PublishError>
                 if let url {
-                    do { result = .success(try ComposeModel.stage(url, limit: self.parent.limit)) }
+                    do { result = .success(try ComposeModel.stageImage(url, limit: self.parent.limit)) }
                     catch { result = .failure((error as? ApiService.PublishError) ?? .attachmentUnreadable) }
                 } else { result = .failure(.attachmentUnreadable) }
                 DispatchQueue.main.async { self.parent.completion(result) }
