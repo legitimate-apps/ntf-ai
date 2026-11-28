@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import Foundation
 import CoreData
 import Combine
@@ -14,8 +16,12 @@ class Store: ObservableObject {
         static let autoDownloadAlways: Int64 = 1
         static let autoDownload100KB = 100 * kilobyte
         static let autoDownload500KB = 500 * kilobyte
-        static let autoDownloadDefault = megabyte
+        static let autoDownload1MB = megabyte
         static let autoDownload5MB = 5 * megabyte
+        /// From 1.32 an agent's full-screen screenshot (often 2-4 MB) shows as the picture without a tap.
+        /// 5 MB is also the most the notification extension fetches for its banner image. A limit the
+        /// person chose stays theirs: only an unset preference reads this.
+        static let autoDownloadDefault = autoDownload5MB
         static let autoDownload10MB = 10 * megabyte
         static let autoDownload50MB = 50 * megabyte
     }
@@ -50,6 +56,7 @@ class Store: ObservableObject {
     static let autoDownloadAlways = Constants.autoDownloadAlways
     static let autoDownload100KB = Constants.autoDownload100KB
     static let autoDownload500KB = Constants.autoDownload500KB
+    static let autoDownload1MB = Constants.autoDownload1MB
     static let autoDownloadDefault = Constants.autoDownloadDefault
     static let autoDownload5MB = Constants.autoDownload5MB
     static let autoDownload10MB = Constants.autoDownload10MB
@@ -1012,6 +1019,37 @@ class Store: ObservableObject {
     }
 
     /// Failed reads are uncertainty, not evidence that a first alert may be discarded.
+    /// The message as this device already stored it (a foreground poll, the app's own publish),
+    /// for a wake-up whose fetch failed: the banner can show what the list already shows instead
+    /// of "Open the app to load it". Nil for no row, a deleted row, or a tombstoned sequence.
+    func storedPresentation(baseUrl: String, topic: String, id: String) -> Message? {
+        var stored: Message?
+        context.performAndWait {
+            guard let subscription = try? fetchSubscription(baseUrl: baseUrl, topic: topic) else { return }
+            let request = Notification.fetchRequest()
+            request.predicate = NSPredicate(format: "subscription == %@ AND id == %@", subscription, id)
+            guard let row = try? context.fetch(request).first, !row.isDeleted, let rowID = row.id else { return }
+            var message = Message(id: rowID, time: row.time, event: "message", topic: topic, message: row.message)
+            message.title = row.title
+            message.priority = row.priority
+            message.tags = row.tags.map(parseAllTags)
+            let actions = row.actionsList()
+            message.actions = actions.isEmpty ? nil : actions
+            message.rawActions = row.actions
+            message.click = row.click
+            message.icon = row.icon
+            message.contentType = row.contentType
+            message.sequenceID = row.sequenceID
+            if let url = row.attachmentUrl {
+                message.attachment = MessageAttachment(name: row.attachmentName ?? "", type: row.attachmentType,
+                                                       size: row.attachmentSize, expires: row.attachmentExpires, url: url)
+            }
+            message.isUpdate = row.read || row.presented
+            stored = message
+        }
+        return stored
+    }
+
     func wasAlerted(message: Message, baseUrl: String) -> Bool {
         hasClaimBeforeRow(message: message, baseUrl: baseUrl) || rowWasAlerted(message: message, baseUrl: baseUrl)
     }

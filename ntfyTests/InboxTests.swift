@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import XCTest
 import CoreData
 import UserNotifications
@@ -310,6 +312,22 @@ final class WaitingStoreTests: XCTestCase {
         let second = try XCTUnwrap(AnswerKey(notification: try XCTUnwrap(store.waitingNotifications(log: log, now: now).first)))
         XCTAssertEqual(first.id, second.id)
         XCTAssertEqual(waitingIDs, ["v2"], "an update that still asks keeps waiting")
+    }
+}
+
+/// The "Are you sure?" before Clear all names how many questions leave, in the plural the language needs.
+final class ClearWaitingPromptTests: XCTestCase {
+    func testTitleNamesTheCountWithItsPlural() throws {
+        XCTAssertEqual(ClearWaitingPrompt.title(count: 12), "Clear all 12 questions from Waiting on you?")
+        XCTAssertEqual(ClearWaitingPrompt.title(count: 1), "Clear 1 question from Waiting on you?")
+        let key = "Clear all %lld questions from Waiting on you?"
+        let polish = try XCTUnwrap(Bundle(for: Store.self).path(forResource: "pl", ofType: "lproj").flatMap(Bundle.init(path:)))
+        let format = polish.localizedString(forKey: key, value: nil, table: nil)
+        XCTAssertNotEqual(format, key, "Polish has the confirmation")
+        let locale = Locale(identifier: "pl")
+        XCTAssertEqual(String(format: format, locale: locale, 1), "Usunąć 1 pytanie z „Czeka na twoją odpowiedź”?")
+        XCTAssertEqual(String(format: format, locale: locale, 3), "Usunąć wszystkie 3 pytania z „Czeka na twoją odpowiedź”?")
+        XCTAssertEqual(String(format: format, locale: locale, 12), "Usunąć wszystkie 12 pytań z „Czeka na twoją odpowiedź”?")
     }
 }
 

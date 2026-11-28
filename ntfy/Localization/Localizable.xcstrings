@@ -1,6 +1,144 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Pictures from your agents show right in the notification and in the list.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pictures from your agents show right in the notification and in the list."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilder von deinen Agenten erscheinen direkt in der Mitteilung und in der Liste."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las imágenes de tus agentes se ven directamente en la notificación y en la lista."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le immagini dei tuoi agenti appaiono direttamente nella notifica e nell’elenco."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrazy od twoich agentów widać od razu w powiadomieniu i na liście."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afbeeldingen van je agents verschijnen direct in de melding en in de lijst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les images de vos agents s’affichent directement dans la notification et dans la liste."
+          }
+        }
+      }
+    },
+    "Photos you send go as JPEG, which agents can read. Your location isn't sent.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos you send go as JPEG, which agents can read. Your location isn't sent."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotos, die du sendest, gehen als JPEG raus, das Agenten lesen können. Dein Standort wird nicht mitgesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las fotos que envías salen como JPEG, que los agentes pueden leer. Tu ubicación no se envía."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le foto che invii partono come JPEG, che gli agenti sanno leggere. La tua posizione non viene inviata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdjęcia, które wysyłasz, trafiają jako JPEG, który agenci potrafią odczytać. Twoja lokalizacja nie jest wysyłana."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto’s die je verstuurt gaan als JPEG, dat agents kunnen lezen. Je locatie wordt niet meegestuurd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les photos que vous envoyez partent en JPEG, que les agents savent lire. Votre position n’est pas envoyée."
+          }
+        }
+      }
+    },
+    "Clear all in Waiting on you asks before it clears.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all in Waiting on you asks before it clears."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Alle entfernen“ in „Wartet auf dich“ fragt jetzt nach, bevor es entfernt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Quitar todas» en «Esperando tu respuesta» ahora pregunta antes de quitar."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Rimuovi tutte» in «In attesa di una tua risposta» ora chiede conferma prima di rimuovere."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Wyczyść wszystkie” w sekcji „Czeka na twoją odpowiedź” pyta teraz przed wyczyszczeniem."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘Alles wissen’ in ‘Wacht op jou’ vraagt nu eerst of je het zeker weet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Tout effacer » dans « En attente de votre réponse » demande désormais confirmation."
+          }
+        }
+      }
+    },
     "\n\nSend messages to:\n": {
       "extractionState": "manual",
       "localizations": {
@@ -8509,50 +8647,50 @@
         }
       }
     },
-    "GNU General Public License v3.0": {
+    "PolyForm Shield License 1.0.0": {
       "comment": "License name of the app itself on the Licenses screen",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "GNU General Public License v3.0"
+            "value": "PolyForm Shield License 1.0.0"
           }
         }
       }
@@ -33354,6 +33492,54 @@
         }
       }
     },
+    "expires at %@": {
+      "extractionState": "manual",
+      "comment": "Attachment fine print: a time later today",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expires at %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "läuft um %@ ab"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "caduca a las %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "scade alle %@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wygasa o %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verloopt om %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "expire à %@"
+          }
+        }
+      }
+    },
     "expires %@": {
       "extractionState": "manual",
       "comment": "Attachment fine print: a date",
@@ -35346,6 +35532,168 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nie powiodło się. Spróbuj ponownie."
+          }
+        }
+      }
+    },
+    "Clear all %lld questions from Waiting on you?": {
+      "comment": "Clear all confirmation title. The number is how many questions leave Waiting on you.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Clear %lld question from Waiting on you?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Clear all %lld questions from Waiting on you?"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Frage aus „Wartet auf dich“ entfernen?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Alle %lld Fragen aus „Wartet auf dich“ entfernen?"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar %lld pregunta de «Esperando tu respuesta»?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar las %lld preguntas de «Esperando tu respuesta»?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Quitar las %lld preguntas de «Esperando tu respuesta»?"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere %lld domanda da «In attesa di una tua risposta»?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere tutte le %lld domande da «In attesa di una tua risposta»?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rimuovere tutte le %lld domande da «In attesa di una tua risposta»?"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć %lld pytanie z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytania z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytań z „Czeka na twoją odpowiedź”?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Usunąć wszystkie %lld pytania z „Czeka na twoją odpowiedź”?"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld vraag uit Wacht op jou wissen?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Alle %lld vragen uit Wacht op jou wissen?"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer %lld question de « En attente de votre réponse » ?"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les %lld questions de « En attente de votre réponse » ?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Retirer les %lld questions de « En attente de votre réponse » ?"
+                }
+              }
+            }
           }
         }
       }

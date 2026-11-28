@@ -57,5 +57,5 @@ Setup guides, support and the privacy policy live at **[ntf-ai.app](https://ntf-
 - [Feature parity with upstream](FEATURE_PARITY.md)
 - [Technical limitations](TECHNICAL_LIMITATIONS.md)
 
-Licensed under the GPL-3.0 (see `LICENSE` in the repository). Based on ntfy-ios, MIT License; original credit to
+Licensed under the PolyForm Shield License 1.0.0 from 1.33 (see `LICENSE` and `LICENSING.md` in the repository; earlier versions keep the GPL-3.0 or MIT license they were published under). Based on ntfy-ios, MIT License; original credit to
 [@Copephobia](https://github.com/Copephobia) and [Philipp C. Heckel](https://heckel.io).

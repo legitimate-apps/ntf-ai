@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
@@ -267,7 +269,7 @@ private struct ComposePhotoPicker: UIViewControllerRepresentable {
             provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
                 let result: Result<URL, ApiService.PublishError>
                 if let url {
-                    do { result = .success(try ComposeModel.stage(url, limit: self.parent.limit)) }
+                    do { result = .success(try ComposeModel.stageImage(url, limit: self.parent.limit)) }
                     catch { result = .failure((error as? ApiService.PublishError) ?? .attachmentUnreadable) }
                 } else { result = .failure(.attachmentUnreadable) }
                 DispatchQueue.main.async { self.parent.completion(result) }

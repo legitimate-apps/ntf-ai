@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import SQLite3
 import Network
 import XCTest
@@ -10989,7 +10991,7 @@ final class SmallElementsTests: XCTestCase {
     func testDownloadPickerWritesTheSameStoredValueTheActionSheetDid() {
         XCTAssertEqual(AttachmentAutoDownloadOption.all.map(\.value), [
             Store.autoDownloadNever, Store.autoDownloadAlways, Store.autoDownload100KB, Store.autoDownload500KB,
-            Store.autoDownloadDefault, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
+            Store.autoDownload1MB, Store.autoDownload5MB, Store.autoDownload10MB, Store.autoDownload50MB
         ])
         XCTAssertEqual(Set(AttachmentAutoDownloadOption.all.map(\.title)).count, 8)
         let selection = AttachmentAutoDownloadOption.selection(store: Store.shared) {

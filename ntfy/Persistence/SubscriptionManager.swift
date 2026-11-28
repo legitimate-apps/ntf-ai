@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import Foundation
 
 /// Manager to combine persisting a subscription to the data store and subscribing to Firebase.
@@ -191,7 +193,8 @@ struct SubscriptionManager {
         }
         // The watch as it stands: subscribed here, admitted and unexpired on the bridge.
         let watch = { isSubscribed(baseUrl, topic) ? bridge.watchStart(hash: hash) : nil }
-        guard let start = watch() else { check.notWatched(hash: hash); return }
+        let observed = bridge.currentTime
+        guard let start = watch() else { check.notWatched(hash: hash, observedAt: observed); return }
         let mine = polled.filter { $0.topic == topic }
         check.messagesFoundByPoll(hash: hash, watchStart: start,
                                   messages: mine.map { ($0.id, Date(timeIntervalSince1970: TimeInterval($0.time))) })

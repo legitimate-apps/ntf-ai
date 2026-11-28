@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 # Seed a dedicated simulator's app-group store with an agent inbox: waiting questions, answered and
 # failing ones, a long Markdown report, a picture, a muted topic. Run after run.py --seed --seed-only.
 # usage: inbox_seed.py <udid> <app-group-id> [--empty]

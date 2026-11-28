@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import Foundation
 import Combine
 
@@ -677,6 +679,10 @@ struct BridgeRecord: Codable, Equatable {
     /// beyond the accepted set (review-130d D2): its 200 can be lost after the server applied it.
     /// Added before each POST, cleared by the next acknowledged one.
     var unconfirmed: [String]?
+    /// An acknowledged list left out members an earlier unanswered registration may still install
+    /// when the server applies it late (followups-1301 E4, second bullet): they stayed in
+    /// `unconfirmed` for one more list, and this marks that the one more has been granted.
+    var lateRemovalsKept: Bool?
     /// Bumped, with the record, each time the setting is committed (the Settings toggle, or an
     /// opt-out found by a sync). A sync that read the setting under an older value sends no list
     /// and starts no further check (review-130e E4); the sync the change queued sends the new one.
@@ -1404,6 +1410,9 @@ final class NtfyShBridge: ObservableObject {
             let task = session.dataTask(with: request) { _, response, error in
                 guard once.claim() else { return }
                 self.setIssued(topic, false)
+                // Every exit says the check is over, a failed write included, so an open status or
+                // topic-details row leaves "Checking" (followups-1301 F4). Runs after the write.
+                defer { BridgeStateSignal.announce() }
                 let http = response as? HTTPURLResponse
                 let status = error == nil ? http?.statusCode : nil
                 Log.d(Self.tag, "Access check: HTTP \(status.map(String.init) ?? "none")")
@@ -1434,6 +1443,7 @@ final class NtfyShBridge: ObservableObject {
                 once.claim()
                 setIssued(topic, false)
                 unmark(topic, started: started, prior: prior)
+                BridgeStateSignal.announce()
                 completion(true); return
             }
             BridgeStateSignal.announce()
@@ -1835,8 +1845,18 @@ final class NtfyShBridge: ObservableObject {
                 next.lastSuccess = now()
                 next.acceptedSignature = desired.signature
                 next.acceptedRevision = revision
-                // A list replaces the device's whole list: nothing earlier may still be installed.
-                next.unconfirmed = nil
+                // A list replaces the device's whole list, but an earlier registration whose reply
+                // never came may still be queued on the server and land after this one (E4, second
+                // bullet: the list carries no revision the server could compare). What it may add
+                // and this list leaves out stays pending for one more list; that one clears it.
+                let late = Set(next.unconfirmed ?? []).subtracting(BridgeWatchSet.members(signature: desired.signature))
+                if !late.isEmpty, next.lateRemovalsKept != true {
+                    next.unconfirmed = late.sorted()
+                    next.lateRemovalsKept = true
+                } else {
+                    next.unconfirmed = nil
+                    next.lateRemovalsKept = nil
+                }
                 next.mayHaveEntries = !desired.isEmpty
                 next.watching = reply?.watching
                 next.expires = reply?.expires.map { Date(timeIntervalSince1970: $0) }
@@ -2052,6 +2072,9 @@ final class NtfyShBridge: ObservableObject {
         }
         return .watched
     }
+
+    /// This bridge's clock, the one watch starts are recorded on.
+    var currentTime: Date { now() }
 
     /// The server accepted `hash` in its last successful reply, still knows this device, and the
     /// watch hasn't expired: only then can a missed wake-up say anything about the topic's server.
