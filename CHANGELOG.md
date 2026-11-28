@@ -4,6 +4,10 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## Unreleased
+
+- Clear all in Waiting on you no longer freezes the app on a Mac. The question now appears inside the app, and Escape cancels it.
+
 ## 1.32.0
 
 - Pictures from your agents show right in the notification and in the list.
