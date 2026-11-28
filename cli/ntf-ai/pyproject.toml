@@ -28,8 +28,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://ntf-ai.app"
 Documentation = "https://ntf-ai.app/docs/agents"
-Source = "https://github.com/legitimate-apps/ntfy-ios-NextGen/tree/main/cli/ntf-ai"
-Issues = "https://github.com/legitimate-apps/ntfy-ios-NextGen/issues"
+Source = "https://github.com/legitimate-apps/ntf-ai/tree/main/cli/ntf-ai"
+Issues = "https://github.com/legitimate-apps/ntf-ai/issues"
 
 [project.scripts]
 ntf = "ntf_ai:main"
