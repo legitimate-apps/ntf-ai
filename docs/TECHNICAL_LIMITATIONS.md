@@ -26,4 +26,4 @@ In addition to running firebase, the iOS users would need to build their own iOS
 
 If we want to stick with the default (official) iOS app, and allow self-hosted servers to be used / subscribed to, the self-hosted server would need to relay any notifications to ntfy.sh, so that it may use the Firebase credentials/configuration there to properly send the notification to the iOS device.
 
-> **NTF-AI:** this app has its own Firebase project, so the relay it needs is **ntfy-me.com**, not ntfy.sh. Set `upstream-base-url: "https://ntfy-me.com"` on a self-hosted server. The relay carries only a hash of the topic URL and a message ID; the app fetches the message from your server.
+> **NTF-AI:** this app has its own Firebase project, so the relay it needs is **ntf-ai.app** (also reachable as ntfy-me.com), not ntfy.sh. Set `upstream-base-url: "https://ntf-ai.app"` on a self-hosted server. The relay carries only a hash of the topic URL and a message ID; the app fetches the message from your server.

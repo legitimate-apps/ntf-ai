@@ -150,7 +150,7 @@ enum Config {
     static let supportUrl = "https://ntf-ai.app/docs/support"
 
     /// The quick start for this app's default server. It is the primary help link: its examples
-    /// publish to ntfy-me.com, where new topics live. ntfy.sh's own pages publish to ntfy.sh, so a
+    /// publish to ntf-ai.app, where new topics live. ntfy.sh's own pages publish to ntfy.sh, so a
     /// newcomer who followed them sent their first message to a server the app was not listening to.
     static let helpUrl = "https://ntf-ai.app/"
 

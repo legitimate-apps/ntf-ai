@@ -20,13 +20,13 @@ final class RelayCheck: ObservableObject {
             case .discovering: return String(localized: "Checking whether the relay supports this test…")
             case .consent: return String(localized: "The relay supports a wake-up check. Sending the test needs your approval.")
             case .checking: return String(localized: "Waiting for a newer forwarded wake-up…")
-            case .unsupported: return String(localized: "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.")
+            case .unsupported: return String(localized: "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available.")
             case .cancelled: return String(localized: "Check cancelled. A test message already sent may still arrive.")
             case .received(let milliseconds):
                 let date = Date(timeIntervalSince1970: Double(milliseconds) / 1000)
                 let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .medium)
                 return String(localized: "\(shortUrl(url: normalizeBaseUrl(Config.appBaseUrl))) received a wake-up for this topic at \(time), and FCM accepted it. This does not prove your device received it or that this test caused the wake-up.")
-            case .notObserved: return String(localized: "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.")
+            case .notObserved: return String(localized: "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.")
             case .failed(let reason): return reason
             }
         }

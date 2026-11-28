@@ -65,7 +65,7 @@ registration fails against a project that does not exist, so no push is delivere
 ## Releasing (maintainers)
 
 The app's built-in server is the `APP_BASE_URL` build setting (`https://ntfy-me.com` for Debug and
-Release), written into `AppBaseURL` in both the app's and the Notification Service Extension's
+Release; the same server as ntf-ai.app, kept under that address for compatibility), written into `AppBaseURL` in both the app's and the Notification Service Extension's
 `Info.plist`. Subscriptions on that server bind their raw topic name in FCM and every other server
 binds a hash, so an archive with the wrong value builds fine and silently receives no push for its
 default server. Before uploading, gate the archive (or exported `.ipa`):

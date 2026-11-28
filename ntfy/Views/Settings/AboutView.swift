@@ -24,7 +24,7 @@ struct AboutView: View {
             }
             .foregroundColor(.primary)
             .accessibilityIdentifier("share-app")
-            // Primary help is the default server's quick start: its examples publish to ntfy-me.com.
+            // Primary help is the default server's quick start: its examples publish to ntf-ai.app.
             linkRow(String(localized: "Getting started"), detail: shortUrl(url: normalizeBaseUrl(Config.helpUrl)),
                     url: Config.helpUrl)
             // The support page explains how to reach us.

@@ -38439,96 +38439,96 @@
         }
       }
     },
-    "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available.": {
+    "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), its canonical base-url, and outbound HTTPS. No automatic result is available."
+            "value": "This relay does not offer an automatic check. On your server, check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), its canonical base-url, and outbound HTTPS. No automatic result is available."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
+            "value": "Dieser Relay-Server bietet keine automatische Prüfung. Prüfe auf deinem Server upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntf-ai.app), seine kanonische base-url und ausgehendes HTTPS. Es liegt kein automatisches Ergebnis vor."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), su base-url canónico y HTTPS saliente. No hay resultado automático."
+            "value": "Este relay no ofrece una comprobación automática. Revisa en tu servidor upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntf-ai.app), su base-url canónico y HTTPS saliente. No hay resultado automático."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
+            "value": "Questo relay non offre un controllo automatico. Verifica sul server upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntf-ai.app), il base-url canonico e HTTPS in uscita. Non è disponibile un risultato automatico."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
+            "value": "Ten serwer pośredniczący nie oferuje automatycznego testu. Na swoim serwerze sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntf-ai.app), kanoniczny base-url i wychodzące HTTPS. Brak automatycznego wyniku."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
+            "value": "Deze relay biedt geen automatische controle. Controleer op je server upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntf-ai.app), de canonieke base-url en uitgaand HTTPS. Er is geen automatisch resultaat beschikbaar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
+            "value": "Ce relais ne propose pas de vérification automatique. Sur votre serveur, vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntf-ai.app), sa valeur canonique de base-url et l’accès HTTPS sortant. Aucun résultat automatique n’est disponible."
           }
         }
       }
     },
-    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
+    "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntfy-me.com), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
+            "value": "No newer forwarded wake-up was observed during this check (about 10 seconds). Check upstream-base-url (https://ntfy.sh with instant banners on in Settings, or https://ntf-ai.app), the canonical base-url, outbound HTTPS, and the relay's status. Network or FCM trouble, delays, or evicted history can give the same result."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntfy-me.com), die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
+            "value": "Während dieser Prüfung (etwa 10 Sekunden) wurde kein neueres weitergeleitetes Wecksignal beobachtet. Prüfe upstream-base-url (https://ntfy.sh mit sofortigen Bannern in den Einstellungen oder https://ntf-ai.app), die kanonische base-url, ausgehendes HTTPS und den Relay-Status. Netzwerk- oder FCM-Probleme, Verzögerungen oder verworfener Verlauf können dasselbe Ergebnis verursachen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntfy-me.com), el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
+            "value": "No se observó un aviso reenviado más reciente durante esta comprobación (unos 10 segundos). Revisa upstream-base-url (https://ntfy.sh con los avisos instantáneos activados en Ajustes, o https://ntf-ai.app), el base-url canónico, HTTPS saliente y el estado del relay. Los fallos de red o FCM, las demoras y el historial eliminado pueden dar el mismo resultado."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntfy-me.com), il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
+            "value": "Durante questo controllo (circa 10 secondi) non è stato osservato un segnale di risveglio inoltrato più recente. Verifica upstream-base-url (https://ntfy.sh con i banner istantanei attivi in Impostazioni, oppure https://ntf-ai.app), il base-url canonico, HTTPS in uscita e lo stato del relay. Problemi di rete o FCM, ritardi o cronologia rimossa possono dare lo stesso risultato."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntfy-me.com), kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
+            "value": "Podczas tego testu (około 10 sekund) nie zaobserwowano nowszego przekazanego sygnału wybudzenia. Sprawdź upstream-base-url (https://ntfy.sh z włączonymi natychmiastowymi banerami w Ustawieniach albo https://ntf-ai.app), kanoniczny base-url, wychodzące HTTPS i stan serwera pośredniczącego. Ten sam wynik mogą dać problemy sieci lub FCM, opóźnienia albo usunięta historia."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntfy-me.com), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
+            "value": "Tijdens deze controle (ongeveer 10 seconden) is geen nieuwer doorgestuurd activeringssignaal gezien. Controleer upstream-base-url (https://ntfy.sh met directe meldingen aan in Instellingen, of https://ntf-ai.app), de canonieke base-url, uitgaand HTTPS en de relaystatus. Netwerk- of FCM-problemen, vertraging of gewiste geschiedenis kunnen hetzelfde resultaat geven."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntfy-me.com), la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
+            "value": "Aucune demande de réveil relayée plus récente n’a été observée pendant cette vérification (environ 10 secondes). Vérifiez upstream-base-url (https://ntfy.sh avec les bannières instantanées activées dans Réglages, ou https://ntf-ai.app), la valeur canonique de base-url, l’accès HTTPS sortant et l’état du relais. Des problèmes réseau ou FCM, des retards ou un historique évincé peuvent donner le même résultat."
           }
         }
       }
