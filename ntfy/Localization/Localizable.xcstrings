@@ -40742,6 +40742,102 @@
           }
         }
       }
+    },
+    "%@ wasn't sent": {
+      "comment": "Title of the notice when a banner's answer to an agent's request is refused because the request has expired; %@ is the button label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wasn't sent"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wurde nicht gesendet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no se envió"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n'a pas été envoyé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non è stato inviato"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is niet verzonden"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie wysłano: %@"
+          }
+        }
+      }
+    },
+    "This request expired. Ask the agent to send it again.": {
+      "comment": "Body of the notice when a banner's answer to an expired agent request is refused",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request expired. Ask the agent to send it again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anfrage ist abgelaufen. Bitte den Agenten, sie erneut zu senden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta solicitud ha caducado. Pide al agente que la envíe de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette demande a expiré. Demandez à l'agent de la renvoyer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa richiesta è scaduta. Chiedi all'agente di inviarla di nuovo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit verzoek is verlopen. Vraag de agent om het opnieuw te sturen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta prośba wygasła. Poproś agenta o ponowne wysłanie."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -25,37 +25,17 @@ struct AppMain: App {
                 .onReceive(Timer.publish(every: 900, on: .main, in: .common).autoconnect()) { _ in
                     if UIApplication.shared.applicationState == .active { store.pruneNotifications() }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                    NetworkCatchUp.shared.deactivate()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    // Use this hook instead of applicationDidBecomeActive, see https://stackoverflow.com/a/68888509/1440785
-                    // That post also explains how to start SwiftUI from AppDelegate if that's ever needed.
-                    
-                    Log.d(tag, "App became active, refreshing objects")
-                    store.mergeRemoteHistory()
-                    store.pruneNotifications()
-                    // Answers outlive Waiting's 7 days so old cards keep their receipt, but not forever.
-                    AnswerLog.shared.prune(before: Date().addingTimeInterval(-AnswerLog.keepFor))
-                    // The extension may have recorded acks meanwhile; with confirmations off, its
-                    // receipts leave Notification Center.
-                    AckLog.shared.changed()
-                    AgentAck.removeDeliveredReceiptsIfHidden()
-                    // Open encrypted messages that arrived while the key couldn't be read (before
-                    // first unlock, a Keychain hiccup, or a key the extension couldn't derive).
-                    store.retryLockedMessages()
-                    delegate.refreshNotificationSettings()
-                    // Catch up once per foreground transition. Returning to the topic list or
-                    // switching tabs does not poll again; explicit refresh is available there.
-                    NetworkCatchUp.shared.activate()
-                    // Feedback written while offline goes out now.
-                    FeedbackSender.shared.flush()
-                    // Self-heal a desynced device (ntfy#1305). Before this, a
-                    // topic whose FCM binding failed stayed dead until the user
-                    // reinstalled the app — which is exactly what the upstream
-                    // thread reports as the only known workaround.
-                    FcmSubscriptionReconciler.shared.reconcile(reason: "app became active")
-                }
+                // Becoming active (and on the Mac, focus and a five-minute catch-up) is handled from
+                // launch by `AppActivation`, registered in the app delegate: a view's `.onReceive`
+                // subscribes after the Mac's only `didBecomeActive` has gone (OBSERVED 2026-11-28).
+        }
+        .commands {
+            // Refresh (Cmd-R): every topic, now, as pull-to-refresh does. On the Mac it is in the menu
+            // bar; on an iPad with a keyboard, in the shortcuts list. Before 1.33 Cmd-R did nothing.
+            CommandGroup(after: .toolbar) {
+                Button(String(localized: "Refresh")) { AppDelegate.refreshAll() }
+                    .keyboardShortcut("r", modifiers: .command)
+            }
         }
     }
 }

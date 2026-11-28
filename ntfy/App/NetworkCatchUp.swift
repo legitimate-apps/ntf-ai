@@ -2,6 +2,7 @@
 // Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 import Foundation
 import Network
+import UIKit
 
 /// Main-queue lifecycle and path policy. A usable path is a retry hint, not server reachability.
 final class NetworkCatchUp {
@@ -85,6 +86,71 @@ final class NetworkCatchUp {
         poll(recovering) { [weak self] in
             self?.running = false
             self?.drain()
+        }
+    }
+}
+
+/// Coming to the front, on every device, and what the app does then (`AppDelegate.appBecameActive`).
+/// The iPhone and iPad post `didBecomeActive` on every return. The Mac (the iPad app on Apple
+/// Silicon) posts it once, at launch, before the first window exists, and never again on focus
+/// (OBSERVED 2026-11-28: a SwiftUI `.onReceive` subscribed too late for even that one, so a Mac never
+/// caught up and a missed follow-up left a dead Approve in Waiting for days). So the hooks are
+/// registered at launch; the Mac also listens for AppKit's activation and scene activation, and
+/// while it runs it catches up every five minutes. Activations within two seconds count once.
+final class AppActivation {
+    static let macNames: [Foundation.Notification.Name] = [
+        Foundation.Notification.Name("NSApplicationDidBecomeActiveNotification"), UIScene.didActivateNotification,
+    ]
+    static let macInterval: TimeInterval = 5 * 60
+    static let coalesce: TimeInterval = 2
+
+    private let center: NotificationCenter
+    private let onMac: Bool
+    private let now: () -> TimeInterval
+    private let schedule: (TimeInterval, @escaping () -> Void) -> Void
+    private let onActive: () -> Void
+    private let onResign: () -> Void
+    private let onTick: () -> Void
+    private var observers: [NSObjectProtocol] = []
+    private var last: TimeInterval?
+
+    init(center: NotificationCenter = .default, onMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac,
+         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         schedule: @escaping (TimeInterval, @escaping () -> Void) -> Void = { DispatchQueue.main.asyncAfter(deadline: .now() + $0, execute: $1) },
+         onActive: @escaping () -> Void, onResign: @escaping () -> Void, onTick: @escaping () -> Void) {
+        self.center = center; self.onMac = onMac; self.now = now; self.schedule = schedule
+        self.onActive = onActive; self.onResign = onResign; self.onTick = onTick
+    }
+
+    deinit { observers.forEach(center.removeObserver) }
+
+    /// Call once, at launch, before the first activation can be posted.
+    func start() {
+        guard observers.isEmpty else { return }
+        observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.became()
+        })
+        observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.onResign()
+        })
+        guard onMac else { return }
+        for name in Self.macNames {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.became() })
+        }
+        tick()
+    }
+
+    func became() {
+        let at = now()
+        if let last, at - last < Self.coalesce { return }
+        last = at
+        onActive()
+    }
+
+    private func tick() {
+        schedule(Self.macInterval) { [weak self] in
+            self?.onTick()
+            self?.tick()
         }
     }
 }

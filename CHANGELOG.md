@@ -4,6 +4,12 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## Unreleased
+
+- An agent's request with a time limit closes on time on every device, even one that missed the agent's update. Its buttons go and it leaves Waiting on you.
+- Clearing a question from Waiting on you clears it on your other devices too, and tells the agent it was dismissed.
+- On a Mac, NTF-AI now catches up when you come back to it and every few minutes while it's open. Refresh (Command-R) checks every topic now.
+
 ## 1.32.0
 
 - Pictures from your agents show right in the notification and in the list.

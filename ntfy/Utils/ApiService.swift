@@ -278,8 +278,12 @@ class ApiService {
             }
             request.setValue(TopicEncryption.encodingHeaderValue, forHTTPHeaderField: TopicEncryption.encodingHeaderName)
             // An answer's protocol tags (`re-<seq>`, `ans`) also go outside, so an agent that
-            // filters on them server-side still sees its answer (agent protocol v2, SPEC 2).
-            let outer = tags.filter { ProtocolTag.isReply($0) || ProtocolTag.isAnswer($0) }
+            // filters on them server-side still sees its answer (agent protocol v2, SPEC 2). So do a
+            // dismissed receipt's (`agent`, `dis`, from 1.33), so an older ntf reading the outer
+            // tags never takes it for a written answer. Only the ciphertext's tags are trusted.
+            let dismissal = tags.contains(where: ProtocolTag.isDismissed)
+            let outer = tags.filter { ProtocolTag.isReply($0) || ProtocolTag.isAnswer($0)
+                || dismissal && (ProtocolTag.isDismissed($0) || $0.lowercased() == "agent") }
             if !outer.isEmpty { request.setValue(PublishOptions.header(outer.joined(separator: ",")), forHTTPHeaderField: "Tags") }
             request.httpBody = Data(body.utf8)
             return .success(request)

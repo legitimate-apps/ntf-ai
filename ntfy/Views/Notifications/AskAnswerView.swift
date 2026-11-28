@@ -26,6 +26,16 @@ extension Notification {
 
     /// The agent named by an `@name` tag (SPEC 6).
     var agentName: String? { AgentIdentity.name(tags: parseAllTags(tags)) }
+
+    /// The deadline of an agent's or a typed question: its schema's `exp`, or from 1.33 its
+    /// `exp-<unix seconds>` tag. Nil for any other message, or a question without one.
+    var questionDeadline: AgentDeadline? {
+        let tags = parseAllTags(self.tags)
+        let actions = actionsList()
+        guard AgentQuestion.locksAfterAnswer(tags: tags, actions: actions) else { return nil }
+        let deadline = AgentDeadline(tags: tags, actions: actions)
+        return deadline.expires == nil ? nil : deadline
+    }
 }
 
 /// "Expires in 1h 20m", and whether it has.
@@ -70,8 +80,8 @@ struct AskStatusLine: View {
                     .foregroundColor(.secondary)
                     .accessibilityIdentifier("ask-update-app")
             }
-        } else if let schema = detection.schema, let date = schema.expiryDate {
-            if schema.isExpired(now: now) {
+        } else if let deadline = notification.questionDeadline, let date = deadline.expires {
+            if deadline.isExpired(now: now) {
                 Self.row("clock.badge.xmark", Text("Expired"))
                     .foregroundColor(.secondary)
                     .accessibilityIdentifier("ask-expired")
@@ -157,7 +167,7 @@ struct AskAnswerView: View {
     @State private var tapped: String?
     @State private var now = Date()
 
-    private var off: Bool { disabled || schema.isExpired(now: now) }
+    private var off: Bool { disabled || schema.isExpired(now: now) || notification.isPastDeadline(now: now) }
     private var phase: AnswerPhase { sending ? .sending : .idle }
 
     var body: some View {
