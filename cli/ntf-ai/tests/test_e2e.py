@@ -648,6 +648,21 @@ class ProtocolV2E2E(Base):
         r=json.loads(p.stdout); self.assertEqual(r['status'],'withdrawn')
         self.assertTrue(any(m['event']=='message_delete' for m in poll(self.topic)))
         self.assertFalse(any('ack' in m.get('tags',[]) for m in poll(self.topic)))
+    def test_dismissed_receipt_exits_eight_and_settles(self):
+        # NTF-AI 1.33 publishes this when the person clears the question from Waiting on you (no sequence_id).
+        def dismiss():
+            q=self.wait_question(); seq=q['sequence_id']
+            http('POST','/'+self.topic,b'Dismissed in NTF-AI',{'Tags':'agent,dis,re-OTHER','Priority':'1'})
+            http('POST','/'+self.topic,b'Dismissed in NTF-AI',{'Tags':'agent,dis,re-'+seq,'Priority':'1'})
+        t,errors=self.in_background(dismiss)
+        p=self.cli('ask','--json','--timeout','8','Deploy?')
+        t.join(10); self.assertEqual(errors,[]); self.assertEqual(p.returncode,8,p.stderr)
+        r=json.loads(p.stdout); self.assertEqual(r['status'],'dismissed'); self.assertNotIn('answer',r)
+        msgs=[m for m in poll(self.topic) if m.get('sequence_id')==r['request_id']]
+        self.assertIsNone(msgs[-1].get('actions')); self.assertIn('Dismissed',msgs[-1]['message'])
+        self.assertFalse(any('ack' in m.get('tags',[]) for m in poll(self.topic)))
+        p=self.cli('status',r['request_id'],'--json'); self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(json.loads(p.stdout)['state'],'dismissed')
     def test_expired_question_reconnect_uses_unix_time(self):
         # A separate short-cache server makes the old id unusable; force reconnect with --poll.
         port=free_port(); url=f'http://127.0.0.1:{port}'; name='ntf-v2-expire-'+secrets.token_hex(4)

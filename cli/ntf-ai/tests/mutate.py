@@ -119,6 +119,9 @@ M += [
     ("test_v2.SchemaTests.test_reminder_clock", 'min(4, (priority or 3) + next_reminder)', 'min(5, (priority or 3) + next_reminder)'),
     ("test_v2.ProtocolEdges.test_reminders_stop_on_external_settle", 'reminders_active[0] = False  # another agent already acked or settled this question', 'reminders_active[0] = True  # broken external settle handling'),
     ("test_v2.StatusTests.test_ledger_private_pruned_and_final_preserved", 'rows = [r for r in rows.values() if now-r.get("asked_at", 0) <= 30*86400]', 'rows = list(rows.values())'),
+    ("test_release_060.MatchDismissal.test_encrypted_topic_trusts_only_inner_dismissal", 'return bound_to_question(msg, request_id, authenticated, asked_at)\n    return reply_target(msg) == request_id', 'return reply_target(msg) == request_id\n    return reply_target(msg) == request_id'),
+    ("test_release_060.StatusReportsDismissed.test_fold_dismissed_with_time", 'state = "dismissed"', 'state = "settled"'),
+    ("ProtocolV2E2E.test_dismissed_receipt_exits_eight_and_settles", 'if is_dismissal(msg, topic, request_id, authenticated, asked_at, encrypted):', 'if False:'),
     ("ProtocolV2E2E.test_withdraw_exits_five_and_deletes", 'client._request("DELETE", topic_url(client.server, topic) + "/" + request_id)', 'client._request("PUT", topic_url(client.server, topic) + "/" + request_id + "/clear")'),
     ("ProtocolV2E2E.test_identity_and_nonblocking_ask", 'kw["icon"] = avatar', 'pass'),
 ]

@@ -33,7 +33,7 @@ import urllib.parse
 import urllib.request
 import zlib
 
-VERSION = "0.5.1"
+VERSION = "0.6.0"
 LEAD = ("NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; "
         "use it when someone asks for ntf, NTF-AI or ntfy notifications.")
 DEFAULT_SERVER = "https://ntf-ai.app"
@@ -69,6 +69,11 @@ NO_REPLY_TAG = "no-reply"
 # ntfy clients just show the body, so a missing note becomes DEFAULT_ACK.
 ACK_TAG = "ack"
 DEFAULT_ACK = "\u2713 Got it"
+# From NTF-AI 1.33, clearing a question from Waiting on you publishes a dismissed receipt on the question's topic:
+# body DISMISSED_BODY, tags agent + DISMISS_TAG + re-<the question's sequence_id>, priority 1. It is never an answer:
+# `ntf ask` stops waiting (EXIT_DISMISSED). The `agent` tag keeps ntf 0.5.x from reading it as a written reply.
+DISMISS_TAG = "dis"
+DISMISSED_BODY = "Dismissed in NTF-AI"
 # ntfy v2.31.1 topicRegex and DefaultDisallowedTopics.
 TOPIC_RE = re.compile(r"^[-_A-Za-z0-9]{1,64}$")
 RESERVED_TOPICS = {"docs", "static", "file", "app", "metrics", "account", "settings", "signup", "login", "v1"}
@@ -1029,6 +1034,7 @@ SCHEMA_LIMIT = 1536
 EXIT_WITHDRAWN = 5
 EXIT_INVALID = 6
 EXIT_UNAUTHENTICATED = 7
+EXIT_DISMISSED = 8
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
@@ -1450,10 +1456,12 @@ def find_ask(request_id, path=None):
     return next((r for r in reversed(_ledger_rows(path or ledger_path())) if r.get("id") == request_id), None)
 
 
-def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_ids=None, require_authenticated=False):
+def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_ids=None, require_authenticated=False,
+                encrypted=None):
     """Fold only evidence linked to this sequence. Cached observed terminal results outlive server retention."""
     now = time.time() if now is None else now
     authenticated_ids = authenticated_ids or {}
+    encrypted = bool(entry.get("e2e")) if encrypted is None else encrypted
     rid, topic = entry["id"], entry["topic"]
     out = dict(id=rid, topic=topic, server=entry["server"], state="unknown", asked_at=entry.get("asked_at"),
                reminders_sent=0, withdrawn=False, expired=False, retention_seconds=retention_seconds)
@@ -1463,7 +1471,7 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
     drop = ("answer", "answered_at", "acked_at", "answer_authenticated") if require_authenticated and \
         ("answer" in cached or cached.get("answered_at") is not None) and cached_auth is not True else ()
     for k in ("seen_at", "answered_at", "acked_at", "answer", "reminders_sent", "withdrawn", "settled_at",
-              "answer_authenticated", "answer_message_id"):
+              "answer_authenticated", "answer_message_id", "dismissed_at"):
         if k in cached and k not in drop:
             out[k] = cached[k]
     # A saved authenticated answer is final: no later event replaces it, even a replay seen by another process after
@@ -1487,7 +1495,7 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
                 out["withdrawn"] = True
             elif event == "message_clear":
                 out["seen_at"] = m.get("time")
-            elif event == "message" and AGENT_TAG in tags:
+            elif event == "message" and AGENT_TAG in tags and DISMISS_TAG not in tags:
                 if ACK_TAG in tags:
                     out["acked_at"] = m.get("time")
                 elif m.get("actions") or m.get("id") == entry.get("message_id"):
@@ -1504,9 +1512,15 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
                 elif question_seen or entry.get("asked_at") is not None and m.get("time", 0) > entry["asked_at"]:
                     out["settled_at"] = m.get("time")
         a = match_answer(m, topic, rid, buttons, True, seen, schema=schema, linked_only=True,
-                         authenticated=authenticated_ids.get(m.get("id"), False), asked_at=out["asked_at"])
+                         authenticated=authenticated_ids.get(m.get("id"), False), asked_at=out["asked_at"],
+                         encrypted=encrypted)
         if a and require_authenticated and a["kind"] != "withdrawn" and not a.get("authenticated"):
             a = None  # E2E strict: an unauthenticated answer never answers the question
+        if a and a["kind"] == "dismissed":
+            # The person cleared it from Waiting on you (NTF-AI 1.33). Not an answer: a later one still wins.
+            if out.get("dismissed_at") is None:
+                out["dismissed_at"] = a.get("time")
+            continue
         if a and a["kind"] != "withdrawn":
             if locked is not None:
                 if locked and a.get("message_id") == locked:
@@ -1526,6 +1540,8 @@ def fold_status(entry, events, now=None, retention_seconds=43200, authenticated_
         state = "acked"
     elif out.get("answer") or out.get("answered_at") is not None:
         state = "answered"
+    elif out.get("dismissed_at") is not None:
+        state = "dismissed"
     elif out.get("settled_at") is not None:
         state = "settled"
     elif not question_seen and (out["asked_at"] is None or now-out["asked_at"] > retention_seconds):
@@ -1555,7 +1571,8 @@ def question_status(client, topic, request_id, now=None):
     decoded = [(m, verified) for m, verified in decoded if m is not None]
     out = fold_status(entry, [m for m, _ in decoded], now=now, retention_seconds=retention,
                       authenticated_ids={m.get("id"): verified for m, verified in decoded},
-                      require_authenticated=getattr(client, "e2e_strict", False))
+                      require_authenticated=getattr(client, "e2e_strict", False),
+                      encrypted=bool(getattr(client, "topic_password", None)))
     out["undecryptable"] = getattr(client, "undecryptable", 0)
     if entry.get("asked_at") is not None and out["state"] not in ("pending", "seen", "unknown"):
         record_ask(dict(entry, final=out), now=now, path=getattr(client, "ledger_file", None))
@@ -1622,8 +1639,19 @@ def bound_to_question(msg, request_id, authenticated, asked_at):
         and isinstance(msg.get("time"), (int, float)) and msg["time"] >= asked_at
 
 
+def is_dismissal(msg, topic, request_id, authenticated=False, asked_at=None, encrypted=False):
+    """NTF-AI 1.33's dismissed receipt for this question: on its topic, tagged agent + dis + re-<request id>. On an
+    encrypted topic it counts only when those tags came from the ciphertext and it is not older than the question."""
+    tags = msg.get("tags") or []
+    if msg.get("event") != "message" or msg.get("topic") != topic or AGENT_TAG not in tags or DISMISS_TAG not in tags:
+        return False
+    if encrypted:
+        return bound_to_question(msg, request_id, authenticated, asked_at)
+    return reply_target(msg) == request_id
+
+
 def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=None, linked_only=False,
-                 authenticated=False, asked_at=None):
+                 authenticated=False, asked_at=None, encrypted=False):
     """Decide whether one event answers the question. Pure, so it can be tested alone.
 
     Returns a dict for an answer, or None. Adds the id to `seen` so each message counts once:
@@ -1632,6 +1660,8 @@ def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=Non
     compose sheet) is taken, since nothing in it says which question it answers.
     `authenticated` says the message decrypted with the topic key; the result is authenticated only if it is also
     bound to this question and not older than `asked_at` (bound_to_question).
+    A dismissed receipt (is_dismissal; `encrypted` says the topic is encrypted) returns kind "dismissed", never an
+    answer.
     """
     if msg.get("event") == "message_delete" and msg.get("topic") == topic and msg.get("sequence_id") == request_id:
         return {"kind": "withdrawn", "message_id": msg.get("id"), "time": msg.get("time")}
@@ -1641,6 +1671,8 @@ def match_answer(msg, topic, request_id, buttons, accept_reply, seen, schema=Non
     if not mid or mid in seen:
         return None
     seen.add(mid)
+    if is_dismissal(msg, topic, request_id, authenticated, asked_at, encrypted):
+        return {"kind": "dismissed", "message_id": mid, "time": msg.get("time"), "authenticated": bool(authenticated)}
     allowed = {a for _, a in buttons}
     if msg.get("topic") == topic + ANSWERS_SUFFIX:
         prefix = f"reply:{request_id}:"
@@ -1709,8 +1741,8 @@ def fallback_note(res):
 def answer_status(answer, reject_answers):
     if answer is None:
         return "timeout"
-    if answer["kind"] == "withdrawn":
-        return "withdrawn"
+    if answer["kind"] in ("withdrawn", "dismissed"):
+        return answer["kind"]
     if answer["kind"] == "button" and answer["answer"] in reject_answers:
         return "rejected"
     return "answered"
@@ -1720,9 +1752,11 @@ def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, sinc
                     cancel=None, on_tick=None, clock=time.monotonic, schema=None, strict=False, wake_at=None, on_event=None, on_answer=None,
                     asked_at=None, require_authenticated=False):
     """`require_authenticated` (E2E strict): an answer that is not authenticated never resolves the wait and does not
-    stop reminders; a withdrawal still does."""
+    stop reminders; a withdrawal still does. A dismissed receipt (NTF-AI 1.33) ends the wait as kind "dismissed"."""
     def gate(a):
         return None if a and require_authenticated and a["kind"] != "withdrawn" and not a.get("authenticated") else a
+
+    encrypted = bool(getattr(client, "topic_password", None))
 
     deadline = clock() + timeout
     topics = [topic, topic + ANSWERS_SUFFIX]
@@ -1740,7 +1774,7 @@ def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, sinc
                     if on_event:
                         on_event(m)
                     a = gate(match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema,
-                                          authenticated=authenticated, asked_at=asked_at))
+                                          authenticated=authenticated, asked_at=asked_at, encrypted=encrypted))
                     if a and on_answer:
                         on_answer(a)
                     if a and (not strict or a.get("valid") is not False):
@@ -1763,7 +1797,7 @@ def wait_for_answer(client, topic, request_id, buttons, accept_reply, seen, sinc
                     if on_event:
                         on_event(m)
                     a = gate(match_answer(m, topic, request_id, buttons, accept_reply, seen, schema=schema,
-                                          authenticated=authenticated, asked_at=asked_at))
+                                          authenticated=authenticated, asked_at=asked_at, encrypted=encrypted))
                     if a and on_answer:
                         on_answer(a)
                     if a and (not strict or a.get("valid") is not False):
@@ -1826,6 +1860,8 @@ def send_ack(client, topic, request_id, note=None):
 
 def outcome_line(answer, buttons, timeout, interrupted=False):
     """The line the person sees once the agent stops waiting: the ack body for an answer, else why it stopped."""
+    if answer and answer["kind"] == "dismissed":
+        return "Dismissed; the agent stopped waiting"
     if answer:
         return ack_line(answer, buttons)
     if interrupted:
@@ -1988,7 +2024,7 @@ def ask(client, topic, question, title=None, buttons=None, accept_reply=True, ti
     def settle_with(answer, interrupted=False):
         """An answer gets the one-line ack (unless ack is off); a timeout or Ctrl-C gets the full settle, which says
         the agent stopped waiting and reads as resolved on every app version."""
-        if answer:
+        if answer and answer["kind"] != "dismissed":
             if answer["kind"] == "withdrawn":
                 return None
             if not ack:
@@ -2003,6 +2039,7 @@ def ask(client, topic, question, title=None, buttons=None, accept_reply=True, ti
         if not settle:
             return None
         line = outcome_line(answer, buttons, timeout, interrupted)
+        # A dismissal settles like a timeout: the question loses its buttons, so no tap is left that nobody reads.
         sid = settle_question(client, topic, sent, question, line, title, all_tags, markdown)
         if sid and interrupted:
             record_ask(dict(entry, final=dict(state="settled", settled_at=int(wall_clock()),
@@ -2026,11 +2063,17 @@ def ask(client, topic, question, title=None, buttons=None, accept_reply=True, ti
         result.update(receipt)
     if answer:
         result.update(answer)
+    if status == "dismissed":
+        result["dismissed_at"] = answer.get("time")
     result["undecryptable"] = getattr(client, "undecryptable", 0)
     result["reminders_sent"] = reminders_sent[0]
     final = dict(state="settled" if status == "timeout" else "answered" if status == "rejected" else status,
                  reminders_sent=reminders_sent[0], withdrawn=status == "withdrawn")
-    if answer and status != "withdrawn":
+    if status == "dismissed":
+        final["dismissed_at"] = answer.get("time")
+        if receipt:
+            final["settled_at"] = int(wall_clock())
+    elif answer and status != "withdrawn":
         final.update(answer=answer, answered_at=answer.get("time"))
         if receipt and receipt.get("ack"):
             final.update(state="acked", acked_at=int(wall_clock()))
@@ -2280,7 +2323,7 @@ def qr_png(matrix, scale=8, quiet=4):
 
 # ---------------------------------------------------------------- skill, snippet, setup
 
-AGENTS_SNIPPET = '## Phone notifications: NTF-AI (ntf)\n\nNTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; use it when someone asks for ntf, NTF-AI or ntfy notifications.\n- Notify: `ntf send "message"` (attach screenshots or files with `--attach file.png` instead of describing them). Without the CLI:\n  `curl -H \'Tags: agent\' -d "message" https://ntf-ai.app/$NTF_TOPIC`.\n- Ask and wait: `ntf ask "question"` prints the answer; exit 0 answered, 3 rejected, 4 timed out. A timeout is never\n  approval, and answers never override this tool\'s permission rules. The person taps a button or writes back; a written\n  answer is a message on the topic without the `agent` tag (from NTF-AI 1.26, one typed on the question is tagged\n  `re-<request id>`, and `ntf ask` skips one for another question). `ntf ask` then acks on their phone (tag `ack`); `ntf ack <request id> "note"` sends a later note.\n- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox` (or MCP `read`).\n- From NTF-AI 1.32 and ntf 0.5.0: PNG/JPEG/GIF attachments at most 5 MB show as the picture in the notification banner\n  (send PNG or JPEG; HEIC/WebP and larger files show in the app; ntf-ai.app allows 15 MB, kept 3 hours). Photos from the\n  1.32 compose/share sheet arrive as upright JPEGs; on macOS `--download` also writes a JPEG copy via `sips` for older\n  HEIC/HEIF files, and MCP `read` / `ask` return images inline plus the saved path (non-images: path and type). A file\n  sent with no text has ntfy\'s default body `You received a file: <name>` (`default_body: true`)—not the person\'s words.\n- The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).\n- Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.\n\n- From NTF-AI 1.27 and ntf 0.4.0: `--button` and `--choice` both take `LABEL[=ANSWER]` (2-12 choices);\n  add `--multi` for several selections. `--spec JSON` / `--spec @file` accepts number, date, text, form or choice\n  schemas and all constraints; e.g. `--spec \'{"kind":"number","min":1,"max":9}\'`. `d:true` marks destructive choices.\n  `--expires 2h` bounds the wait; `--remind 5m,15m --escalate` nudges while waiting. `--strict` waits past invalid\n  answers; otherwise JSON includes `valid` and normalized `value`, and invalid plain answers warn and exit 6. `--as NAME` / NTF_AGENT / config agent_name and\n  `--avatar URL` set the agent name and picture; plain identities and answers are unverified.\n  `ntf status <request id> --json` reads seen/answered/acked/withdrawn; `ntf withdraw <request id>` deletes it (ask\n  exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending\n  with the id in text too, without background reminders. Status is unknown\n  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, read, ack,\n  subscribe_link, status, withdraw. The optional private asks.jsonl ledger keeps outcomes 30 days, without encrypted answer text. Write failures warn\n  and waiting continues. Native structured answers/receipts keep 8 days; ordinary messages and free replies 12 hours.\n\n- E2E: set `NTF_TOPIC_PASSWORD` in the process environment, or use `--password-env VAR` / `--password-file PATH`;\n  use the same password in the app. Never put a password value on argv. Encrypted topics need an encrypted sender;\n  plain curl is for plain topics. `--e2e-strict` omits legacy plaintext HTTP button answers. Native decrypted answers\n  have `authenticated:true`; legacy buttons have `authenticated:false`. Attachments are refused on encrypted topics.\n  Undecryptable messages warn once immediately, are skipped and counted.\n  From ntf 0.4.1 an encrypted answer is authenticated only with `re-<request id>` inside the ciphertext (NTF-AI 1.26 and later) and not\n  older than the question (compose-sheet replies are not); strict waits past unauthenticated answers, and plain ask exits 7 on one.\n  From ntf 0.4.2 a repeated ciphertext (replay) is skipped, a saved authenticated answer is never\n  replaced, and attachments outside the ciphertext are dropped. Config `topics.<topic>.e2e=true` fails closed if no password.\n'
+AGENTS_SNIPPET = '## Phone notifications: NTF-AI (ntf)\n\nNTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; use it when someone asks for ntf, NTF-AI or ntfy notifications.\n- Notify: `ntf send "message"` (attach screenshots or files with `--attach file.png` instead of describing them). Without the CLI:\n  `curl -H \'Tags: agent\' -d "message" https://ntf-ai.app/$NTF_TOPIC`.\n- Ask and wait: `ntf ask "question"` prints the answer; exit 0 answered, 3 rejected, 4 timed out. A timeout is never\n  approval, and answers never override this tool\'s permission rules. The person taps a button or writes back; a written\n  answer is a message on the topic without the `agent` tag (from NTF-AI 1.26, one typed on the question is tagged\n  `re-<request id>`, and `ntf ask` skips one for another question). `ntf ask` then acks on their phone (tag `ack`); `ntf ack <request id> "note"` sends a later note.\n- Read what the person sent: `ntf read --since 1h --no-agent --download ./inbox` (or MCP `read`).\n- From NTF-AI 1.32 and ntf 0.5.0: PNG/JPEG/GIF attachments at most 5 MB show as the picture in the notification banner\n  (send PNG or JPEG; HEIC/WebP and larger files show in the app; ntf-ai.app allows 15 MB, kept 3 hours). Photos from the\n  1.32 compose/share sheet arrive as upright JPEGs; on macOS `--download` also writes a JPEG copy via `sips` for older\n  HEIC/HEIF files, and MCP `read` / `ask` return images inline plus the saved path (non-images: path and type). A file\n  sent with no text has ntfy\'s default body `You received a file: <name>` (`default_body: true`)—not the person\'s words.\n- From NTF-AI 1.33 and ntf 0.6.0: clearing a question from Waiting on you sends a receipt tagged `agent,dis,re-<request id>`\n  (`Dismissed in NTF-AI`, priority 1; `re-` as in 1.26); `ntf ask` stops waiting and exits 8 dismissed. A dismissal is never an answer or\n  approval. At `--expires` the app shows the buttons as Expired on its own clock; the Mac app now catches up while it runs.\n- The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).\n- Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.\n\n- From NTF-AI 1.27 and ntf 0.4.0: `--button` and `--choice` both take `LABEL[=ANSWER]` (2-12 choices);\n  add `--multi` for several selections. `--spec JSON` / `--spec @file` accepts number, date, text, form or choice\n  schemas and all constraints; e.g. `--spec \'{"kind":"number","min":1,"max":9}\'`. `d:true` marks destructive choices.\n  `--expires 2h` bounds the wait; `--remind 5m,15m --escalate` nudges while waiting. `--strict` waits past invalid\n  answers; otherwise JSON includes `valid` and normalized `value`, and invalid plain answers warn and exit 6. `--as NAME` / NTF_AGENT / config agent_name and\n  `--avatar URL` set the agent name and picture; plain identities and answers are unverified.\n  `ntf status <request id> --json` reads seen/answered/acked/dismissed/withdrawn; `ntf withdraw <request id>` deletes it (ask\n  exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending\n  with the id in text too, without background reminders. Status is unknown\n  past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, read, ack,\n  subscribe_link, status, withdraw. The optional private asks.jsonl ledger keeps outcomes 30 days, without encrypted answer text. Write failures warn\n  and waiting continues. Native structured answers/receipts keep 8 days; ordinary messages and free replies 12 hours.\n\n- E2E: set `NTF_TOPIC_PASSWORD` in the process environment, or use `--password-env VAR` / `--password-file PATH`;\n  use the same password in the app. Never put a password value on argv. Encrypted topics need an encrypted sender;\n  plain curl is for plain topics. `--e2e-strict` omits legacy plaintext HTTP button answers. Native decrypted answers\n  have `authenticated:true`; legacy buttons have `authenticated:false`. Attachments are refused on encrypted topics.\n  Undecryptable messages warn once immediately, are skipped and counted.\n  From ntf 0.4.1 an encrypted answer is authenticated only with `re-<request id>` inside the ciphertext (NTF-AI 1.26 and later) and not\n  older than the question (compose-sheet replies are not); strict waits past unauthenticated answers, and plain ask exits 7 on one.\n  From ntf 0.4.2 a repeated ciphertext (replay) is skipped, a saved authenticated answer is never\n  replaced, and attachments outside the ciphertext are dropped. Config `topics.<topic>.e2e=true` fails closed if no password.\n'
 
 
 # The skill file, embedded so this one file is enough. `python3 tools/sync_skill.py` copies
@@ -2507,8 +2550,8 @@ comma-separated, the number, date or text, a form as compact JSON), whichever ap
 typed question (NTF-AI before 1.27, or another ntfy app), stderr says so and how it was read, e.g. `read '2' as 'staging'`;
 under `--json` that answer is `kind: reply`.
 `--no-reply` removes the fallback reply link and ignores free replies, while native structured answers still work;
-it warns for free-form kinds because older clients then have no answer path. Exit 5 means withdrawn; existing exit
-codes remain 0 answered, 3 rejected, 4 timed out, 1 error, 2 usage.
+it warns for free-form kinds because older clients then have no answer path. Exit 5 means withdrawn and exit 8
+dismissed (0.6.0); existing exit codes remain 0 answered, 3 rejected, 4 timed out, 1 error, 2 usage.
 
 `--expires` accepts 60s to 7d and caps the wait at the schema's `exp` deadline. A timeout still settles at priority 1
 with no actions. `--remind` accepts at most 3 offsets at least 5 minutes apart, such as 5m,15m. While the agent keeps
@@ -2516,7 +2559,22 @@ waiting, it republishes the same sequence/body with increasing `rem`; `--escalat
 capped at 4 (an explicit 5 stays 5). From NTF-AI 1.27 the app can alert for these reminders; older apps keep updates
 silent. `--no-wait` publishes and prints the request id (JSON returns pending), with no background reminders; use status to read the answer later.
 
-`ntf status` folds linked server events into withdrawn, acked, answered, settled, expired, seen, pending or unknown
+From NTF-AI 1.33 and ntf 0.6.0: when the person clears a question from Waiting on you (one at a time, or Clear all
+once its 6 s Undo window has passed), the app publishes a dismissed receipt on the question's topic: body
+`Dismissed in NTF-AI`, tags `agent,dis,re-<request id>` (the reply tag from NTF-AI 1.26), priority 1, no title (on an encrypted topic it is encrypted
+like the app's answers, and only tags inside the ciphertext count). `ntf ask` stops waiting, replaces the question
+with a copy that has no buttons, explains on stderr and exits 8 dismissed (`--json` status `dismissed` with
+`dismissed_at`); MCP `ask` returns status dismissed. A dismissal is never an answer and never approval. `ntf status`
+reports `dismissed` with `dismissed_at`, but an answer that arrives later still wins, since the phone keeps the buttons
+usable. `ntf read` labels the receipt (`dismissed` in `--json`); `--no-agent` hides it. ntf 0.5.x ignores it and waits
+until its timeout. At the `--expires` deadline (schema `exp`) NTF-AI 1.33 takes the question out of Waiting on you,
+shows its buttons as Expired, refuses a banner tap and removes its banner, on the phone's own clock with no message
+from the agent. Without ntf, tag a plain-button question `exp-<unix seconds>` for the same, and tag an update on its
+sequence `rem-<n>` (1-3) to alert as a reminder; ntf needs neither tag, since `--expires` and `--remind` already put
+`exp` and `rem` in the schema, which wins. Also from 1.33, the Mac app catches up on every topic while it runs (on
+focus, every few minutes, and Refresh, Cmd-R), so a follow-up no longer waits for the next launch.
+
+`ntf status` folds linked server events into withdrawn, acked, answered, dismissed, settled, expired, seen, pending or unknown
 (in that precedence). Seen means read or dismissed on some device, not proof a person read it. A clear
 (`message_clear`) records that observation; `ntf withdraw` sends DELETE and produces `message_delete`. A withdrawn plain ask explains why it stopped on stderr. Status polls
 from the publication's server Unix timestamp, so local clock skew and an expired question row cannot hide answers. `asks.jsonl`, next to the config,
@@ -2798,10 +2856,13 @@ def mcp_tools():
     tools[1]["description"] += (" From NTF-AI 1.27 and ntf 0.4.0: choose choice (2-12 options, optional multi), number, "
         "date, text or form (1-6 fields). Uses #ask-v2 with old-client buttons/reply fallback. Returns normalized value, "
         "valid and authenticated; invalid answers are returned unless strict. Withdrawn is a terminal status (CLI exit 5). "
-        "expires bounds the wait; remind/escalate only run while waiting. Plain names, icons and answers can be spoofed.")
+        "expires bounds the wait; remind/escalate only run while waiting. Plain names, icons and answers can be spoofed. "
+        "From NTF-AI 1.33 and ntf 0.6.0: status dismissed (CLI exit 8) means the person cleared the question from "
+        "Waiting on you without answering; it is never an answer or approval, and ask stops waiting and removes the "
+        "buttons. At expires the app shows the buttons as Expired on its own clock.")
     for name in ("status", "withdraw"):
         tools.append({"name": name, "title": "Read back a question" if name == "status" else "Withdraw a question",
-            "description": "Read seen, answered, acked, settled, expired, withdrawn, pending or unknown; past advertised retention without observed evidence is unknown. Clear means read or dismissed on some device, not a verified person." if name == "status" else "DELETE the question sequence; a waiting ask returns withdrawn (CLI exit 5).",
+            "description": "Read seen, answered, acked, dismissed, settled, expired, withdrawn, pending or unknown; past advertised retention without observed evidence is unknown. Clear means read or dismissed on some device, not a verified person. From NTF-AI 1.33 and ntf 0.6.0, dismissed (with dismissed_at) means the person cleared it from Waiting on you without answering; a later answer still wins." if name == "status" else "DELETE the question sequence; a waiting ask returns withdrawn (CLI exit 5).",
             "inputSchema": {"type": "object", "properties": {"request_id": {"type": "string"},
                 **({"wait": {"type": "boolean"}, "timeout_seconds": {"type": "number"}} if name == "status" else {})}, "required": ["request_id"]},
             "annotations": {"readOnlyHint": name == "status", "destructiveHint": name == "withdraw", "openWorldHint": True}})
@@ -3010,6 +3071,9 @@ class McpServer:
             text = f"No answer within {timeout} seconds. Do not treat this as approval; ask again or keep waiting."
         elif res["status"] in ("pending", "withdrawn"):
             text = f"{res['status']}: {res['request_id']}"
+        elif res["status"] == "dismissed":
+            text = (f"dismissed: {res['request_id']}. The person cleared the question from Waiting on you in NTF-AI "
+                    "without answering. This is not an answer and not approval; do not proceed as if approved.")
         elif res["kind"] == "button":
             text = f"The person tapped {res['answer']!r} ({res['status']})."
         elif res.get("default_body"):
@@ -3141,14 +3205,17 @@ EPILOG = """examples:
   {p} send --attach shot.png "After the fix"
   {p} ask "Deploy to production?"         wait for Approve / Reject or a written reply
   {p} read --since 1h --no-agent --download ./inbox
-  {p} status <request id> --json          read seen, answered, acked, withdrawn or unknown
+  {p} status <request id> --json          read seen, answered, acked, dismissed, withdrawn or unknown
   {p} withdraw <request id>               delete the question; waiting ask exits 5
   {p} setup                               install the agent skill (asks first)
   {p} ack <request id> "Restarted"        a later note on an answered question (tagged agent,ack)
   {p} mcp                                 stdio MCP server with notify, ask, read, ack, subscribe_link, status and withdraw tools
 
-ask exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 6 invalid plain answer, 7 unauthenticated
-     answer on an encrypted topic (0.4.1), 1 error, 2 usage.
+ask exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 8 dismissed (0.6.0), 6 invalid plain answer,
+     7 unauthenticated answer on an encrypted topic (0.4.1), 1 error, 2 usage.
+From NTF-AI 1.33 and ntf 0.6.0: clearing a question from Waiting on you sends a receipt tagged agent,dis,re-<request id>
+     ("Dismissed in NTF-AI", priority 1); ask stops waiting, removes the buttons and exits 8 (never an answer or
+     approval), status reports dismissed. At --expires the app shows Expired on its own clock, with no message.
 ask: the person taps a button or writes back (a message without the 'agent' tag); from NTF-AI 1.26 a reply typed
      on the question is tagged re-<request id>, and ask skips one tagged for another question. Once answered, ask
      acks (tag ack, a short note on the question's sequence; --no-ack turns it off); on a timeout it replaces the
@@ -3219,7 +3286,8 @@ def build_parser(prog="ntf"):
     sp.add_argument("--no-agent-tag", action="store_true", help="don't tag the message 'agent'")
 
     sp = sub.add_parser("ask", parents=[common], help="ask a question and wait for the answer",
-                        epilog="exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 1 error, 2 usage")
+                        epilog="exit codes: 0 answered, 3 rejected, 4 timed out, 5 withdrawn, 6 invalid, 7 unauthenticated, "
+                               "8 dismissed (from NTF-AI 1.33 and ntf 0.6.0), 1 error, 2 usage")
     sp.add_argument("question", nargs="+")
     msg_opts(sp)
     sp.add_argument("--button", "-b", "--choice", action="append", metavar="LABEL[=ANSWER]",
@@ -3227,7 +3295,7 @@ def build_parser(prog="ntf"):
     sp.add_argument("--multi", action="store_true", help="allow several choices; use --spec for selection bounds")
     sp.add_argument("--spec", metavar="JSON|@FILE",
                     help="question schema, e.g. '{\"kind\":\"number\",\"min\":1,\"max\":9}'; also date, text, form or choice")
-    sp.add_argument("--expires", metavar="DUR", help="deadline, 60s to 7d; e.g. 2h")
+    sp.add_argument("--expires", metavar="DUR", help="deadline, 60s to 7d; e.g. 2h (from NTF-AI 1.33 the buttons show Expired then)")
     sp.add_argument("--remind", metavar="DUR,DUR", help="up to 3 offsets, at least 5m apart; agent must keep running")
     sp.add_argument("--escalate", action="store_true", help="raise reminder priority by one, capped at 4; explicit 5 stays 5")
     sp.add_argument("--strict", action="store_true", help="keep waiting after an invalid answer (otherwise return valid:false)")
@@ -3245,7 +3313,7 @@ def build_parser(prog="ntf"):
         sp = sub.add_parser(command, parents=[common], help="read back a question" if command == "status" else "delete a question by sequence")
         sp.add_argument("request_id", help="question request id (sequence_id)")
         if command == "status":
-            sp.add_argument("--wait", action="store_true", help="wait until answered, acked, expired, settled or withdrawn")
+            sp.add_argument("--wait", action="store_true", help="wait until answered, acked, dismissed, expired, settled or withdrawn")
             sp.add_argument("--timeout", type=float, default=600, help="seconds to wait (default 600)")
             sp.add_argument("--poll", type=float, default=2, help="poll interval in seconds (default 2)")
 
@@ -3310,8 +3378,15 @@ def message_text(parts, stdin):
     raise NtfError("no message: pass it as an argument or pipe it on stdin", EXIT_USAGE)
 
 
+def dismissal_target(m):
+    """The question a dismissed receipt (NTF-AI 1.33: tags agent, dis, re-<id>) names, or None."""
+    tags = m.get("tags") or []
+    return reply_target(m) if AGENT_TAG in tags and DISMISS_TAG in tags else None
+
+
 def print_message(m, as_json, out, path=None, info=None):
     default_body = is_default_body(m)
+    dismissed = dismissal_target(m)
     if as_json:
         if path:
             m = dict(m, downloaded=path)
@@ -3322,6 +3397,8 @@ def print_message(m, as_json, out, path=None, info=None):
         target = reply_target(m) if AGENT_TAG not in (m.get("tags") or []) else None
         if target:
             m = dict(m, reply_to=target)
+        if dismissed:
+            m = dict(m, dismissed=dismissed)
         out.write(json.dumps(m, ensure_ascii=False) + "\n")
         return
     when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(m.get("time", 0)))
@@ -3332,6 +3409,9 @@ def print_message(m, as_json, out, path=None, info=None):
     out.write(safe_text(f"{head} {m.get('message', '')}") + "\n")
     if default_body:
         out.write("  (no text: that line is ntfy's default for a file sent without a message)\n")
+    if dismissed:
+        out.write(safe_text(f"  (NTF-AI receipt: the person dismissed question {dismissed} from Waiting on you; "
+                            "not an answer)") + "\n")
     att = m.get("attachment")
     if att:
         out.write(safe_text(f"  attachment: {path or att.get('url')}") + "\n")
@@ -3499,6 +3579,9 @@ def run(args, parser, stdin, out, env, as_json, prog):
             out.write(res["request_id"] + "\n")
         elif res["status"] == "withdrawn":
             sys.stderr.write("question withdrawn; stopped waiting\n")
+        elif res["status"] == "dismissed":
+            sys.stderr.write("the person dismissed the question in NTF-AI (cleared it from Waiting on you); stopped "
+                             "waiting. A dismissal is not an answer and not an approval\n")
         elif "answer" in res:
             out.write(safe_text(answer_text(res)) + "\n")
             if fallback_note(res):
@@ -3520,7 +3603,8 @@ def run(args, parser, stdin, out, env, as_json, prog):
                              "question (a plaintext button, a compose-sheet reply or an older message), so anyone who "
                              "knows the topic could have sent it; use --e2e-strict to wait for an authenticated one\n")
             return EXIT_UNAUTHENTICATED
-        return {"answered": EXIT_OK, "rejected": EXIT_REJECTED, "timeout": EXIT_TIMEOUT, "pending": EXIT_OK, "withdrawn": EXIT_WITHDRAWN}[res["status"]]
+        return {"answered": EXIT_OK, "rejected": EXIT_REJECTED, "timeout": EXIT_TIMEOUT, "pending": EXIT_OK, "withdrawn": EXIT_WITHDRAWN,
+                "dismissed": EXIT_DISMISSED}[res["status"]]
     if cmd in ("read", "listen"):
         topics = [topic] + ([topic + ANSWERS_SUFFIX] if args.answers else [])
         keep = lambda m: m.get("event") == "message" and not (args.no_agent and AGENT_TAG in (m.get("tags") or []))
