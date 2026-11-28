@@ -288,6 +288,40 @@ final class WaitingStoreTests: XCTestCase {
                        "and the undo is saved too")
     }
 
+    /// The in-app "Are you sure?" (2026-11-27 Mac freeze): it holds the count from when it was asked, a
+    /// second Clear all while it's open does nothing, Cancel keeps every question and says so (the
+    /// header takes VoiceOver focus back), and only the red Clear all clears.
+    func testClearAllAsksOnceCancelKeepsAndConfirmClears() {
+        save(message("k1", sequence: "k1", age: 900, actions: [http()]), message("k2", sequence: "k2", age: 600, actions: [http()]))
+        let waiting = WaitingObservable(store: store, log: log)
+        let ask = ClearWaitingAsk(waiting: waiting)
+        XCTAssertNil(ask.count, "nothing is asked until Clear all")
+
+        ask.ask()
+        XCTAssertEqual(ask.count, 2, "the question names the two waiting")
+        save(message("k3", sequence: "k3", age: 300, actions: [http()]))
+        waiting.refresh()
+        ask.ask()
+        XCTAssertEqual(ask.count, 2, "a second Clear all while it's open changes nothing")
+
+        ask.cancel()
+        XCTAssertNil(ask.count)
+        XCTAssertEqual(ask.cancelled, 1, "Cancel is announced so the header takes focus back")
+        XCTAssertEqual(waiting.notifications.count, 3, "Cancel keeps every question")
+        XCTAssertNil(waiting.lastClear, "and offers no Undo")
+        ask.confirm()
+        XCTAssertEqual(waiting.notifications.count, 3, "a stale confirm after Cancel clears nothing")
+
+        ask.ask()
+        XCTAssertEqual(ask.count, 3)
+        ask.confirm()
+        XCTAssertNil(ask.count)
+        XCTAssertEqual(waiting.notifications.count, 0, "Clear all empties Waiting")
+        XCTAssertEqual(waiting.lastClear?.count, 3, "and offers Undo")
+        ask.ask()
+        XCTAssertNil(ask.count, "with nothing waiting there is nothing to ask")
+    }
+
     /// Undo never takes back an answer made after the clear.
     func testUndoClearKeepsAnAnswerMadeSince() throws {
         save(message("u1", sequence: "u1", age: 600, actions: [http()]), message("u2", sequence: "u2", age: 300, actions: [http()]))

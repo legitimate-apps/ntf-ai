@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
+import Combine
 import CoreData
 import SwiftUI
 
@@ -128,7 +129,6 @@ struct InboxView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         })
-        .modifier(ClearWaitingUndo())
         .modifier(ClearWaitingConfirm())
     }
 
@@ -184,7 +184,6 @@ struct WaitingAllView: View {
                 }
             }
         }
-        .modifier(ClearWaitingUndo())
         .modifier(ClearWaitingConfirm())
         .modifier(MessagePageLink(opened: $opened))
     }
@@ -193,46 +192,97 @@ struct WaitingAllView: View {
 /// "Clear all" on the Waiting on you header (operator, 2026-11-19): touch and hold the header (on a
 /// Mac, right-click or click and hold), or the VoiceOver action. Questions approved elsewhere, by
 /// code, or past their window pile up with nothing telling the app; this takes them all out at once,
-/// after "Are you sure?" (`ClearWaitingConfirm`). Undo follows (`ClearWaitingUndo`).
+/// after "Are you sure?" (`ClearWaitingAskBar`). Undo follows (`ClearedToast`).
 struct ClearWaitingMenu: ViewModifier {
-    @Environment(\.askClearWaiting) private var askClear
+    @Environment(\.askClearWaiting) private var ask
+    /// The header takes VoiceOver focus back when the question is cancelled.
+    @AccessibilityFocusState private var headerFocused: Bool
 
     func body(content: Content) -> some View {
         content
             .contextMenu { ClearWaitingMenuItems() }
-            .environment(\.foldHeaderAction, FoldHeaderAction(name: String(localized: "Clear all"), run: askClear))
+            .environment(\.foldHeaderAction, FoldHeaderAction(name: String(localized: "Clear all"),
+                                                              run: { ask?.ask() }, focus: $headerFocused))
+            .onReceive(ask?.$cancelled.dropFirst().eraseToAnyPublisher() ?? Empty<Int, Never>().eraseToAnyPublisher()) { _ in
+                headerFocused = true
+            }
     }
 }
 
 /// The menu's body: what clearing does, then the one destructive item, which asks before it clears.
 /// No icon: the app tint would color it green beside the red title.
 struct ClearWaitingMenuItems: View {
-    @Environment(\.askClearWaiting) private var askClear
+    @Environment(\.askClearWaiting) private var ask
 
     var body: some View {
         Section(header: Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))) {
-            Button(String(localized: "Clear all"), role: .destructive) { askClear() }
+            Button(String(localized: "Clear all"), role: .destructive) { ask?.ask() }
         }
     }
 }
 
 /// Show all's "Clear all": a view of its own so it reads the page's `askClearWaiting`.
 struct ClearWaitingToolbarButton: View {
-    @Environment(\.askClearWaiting) private var askClear
+    @Environment(\.askClearWaiting) private var ask
 
     var body: some View {
-        Button(String(localized: "Clear all")) { askClear() }
+        Button(String(localized: "Clear all")) { ask?.ask() }
             .accessibilityIdentifier("waiting-clear-all")
     }
 }
 
-/// Opens the "Are you sure?" for Clear all on the screen that shows it (`ClearWaitingConfirm`).
+/// The open "Are you sure?" of one screen. A class handed down the environment, so asking changes no
+/// environment value: only the bar that shows the question redraws, never the list under it.
+///
+/// It used to be a SwiftUI `.alert` on the whole List. On a Mac that becomes an AppKit window-modal
+/// sheet: a new window, a modal session, the main window resigning key (which redraws every row) and
+/// AppKit's key-view-loop focus search; 0.2 s to open and 0.16 s to close on a fast Mac, and the
+/// 2026-11-27 seven-second freeze on a loaded one began right there.
+final class ClearWaitingAsk: ObservableObject {
+    /// How many were waiting when asked, so the title doesn't change under the person's finger.
+    /// Nil while no question is open.
+    @Published private(set) var count: Int?
+    /// Counts Cancels, so the header can take VoiceOver focus back.
+    @Published private(set) var cancelled = 0
+    private let waiting: WaitingObservable
+
+    init(waiting: WaitingObservable = .shared) {
+        self.waiting = waiting
+    }
+
+    /// Opens the question. Nothing happens while one is already open or nothing is waiting.
+    func ask() {
+        let waitingNow = waiting.notifications.count
+        guard count == nil, waitingNow > 0 else { return }
+        count = waitingNow
+    }
+
+    /// Clear all: every question now waiting leaves, and Undo is offered.
+    func confirm() {
+        guard count != nil else { return }
+        count = nil
+        waiting.clearAll()
+    }
+
+    func cancel() {
+        guard count != nil else { return }
+        count = nil
+        cancelled += 1
+    }
+
+    /// Closes the question without a Cancel, when Waiting empties under it.
+    func close() {
+        count = nil
+    }
+}
+
+/// Hands each screen's `ClearWaitingAsk` to its menus and buttons.
 private struct AskClearWaitingKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+    static let defaultValue: ClearWaitingAsk? = nil
 }
 
 extension EnvironmentValues {
-    var askClearWaiting: () -> Void {
+    var askClearWaiting: ClearWaitingAsk? {
         get { self[AskClearWaitingKey.self] }
         set { self[AskClearWaitingKey.self] = newValue }
     }
@@ -240,29 +290,121 @@ extension EnvironmentValues {
 
 /// The question every Clear all goes through (operator, 2026-11-24: "a confirmation are you sure you
 /// want to clear all"): how many leave, what clearing does, a red Clear all and Cancel. Each screen
-/// that offers Clear all (Inbox, Show all) holds its own, so a pushed page never asks twice.
+/// that offers Clear all (Inbox, Show all) holds its own, so a pushed page never asks twice. The
+/// question and the Undo after it share one place at the bottom of the screen, so they never overlap.
 struct ClearWaitingConfirm: ViewModifier {
-    @ObservedObject private var waiting = WaitingObservable.shared
-    @State private var asking = false
-    /// The count when asked, so the title doesn't change under the person's finger.
-    @State private var count = 0
+    /// In `@State`, not `@StateObject`: this modifier wraps the whole List and must not redraw with it.
+    @State private var ask = ClearWaitingAsk()
 
     func body(content: Content) -> some View {
         content
-            .environment(\.askClearWaiting) {
-                count = waiting.notifications.count
-                if count > 0 { asking = true }
-            }
-            .alert(ClearWaitingPrompt.title(count: count), isPresented: $asking) {
-                Button(String(localized: "Clear all"), role: .destructive) {
-                    withAnimation { waiting.clearAll() }
-                }
-                .accessibilityIdentifier("waiting-clear-confirm")
-                Button(String(localized: "Cancel"), role: .cancel) {}
-            } message: {
-                Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))
-            }
+            .environment(\.askClearWaiting, ask)
+            .overlay(ClearWaitingSlot(ask: ask))
     }
+}
+
+/// The bottom of the screen during a Clear all: the question while it's open, then the Undo.
+private struct ClearWaitingSlot: View {
+    @ObservedObject var ask: ClearWaitingAsk
+    @ObservedObject private var waiting = WaitingObservable.shared
+
+    var body: some View {
+        Group {
+            if let count = ask.count {
+                ClearWaitingAskBar(count: count, confirm: { withAnimation { ask.confirm() } },
+                                   cancel: { withAnimation { ask.cancel() } })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if waiting.lastClear != nil {
+                ClearedToast { withAnimation { waiting.undoClear() } }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding(.bottom, 12)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .animation(.default, value: ask.count)
+        .animation(.default, value: waiting.lastClear)
+        .onChange(of: waiting.notifications.isEmpty) { empty in
+            if empty { ask.close() }
+        }
+    }
+}
+
+/// "Clear all 9 questions from Waiting on you?" with what clearing does, Cancel and a red Clear all.
+/// VoiceOver lands on it when it opens and stays in it; Escape (or the two-finger scrub) cancels.
+/// Return does nothing: no default button, since Clear all is the destructive one.
+struct ClearWaitingAskBar: View {
+    let count: Int
+    let confirm: () -> Void
+    let cancel: () -> Void
+    @AccessibilityFocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(ClearWaitingPrompt.title(count: count))
+                    .font(.headline)
+                Text(String(localized: "They leave Waiting on you on this device. The messages stay in Activity."))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
+            .accessibilityFocused($focused)
+            HStack(spacing: 12) {
+                Button(action: cancel) {
+                    Text(String(localized: "Cancel")).frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .keyboardShortcut(.cancelAction)
+                .accessibilityIdentifier("waiting-clear-cancel")
+                Button(role: .destructive, action: confirm) {
+                    Text(String(localized: "Clear all")).fontWeight(.semibold).frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .accessibilityIdentifier("waiting-clear-confirm")
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 440)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.regularMaterial))
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape, cancel)
+        .accessibilityIdentifier("waiting-clear-ask")
+        .background(EscapeKey(action: cancel).frame(width: 0, height: 0).accessibilityHidden(true))
+        .onAppear {
+            // After the menu's own focus change settles, or VoiceOver stays on the header.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focused = true }
+        }
+    }
+}
+
+/// Escape on a hardware keyboard (iPad, Mac). `.keyboardShortcut(.cancelAction)` alone missed it on
+/// iPadOS 26/27 when nothing had keyboard focus, as after a menu or a toolbar tap; this view takes first
+/// responder while the question is open and answers only Escape, so Return still does nothing.
+private struct EscapeKey: UIViewRepresentable {
+    let action: () -> Void
+
+    final class KeyView: UIView {
+        var action: () -> Void = {}
+        override var canBecomeFirstResponder: Bool { true }
+        override var keyCommands: [UIKeyCommand]? {
+            let escape = UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(escape))
+            escape.wantsPriorityOverSystemBehavior = true
+            return [escape]
+        }
+        @objc private func escape() { action() }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil { DispatchQueue.main.async { [weak self] in self?.becomeFirstResponder() } }
+        }
+    }
+
+    func makeUIView(context: Context) -> KeyView { KeyView() }
+    func updateUIView(_ view: KeyView, context: Context) { view.action = action }
 }
 
 enum ClearWaitingPrompt {
@@ -284,23 +426,6 @@ struct ClearWaitingMoreButton: View {
         }
         .accessibilityLabel(String(localized: "More for Waiting on you"))
         .accessibilityIdentifier("waiting-more")
-    }
-}
-
-/// The Undo bar after "Clear all": what happened and one button, for a few seconds.
-struct ClearWaitingUndo: ViewModifier {
-    @ObservedObject private var waiting = WaitingObservable.shared
-
-    func body(content: Content) -> some View {
-        content.overlay(Group {
-            if let cleared = waiting.lastClear {
-                ClearedToast { withAnimation { waiting.undoClear() } }
-                    .padding(.bottom, 12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        })
-        .animation(.default, value: waiting.lastClear)
     }
 }
 

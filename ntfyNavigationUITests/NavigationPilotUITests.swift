@@ -1316,6 +1316,34 @@ extension NavigationPilotUITests {
         }
     }
 
+    /// Times "Clear all" from the Waiting on you header's touch-and-hold menu, the path the operator
+    /// took on the Mac (2026-11-27 hang). Prints CLEARALL_SECONDS for the leg's before/after table.
+    /// Run on a store with questions waiting (inbox_seed.py --tapprobe).
+    func testClearAllTiming() {
+        launchInbox()
+        let header = app.descendants(matching: .any)["waiting-header"].firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 30), "Waiting on you shows")
+        let count = waitingCount()
+        print("CLEARALL_WAITING_BEFORE=\(count)")
+        pause(2)
+        header.press(forDuration: 1.2)
+        let item = app.buttons.matching(NSPredicate(format: "label == 'Clear all' AND identifier != 'waiting-clear-confirm'")).firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "the header menu offers Clear all")
+        item.tap()
+        let asked = Date()
+        let confirm = app.buttons["waiting-clear-confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 30), "Clear all asks first")
+        print("CLEARALL_PROMPT_SECONDS=\(String(format: "%.2f", Date().timeIntervalSince(asked)))")
+        let start = Date()
+        confirm.tap()
+        let undo = app.descendants(matching: .any)["waiting-undo-clear"].firstMatch
+        let shown = undo.waitForExistence(timeout: 300)
+        let seconds = Date().timeIntervalSince(start)
+        print("CLEARALL_SECONDS=\(String(format: "%.2f", seconds)) undo=\(shown)")
+        XCTAssertTrue(shown, "Undo appears after Clear all")
+        XCTAssertFalse(header.exists, "Waiting on you is empty after Clear all")
+    }
+
     /// Run on the inbox fixture seeded with --empty.
     /// The waiting count in the header, "Waiting on you, 12".
     func waitingCount() -> Int {
@@ -1374,7 +1402,10 @@ extension NavigationPilotUITests {
     /// Clear all on Waiting on you (operator, 2026-11-24: "tap and hold on waiting on you to bring up the
     /// menu that has clear all ... and then it has a confirmation"). Touch and hold the header, the "…"
     /// and Show all's Clear all each open the same "Are you sure?"; Cancel keeps every question, Clear
-    /// all empties Waiting and offers Undo. Needs inbox_seed.py --tapprobe (more than three waiting).
+    /// all empties Waiting and offers Undo. The question is the app's own, never a system alert: on a
+    /// Mac an alert is an AppKit sheet, where the 2026-11-27 freeze began. Escape and Return aren't
+    /// checked here: the simulator delivers no hardware keys to XCUITest, so they were driven on the
+    /// Mac build instead. Needs inbox_seed.py --tapprobe (more than three waiting).
     func testClearWaitingTouchAndHoldAsksFirst() {
         continueAfterFailure = false
         launchInbox()
@@ -1382,16 +1413,18 @@ extension NavigationPilotUITests {
         XCTAssertTrue(header.waitForExistence(timeout: 8), "the fixture has questions waiting")
         // The fold is kept across launches; start with the section open.
         if (header.value as? String) == "Collapsed" { header.tap(); pause() }
-        let alert = app.alerts.firstMatch
-        let asks = NSPredicate(format: "label BEGINSWITH 'Clear all' AND label ENDSWITH 'from Waiting on you?'")
+        let alert = app.descendants(matching: .any)["waiting-clear-ask"].firstMatch
+        let asks = NSPredicate(format: "label BEGINSWITH 'Clear all' AND label CONTAINS 'from Waiting on you?'")
         func menuClearAll() {
-            let item = app.buttons.matching(NSPredicate(format: "label == 'Clear all'")).firstMatch
+            // The menu's item, not the open question's own red Clear all.
+            let item = app.buttons.matching(NSPredicate(format: "label == 'Clear all' AND identifier != 'waiting-clear-confirm'")).firstMatch
             XCTAssertTrue(item.waitForExistence(timeout: 4), "the menu offers Clear all")
             item.tap()
         }
         func cancel() {
-            XCTAssertTrue(alert.buttons["Cancel"].waitForExistence(timeout: 2))
-            alert.buttons["Cancel"].tap(); pause()
+            let button = app.buttons["waiting-clear-cancel"].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 2))
+            button.tap(); pause()
             XCTAssertFalse(alert.exists)
             XCTAssertTrue(header.exists, "Cancel keeps every question")
         }
@@ -1401,8 +1434,16 @@ extension NavigationPilotUITests {
         pause(0.6); shot("clear-waiting-1-menu")
         menuClearAll()
         XCTAssertTrue(alert.waitForExistence(timeout: 3), "Clear all asks first")
-        XCTAssertTrue(alert.staticTexts.matching(asks).firstMatch.exists, "the question names the count and the section")
+        // Its modal trait reads as an alert to XCUITest; any other alert would be the system's.
+        XCTAssertEqual(app.alerts.matching(NSPredicate(format: "identifier != 'waiting-clear-ask'")).count, 0,
+                       "the question is in the app, not a system alert")
+        XCTAssertTrue(alert.descendants(matching: .any).matching(asks).firstMatch.exists, "the question names the count and the section")
         shot("clear-waiting-2-confirm")
+        // A second Clear all while it's open asks nothing new and clears nothing.
+        header.press(forDuration: 1.3)
+        menuClearAll(); pause()
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "waiting-clear-ask").count, 1)
+        XCTAssertTrue(header.exists, "a second Clear all clears nothing")
         cancel()
 
         // 2. Show all's Clear all asks the same.
@@ -1413,7 +1454,8 @@ extension NavigationPilotUITests {
         XCTAssertTrue(pageClear.waitForExistence(timeout: 5))
         pageClear.tap()
         XCTAssertTrue(alert.waitForExistence(timeout: 3), "Show all's Clear all asks first")
-        alert.buttons["Cancel"].tap(); pause()
+        app.buttons["waiting-clear-cancel"].firstMatch.tap(); pause()
+        XCTAssertFalse(alert.exists, "Cancel closes the question")
         XCTAssertTrue(pageClear.exists, "Cancel keeps Show all's questions")
         app.navigationBars.buttons.firstMatch.tap(); pause()
 
@@ -1435,7 +1477,7 @@ extension NavigationPilotUITests {
         more.tap()
         menuClearAll()
         XCTAssertTrue(alert.waitForExistence(timeout: 3), "the … route asks first")
-        alert.buttons["waiting-clear-confirm"].firstMatch.tap()
+        app.buttons["waiting-clear-confirm"].firstMatch.tap()
         let undo = app.buttons["waiting-undo-clear"]
         XCTAssertTrue(undo.waitForExistence(timeout: 3), "Undo follows the clear")
         XCTAssertFalse(header.exists, "Waiting on you is empty")

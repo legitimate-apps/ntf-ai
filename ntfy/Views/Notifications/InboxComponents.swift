@@ -1679,6 +1679,8 @@ struct FoldHeaderAccessibility: Equatable {
 struct FoldHeaderAction {
     let name: String
     let run: () -> Void
+    /// Where VoiceOver goes back to when the action's question is cancelled.
+    var focus: AccessibilityFocusState<Bool>.Binding? = nil
 }
 
 private struct FoldHeaderActionKey: EnvironmentKey {
@@ -1696,7 +1698,10 @@ extension EnvironmentValues {
 struct FoldHeaderActionModifier: ViewModifier {
     let action: FoldHeaderAction?
     func body(content: Content) -> some View {
-        if let action {
+        if let action, let focus = action.focus {
+            content.accessibilityAction(named: Text(action.name)) { action.run() }
+                .accessibilityFocused(focus)
+        } else if let action {
             content.accessibilityAction(named: Text(action.name)) { action.run() }
         } else {
             content
