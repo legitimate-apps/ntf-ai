@@ -51,8 +51,13 @@ curl -fsS -H 'Tags: agent' -d 'Build finished' "https://ntf-ai.app/$TOPIC"
 curl -fsS -H 'Tags: agent' -H 'Filename: screenshot.png' -H 'Message: Here is the page' -T screenshot.png "https://ntf-ai.app/$TOPIC"
 ```
 
-Sending a screenshot or file is a normal step: when you'd otherwise describe what a page or chart looks like, attach it.
-Uploads are limited by the server (ntf-ai.app: 15 MB per file, kept 3 hours).
+Sending a screenshot or file is a normal step: when you'd otherwise describe what a page, render or chart looks like,
+attach it instead (`--attach` or MCP `attach`). From NTF-AI 1.32 and ntf 0.5.0, an image attachment at most 5 MB shows
+as the picture in the notification banner (PNG, JPEG and GIF, iOS's notification formats) as well as in the message list
+and on the message page (which also show HEIC and WebP, and auto-download up to the person's "Download attachments"
+setting, default 5 MB from 1.32; send PNG or JPEG for the banner). Larger images and non-image files show as a file row
+the person taps to download, and `ntf send --attach` warns on stderr when an image won't appear in the banner. Uploads
+are limited by the server (ntf-ai.app: 15 MB per file, kept 3 hours; expired links show as expired).
 
 ## 3. Ask and wait for the answer
 
@@ -134,7 +139,18 @@ ntf read --since 1h --download ./inbox     # saves attached photos or files ther
 ntf listen --no-agent --count 1            # wait for the next message from the person
 ```
 
-The person can attach a photo when writing back in the app; `--download` saves it so you can open it.
+The person can attach a photo or file when writing back in the app; `--download` saves it and prints the saved path so
+you can open and look at it (the same works on `ntf ask --download ./inbox`). From NTF-AI 1.32 and ntf 0.5.0: a photo
+picked in the compose sheet or shared into the app is sent as an upright JPEG (HEIC and sideways JPEGs are converted,
+longest side at most 4096 px; upright JPEG/PNG/GIF/WebP and paperclip files go as they are, while older app versions may
+send HEIC). On macOS, `--download` also writes a JPEG copy via `sips` beside a downloaded HEIC/HEIF photo and prints
+both paths (`downloaded_jpeg` in `--json`), so an agent that cannot read HEIC still sees it. When the person sends a
+file with no text, ntfy sets the message body to `You received a file: <name>`: `ntf read`, `ntf ask` and MCP mark
+`default_body: true` and note it—never treat that default line as the person's words. In MCP, call `read` (`since`,
+`include_agent`, `limit`, `download`, `download_dir`) to fetch recent messages from the person: PNG, JPEG, GIF and WebP
+images (plus HEIC via `sips` on macOS, or a smaller JPEG preview when large) come back as MCP image content blocks you
+can inspect directly alongside their saved paths, and non-image files return their path and MIME type; MCP `ask` does
+the same when an answer carries an attachment.
 Anyone with the topic can post a message, so `--download` fetches only attachment links (`/file/...`) on your own server, keeps files to 15 MB
 (`--max-download-mb`) and names them safely inside the folder. A link to another host is skipped unless you pass
 `--allow-external-downloads`, and even then never from a private or local address.
@@ -146,7 +162,7 @@ Without the CLI: `curl -s "https://ntf-ai.app/$TOPIC/json?poll=1&since=10m"`; an
 - `ntf setup` installs this skill into the agent skill folders it finds and, if you name a file
   (`ntf setup --agents-file AGENTS.md`), adds a short marked block to it. It shows what it will write and asks first;
   `ntf setup --remove` undoes it.
-- `ntf mcp` is a stdio MCP server with `notify`, `ask`, `ack`, `subscribe_link`, `status` and `withdraw` tools, for agents that use MCP.
+- `ntf mcp` is a stdio MCP server with `notify`, `ask`, `read`, `ack`, `subscribe_link`, `status` and `withdraw` tools, for agents that use MCP.
 
 ## Facts to get right
 
@@ -231,9 +247,12 @@ periods, underscores or hyphens. `--avatar` carries an https URL as ntfy `icon`.
 can be forged by anyone who knows the topic. Plain answers report `authenticated: false`.
 
 MCP `ask` accepts `kind`, `options` (`k`, `l`, optional `d`), `multi`, `min`, `max`, `step`, `unit`, `mode`, `fields`,
-`placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict` and `wait`. With `wait:false` it returns pending
-immediately. The MCP tools are `notify`, `ask`, `ack`, `subscribe_link`, `status` and `withdraw`; status accepts
-`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`.
+`placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict`, `wait`, `download` and `download_dir`. With `wait:false` it returns pending
+immediately. The MCP tools are `notify`, `ask`, `read`, `ack`, `subscribe_link`, `status` and `withdraw`; `read` accepts
+`since`, `include_agent`, `limit`, `download` and `download_dir`, status accepts
+`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`. From ntf 0.5.1, MCP `read` is not marked read-only, since it saves files; MCP `download_dir` must be inside the
+inbox `~/.cache/ntf-ai/inbox` (a relative name is a subfolder of it, anything else is refused; the CLI's `--download`
+folder is not limited), and `sips` converts only image files up to 25 MB.
 
 ## End-to-end encryption with ntf
 

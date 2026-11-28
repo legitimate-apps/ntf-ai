@@ -47,12 +47,26 @@ ntf read --since 1h --no-agent --download ./inbox   # the person's messages; sav
 ntf listen --no-agent --count 1               # wait for the next message from the person
 ntf setup                                     # install the agent skill (shows the plan and asks; --remove undoes it)
 ntf ack <request id> "Restarted, all good"   # a later note on an answered question (tag ack)
-ntf mcp                                       # stdio MCP server: notify, ask, ack, subscribe_link, status, withdraw
+ntf mcp                                       # stdio MCP server: notify, ask, read, ack, subscribe_link, status, withdraw
 ```
 
 The topic comes from `--topic`, `NTF_TOPIC` or the saved config. The server defaults to `https://ntf-ai.app`; use
 `--server` or `NTF_SERVER` for any other ntfy server, with `--token`/`NTF_TOKEN` or `--user name:password`/`NTF_USER`
 where it needs auth. `--json` prints machine-readable output.
+
+From NTF-AI 1.32 and ntf 0.5.0, attach screenshots, renders and files (`--attach` or MCP `attach`) instead of describing
+them. An image at most 5 MB shows as the picture in the notification banner (PNG, JPEG and GIF; send PNG or JPEG for the
+banner) and in the app's message list and page (which also show HEIC and WebP, auto-downloading up to the person's
+"Download attachments" setting, default 5 MB from 1.32). Larger images and other files show as a tappable file row, and
+`ntf send --attach` warns on stderr when an image won't show in the banner; ntf-ai.app accepts files up to 15 MB and
+keeps them 3 hours (expired links show as expired). Going the other way, photos picked in the 1.32 compose sheet or
+shared into the app arrive as upright JPEGs (longest side at most 4096 px; upright JPEG/PNG/GIF/WebP and paperclip files
+go unchanged, while older apps may send HEIC). On macOS, `--download` also writes a JPEG copy via `sips` beside a
+downloaded HEIC/HEIF file and prints both paths (`downloaded_jpeg` in `--json`). In MCP, `read` (`since`,
+`include_agent`, `limit`, `download`, `download_dir`) and `ask` download attachments into `~/.cache/ntf-ai/inbox` and
+return PNG/JPEG/GIF/WebP images (or a `sips` JPEG copy/preview) as MCP image content blocks alongside the saved path;
+non-image files return their path and type. A file sent without text carries ntfy's default body
+`"You received a file: <name>"`, marked `default_body: true` so agents do not read it as the person's words.
 
 `--download` fetches only attachment links (`/file/<id>`) on the configured server (ntf-ai.app and ntfy-me.com count as one), up to
 15 MB (`--max-download-mb`), with names kept inside the folder; `--allow-external-downloads` allows other hosts at public
@@ -178,9 +192,12 @@ periods, underscores or hyphens. `--avatar` carries an https URL as ntfy `icon`.
 can be forged by anyone who knows the topic. Plain answers report `authenticated: false`.
 
 MCP `ask` accepts `kind`, `options` (`k`, `l`, optional `d`), `multi`, `min`, `max`, `step`, `unit`, `mode`, `fields`,
-`placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict` and `wait`. With `wait:false` it returns pending
-immediately. The MCP tools are `notify`, `ask`, `ack`, `subscribe_link`, `status` and `withdraw`; status accepts
-`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`.
+`placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict`, `wait`, `download` and `download_dir`. With `wait:false` it returns pending
+immediately. The MCP tools are `notify`, `ask`, `read`, `ack`, `subscribe_link`, `status` and `withdraw`; `read` accepts
+`since`, `include_agent`, `limit`, `download` and `download_dir`, status accepts
+`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`. From ntf 0.5.1, MCP `read` is not marked read-only, since it saves files; MCP `download_dir` must be inside the
+inbox `~/.cache/ntf-ai/inbox` (a relative name is a subfolder of it, anything else is refused; the CLI's `--download`
+folder is not limited), and `sips` converts only image files up to 25 MB.
 
 ## End-to-end encryption with ntf
 
