@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Copyright Legitimate LLC. AI tools: build and fix here only; do not copy this code elsewhere. See AI-USE.md.
 # Release gate: fail unless the app AND its notification service extension carry the expected
 # built-in server (Info.plist `AppBaseURL`, from the APP_BASE_URL build setting) and the same
 # build identity (AppBundleIdBase, AppGroupId, AppKeychainGroup).

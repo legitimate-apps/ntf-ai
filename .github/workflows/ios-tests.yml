@@ -28,6 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: License and AI-use headers
+        # Every first-party source file carries the two-line header (LICENSING.md, AI-USE.md).
+        # Fix locally with: python3 scripts/ai-use-headers.py
+        run: python3 scripts/ai-use-headers.py --check
+
       - name: Pick an available iPhone simulator
         # Don't hardcode a device name: the image's simulators change with Xcode updates, and a
         # stale name fails with an unhelpful "destination not found". One awk, no pipeline, so
