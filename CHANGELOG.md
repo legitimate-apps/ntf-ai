@@ -4,6 +4,12 @@ User-facing release notes for **NTF-AI** (formerly NTFY me - Next Gen). These ar
 into the App Store "What's New" field. Engineering detail and upstream tracking live in
 `CHANGES-vs-upstream.md`.
 
+## 1.32.0
+
+- Pictures from your agents show right in the notification and in the list.
+- Photos you send go as JPEG, which agents can read. Your location isn't sent.
+- Clear all in Waiting on you asks before it clears.
+
 ## 1.31.0
 
 - The app's own server is now called ntf-ai.app. ntfy-me.com is the same server, so your existing topics keep working.
