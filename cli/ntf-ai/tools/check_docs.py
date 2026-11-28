@@ -61,7 +61,8 @@ def facts_from_cli(n, cli_dir):
     f["reply_sep"] = body[body.index("RID") + 3:body.index("ANS")]   # ":"
     f["action"] = {k: act[k] for k in ("action", "method", "headers")}
     f["exit"] = {"answered": n.EXIT_OK, "rejected": n.EXIT_REJECTED, "timeout": n.EXIT_TIMEOUT,
-                 "error": n.EXIT_ERROR, "usage": n.EXIT_USAGE, "withdrawn": n.EXIT_WITHDRAWN}
+                 "error": n.EXIT_ERROR, "usage": n.EXIT_USAGE, "withdrawn": n.EXIT_WITHDRAWN,
+                 "dismissed": n.EXIT_DISMISSED}
     f["mcp_tools"] = [t["name"] for t in n.mcp_tools()]
     ask_parser = n.build_parser("ntf")._subparsers._group_actions[0].choices["ask"]
     f["timeout_default"] = int(next(a.default for a in ask_parser._actions if a.dest == "timeout"))
@@ -225,9 +226,10 @@ def code_lines(text):
     return lines
 
 
-EXIT_CLAIM = re.compile(r"(?<![\w.])`?(\d)`?\s+(?:when\s+(?:it\s+)?)?(answered|rejected|timed out|times out|timeout|error|bad usage|usage|withdrawn)\b")
+EXIT_CLAIM = re.compile(r"(?<![\w.])`?(\d)`?\s+(?:when\s+(?:it\s+)?)?(answered|rejected|timed out|times out|timeout|error|bad usage|usage|withdrawn|dismissed)\b")
 EXIT_WORD = {"answered": "answered", "rejected": "rejected", "timed out": "timeout", "times out": "timeout", "timeout": "timeout",
-             "error": "error", "bad usage": "usage", "usage": "usage", "withdrawn": "withdrawn"}
+             "error": "error", "bad usage": "usage", "usage": "usage", "withdrawn": "withdrawn",
+             "dismissed": "dismissed"}
 
 # Which facts each surface must state. Everything else is checked wherever it is mentioned.
 REQUIRED = {
@@ -269,7 +271,7 @@ def check_text(name, text, f, app=None, kind=None):
         if f["exit"][what] != digit:
             say(f"says exit {digit} means {what}; the code exits {f['exit'][what]}")
     if "exit" in req:
-        missing = {"answered", "rejected", "timeout"} - {w for _, w in claims}
+        missing = {"answered", "rejected", "timeout", "dismissed"} - {w for _, w in claims}
         if missing:
             say(f"doesn't give the ask exit code for {', '.join(sorted(missing))}")
 

@@ -205,7 +205,7 @@ class Base050(unittest.TestCase):
 
 class VersionAndToolsTests(unittest.TestCase):
     def test_version_is_050_and_read_tool_listed(self):
-        self.assertEqual(n.VERSION, "0.5.1")
+        self.assertEqual(n.VERSION, "0.6.0")
         tools = {t["name"]: t for t in n.mcp_tools()}
         self.assertEqual(
             set(tools),

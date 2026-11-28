@@ -13,6 +13,9 @@ NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy pro
   1.32 compose/share sheet arrive as upright JPEGs; on macOS `--download` also writes a JPEG copy via `sips` for older
   HEIC/HEIF files, and MCP `read` / `ask` return images inline plus the saved path (non-images: path and type). A file
   sent with no text has ntfy's default body `You received a file: <name>` (`default_body: true`)—not the person's words.
+- From NTF-AI 1.33 and ntf 0.6.0: clearing a question from Waiting on you sends a receipt tagged `agent,dis,re-<request id>`
+  (`Dismissed in NTF-AI`, priority 1; `re-` as in 1.26); `ntf ask` stops waiting and exits 8 dismissed. A dismissal is never an answer or
+  approval. At `--expires` the app shows the buttons as Expired on its own clock; the Mac app now catches up while it runs.
 - The topic is a secret: never print it in public places. Never use the `ntfy` command for this (a different program).
 - Details: the `ntf-ai` skill, `ntf --help`, or https://ntf-ai.app/docs/agents.
 
@@ -22,7 +25,7 @@ NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy pro
   `--expires 2h` bounds the wait; `--remind 5m,15m --escalate` nudges while waiting. `--strict` waits past invalid
   answers; otherwise JSON includes `valid` and normalized `value`, and invalid plain answers warn and exit 6. `--as NAME` / NTF_AGENT / config agent_name and
   `--avatar URL` set the agent name and picture; plain identities and answers are unverified.
-  `ntf status <request id> --json` reads seen/answered/acked/withdrawn; `ntf withdraw <request id>` deletes it (ask
+  `ntf status <request id> --json` reads seen/answered/acked/dismissed/withdrawn; `ntf withdraw <request id>` deletes it (ask
   exits 5 withdrawn, with a stderr explanation). `--no-wait` prints the request id; MCP wait:false returns pending
   with the id in text too, without background reminders. Status is unknown
   past advertised retention (12h fallback; v2 answers/receipts 8 days) without saved outcomes or linked evidence. MCP tools: notify, ask, read, ack,

@@ -128,8 +128,36 @@ class DocsAgree(unittest.TestCase):
                     self.assertRegex(texts[name], r'3 hours|3 h\b')
         if GUIDE:
             whats_new = texts['guide'].split("## What's new for agents", 1)[1]
+            bullets = [l for l in whats_new.split('\n## ', 1)[0].splitlines() if l.strip().startswith('- ')]
+            self.assertTrue(any('From NTF-AI 1.32 and ntf 0.5.0:' in b for b in bullets))
+
+    def test_060_dismissal_deadline_and_mac_catch_up_are_documented(self):
+        n = check_docs.load_cli(ROOT)
+        texts = check_docs.cli_surfaces(n, ROOT)
+        if GUIDE:
+            texts['guide'] = check_docs.brand(check_docs.read(GUIDE), GUIDE)
+        for name in ('SKILL.md', 'README.md', 'AGENTS-snippet.md', 'ntf --help', 'guide'):
+            if name in texts:
+                with self.subTest(surface=name):
+                    text = texts[name]
+                    self.assertIn('From NTF-AI 1.33 and ntf 0.6.0', text)
+                    self.assertIn('agent,dis,re-<', text)
+                    self.assertIn('Dismissed in NTF-AI', text)
+                    self.assertRegex(text, r'exits? 8 dismissed|8 dismissed')
+                    self.assertIn('Expired', text)
+        for name in ('SKILL.md', 'README.md', 'guide'):
+            if name in texts:
+                with self.subTest(surface=name):
+                    for term in ('exp-<', 'rem-<', 'Cmd-R', 'dismissed_at', '0.5.x'):
+                        self.assertIn(term, texts[name])
+        tools = {t['name']: t['description'] for t in n.mcp_tools()}
+        for tool in ('ask', 'status'):
+            self.assertIn('From NTF-AI 1.33 and ntf 0.6.0', tools[tool])
+        if GUIDE:
+            whats_new = texts['guide'].split("## What's new for agents", 1)[1]
             first_bullet = next(l for l in whats_new.splitlines() if l.strip().startswith('- '))
-            self.assertIn('From NTF-AI 1.32 and ntf 0.5.0:', first_bullet)
+            self.assertIn('NTF-AI 1.33', first_bullet)
+            self.assertIn('ntf 0.6.0', first_bullet)
 
     def test_guide_agrees_with_the_code(self):
         self.assertEqual(check_docs.check(ROOT, guide=GUIDE, app=APP), [])

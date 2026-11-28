@@ -164,8 +164,8 @@ comma-separated, the number, date or text, a form as compact JSON), whichever ap
 typed question (NTF-AI before 1.27, or another ntfy app), stderr says so and how it was read, e.g. `read '2' as 'staging'`;
 under `--json` that answer is `kind: reply`.
 `--no-reply` removes the fallback reply link and ignores free replies, while native structured answers still work;
-it warns for free-form kinds because older clients then have no answer path. Exit 5 means withdrawn; existing exit
-codes remain 0 answered, 3 rejected, 4 timed out, 1 error, 2 usage.
+it warns for free-form kinds because older clients then have no answer path. Exit 5 means withdrawn and exit 8
+dismissed (0.6.0); existing exit codes remain 0 answered, 3 rejected, 4 timed out, 1 error, 2 usage.
 
 `--expires` accepts 60s to 7d and caps the wait at the schema's `exp` deadline. A timeout still settles at priority 1
 with no actions. `--remind` accepts at most 3 offsets at least 5 minutes apart, such as 5m,15m. While the agent keeps
@@ -173,7 +173,22 @@ waiting, it republishes the same sequence/body with increasing `rem`; `--escalat
 capped at 4 (an explicit 5 stays 5). From NTF-AI 1.27 the app can alert for these reminders; older apps keep updates
 silent. `--no-wait` publishes and prints the request id (JSON returns pending), with no background reminders; use status to read the answer later.
 
-`ntf status` folds linked server events into withdrawn, acked, answered, settled, expired, seen, pending or unknown
+From NTF-AI 1.33 and ntf 0.6.0: when the person clears a question from Waiting on you (one at a time, or Clear all
+once its 6 s Undo window has passed), the app publishes a dismissed receipt on the question's topic: body
+`Dismissed in NTF-AI`, tags `agent,dis,re-<request id>` (the reply tag from NTF-AI 1.26), priority 1, no title (on an encrypted topic it is encrypted
+like the app's answers, and only tags inside the ciphertext count). `ntf ask` stops waiting, replaces the question
+with a copy that has no buttons, explains on stderr and exits 8 dismissed (`--json` status `dismissed` with
+`dismissed_at`); MCP `ask` returns status dismissed. A dismissal is never an answer and never approval. `ntf status`
+reports `dismissed` with `dismissed_at`, but an answer that arrives later still wins, since the phone keeps the buttons
+usable. `ntf read` labels the receipt (`dismissed` in `--json`); `--no-agent` hides it. ntf 0.5.x ignores it and waits
+until its timeout. At the `--expires` deadline (schema `exp`) NTF-AI 1.33 takes the question out of Waiting on you,
+shows its buttons as Expired, refuses a banner tap and removes its banner, on the phone's own clock with no message
+from the agent. Without ntf, tag a plain-button question `exp-<unix seconds>` for the same, and tag an update on its
+sequence `rem-<n>` (1-3) to alert as a reminder; ntf needs neither tag, since `--expires` and `--remind` already put
+`exp` and `rem` in the schema, which wins. Also from 1.33, the Mac app catches up on every topic while it runs (on
+focus, every few minutes, and Refresh, Cmd-R), so a follow-up no longer waits for the next launch.
+
+`ntf status` folds linked server events into withdrawn, acked, answered, dismissed, settled, expired, seen, pending or unknown
 (in that precedence). Seen means read or dismissed on some device, not proof a person read it. A clear
 (`message_clear`) records that observation; `ntf withdraw` sends DELETE and produces `message_delete`. A withdrawn plain ask explains why it stopped on stderr. Status polls
 from the publication's server Unix timestamp, so local clock skew and an expired question row cannot hide answers. `asks.jsonl`, next to the config,
