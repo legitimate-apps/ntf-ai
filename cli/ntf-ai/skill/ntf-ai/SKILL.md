@@ -250,7 +250,9 @@ MCP `ask` accepts `kind`, `options` (`k`, `l`, optional `d`), `multi`, `min`, `m
 `placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict`, `wait`, `download` and `download_dir`. With `wait:false` it returns pending
 immediately. The MCP tools are `notify`, `ask`, `read`, `ack`, `subscribe_link`, `status` and `withdraw`; `read` accepts
 `since`, `include_agent`, `limit`, `download` and `download_dir`, status accepts
-`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`.
+`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`. From ntf 0.5.1, MCP `read` is not marked read-only, since it saves files; MCP `download_dir` must be inside the
+inbox `~/.cache/ntf-ai/inbox` (a relative name is a subfolder of it, anything else is refused; the CLI's `--download`
+folder is not limited), and `sips` converts only image files up to 25 MB.
 
 ## End-to-end encryption with ntf
 

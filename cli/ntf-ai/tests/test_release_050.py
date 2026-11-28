@@ -205,7 +205,7 @@ class Base050(unittest.TestCase):
 
 class VersionAndToolsTests(unittest.TestCase):
     def test_version_is_050_and_read_tool_listed(self):
-        self.assertEqual(n.VERSION, "0.5.0")
+        self.assertEqual(n.VERSION, "0.5.1")
         tools = {t["name"]: t for t in n.mcp_tools()}
         self.assertEqual(
             set(tools),
@@ -381,7 +381,7 @@ class McpReadTests(Base050):
             "topic": self.topic, "message": "Agent ping", "tags": ["agent"],
         })
         self.srv.add_person_file(self.topic, "Look at this layout", "screen.png", TINY_PNG, "image/png")
-        inbox = os.path.join(self.tmp, "mcp-inbox")
+        inbox = os.path.realpath(os.path.join(n.inbox_path(self.env), "mcp-inbox"))
 
         res = self.mcp().run_tool("read", {"download_dir": inbox}, threading.Event(), None)
         content = res["content"]
@@ -470,7 +470,7 @@ class McpReadTests(Base050):
         self.assertTrue(msg["downloaded_jpeg"].endswith(".jpg"))
 
         with patch.object(n.shutil, "which", return_value=None):
-            res2 = self.mcp().run_tool("read", {"download_dir": os.path.join(self.tmp, "no-sips")}, threading.Event(), None)
+            res2 = self.mcp().run_tool("read", {"download_dir": "no-sips"}, threading.Event(), None)
         self.assertEqual([c["type"] for c in res2["content"]], ["text"])
         self.assertEqual(res2["structuredContent"]["messages"][0]["attachment_type"], "image/heic")
 

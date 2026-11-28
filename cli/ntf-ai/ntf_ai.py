@@ -33,7 +33,7 @@ import urllib.parse
 import urllib.request
 import zlib
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 LEAD = ("NTF-AI (ntf): phone notifications and replies for AI agents. Speaks the ntfy protocol; "
         "use it when someone asks for ntf, NTF-AI or ntfy notifications.")
 DEFAULT_SERVER = "https://ntf-ai.app"
@@ -49,6 +49,8 @@ BANNER_IMAGE_MAX = 5 * 1024 * 1024
 INLINE_IMAGE_MAX = 3_750_000
 INLINE_TOTAL_MAX = 10 * 1024 * 1024
 PREVIEW_LONG_SIDE = 2048
+# sips (an image decoder) only ever runs on an image file at most this large (ntf 0.5.1).
+SIPS_INPUT_MAX = 25 * 1024 * 1024
 # What an agent model can look at directly. HEIC/HEIF get a JPEG copy through `sips` first.
 INLINE_IMAGE_TYPES = ("image/png", "image/jpeg", "image/gif", "image/webp")
 # ntfy's body for a file published with no message (server.go defaultAttachmentMessage). It is not the person's words.
@@ -185,6 +187,22 @@ def inbox_path(env=None):
     env = os.environ if env is None else env
     base = env.get("XDG_CACHE_HOME") or os.path.join(env.get("HOME") or os.path.expanduser("~"), ".cache")
     return os.path.join(base, "ntf-ai", "inbox")
+
+
+def mcp_download_folder(inbox, requested=None):
+    """The folder an MCP call may save into: the inbox, or a folder inside it (ntf 0.5.1). The calling model picks
+    `requested`, so it is confined: a relative name is a subfolder of the inbox, and any path whose real location
+    (symlinks resolved) is outside the inbox is refused. The CLI's --download flag is typed by a person and is not
+    confined."""
+    root = os.path.realpath(os.path.expanduser(inbox))
+    if requested is None or requested == "":
+        return root
+    if not isinstance(requested, str) or "\0" in requested:
+        raise NtfError("download_dir must be a folder name or path inside " + root, EXIT_USAGE)
+    want = os.path.realpath(os.path.join(root, os.path.expanduser(requested)))
+    if os.path.commonpath([root, want]) != root:
+        raise NtfError(f"download_dir must be inside the inbox {root}; {requested!r} is outside it", EXIT_USAGE)
+    return want
 
 
 def topic_url(server, topic):
@@ -731,6 +749,13 @@ def is_default_body(m):
 def _sips_jpeg(src, name, extra=()):
     """A JPEG made from `src` by macOS `sips`, saved beside it as a new file named like `name`; None when sips is
     absent (other systems) or fails. Optional by design: callers keep the original either way."""
+    try:
+        if os.path.islink(src) or not os.path.isfile(src) or os.path.getsize(src) > SIPS_INPUT_MAX:
+            return None
+    except (OSError, TypeError):
+        return None
+    if not (sniff_type(src) or "").startswith("image/"):
+        return None
     sips = shutil.which("sips")
     if not sips:
         return None
@@ -2513,7 +2538,9 @@ MCP `ask` accepts `kind`, `options` (`k`, `l`, optional `d`), `multi`, `min`, `m
 `placeholder`, `expires`, `remind`, `escalate`, `as`, `avatar`, `strict`, `wait`, `download` and `download_dir`. With `wait:false` it returns pending
 immediately. The MCP tools are `notify`, `ask`, `read`, `ack`, `subscribe_link`, `status` and `withdraw`; `read` accepts
 `since`, `include_agent`, `limit`, `download` and `download_dir`, status accepts
-`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`.
+`request_id`, `wait`, `timeout_seconds`, and withdraw accepts `request_id`. From ntf 0.5.1, MCP `read` is not marked read-only, since it saves files; MCP `download_dir` must be inside the
+inbox `~/.cache/ntf-ai/inbox` (a relative name is a subfolder of it, anything else is refused; the CLI's `--download`
+folder is not limited), and `sips` converts only image files up to 25 MB.
 
 ## End-to-end encryption with ntf
 
@@ -2690,8 +2717,9 @@ def mcp_tools():
                                                "15 MB show in the app (ntf-ai.app keeps them 3 hours). Refused when topic encryption is enabled."}
     download = {"download": {"type": "boolean", "description": "Save attachments the person sent (default true) and "
                                                                "return images as image content you can look at."},
-                "download_dir": {"type": "string", "description": "Folder for saved attachments (default "
-                                                                  "~/.cache/ntf-ai/inbox)."}}
+                "download_dir": {"type": "string", "description": "Folder for saved attachments, inside the inbox "
+                                                                  "~/.cache/ntf-ai/inbox (the default); a relative name "
+                                                                  "is a subfolder of it. Anywhere else is refused."}}
     common = {"title": {"type": "string"}, "priority": {"type": "string", "enum": list(PRIORITIES) + list("12345")},
               "tags": {"type": "array", "items": {"type": "string"}}, "attach": attach}
     tools = [
@@ -2766,7 +2794,7 @@ def mcp_tools():
             limit={"type": "integer", "minimum": 1, "maximum": 50,
                    "description": f"Newest messages to return (default {MCP_READ_LIMIT})."},
             **download)},
-        "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": True}})
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": True}})
     tools[1]["description"] += (" From NTF-AI 1.27 and ntf 0.4.0: choose choice (2-12 options, optional multi), number, "
         "date, text or form (1-6 fields). Uses #ask-v2 with old-client buttons/reply fallback. Returns normalized value, "
         "valid and authenticated; invalid answers are returned unless strict. Withdrawn is a terminal status (CLI exit 5). "
@@ -2919,6 +2947,8 @@ class McpServer:
         if name not in ("notify", "ask", "read", "ack", "status", "withdraw"):
             raise NtfError(f"unknown tool {name!r}")
         topic = check_topic(s.get("topic"))
+        if name in ("ask", "read") and args.get("download", True) is not False:
+            mcp_download_folder(s.get("download_dir") or inbox_path(), args.get("download_dir"))  # refuse before any send
         client = self._client()
         if name in ("status", "withdraw"):
             rid = args.get("request_id")
@@ -3007,9 +3037,8 @@ class McpServer:
         name, url = att.get("name"), att.get("url")
         if args.get("download", True) is False:
             return f"(attachment {name}: {url}; not downloaded, download=false)", [], 0
-        custom_dir = args.get("download_dir")
-        folder = os.path.expanduser(custom_dir or self.settings.get("download_dir") or inbox_path())
-        if not custom_dir and not os.path.exists(folder):
+        folder = mcp_download_folder(self.settings.get("download_dir") or inbox_path(), args.get("download_dir"))
+        if not os.path.exists(folder):
             os.makedirs(folder, mode=0o700, exist_ok=True)
         try:
             path = client.download(url, folder, name or rec.get("id") or rec.get("message_id"))
