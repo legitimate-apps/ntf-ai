@@ -721,6 +721,44 @@ enum AnswerLogReader {
     }
 }
 
+// MARK: - Deadlines (SPEC 7, and from 1.33 on any agent question)
+
+/// When an agent's question stops taking answers, and which reminder an update is. An ask-v2
+/// schema's `exp` and `rem` win; a question without one (plain `http` buttons, like the vault's
+/// Approve) carries them as tags, `exp-<unix seconds>` and `rem-<n>`. Judged on this device's clock
+/// alone, with no server contact, so a device that missed the agent's follow-up still sees the
+/// question expire. The agent's own deadline stays the authority: a late answer it refuses anyway.
+struct AgentDeadline: Equatable {
+    var expires: Date?
+    var reminder: Int?
+
+    init(expires: Date? = nil, reminder: Int? = nil) {
+        self.expires = expires
+        self.reminder = reminder
+    }
+
+    init(schema: AskSchema) {
+        self.init(expires: schema.expiryDate, reminder: schema.reminder)
+    }
+
+    init(tags: [String], actions: [Action]) {
+        if let schema = AskSchema.detect(in: actions).schema, schema.expires != nil || schema.reminder != nil {
+            self.init(schema: schema)
+            return
+        }
+        let expires = tags.lazy.compactMap { ProtocolTag.number($0, prefix: ProtocolTag.deadlinePrefix) }.first
+        let reminder = tags.lazy.compactMap { ProtocolTag.number($0, prefix: ProtocolTag.reminderPrefix) }.first
+        self.init(expires: expires.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+                  reminder: reminder.flatMap { Int(exactly: $0) })
+    }
+
+    /// Past the deadline, the same rule as `AskSchema.isExpired`: at the deadline second it has passed.
+    func isExpired(now: Date = Date()) -> Bool {
+        guard let expires else { return false }
+        return now >= expires
+    }
+}
+
 // MARK: - Reminders (SPEC 7)
 
 /// An agent's reminder is the question sent again on its sequence with a higher `rem`. It alerts
@@ -739,7 +777,15 @@ enum AgentReminder {
     /// question's own state: not answered, acked, withdrawn or settled.
     static func alerts(next: AskSchema?, previous: AskSchema?, waiting: Bool, priorAlerts: [Date],
                        enabled: Bool, now: Date = Date()) -> Bool {
-        guard enabled, waiting, let next, let rem = next.reminder, !next.isExpired(now: now) else { return false }
+        guard let next else { return false }
+        return alerts(next: AgentDeadline(schema: next), previous: previous.map(AgentDeadline.init(schema:)), waiting: waiting,
+                      priorAlerts: priorAlerts, enabled: enabled, now: now)
+    }
+
+    /// The same, from the schema or, from 1.33, the `exp-`/`rem-` tags of a question without one.
+    static func alerts(next: AgentDeadline, previous: AgentDeadline?, waiting: Bool, priorAlerts: [Date],
+                       enabled: Bool, now: Date = Date()) -> Bool {
+        guard enabled, waiting, let rem = next.reminder, !next.isExpired(now: now) else { return false }
         guard rem > (previous?.reminder ?? 0) else { return false }
         guard priorAlerts.count < maxAlerts else { return false }
         if let last = priorAlerts.max(), now.timeIntervalSince(last) < minInterval { return false }

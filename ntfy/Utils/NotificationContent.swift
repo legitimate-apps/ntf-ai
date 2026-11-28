@@ -735,6 +735,14 @@ enum LockScreenButtons {
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
     }
 
+    /// Tells the person the button did nothing because the question's deadline had passed.
+    static func notifyExpired(_ label: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "\(label) wasn't sent")
+        content.body = String(localized: "This request expired. Ask the agent to send it again.")
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ntfyActionResult", content: content, trigger: nil))
+    }
+
     /// Options feed the category id, so notifications that arrive after a change get a new category.
     /// Ones already delivered keep theirs; rewrite those too, so turning the setting off also asks for
     /// Face ID on an approval that arrived while it was on.

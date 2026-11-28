@@ -1009,6 +1009,14 @@ struct MessageActionRunner {
     var answerLog: AnswerLog = .shared
 
     func run(_ action: Action, replyText: String? = nil) {
+        // A card or page drawn before the question's deadline: past it the tap sends nothing (the
+        // agent no longer takes it) and the views redraw to "Expired".
+        if AgentQuestion.isAnswerAction(action), notification.isPastDeadline() {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            notification.objectWillChange.send()
+            WaitingObservable.shared.refresh()
+            return
+        }
         _ = ActionExecutor.execute(
             action,
             notificationId: notification.id,
@@ -1300,10 +1308,12 @@ struct MessageCard: View {
                         AgentReply.sendAnswer(body, summary: summary, written: written, to: notification)
                     }
                 }
-            } else if !items.isEmpty || detection != .none {
-                if detection != .none {
+            } else if !items.isEmpty || detection != .none || notification.questionDeadline != nil {
+                if detection != .none || notification.questionDeadline != nil {
                     // A typed question this build can't render: the update line, then its old answers
                     // exactly as a 1.26 question shows them (REVIEW MINOR 11, DESIGN-REVIEW-v2 S8).
+                    // From 1.33 a question with plain buttons and an `exp-` deadline: "Expires in"
+                    // above them, and "Expired" with no answers left once it has passed.
                     AskStatusLine(notification: notification, detection: detection)
                         .padding(.top, CardSpacing.beforeControls)
                 }
@@ -1317,7 +1327,7 @@ struct MessageCard: View {
                         // While selecting, a tap picks the row; it must not answer the agent.
                         .disabled(editing)
                         .environment(\.actionBarMissedTap) { if !editing { open(false) } }
-                        .padding(.top, state.failed || detection != .none ? 0 : CardSpacing.beforeControls)
+                        .padding(.top, state.failed || detection != .none || notification.questionDeadline != nil ? 0 : CardSpacing.beforeControls)
                 }
             }
         }
@@ -1410,8 +1420,9 @@ struct WaitingRow: View {
                 }
                 .environment(\.actionBarMissedTap) { open(false) }
             } else if !receipt.resolved {
-                if detection != .none {
-                    // Needs a newer app: say so above the old answers (DESIGN-REVIEW-v2 S8).
+                if detection != .none || notification.questionDeadline != nil {
+                    // Needs a newer app: say so above the old answers (DESIGN-REVIEW-v2 S8). From 1.33,
+                    // or the deadline an `exp-` tag gives a question with plain buttons.
                     AskStatusLine(notification: notification, detection: detection, now: now)
                 }
                 if state.failed {

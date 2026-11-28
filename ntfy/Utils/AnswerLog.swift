@@ -34,8 +34,23 @@ struct AnswerKey: Hashable {
 
 extension Notification {
     /// The buttons to offer. None when the row's topic can't be named (its subscription is gone): such
-    /// an orphan must never send an answer to an agent, nor wait on the person.
-    func answerableActions() -> [Action] { AnswerKey(notification: self) == nil ? [] : actionsList() }
+    /// an orphan must never send an answer to an agent, nor wait on the person. Past an agent
+    /// question's deadline its answers go too (links stay): a dead question never shows a live Approve.
+    func answerableActions(now: Date = Date()) -> [Action] {
+        guard AnswerKey(notification: self) != nil else { return [] }
+        let actions = actionsList()
+        guard isPastDeadline(actions: actions, now: now) else { return actions }
+        return actions.filter { !AgentQuestion.isAnswerAction($0) }
+    }
+
+    /// An agent's or a typed question whose deadline (`AgentDeadline`) has passed on this device's clock.
+    func isPastDeadline(now: Date = Date()) -> Bool { isPastDeadline(actions: actionsList(), now: now) }
+
+    private func isPastDeadline(actions: [Action], now: Date) -> Bool {
+        let tags = parseAllTags(self.tags)
+        return AgentQuestion.locksAfterAnswer(tags: tags, actions: actions)
+            && AgentDeadline(tags: tags, actions: actions).isExpired(now: now)
+    }
 }
 
 /// What the person did with a question (DIRECTIONS 1.6): tapped an `http` answer, sent a typed
@@ -218,13 +233,14 @@ enum WaitingRule {
     /// from the person having looked at the question.
     /// A message tagged `re-<sequence>` is the person's own written answer, never a question.
     /// An agent's ack on the question resolves it, however it was answered (ACK-SPEC).
-    /// A typed question past its deadline (`exp`) waits no longer; a withdrawn one is acked (SPEC 7).
+    /// A question past its deadline (a schema's `exp`, or from 1.33 an `exp-<unix seconds>` tag) waits
+    /// no longer; a withdrawn one is acked (SPEC 7), and so, from 1.33, is one dismissed on another device.
     static func isWaiting(actions: [Action], time: Date, entry: AnswerEntry?, tags: [String], acked: Bool = false,
                           now: Date = Date()) -> Bool {
         guard hasAnswerAction(actions), AgentQuestion.locksAfterAnswer(tags: tags, actions: actions), !acked,
               !tags.contains(where: ProtocolTag.isReply) else { return false }
         if entry?.ok == true { return false }
-        if AskSchema.detect(in: actions).schema?.isExpired(now: now) == true { return false }
+        if AgentDeadline(tags: tags, actions: actions).isExpired(now: now) { return false }
         let age = now.timeIntervalSince(time)
         return age < maxAge
     }
@@ -247,7 +263,9 @@ enum AgentReply {
 
     /// The page offers the field: an `agent` question with answers, not marked `no-reply`, and no
     /// view-action reply (that one posts to its own target).
-    static func offersField(tags: [String], actions: [Action]) -> Bool {
+    static func offersField(tags: [String], actions: [Action], now: Date = Date()) -> Bool {
+        // Past the deadline nothing is answered any more, typed or tapped.
+        if AgentDeadline(tags: tags, actions: actions).isExpired(now: now) { return false }
         if let schema = AskSchema.detect(in: actions).schema {
             // A typed question: the schema's `reply` decides; its reply-v1 link is for older apps.
             return tags.contains(agentTag) && !tags.contains(where: ProtocolTag.isNoReply) && schema.reply != false
@@ -267,7 +285,7 @@ enum AgentReply {
         guard !body.isEmpty, let subscription = notification.subscription,
               let key = AnswerKey(notification: notification), !log.isSending(key),
               // A page left open past the deadline still shows its controls until it redraws.
-              AskSchema.detect(in: notification.actionsList()).schema?.isExpired() != true else { return }
+              !notification.isPastDeadline() else { return }
         log.begin(key, actionId: "typed-answer")
         TopicPublisher.send(subscription: subscription, store: store, message: body, title: "", priority: 3,
                             tags: answerTags(for: key)) { result in
@@ -289,7 +307,8 @@ enum AgentReply {
     static func send(_ text: String, to notification: Notification, store: Store = .shared, log: AnswerLog = .shared) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let subscription = notification.subscription,
-              let key = AnswerKey(notification: notification), !log.isSending(key) else { return }
+              let key = AnswerKey(notification: notification), !log.isSending(key),
+              !notification.isPastDeadline() else { return }
         log.begin(key, actionId: sendingId)
         // One tag, `re-<sequence>`, so the agent can tell which open question this answers. Never
         // `agent`: that would read as the agent's own message.
@@ -331,9 +350,10 @@ extension Store {
         let rows = ((try? context.fetch(request)) ?? []).filter { !$0.isDeleted }
         return rows.filter { row in
             let key = AnswerKey(notification: row)
-            return WaitingRule.isWaiting(actions: row.answerableActions(), time: row.date(), entry: log.entry(for: key, seen: acks),
+            return WaitingRule.isWaiting(actions: row.answerableActions(now: now), time: row.date(), entry: log.entry(for: key, seen: acks),
                                          tags: parseAllTags(row.tags),
-                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil } ?? false,
+                                         acked: key.map { acks.record(forKey: $0.id, version: $0.version) != nil
+                                             || acks.dismissal(forKey: $0.id, version: $0.version) != nil } ?? false,
                                          now: now)
         }
         .sorted { WaitingRule.precedes(time: $0.date(), id: $0.id, $1.date(), $1.id) }
@@ -350,10 +370,12 @@ final class WaitingObservable: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     private let store: Store
     private let log: AnswerLog
+    private let receipts: DismissReceiptOutbox
 
-    init(store: Store = .shared, log: AnswerLog = .shared) {
+    init(store: Store = .shared, log: AnswerLog = .shared, receipts: DismissReceiptOutbox = .shared) {
         self.store = store
         self.log = log
+        self.receipts = receipts
         refresh()
         observers.append(NotificationCenter.default.addObserver(
             forName: .NSManagedObjectContextObjectsDidChange, object: store.context, queue: .main
@@ -390,20 +412,49 @@ final class WaitingObservable: ObservableObject {
         }
     }
 
-    func refresh() {
-        let next = store.waitingNotifications(log: log)
+    func refresh(now: Date = Date()) {
+        let next = store.waitingNotifications(log: log, now: now)
         if next.map(\.objectID) != notifications.map(\.objectID) {
             ids = Set(next.map(\.objectID))
             notifications = next
         }
+        scheduleDeadline(after: now)
+    }
+
+    /// The next deadline among the questions waiting, when one has one (`AgentDeadline`).
+    private(set) var nextDeadline: Date?
+    private var deadlineTimer: DispatchWorkItem?
+
+    /// At a waiting question's deadline it leaves the queue on the second, not up to a minute later,
+    /// and its delivered banner goes: no device keeps a live Approve for a question the agent has
+    /// dropped, even one that missed the agent's follow-up.
+    private func scheduleDeadline(after now: Date) {
+        let next = notifications.compactMap { $0.questionDeadline?.expires }.filter { $0 > now }.min()
+        guard next != nextDeadline || deadlineTimer == nil && next != nil else { return }
+        deadlineTimer?.cancel()
+        deadlineTimer = nil
+        nextDeadline = next
+        guard let next else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.deadlineTimer = nil
+            self.nextDeadline = nil
+            self.refresh()
+            self.objectWillChange.send()
+            AgentDeadline.removeExpiredDelivered()
+        }
+        deadlineTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, next.timeIntervalSince(now)) + 0.25, execute: work)
     }
 
     func contains(_ notification: Notification) -> Bool { ids.contains(notification.objectID) }
 
-    /// "Not needed": the question leaves the queue now, with no receipt to show first.
+    /// "Not needed": the question leaves the queue now, with no receipt to show first. From 1.33 a
+    /// dismissed receipt goes to its topic, so the agent and the person's other devices learn of it.
     func dismiss(_ notification: Notification) {
         guard let key = AnswerKey(notification: notification) else { return }
         log.dismiss(key)
+        receipts.enqueue([key])
         refresh()
     }
 
@@ -420,11 +471,15 @@ final class WaitingObservable: ObservableObject {
         let keys = notifications.compactMap { AnswerKey(notification: $0) }
         guard !keys.isEmpty else { return }
         let cleared = log.dismissAll(keys, now: now)
+        // One dismissed receipt per question, sent once Undo is gone (Undo sends nothing). Queued
+        // now, so a quit inside the window still sends them on the next launch.
+        receipts.enqueue(keys, notBefore: now.addingTimeInterval(Self.undoWindow), batch: cleared.at)
         refresh()
         lastClear = cleared
         undoExpiry?.cancel()
         let expiry = DispatchWorkItem { [weak self] in
             if self?.lastClear == cleared { self?.lastClear = nil }
+            self?.receipts.flush()
         }
         undoExpiry = expiry
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.undoWindow, execute: expiry)
@@ -436,7 +491,130 @@ final class WaitingObservable: ObservableObject {
         undoExpiry?.cancel()
         lastClear = nil
         log.restore(cleared)
+        receipts.cancel(batch: cleared.at)
         refresh()
+    }
+}
+
+/// Dismissed receipts waiting to be published (`DismissReceipt`, from 1.33). Kept in the app group's
+/// defaults until the server takes each one, so a receipt that fails (offline, a 429, the sign-in
+/// locked) or is cut short by the app ending is sent on a later try. One per question version, in
+/// order, one at a time; a failure stops the round and the rest wait for the next. Main thread only.
+final class DismissReceiptOutbox {
+    static let shared = DismissReceiptOutbox(defaults: UserDefaults(suiteName: Store.appGroup) ?? .standard)
+    static let defaultsKey = "dismissReceipts.pending.v1"
+    /// Past this a receipt is no longer worth sending: the question has left Waiting everywhere.
+    static let keepFor: TimeInterval = WaitingRule.maxAge
+
+    struct Pending: Codable, Equatable {
+        var baseUrl: String
+        var topic: String
+        var sequence: String
+        var version: String?
+        var queuedAt: Date
+        /// Not before the Clear all's Undo has gone.
+        var notBefore: Date
+        /// The Clear all it belongs to (`AnswerLog.Cleared.at`), for Undo; nil for one dismissal.
+        var batch: Date?
+        var attempts: Int = 0
+
+        var id: String { AnswerKey(baseUrl: baseUrl, topic: topic, sequence: sequence).id + "|" + (version ?? "") }
+        var tags: [String] { DismissReceipt.tags(sequence: sequence) }
+    }
+
+    enum Outcome { case sent, failed, gone }
+
+    /// Publishes one receipt. Replaced in tests.
+    var send: (Pending, @escaping (Outcome) -> Void) -> Void = { item, done in
+        Task { @MainActor in DismissReceiptOutbox.publish(item, completion: done) }
+    }
+    var now: () -> Date = Date.init
+    var schedule: (TimeInterval, @escaping () -> Void) -> Void = { delay, work in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+    private let defaults: UserDefaults
+    private var flushing = false
+    private var retryScheduled = false
+
+    init(defaults: UserDefaults) { self.defaults = defaults }
+
+    var pending: [Pending] {
+        guard let data = defaults.data(forKey: Self.defaultsKey),
+              let decoded = try? JSONDecoder().decode([Pending].self, from: data) else { return [] }
+        return decoded
+    }
+
+    private func store(_ items: [Pending]) {
+        if items.isEmpty { defaults.removeObject(forKey: Self.defaultsKey) }
+        else if let data = try? JSONEncoder().encode(items) { defaults.set(data, forKey: Self.defaultsKey) }
+    }
+
+    func enqueue(_ keys: [AnswerKey], notBefore: Date? = nil, batch: Date? = nil) {
+        let at = now()
+        var items = pending
+        for key in keys {
+            let item = Pending(baseUrl: key.baseUrl, topic: key.topic, sequence: key.sequence, version: key.version,
+                               queuedAt: at, notBefore: notBefore ?? at, batch: batch)
+            items.removeAll { $0.id == item.id }
+            items.append(item)
+        }
+        store(items)
+        let delay = max(0, (notBefore ?? at).timeIntervalSince(at))
+        if delay > 0 { schedule(delay + 0.1) { [weak self] in self?.flush() } } else { flush() }
+    }
+
+    /// Undo of a Clear all: its receipts are not sent.
+    func cancel(batch: Date) {
+        store(pending.filter { $0.batch != batch })
+    }
+
+    /// Sends what is due, one at a time. Called when queued, when the app becomes active and on
+    /// every catch-up, and again a while after a failure.
+    func flush() {
+        guard !flushing else { return }
+        let at = now()
+        var items = pending.filter { at.timeIntervalSince($0.queuedAt) < Self.keepFor }
+        store(items)
+        guard let next = items.first(where: { $0.notBefore <= at }) else { return }
+        flushing = true
+        send(next) { [weak self] outcome in
+            guard let self else { return }
+            self.flushing = false
+            items = self.pending
+            switch outcome {
+            case .sent, .gone:
+                items.removeAll { $0.id == next.id && $0.queuedAt == next.queuedAt }
+                self.store(items)
+                self.flush()
+            case .failed:
+                if let index = items.firstIndex(where: { $0.id == next.id }) { items[index].attempts += 1 }
+                self.store(items)
+                let attempts = items.first { $0.id == next.id }?.attempts ?? 1
+                guard !self.retryScheduled else { return }
+                self.retryScheduled = true
+                // 1, 2, 4 ... minutes, at most 30, while the app runs; activation tries sooner.
+                self.schedule(min(30 * 60, 60 * pow(2, Double(max(0, attempts - 1))))) { [weak self] in
+                    self?.retryScheduled = false
+                    self?.flush()
+                }
+            }
+        }
+    }
+
+    /// On the question's topic, through the same publish path as an answer (sign-in, encryption).
+    @MainActor
+    static func publish(_ item: Pending, completion: @escaping (Outcome) -> Void) {
+        guard let subscription = Store.shared.getSubscription(baseUrl: item.baseUrl, topic: item.topic) else {
+            completion(.gone) // Unsubscribed since: nothing to tell.
+            return
+        }
+        TopicPublisher.send(subscription: subscription, store: .shared, message: DismissReceipt.body, title: "",
+                            priority: DismissReceipt.priority, tags: item.tags.joined(separator: ",")) { result in
+            if case .success = result { completion(.sent) } else {
+                Log.w("DismissReceiptOutbox", "Dismissed receipt not sent; will retry")
+                completion(.failed)
+            }
+        }
     }
 }
 
@@ -463,8 +641,29 @@ extension AgentAck {
         isAck(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ","))
     }
 
-    /// The passive receipt the extension delivers for the person's own answer (`ans`, `re-<sequence>`).
+    /// The passive receipt the extension delivers for the person's own answer (`ans`, `re-<sequence>`),
+    /// or, from 1.33, for a question dismissed on one of their devices (`dis`, `re-<sequence>`).
     static func isAnswerReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
         AnswerMessage.answeredSequence(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ",")) != nil
+            || DismissReceipt.isReceipt(userInfo)
+    }
+}
+
+extension AgentDeadline {
+    /// Delivered banners of agent questions past their deadline leave Notification Center, so a
+    /// lock screen never offers a dead Approve once the app has run. A tap that comes first is
+    /// refused anyway (`AppDelegate.handleNotificationResponse`).
+    static func removeExpiredDelivered(center: UNUserNotificationCenter = .current(), now: Date = Date()) {
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered.filter { isExpiredQuestion($0.request.content.userInfo, now: now) }.map(\.request.identifier)
+            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+
+    static func isExpiredQuestion(_ userInfo: [AnyHashable: Any], now: Date = Date()) -> Bool {
+        guard let message = Message.from(userInfo: userInfo), message.event == "message" else { return false }
+        let tags = message.tags ?? [], actions = message.actions ?? []
+        return AgentQuestion.locksAfterAnswer(tags: tags, actions: actions)
+            && AgentDeadline(tags: tags, actions: actions).isExpired(now: now)
     }
 }

@@ -247,8 +247,59 @@ enum ProtocolTag {
     /// Only a tag that names an agent is hidden; any other `@` tag stays a chip, as before 1.27.
     static func isIdentity(_ tag: String) -> Bool { AgentIdentity.name(tags: [tag]) != nil }
 
+    /// From 1.33, on an agent's question: `exp-<unix seconds>`, the moment its answers stop counting
+    /// (`AgentDeadline`). Plain buttons carry it, so a question with no ask-v2 schema (the vault's
+    /// Approve) still expires on every device, even one that missed the agent's follow-up.
+    static let deadlinePrefix = "exp-"
+    /// From 1.33, on an update of a question on its own sequence: `rem-<n>`, the agent's nth
+    /// reminder, which may alert under the reminder rules (SPEC 7).
+    static let reminderPrefix = "rem-"
+    /// From 1.33, on the receipt the app publishes when the person clears a question from Waiting on
+    /// you (`DismissReceipt`), beside `re-<sequence>`.
+    static let dismissed = "dis"
+
+    static func isDismissed(_ tag: String) -> Bool { tag.lowercased() == dismissed }
+
+    /// The whole number after `prefix`, digits only: `exp-1795100300` is 1795100300.
+    static func number(_ tag: String, prefix: String) -> Int64? {
+        let lowered = tag.lowercased()
+        guard lowered.hasPrefix(prefix) else { return nil }
+        let digits = lowered.dropFirst(prefix.count)
+        guard !digits.isEmpty, digits.count <= 12, digits.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return Int64(digits)
+    }
+
+    static func isDeadline(_ tag: String) -> Bool { number(tag, prefix: deadlinePrefix) != nil }
+    static func isReminder(_ tag: String) -> Bool { number(tag, prefix: reminderPrefix) != nil }
+
     static func isHidden(_ tag: String) -> Bool {
         isNoReply(tag) || isReply(tag) || AgentAck.isAck(tag) || isAnswer(tag) || isIdentity(tag)
+            || isDeadline(tag) || isReminder(tag) || isDismissed(tag)
+    }
+}
+
+/// The receipt the app publishes, from 1.33, when the person clears a question from Waiting on you
+/// (one at a time or with Clear all): a message on the question's topic tagged `agent,dis,re-<sequence>`,
+/// priority 1, body "Dismissed in NTF-AI". The agent sees the question was dismissed rather than
+/// answered, and every other device of the person's drops it from Waiting too. It is never an answer.
+/// `agent` keeps ntf 0.5 and older, which take any untagged or `re-<id>` message as a written answer,
+/// from reading it as one. A stock ntfy client shows it as one quiet line.
+enum DismissReceipt {
+    static let body = "Dismissed in NTF-AI"
+    static let priority = 1
+
+    static func tags(sequence: String) -> [String] {
+        ["agent", ProtocolTag.dismissed, ProtocolTag.reply(to: sequence)]
+    }
+
+    /// The question's sequence a dismissal names: its `re-<sequence>` tag, only beside `dis`.
+    static func dismissedSequence(tags: [String]?) -> String? {
+        guard let tags, tags.contains(where: ProtocolTag.isDismissed) else { return nil }
+        return AnswerMessage.replySequence(tags: tags)
+    }
+
+    static func isReceipt(_ userInfo: [AnyHashable: Any]) -> Bool {
+        dismissedSequence(tags: (userInfo["tags"] as? String ?? "").components(separatedBy: ",")) != nil
     }
 }
 
@@ -332,6 +383,16 @@ enum AgentAck {
         /// password. Only such an answer silences the question's banner and reminders: on a plain
         /// topic any writer could have sent it.
         var verified: Bool? = nil
+    }
+
+    /// From 1.33: the person cleared the question from Waiting on you, on this device or another one
+    /// (a `DismissReceipt` seen on its topic). The question leaves Waiting; its buttons stay.
+    struct SeenDismissal: Codable, Equatable {
+        /// The receipt's own message id and time.
+        var id: String
+        var time: Int64
+        /// The id of the question version dismissed: a new question on the sequence waits again.
+        var version: String
     }
 
     enum Outcome: Equatable {
@@ -503,6 +564,46 @@ final class AckLog: ObservableObject {
             }
         }
         if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: Self.answersKey) }
+        lock.unlock()
+        changed()
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(Self.darwinName as CFString), nil, nil, true)
+        return true
+    }
+
+    /// Dismissed receipts seen on a question's topic (`DismissReceipt`, from 1.33), from this device
+    /// or another one. Like answers, the store keeps no row for them.
+    static let dismissalsKey = "agentDismissals.v1"
+
+    private func dismissals() -> [String: AgentAck.SeenDismissal] {
+        guard let data = defaults.data(forKey: Self.dismissalsKey),
+              let decoded = try? JSONDecoder().decode([String: AgentAck.SeenDismissal].self, from: data) else { return [:] }
+        return decoded
+    }
+
+    /// The dismissal seen for this version of the question, if any.
+    func dismissal(forKey key: String, version: String?) -> AgentAck.SeenDismissal? {
+        lock.lock(); defer { lock.unlock() }
+        guard let dismissal = dismissals()[key], version == nil || dismissal.version == version else { return nil }
+        return dismissal
+    }
+
+    /// Keeps the first dismissal per question version. False when this version is already dismissed.
+    @discardableResult
+    func saveDismissal(_ dismissal: AgentAck.SeenDismissal, forKey key: String) -> Bool {
+        lock.lock()
+        var entries = dismissals()
+        if let current = entries[key], current.version == dismissal.version {
+            lock.unlock()
+            return false
+        }
+        entries[key] = dismissal
+        if entries.count > Self.limit {
+            for old in entries.sorted(by: { $0.value.time < $1.value.time }).prefix(entries.count - Self.limit) {
+                entries.removeValue(forKey: old.key)
+            }
+        }
+        if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: Self.dismissalsKey) }
         lock.unlock()
         changed()
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),

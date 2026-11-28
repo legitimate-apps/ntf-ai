@@ -62,6 +62,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
     private let responseRelay = NotificationResponseRelay(defaults: UserDefaults(suiteName: Store.appGroup) ?? .standard)
     private var responseDeduper = NotificationResponseDeduper()
     private var relayActivationObserver: NSObjectProtocol?
+    /// Coming to the front, from launch on (`AppActivation`): on the Mac a view subscribes too late.
+    private var activation: AppActivation?
 
     private var policySnapshot: NSObjectProtocol?
 
@@ -139,11 +141,67 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObservableObject {
         application.registerForRemoteNotifications()
 
         startBadgeSync()
+        startActivation()
         observeRelayedNotificationResponses()
         // Screens showing bridge state re-read when the extension writes it, and on activation.
         BridgeStateSignal.observeOtherProcesses()
 
         return true
+    }
+
+    // MARK: Coming to the front
+
+    private func startActivation() {
+        let activation = AppActivation(
+            onActive: { [weak self] in self?.appBecameActive() },
+            onResign: { NetworkCatchUp.shared.deactivate() },
+            // The Mac, while it runs: catch up as a return to the app would, without the rest.
+            onTick: {
+                NetworkCatchUp.shared.activate()
+                DismissReceiptOutbox.shared.flush()
+                AgentDeadline.removeExpiredDelivered()
+            })
+        self.activation = activation
+        activation.start()
+    }
+
+    /// What the app does each time it comes to the front: on the iPhone and iPad every return, on the
+    /// Mac at launch, on focus and from the menu bar's Refresh.
+    func appBecameActive() {
+        let store = Store.shared
+        Log.d(tag, "App became active, refreshing objects")
+        store.mergeRemoteHistory()
+        store.pruneNotifications()
+        // Answers outlive Waiting's 7 days so old cards keep their receipt, but not forever.
+        AnswerLog.shared.prune(before: Date().addingTimeInterval(-AnswerLog.keepFor))
+        // The extension may have recorded acks meanwhile; with confirmations off, its
+        // receipts leave Notification Center.
+        AckLog.shared.changed()
+        AgentAck.removeDeliveredReceiptsIfHidden()
+        // A question whose deadline passed while the app was away loses its banner (from 1.33).
+        AgentDeadline.removeExpiredDelivered()
+        // Open encrypted messages that arrived while the key couldn't be read (before
+        // first unlock, a Keychain hiccup, or a key the extension couldn't derive).
+        store.retryLockedMessages()
+        refreshNotificationSettings()
+        // Catch up once per foreground transition. Returning to the topic list or
+        // switching tabs does not poll again; explicit refresh is available there.
+        NetworkCatchUp.shared.activate()
+        // Feedback written while offline goes out now; so do dismissed receipts that failed.
+        FeedbackSender.shared.flush()
+        DismissReceiptOutbox.shared.flush()
+        // Self-heal a desynced device (ntfy#1305). Before this, a
+        // topic whose FCM binding failed stayed dead until the user
+        // reinstalled the app — which is exactly what the upstream
+        // thread reports as the only known workaround.
+        FcmSubscriptionReconciler.shared.reconcile(reason: "app became active")
+    }
+
+    /// Refresh (Cmd-R): every topic polled now, as pull-to-refresh does, and what waits to be sent.
+    static func refreshAll() {
+        let store = Store.shared
+        DismissReceiptOutbox.shared.flush()
+        Task { await SubscriptionManager(store: store).pollAll(store.getSubscriptions() ?? [], manual: true) }
     }
 
     // MARK: Banner taps relayed by the extension
@@ -659,6 +717,17 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                                      onMac: ProcessInfo.processInfo.isiOSAppOnMac) {
             Log.w(tag, "Refusing an http button tapped while locked with Use buttons without unlocking off", action.id)
             LockScreenButtons.notifyRefused(action.label)
+            completionHandler()
+            return
+        }
+        // A banner or lock-screen answer to an agent's question past its deadline (from 1.33, a schema's
+        // `exp` or an `exp-` tag): the agent no longer takes it, so nothing is sent and the banner goes.
+        if let action, let message = decodedMessage, AgentQuestion.isAnswerAction(action),
+           AgentQuestion.locksAfterAnswer(tags: message.tags ?? [], actions: message.actions ?? []),
+           AgentDeadline(tags: message.tags ?? [], actions: message.actions ?? []).isExpired() {
+            Log.w(tag, "Refusing an answer to a question past its deadline", action.id)
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationId])
+            LockScreenButtons.notifyExpired(action.label)
             completionHandler()
             return
         }

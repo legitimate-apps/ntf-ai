@@ -186,7 +186,7 @@ struct MessagePageView: View {
 
     /// A typed question still open here: not past its deadline.
     private var openSchema: AskSchema? {
-        guard let schema = detection.schema, !schema.isExpired() else { return nil }
+        guard let schema = detection.schema, !schema.isExpired(), !notification.isPastDeadline() else { return nil }
         return schema
     }
 
@@ -194,8 +194,9 @@ struct MessagePageView: View {
     private var hasStatusLine: Bool {
         switch detection {
         case .unsupported: return true
-        case .native(let schema, _): return schema.expires != nil
-        case .none: return false
+        case .native(let schema, _): return schema.expires != nil || notification.questionDeadline != nil
+        // From 1.33 a question without a schema can carry an `exp-` deadline.
+        case .none: return notification.questionDeadline != nil
         }
     }
 

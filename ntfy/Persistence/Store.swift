@@ -2514,6 +2514,18 @@ class Store: ObservableObject {
                 removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
                                                 sequence: sequence, throughTime: message.time, keepingID: message.id))
                 if isPush { acknowledgedPush = (message.id, row.title) }
+            } else if row == nil, let target = DismissReceipt.dismissedSequence(tags: message.tags),
+                      let question = questionRow(answeredBy: target, in: rows), let version = question.id,
+                      message.time >= question.time {
+                // From 1.33: the person cleared the question from Waiting on you, on this device or
+                // another (`DismissReceipt`). Like an ack it leaves Waiting everywhere and reads as
+                // read; its buttons stay. The receipt gets no row of its own and never alerts.
+                ackLog.saveDismissal(AgentAck.SeenDismissal(id: message.id, time: message.time, version: version),
+                                     forKey: AckLog.key(baseUrl: subscription.baseUrl ?? "", topic: message.topic, sequence: target))
+                question.read = true
+                removals.append(SequenceRemoval(baseUrl: subscription.baseUrl ?? "", topic: message.topic,
+                                                sequence: target, throughTime: message.time, keepingID: message.id))
+                if isPush { answeredPush = message.id }
             } else if row == nil, let target = AnswerMessage.answeredSequence(tags: message.tags),
                       let question = questionRow(answeredBy: target, in: rows), let version = question.id,
                       message.time >= question.time {
@@ -2556,6 +2568,10 @@ class Store: ObservableObject {
                     // An ack with no question here (pruned, or never received): kept as a quiet row.
                     notification.read = true
                     if isPush { acknowledgedPush = (message.id, nil) }
+                } else if DismissReceipt.dismissedSequence(tags: message.tags) != nil {
+                    // A dismissal with no question here, or older than the one here: a quiet row.
+                    notification.read = true
+                    if isPush { answeredPush = message.id }
                 } else if row == nil, let target = AnswerMessage.replySequence(tags: message.tags),
                           (questionRow(answeredBy: target, in: rows) == nil) == (AnswerMessage.answeredSequence(tags: message.tags) != nil) {
                     // The person's own words: an answer whose question isn't here (expired or
@@ -2609,16 +2625,21 @@ class Store: ObservableObject {
         if reminderLog.isAlerting(id: message.id, key: key) { return true }
         let now = reminderClock()
         let tags = message.tags ?? []
-        guard let next = AskSchema.detect(in: message.actions ?? []).schema,
-              AgentQuestion.isAgentQuestion(tags: tags, actions: message.actions ?? []) else { return false }
+        // The schema's `rem`, or from 1.33 a `rem-<n>` tag on a question without one.
+        guard AgentQuestion.isAgentQuestion(tags: tags, actions: message.actions ?? []) else { return false }
+        let next = AgentDeadline(tags: tags, actions: message.actions ?? [])
         let previousActions = row.actionsList()
+        let previousTags = parseAllTags(row.tags)
+        let previous = AgentDeadline(tags: previousTags, actions: previousActions)
         let version = row.id
-        let waiting = !row.isDeleted && AgentQuestion.isAgentQuestion(tags: parseAllTags(row.tags), actions: previousActions)
+        let waiting = !row.isDeleted && AgentQuestion.isAgentQuestion(tags: previousTags, actions: previousActions)
             && ackLog.record(forKey: key, version: version) == nil
+            && ackLog.dismissal(forKey: key, version: version) == nil
             && !AnswerLogReader.answered(key: key, version: version, defaults: reminderDefaults)
             && ackLog.answer(forKey: key, version: version)?.verified != true
+            && !previous.isExpired(now: now)
             && now.timeIntervalSince(row.date()) < 7 * 24 * 3600 // WaitingRule.maxAge, app-only
-        guard AgentReminder.alerts(next: next, previous: AskSchema.detect(in: previousActions).schema, waiting: waiting,
+        guard AgentReminder.alerts(next: next, previous: previous, waiting: waiting,
                                    priorAlerts: reminderLog.record(forKey: key)?.alerts ?? [],
                                    enabled: AgentReminder.isOn(reminderDefaults), now: now) else { return false }
         reminderLog.recordAlert(id: message.id, key: key, at: now)

@@ -494,3 +494,325 @@ final class AgentReminderTests: XCTestCase {
         XCTAssertFalse(log.isSending(key), "expired: nothing published")
     }
 }
+
+// MARK: - Approval expiry and dismissed receipts (1.33), regressions on API that 1.32 has
+
+/// The vault's T0 approval (2026-11-28): plain `http` Approve, `agent,no-reply,exp-<deadline>`, a
+/// halfway reminder on the same sequence tagged `rem-1`. A device that missed the "Expired" follow-up
+/// kept a live Approve in Waiting for days. These hold on any device, with no server contact.
+final class ApprovalExpiryRegressionTests: XCTestCase {
+    private var store: Store!
+    private var suite = ""
+    private var shared: UserDefaults!
+    private var subscription: Subscription!
+    private var clock = Date(timeIntervalSince1970: 1_795_100_000)
+    private var deadline: Int64 { Int64(clock.timeIntervalSince1970) + 300 }
+
+    override func setUp() {
+        super.setUp()
+        suite = "expiry-tests-\(UUID().uuidString)"
+        shared = UserDefaults(suiteName: suite)!
+        store = Store(inMemory: true, credentialStore: InMemoryCredentialStore())
+        store.saveNotificationRetention(.forever)
+        store.ackLog = AckLog(defaults: shared)
+        store.reminderLog = ReminderLog(defaults: shared)
+        store.reminderDefaults = shared
+        store.reminderClock = { [unowned self] in self.clock }
+        store.notificationRemover = { _ in }
+        subscription = store.saveSubscription(baseUrl: "https://agents.example", topic: "approvals")
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        store = nil
+        super.tearDown()
+    }
+
+    private func approve() -> Action {
+        Action(id: "approve", action: "http", label: "Approve", url: "https://agents.example/secret-broker-approve",
+               method: "POST", headers: nil, body: "nonce", clear: true)
+    }
+
+    private func link() -> Action {
+        Action(id: "why", action: "view", label: "Why?", url: "https://agents.example/why", method: nil, headers: nil,
+               body: nil, clear: nil)
+    }
+
+    private func prompt(_ id: String, offset: TimeInterval = 0, extra: [String] = [], actions: [Action]? = nil) -> Message {
+        Message(id: id, time: Int64(clock.timeIntervalSince1970 + offset), event: "message", topic: "approvals",
+                message: "Read GITHUB_TOKEN?\nTap Approve by 09:05.", priority: 5,
+                tags: ["agent", "no-reply", "exp-\(deadline)"] + extra, actions: actions ?? [approve()], sequenceID: "sb-1")
+    }
+
+    @discardableResult
+    private func save(_ messages: Message...) -> [Message] {
+        let presented = store.save(notificationsFromMessages: messages, withSubscription: subscription)
+        store.context.processPendingChanges()
+        return presented
+    }
+
+    private var rows: [ntfy.Notification] { (try? store.context.fetch(ntfy.Notification.fetchRequest())) ?? [] }
+    private func waiting(at date: Date) -> [String] {
+        store.waitingNotifications(log: AnswerLog(defaults: shared), now: date).compactMap(\.id)
+    }
+
+    /// RED on 1.32: the `exp-` tag was ignored, so a missed follow-up left the Approve waiting.
+    func testAPlainApprovalLeavesWaitingAtItsTagDeadline() {
+        let tags = ["agent", "no-reply", "exp-\(deadline)"]
+        let asked = clock
+        XCTAssertTrue(WaitingRule.isWaiting(actions: [approve()], time: asked, entry: nil, tags: tags,
+                                            now: Date(timeIntervalSince1970: TimeInterval(deadline - 1))))
+        XCTAssertFalse(WaitingRule.isWaiting(actions: [approve()], time: asked, entry: nil, tags: tags,
+                                             now: Date(timeIntervalSince1970: TimeInterval(deadline))), "at the deadline")
+        // Control: no tag, no deadline.
+        XCTAssertTrue(WaitingRule.isWaiting(actions: [approve()], time: asked, entry: nil, tags: ["agent"],
+                                            now: Date(timeIntervalSince1970: TimeInterval(deadline + 3600))))
+        // Agent clock behind or ahead: the deadline is what the tag says, on this device's clock.
+        XCTAssertFalse(WaitingRule.isWaiting(actions: [approve()], time: asked, entry: nil,
+                                             tags: ["agent", "exp-\(Int64(asked.timeIntervalSince1970) - 10)"], now: asked),
+                       "sent already past its deadline")
+        // Not a deadline: words that only look like one.
+        XCTAssertTrue(WaitingRule.isWaiting(actions: [approve()], time: asked, entry: nil, tags: ["agent", "exp-soon", "export"],
+                                            now: asked.addingTimeInterval(3600)))
+    }
+
+    /// RED on 1.32: the stored question kept its Approve after the deadline on every surface.
+    func testPastTheDeadlineTheQuestionOffersNoAnswerButKeepsItsLinks() throws {
+        save(prompt("p1", actions: [approve(), link()]))
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(waiting(at: clock), ["p1"])
+        XCTAssertEqual(waiting(at: Date(timeIntervalSince1970: TimeInterval(deadline))), [], "out of Waiting on the second")
+        // The real clock is long past 2026-11-21's deadline: the answers go, the link stays.
+        let old = prompt("p2", actions: [approve(), link()])
+        var expired = old
+        expired.id = "p3"; expired.sequenceID = "sb-old"; expired.tags = ["agent", "no-reply", "exp-1795000000"]
+        save(expired)
+        let dead = try XCTUnwrap(rows.first { $0.id == "p3" })
+        XCTAssertEqual(dead.answerableActions().map(\.id), ["why"], "no live Approve, link kept")
+        XCTAssertFalse(AgentReply.offersField(tags: parseAllTags(dead.tags), actions: dead.actionsList()))
+        _ = row
+    }
+
+    /// RED on 1.32: a reminder was only read from an ask-v2 schema, so the vault's halfway
+    /// re-alert on the same sequence came in silent.
+    func testATaggedReminderOnAPlainApprovalAlertsOnceWhileItWaits() {
+        XCTAssertEqual(save(prompt("p1")).map(\.isUpdate), [false])
+        clock += 150
+        XCTAssertEqual(save(prompt("p2", offset: 150, extra: ["rem-1"])).map(\.isUpdate), [false], "the halfway reminder alerts")
+        clock += 30
+        XCTAssertEqual(save(prompt("p3", offset: 180, extra: ["rem-1"])).map(\.isUpdate), [true], "rem not raised: silent")
+        // The settle (no actions, priority min) stays silent, as before.
+        var settle = prompt("p4", offset: 300, actions: [])
+        settle.message = "Sent 09:00, not approved by 09:05. Nothing was released."
+        settle.priority = 1
+        clock += 120
+        XCTAssertEqual(save(settle).map(\.isUpdate), [true])
+    }
+
+    func testAReminderPastTheDeadlineStaysSilent() {
+        save(prompt("p1"))
+        clock = Date(timeIntervalSince1970: TimeInterval(deadline + 10))
+        XCTAssertEqual(save(prompt("p2", offset: 310, extra: ["rem-1"])).map(\.isUpdate), [true])
+    }
+
+    func testDeadlineReminderAndDismissedTagsAreHidden() {
+        XCTAssertTrue(ProtocolTag.isHidden("exp-1795100300"))
+        XCTAssertTrue(ProtocolTag.isHidden("rem-1"))
+        XCTAssertTrue(ProtocolTag.isHidden("dis"))
+        XCTAssertFalse(ProtocolTag.isHidden("exp-soon"))
+        XCTAssertFalse(ProtocolTag.isHidden("rem-"))
+        XCTAssertFalse(ProtocolTag.isHidden("export"))
+        XCTAssertFalse(ProtocolTag.isHidden("agent"), "control")
+    }
+
+    /// RED on 1.32: a dismissed receipt from the person's other device was stored as a reply and
+    /// the question kept waiting here.
+    func testADismissalFromAnotherDeviceEndsWaitingWithNoRowAndNoAlert() throws {
+        save(prompt("p1"))
+        let receipt = Message(id: "d1", time: Int64(clock.timeIntervalSince1970 + 20), event: "message", topic: "approvals",
+                              message: "Dismissed in NTF-AI", priority: 1, tags: ["agent", "dis", "re-sb-1"])
+        XCTAssertEqual(save(receipt).map(\.id), [], "never alerts")
+        XCTAssertEqual(rows.compactMap(\.id), ["p1"], "no row of its own")
+        XCTAssertEqual(waiting(at: clock.addingTimeInterval(30)), [], "out of Waiting here too")
+        XCTAssertEqual(rows.first?.read, true, "and read")
+    }
+
+    /// One for another question, or older than this version of it, changes nothing here.
+    func testADismissalOfAnotherQuestionOrAnOlderVersionDoesNotEndIt() {
+        save(prompt("p1", offset: 60))
+        let other = Message(id: "d1", time: Int64(clock.timeIntervalSince1970 + 70), event: "message", topic: "approvals",
+                            message: "Dismissed in NTF-AI", priority: 1, tags: ["agent", "dis", "re-sb-9"])
+        let older = Message(id: "d2", time: Int64(clock.timeIntervalSince1970 + 30), event: "message", topic: "approvals",
+                            message: "Dismissed in NTF-AI", priority: 1, tags: ["agent", "dis", "re-sb-1"])
+        XCTAssertEqual(save(other, older).map(\.id), [], "quiet")
+        XCTAssertEqual(waiting(at: clock.addingTimeInterval(90)), ["p1"])
+        XCTAssertTrue(rows.filter { $0.id != "p1" }.allSatisfy(\.read), "kept as quiet, read rows")
+    }
+
+    /// The receipt agents see: on the question's topic, `agent,dis,re-<seq>`, priority 1. Encrypted,
+    /// its protocol tags also go outside so an older ntf never takes it for a written answer.
+    func testTheDismissedReceiptOnTheWire() throws {
+        let plain = try XCTUnwrap(ApiService.shared.publishRequest(subscription: subscription, user: nil, message: "Dismissed in NTF-AI",
+                                                                    title: "", priority: 1, tags: ["agent", "dis", "re-sb-1"]))
+        XCTAssertEqual(plain.url?.absoluteString, "https://agents.example/approvals")
+        XCTAssertEqual(plain.value(forHTTPHeaderField: "Tags"), "agent,dis,re-sb-1")
+        XCTAssertEqual(plain.value(forHTTPHeaderField: "Priority"), "1")
+        let secret = Data(repeating: 7, count: 32)
+        let sealed = try XCTUnwrap(ApiService.shared.publishRequest(subscription: subscription, user: nil, message: "Dismissed in NTF-AI",
+                                                                     title: "", priority: 1, tags: ["agent", "dis", "re-sb-1"],
+                                                                     encryptionKey: secret))
+        XCTAssertEqual(sealed.value(forHTTPHeaderField: "Tags"), "agent,dis,re-sb-1", "outside too")
+        // Control: an ordinary answer still keeps `agent`-less outer tags.
+        let answer = try XCTUnwrap(ApiService.shared.publishRequest(subscription: subscription, user: nil, message: "y", title: "",
+                                                                     priority: 3, tags: ["re-sb-1", "ans", "agent"], encryptionKey: secret))
+        XCTAssertEqual(answer.value(forHTTPHeaderField: "Tags"), "re-sb-1,ans")
+    }
+}
+
+// MARK: - Approval expiry and dismissed receipts (1.33), new API
+
+final class ApprovalExpiryTests: XCTestCase {
+    private var suite = ""
+    private var defaults: UserDefaults!
+    private var clock = Date(timeIntervalSince1970: 1_795_100_000)
+    private var jobs: [(Date, () -> Void)] = []
+    private var sent: [DismissReceiptOutbox.Pending] = []
+    private var outcomes: [DismissReceiptOutbox.Outcome] = []
+    private var deferred: [(DismissReceiptOutbox.Outcome) -> Void] = []
+    private var holdSends = false
+    private lazy var outbox: DismissReceiptOutbox = {
+        let outbox = DismissReceiptOutbox(defaults: defaults)
+        outbox.now = { [unowned self] in self.clock }
+        outbox.schedule = { [unowned self] delay, work in self.jobs.append((self.clock.addingTimeInterval(delay), work)) }
+        outbox.send = { [unowned self] item, done in
+            self.sent.append(item)
+            if self.holdSends { self.deferred.append(done); return }
+            done(self.outcomes.isEmpty ? .sent : self.outcomes.removeFirst())
+        }
+        return outbox
+    }()
+
+    override func setUp() {
+        super.setUp()
+        suite = "outbox-tests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)!
+    }
+
+    override func tearDown() {
+        UserDefaults().removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    private func advance(_ seconds: TimeInterval) {
+        let end = clock.addingTimeInterval(seconds)
+        while let index = jobs.indices.filter({ jobs[$0].0 <= end }).min(by: { jobs[$0].0 < jobs[$1].0 }) {
+            let job = jobs.remove(at: index); clock = job.0; job.1()
+        }
+        clock = end
+    }
+
+    private func key(_ sequence: String) -> AnswerKey {
+        AnswerKey(baseUrl: "https://agents.example", topic: "approvals", sequence: sequence, version: "v-" + sequence)
+    }
+
+    func testTheSchemaDeadlineWinsAndTagsFillIn() {
+        let tags = ["agent", "exp-1795100300", "rem-2"]
+        XCTAssertEqual(AgentDeadline(tags: tags, actions: []),
+                       AgentDeadline(expires: Date(timeIntervalSince1970: 1_795_100_300), reminder: 2))
+        let schema = AskSchema(input: .text(.init(placeholder: nil, max: 200)), expires: 1_795_200_000)
+        XCTAssertEqual(AgentDeadline(schema: schema).expires, Date(timeIntervalSince1970: 1_795_200_000))
+        XCTAssertFalse(AgentDeadline(tags: tags, actions: []).isExpired(now: Date(timeIntervalSince1970: 1_795_100_299)))
+        XCTAssertTrue(AgentDeadline(tags: tags, actions: []).isExpired(now: Date(timeIntervalSince1970: 1_795_100_300)))
+        XCTAssertNil(AgentDeadline(tags: ["agent", "exp-12345678901234"], actions: []).expires, "too long to be seconds")
+    }
+
+    func testTheReceiptNamesItsQuestion() {
+        XCTAssertEqual(DismissReceipt.tags(sequence: "sb-1"), ["agent", "dis", "re-sb-1"])
+        XCTAssertEqual(DismissReceipt.dismissedSequence(tags: ["agent", "dis", "re-sb-1"]), "sb-1")
+        XCTAssertNil(DismissReceipt.dismissedSequence(tags: ["agent", "re-sb-1"]), "a reply, not a dismissal")
+        XCTAssertNil(DismissReceipt.dismissedSequence(tags: ["dis"]), "names no question")
+        XCTAssertTrue(AgentAck.isAnswerReceipt(["tags": "agent,dis,re-sb-1"]), "its banner is a passive receipt removed")
+    }
+
+    func testOneDismissalSendsOneReceiptNow() {
+        outbox.enqueue([key("a")])
+        XCTAssertEqual(sent.map(\.sequence), ["a"])
+        XCTAssertEqual(sent.first?.tags, ["agent", "dis", "re-a"])
+        XCTAssertTrue(outbox.pending.isEmpty)
+    }
+
+    func testClearAllSendsOnePerQuestionOnlyAfterUndoHasGone() {
+        let batch = clock
+        outbox.enqueue([key("a"), key("b"), key("c")], notBefore: clock.addingTimeInterval(6), batch: batch)
+        advance(5.9)
+        XCTAssertEqual(sent.count, 0, "nothing inside the Undo window")
+        XCTAssertEqual(outbox.pending.count, 3, "kept, so a quit inside the window still sends them")
+        advance(0.3)
+        XCTAssertEqual(sent.map(\.sequence), ["a", "b", "c"], "one each, in order")
+        XCTAssertTrue(outbox.pending.isEmpty)
+    }
+
+    func testUndoSendsNothing() {
+        let batch = clock
+        outbox.enqueue([key("a"), key("b")], notBefore: clock.addingTimeInterval(6), batch: batch)
+        outbox.enqueue([key("solo")])
+        outbox.cancel(batch: batch)
+        advance(10)
+        XCTAssertEqual(sent.map(\.sequence), ["solo"], "only the single dismissal outside the batch")
+    }
+
+    func testAFailedReceiptIsKeptRetriedAndStopsTheRound() {
+        outcomes = [.failed]
+        outbox.enqueue([key("a"), key("b")])
+        XCTAssertEqual(sent.map(\.sequence), ["a"], "stops at the first failure")
+        XCTAssertEqual(outbox.pending.map(\.sequence), ["a", "b"])
+        XCTAssertEqual(outbox.pending.first?.attempts, 1)
+        advance(59)
+        XCTAssertEqual(sent.count, 1)
+        advance(2)
+        XCTAssertEqual(sent.map(\.sequence), ["a", "a", "b"], "a minute later both go")
+        XCTAssertTrue(outbox.pending.isEmpty)
+    }
+
+    func testUnsubscribedAndStaleReceiptsAreDropped() {
+        outcomes = [.gone]
+        outbox.enqueue([key("gone")])
+        XCTAssertTrue(outbox.pending.isEmpty, "no topic left to tell")
+        holdSends = true
+        outbox.enqueue([key("old")])
+        XCTAssertEqual(outbox.pending.count, 1)
+        deferred.removeAll() // The app ended mid-send.
+        let relaunched = DismissReceiptOutbox(defaults: defaults)
+        relaunched.now = { [unowned self] in self.clock.addingTimeInterval(DismissReceiptOutbox.keepFor + 1) }
+        var resent = 0
+        relaunched.send = { _, done in resent += 1; done(.sent) }
+        relaunched.flush()
+        XCTAssertEqual(resent, 0, "past seven days it no longer matters")
+        XCTAssertTrue(relaunched.pending.isEmpty)
+    }
+
+    func testAReceiptCutShortIsSentOnTheNextLaunch() {
+        holdSends = true
+        outbox.enqueue([key("a")])
+        deferred.removeAll()
+        let relaunched = DismissReceiptOutbox(defaults: defaults)
+        relaunched.now = { [unowned self] in self.clock }
+        var resent: [String] = []
+        relaunched.send = { item, done in resent.append(item.sequence); done(.sent) }
+        relaunched.flush()
+        XCTAssertEqual(resent, ["a"])
+        XCTAssertTrue(relaunched.pending.isEmpty)
+    }
+
+    func testAnExpiredDeliveredBannerIsFound() {
+        let info: [AnyHashable: Any] = ["id": "p1", "time": "1795100000", "event": "message", "topic": "approvals",
+                                        "message": "Read?", "tags": "agent,no-reply,exp-1795100300",
+                                        "actions": #"[{"id":"approve","action":"http","label":"Approve","url":"https://agents.example/a","method":"POST","body":"n"}]"#]
+        XCTAssertFalse(AgentDeadline.isExpiredQuestion(info, now: Date(timeIntervalSince1970: 1_795_100_299)))
+        XCTAssertTrue(AgentDeadline.isExpiredQuestion(info, now: Date(timeIntervalSince1970: 1_795_100_300)))
+        var plain = info
+        plain["tags"] = "exp-1795100300"
+        XCTAssertFalse(AgentDeadline.isExpiredQuestion(plain, now: Date(timeIntervalSince1970: 1_795_200_000)),
+                       "not an agent's question: left alone")
+    }
+}
